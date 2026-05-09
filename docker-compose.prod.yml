@@ -1,0 +1,45 @@
+x-prod-logging: &prod-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  frontend:
+    build:
+      target: runtime
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    logging: *prod-logging
+
+  backend:
+    build:
+      target: runtime
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    logging: *prod-logging
+
+  aegra-api:
+    build:
+      target: final
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${AEGRA_PORT:-2026}:2026"
+    logging: *prod-logging
+
+  postgres:
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    logging: *prod-logging
+
+  redis:
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    logging: *prod-logging

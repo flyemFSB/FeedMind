@@ -1,0 +1,1 @@
+"""FeedMind backend application."""

@@ -1,0 +1,24 @@
+[project]
+name = "feedmind-agent"
+version = "0.1.0"
+description = "FeedMind LangChain agent served by Aegra"
+requires-python = ">=3.12"
+dependencies = [
+    "aegra-cli>=0.9.11,<1.0",
+    "langchain>=1.0,<2.0",
+    "langchain-core>=1.0,<2.0",
+    "langgraph>=1.0,<2.0",
+    "loguru>=0.7,<1.0",
+    "pydantic-settings>=2.0,<3.0",
+    "langchain-openai>=1.0,<2.0",
+    "httpx>=0.28.0,<1.0",
+    "tenacity>=9.0.0,<10.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0,<10.0",
+]
+
+[tool.uv]
+package = false

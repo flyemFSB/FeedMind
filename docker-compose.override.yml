@@ -1,0 +1,78 @@
+services:
+  frontend:
+    image: feedmind-frontend:${FEEDMIND_DEV_IMAGE_TAG:-dev}
+    build:
+      target: dev
+    command: pnpm dev --hostname 0.0.0.0 --port 3000
+    environment:
+      NODE_ENV: development
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend/app:/app/app
+      - ./frontend/components:/app/components
+      - ./frontend/lib:/app/lib
+      - ./frontend/public:/app/public
+      - ./frontend/components.json:/app/components.json
+      - ./frontend/next.config.ts:/app/next.config.ts
+      - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - frontend_next_cache:/app/.next
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/pnpm-lock.yaml
+
+  backend:
+    image: feedmind-backend:${FEEDMIND_DEV_IMAGE_TAG:-dev}
+    build:
+      target: dev
+    command: fastapi dev app/main.py --host 0.0.0.0 --port 8000
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend/app:/app/app
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        - action: rebuild
+          path: ./backend/uv.lock
+
+  aegra-api:
+    image: feedmind-aegra-api:${FEEDMIND_DEV_IMAGE_TAG:-dev}
+    build:
+      target: dev
+    ports:
+      - "${AEGRA_PORT:-2026}:2026"
+    volumes:
+      - ./agent/feedmind:/app/feedmind
+      - ./agent/aegra.json:/app/aegra.json
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./agent/feedmind
+          target: /app/feedmind
+        - action: sync+restart
+          path: ./agent/aegra.json
+          target: /app/aegra.json
+        - action: rebuild
+          path: ./agent/pyproject.toml
+        - action: rebuild
+          path: ./agent/uv.lock
+
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+volumes:
+  frontend_next_cache:
