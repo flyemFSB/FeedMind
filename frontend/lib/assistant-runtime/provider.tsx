@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useLangGraphRuntime } from "@assistant-ui/react-langgraph";
 import {
+  getAegraCheckpointId,
   aegraStream,
   getAegraThreadState,
 } from "@/lib/api/aegra";
@@ -23,11 +24,20 @@ export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
       uiMessages: values.ui ?? [],
     };
   }, []);
+  const getCheckpointId = useCallback(
+    async (
+      externalId: string,
+      parentMessages: readonly { id?: unknown }[],
+      config?: { signal?: AbortSignal },
+    ) => getAegraCheckpointId(externalId, parentMessages, config?.signal),
+    [],
+  );
   const threadListAdapter = useMemo(() => createFeedMindThreadListAdapter(), []);
 
   const runtime = useLangGraphRuntime({
     stream: aegraStream,
     load: loadThread,
+    getCheckpointId,
     unstable_threadListAdapter: threadListAdapter,
   });
 

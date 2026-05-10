@@ -124,8 +124,8 @@ async def save_chat_session(
             message_by_aegra_id[stale_id].status = "failed"
             message_by_aegra_id[stale_id].metadata_ = {
                 **message_by_aegra_id[stale_id].metadata_,
-                "stale": True,
-                "stale_at": now.isoformat(),
+                "branch_status": "inactive",
+                "inactive_at": now.isoformat(),
             }
 
         session.flush()

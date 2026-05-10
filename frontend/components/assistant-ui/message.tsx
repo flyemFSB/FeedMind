@@ -1,22 +1,29 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   FileText,
+  Pencil,
   RotateCcw,
   ThumbsDown,
   ThumbsUp,
   User,
+  X,
 } from "lucide-react";
 import {
   AttachmentPrimitive,
+  BranchPickerPrimitive,
+  ComposerPrimitive,
   MessagePrimitive,
   ActionBarPrimitive,
   ErrorPrimitive,
+  useAui,
   useAuiState,
 } from "@assistant-ui/react";
 import { Button } from "@/components/ui/button";
@@ -52,11 +59,46 @@ function MessageAttachments() {
   );
 }
 
+function MessageBranchPicker({ align = "start" }: { align?: "start" | "end" }) {
+  return (
+    <BranchPickerPrimitive.Root
+      hideWhenSingleBranch
+      className={`flex items-center gap-1 text-[11px] text-[#86868b] ${
+        align === "end" ? "justify-end" : "justify-start"
+      }`}
+    >
+      <BranchPickerPrimitive.Previous asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="h-6 w-6 rounded-md text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:opacity-40"
+          title="上一分支"
+        >
+          <ChevronLeft size={13} strokeWidth={1.8} />
+        </Button>
+      </BranchPickerPrimitive.Previous>
+      <span className="min-w-8 text-center tabular-nums">
+        <BranchPickerPrimitive.Number /> / <BranchPickerPrimitive.Count />
+      </span>
+      <BranchPickerPrimitive.Next asChild>
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          className="h-6 w-6 rounded-md text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#1d1d1f] disabled:opacity-40"
+          title="下一分支"
+        >
+          <ChevronRight size={13} strokeWidth={1.8} />
+        </Button>
+      </BranchPickerPrimitive.Next>
+    </BranchPickerPrimitive.Root>
+  );
+}
+
 function UserMessage() {
   const createdAt = useAuiState((s) => s.message.createdAt);
 
   return (
-    <MessagePrimitive.Root className="flex gap-3 flex-row-reverse animate-fade-in">
+    <MessagePrimitive.Root className="group/action-area flex gap-3 flex-row-reverse animate-fade-in">
       <div className="w-7 h-7 rounded-full bg-[#0071e3] flex items-center justify-center shrink-0 mt-0.5">
         <User size={14} className="text-white" strokeWidth={2} />
       </div>
@@ -68,11 +110,107 @@ function UserMessage() {
           />
         </div>
         <MessageError />
-        <span className="text-[11px] text-[#86868b] mt-1.5 px-1">
-          {createdAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
-        </span>
+        <div className="mt-1.5 flex items-center gap-1.5 px-1">
+          <span className="text-[11px] text-[#86868b]">
+            {createdAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+          <ActionBarPrimitive.Root hideWhenRunning autohide="never" className="flex items-center">
+            <ActionBarPrimitive.Edit asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 rounded-md px-1.5 text-[11px] text-[#86868b] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+                title="重新编辑"
+              >
+                <Pencil size={12} strokeWidth={1.8} />
+                <span>重新编辑</span>
+              </Button>
+            </ActionBarPrimitive.Edit>
+          </ActionBarPrimitive.Root>
+        </div>
+        <MessageBranchPicker align="end" />
       </div>
     </MessagePrimitive.Root>
+  );
+}
+
+function UserEditComposer() {
+  const aui = useAui();
+  const composerText = useAuiState((state) => state.composer.text);
+  const [value, setValue] = useState(composerText);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isComposingRef.current) {
+      setValue(composerText);
+    }
+  }, [composerText]);
+
+  return (
+    <ComposerPrimitive.Root className="flex gap-3 flex-row-reverse animate-fade-in">
+      <div className="w-7 h-7 rounded-full bg-[#0071e3] flex items-center justify-center shrink-0 mt-0.5">
+        <User size={14} className="text-white" strokeWidth={2} />
+      </div>
+      <div className="flex w-full max-w-[85%] flex-col items-end gap-2">
+        <textarea
+          autoFocus
+          rows={3}
+          value={value}
+          className="min-h-[96px] w-full resize-none rounded-2xl rounded-tr-sm border border-[#0071e3] bg-white px-4 py-3 text-[14px] leading-relaxed text-[#1d1d1f] shadow-[0_8px_24px_rgba(0,113,227,0.12)] outline-none placeholder:text-[#86868b]"
+          placeholder="编辑你的消息"
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setValue(nextValue);
+            if (!isComposingRef.current) {
+              aui.composer().setText(nextValue);
+            }
+          }}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={(event) => {
+            isComposingRef.current = false;
+            const nextValue = event.currentTarget.value;
+            setValue(nextValue);
+            aui.composer().setText(nextValue);
+          }}
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !isComposingRef.current &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              aui.composer().send();
+            }
+          }}
+        />
+        <div className="flex items-center gap-2">
+          <ComposerPrimitive.Cancel asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-8 rounded-lg bg-[#f5f5f7] px-3 text-[12px] text-[#1d1d1f] hover:bg-[#e8e8ed]"
+              title="取消编辑"
+            >
+              <X size={14} strokeWidth={1.8} />
+              <span>取消</span>
+            </Button>
+          </ComposerPrimitive.Cancel>
+          <ComposerPrimitive.Send asChild>
+            <Button
+              size="sm"
+              className="h-8 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0077ed]"
+              title="提交编辑"
+            >
+              <Check size={14} strokeWidth={1.8} />
+              <span>提交</span>
+            </Button>
+          </ComposerPrimitive.Send>
+        </div>
+      </div>
+    </ComposerPrimitive.Root>
   );
 }
 
@@ -198,8 +336,11 @@ function AssistantMessage() {
           </div>
         )}
 
-        <div className="relative h-8">
-          <AssistantActionBar />
+        <div className="flex h-8 items-center gap-3">
+          <div className="relative h-8 w-[128px]">
+            <AssistantActionBar />
+          </div>
+          <MessageBranchPicker />
         </div>
       </div>
     </MessagePrimitive.Root>
@@ -209,5 +350,5 @@ function AssistantMessage() {
 export const messageComponents = {
   UserMessage,
   AssistantMessage,
-  EditComposer: UserMessage,
+  EditComposer: UserEditComposer,
 };

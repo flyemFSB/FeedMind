@@ -25,9 +25,16 @@ type ThreadState = {
     messages?: LangChainMessage[];
     ui?: UIMessage[];
   };
+  checkpoint?: {
+    checkpoint_id?: string | null;
+  };
   tasks?: Array<{
     interrupts?: LangGraphInterruptState[];
   }>;
+};
+
+type MessageWithId = {
+  id?: unknown;
 };
 
 const aegraApiUrl =
@@ -108,6 +115,51 @@ export async function getAegraThreadState(
   return state as unknown as ThreadState;
 }
 
+export async function getAegraThreadHistory(
+  threadId: string,
+  signal?: AbortSignal,
+): Promise<ThreadState[]> {
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+  const history = await aegraClient.threads.getHistory(threadId);
+  if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+
+  return history as unknown as ThreadState[];
+}
+
+export async function getAegraCheckpointId(
+  threadId: string,
+  parentMessages: readonly MessageWithId[],
+  signal?: AbortSignal,
+): Promise<string | null> {
+  if (parentMessages.length === 0) return null;
+  if (!parentMessages.every((message) => typeof message.id === "string")) {
+    return null;
+  }
+
+  const history = await getAegraThreadHistory(threadId, signal);
+  for (const state of history) {
+    const stateMessages = state.values?.messages;
+    if (!stateMessages || stateMessages.length !== parentMessages.length) {
+      continue;
+    }
+
+    const hasStableIds = stateMessages.every(
+      (message) => typeof message.id === "string",
+    );
+    if (!hasStableIds) continue;
+
+    const isMatch = parentMessages.every(
+      (message, index) => message.id === stateMessages[index]?.id,
+    );
+    if (isMatch) {
+      return state.checkpoint?.checkpoint_id ?? null;
+    }
+  }
+
+  return null;
+}
+
 const baseAegraStream = unstable_createLangGraphStream({
   client: aegraClient,
   assistantId: feedmindAegraAssistantId,
@@ -145,7 +197,10 @@ function readContentText(content: LangChainMessage["content"]): string {
     .trim();
 }
 
-function toPersistableMessages(messages: LangChainMessage[]): PersistableMessage[] {
+function toPersistableMessages(
+  messages: LangChainMessage[],
+  checkpointId?: string | null,
+): PersistableMessage[] {
   const model = getSelectedFeedMindModel();
 
   return messages.flatMap((message, index) => {
@@ -158,14 +213,21 @@ function toPersistableMessages(messages: LangChainMessage[]): PersistableMessage
       content,
       status: "completed",
       model: message.type === "ai" ? model : "",
-      metadata: message.id ? { aegra_message_id: message.id } : {},
+      metadata: {
+        ...(message.id ? { aegra_message_id: message.id } : {}),
+        ...(checkpointId ? { checkpoint_id: checkpointId } : {}),
+        branch_index: index,
+      },
     };
   });
 }
 
 async function saveChatSessionSnapshot(threadId: string): Promise<void> {
   const state = await getAegraThreadState(threadId);
-  const messages = toPersistableMessages(state.values?.messages ?? []);
+  const messages = toPersistableMessages(
+    state.values?.messages ?? [],
+    state.checkpoint?.checkpoint_id,
+  );
 
   // 会话快照只保存最终文本内容，不记录流式 token。
   await fetch(`${backendApiUrl}/api/chat-sessions/${encodeURIComponent(threadId)}`, {
