@@ -72,6 +72,7 @@ export const MarkdownText = memo(function MarkdownText() {
     <StreamdownTextPrimitive
       mode="streaming"
       caret="block"
+      controls={false}
       animated={{
         sep: "char",
         stagger: 12,

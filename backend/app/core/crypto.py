@@ -1,15 +1,19 @@
 """API 密钥加密/解密工具。
 
 使用 Fernet 对称加密，密钥来自 ENCRYPTION_KEY 环境变量。
-若未设置，自动生成一个本地密钥（仅适用于开发环境，重启后失效）。
+未设置时使用内置开发密钥（重启后数据仍可解密，但不适用于生产环境）。
 """
 
 import os
-from base64 import urlsafe_b64decode, urlsafe_b64encode
+from base64 import urlsafe_b64encode
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+# 内置开发密钥 —— 确保开发环境下重启容器后已有数据仍可解密。
+# 生产环境务必在 .env 中设置 ENCRYPTION_KEY 覆盖此值。
+_DEV_KEY = "dev-encryption-key-do-not-use-in-production"
 
 
 def _derive_fernet_key(raw_key: str) -> bytes:
@@ -24,12 +28,8 @@ def _derive_fernet_key(raw_key: str) -> bytes:
 
 
 def _get_fernet() -> Fernet:
-    """获取 Fernet 实例，密钥来自 ENCRYPTION_KEY 环境变量。"""
-    raw_key = os.environ.get("ENCRYPTION_KEY", "")
-    if not raw_key:
-        # 开发环境自动生成密钥（重启后已加密数据无法解密）
-        raw_key = Fernet.generate_key().decode("utf-8")
-        os.environ["ENCRYPTION_KEY"] = raw_key
+    """获取 Fernet 实例，密钥来自 ENCRYPTION_KEY 环境变量或内置开发密钥。"""
+    raw_key = os.environ.get("ENCRYPTION_KEY") or _DEV_KEY
     return Fernet(_derive_fernet_key(raw_key))
 
 

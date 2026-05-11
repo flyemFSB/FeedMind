@@ -16,10 +16,10 @@ services:
       - ./frontend/components:/app/components
       - ./frontend/lib:/app/lib
       - ./frontend/public:/app/public
-      - ./frontend/components.json:/app/components.json
       - ./frontend/next.config.ts:/app/next.config.ts
       - ./frontend/postcss.config.mjs:/app/postcss.config.mjs
       - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/components.json:/app/components.json
       - frontend_next_cache:/app/.next
     develop:
       watch:

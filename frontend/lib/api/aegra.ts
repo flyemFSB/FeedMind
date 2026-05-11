@@ -132,32 +132,48 @@ export async function getAegraCheckpointId(
   parentMessages: readonly MessageWithId[],
   signal?: AbortSignal,
 ): Promise<string | null> {
-  if (parentMessages.length === 0) return null;
-  if (!parentMessages.every((message) => typeof message.id === "string")) {
+  const hasParentMessages = parentMessages.length > 0;
+  if (hasParentMessages && !hasStableMessageIds(parentMessages)) {
+    emitToast("当前消息缺少稳定 ID，无法安全编辑或重新生成", "error");
+    console.warn("无法定位 checkpoint：parentMessages 缺少稳定 ID", parentMessages);
     return null;
   }
 
-  const history = await getAegraThreadHistory(threadId, signal);
+  let history: ThreadState[];
+  try {
+    history = await getAegraThreadHistory(threadId, signal);
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    emitToast("读取历史 checkpoint 失败，请重试", "error");
+    console.warn("读取历史 checkpoint 失败", error);
+    return null;
+  }
+
   for (const state of history) {
-    const stateMessages = state.values?.messages;
-    if (!stateMessages || stateMessages.length !== parentMessages.length) {
+    const stateMessages = state.values?.messages ?? [];
+    if (stateMessages.length !== parentMessages.length) {
       continue;
     }
 
-    const hasStableIds = stateMessages.every(
-      (message) => typeof message.id === "string",
-    );
-    if (!hasStableIds) continue;
-
-    const isMatch = parentMessages.every(
-      (message, index) => message.id === stateMessages[index]?.id,
-    );
-    if (isMatch) {
+    if (
+      (!hasParentMessages || hasStableMessageIds(stateMessages)) &&
+      parentMessages.every((message, index) => message.id === stateMessages[index]?.id)
+    ) {
       return state.checkpoint?.checkpoint_id ?? null;
     }
   }
 
+  emitToast("无法定位对应的历史 checkpoint，编辑分支未启动", "error");
+  console.warn("无法定位 checkpoint", {
+    threadId,
+    parentMessageIds: parentMessages.map((message) => message.id),
+    historyLength: history.length,
+  });
   return null;
+}
+
+function hasStableMessageIds(messages: readonly MessageWithId[]): boolean {
+  return messages.every((message) => typeof message.id === "string");
 }
 
 const baseAegraStream = unstable_createLangGraphStream({
@@ -172,7 +188,7 @@ type PersistableMessage = {
   aegra_message_id: string;
   role: PersistableRole;
   content: string;
-  status: "completed";
+  status: "completed" | "failed";
   model: string;
   metadata: Record<string, unknown>;
 };
@@ -197,6 +213,80 @@ function readContentText(content: LangChainMessage["content"]): string {
     .trim();
 }
 
+function readMessageContent(message: LangChainMessage): string {
+  const content = readContentText(message.content);
+  if (content) return content;
+
+  if (message.type === "ai" && message.tool_calls?.length) {
+    const toolNames = message.tool_calls
+      .map((toolCall) => toolCall.name)
+      .filter(Boolean)
+      .join(", ");
+    return toolNames ? `工具调用：${toolNames}` : "工具调用";
+  }
+
+  if (message.type === "tool") {
+    return `工具结果：${message.name}`;
+  }
+
+  return "";
+}
+
+function parseJsonContent(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+}
+
+function toPersistableMessage(
+  message: LangChainMessage,
+  checkpointId: string | null | undefined,
+  index: number,
+  model: string,
+): PersistableMessage | null {
+  const content = readMessageContent(message);
+  if (!content) return null;
+
+  const role = getMessageRole(message);
+  const metadata: Record<string, unknown> = {
+    ...(message.id ? { aegra_message_id: message.id } : {}),
+    ...(checkpointId ? { checkpoint_id: checkpointId } : {}),
+    branch_index: index,
+  };
+
+  if (message.type === "ai" && message.tool_calls?.length) {
+    metadata.tool_calls = message.tool_calls.map((toolCall) => ({
+      id: toolCall.id,
+      name: toolCall.name,
+      args: toolCall.args,
+      index: toolCall.index,
+    }));
+  }
+
+  if (message.type === "tool") {
+    const parsedResult = parseJsonContent(message.content);
+    metadata.tool_call_id = message.tool_call_id;
+    metadata.tool_name = message.name;
+    metadata.tool_status = message.status;
+    if (parsedResult !== undefined) metadata.tool_result = parsedResult;
+    if (message.artifact !== undefined) metadata.tool_artifact = message.artifact;
+  }
+
+  return {
+    aegra_message_id: message.id ?? `${index}:${role}`,
+    role,
+    content,
+    status:
+      message.type === "tool" && message.status === "error"
+        ? "failed"
+        : "completed",
+    model: message.type === "ai" ? model : "",
+    metadata,
+  };
+}
+
 function toPersistableMessages(
   messages: LangChainMessage[],
   checkpointId?: string | null,
@@ -204,21 +294,8 @@ function toPersistableMessages(
   const model = getSelectedFeedMindModel();
 
   return messages.flatMap((message, index) => {
-    const content = readContentText(message.content);
-    if (!content) return [];
-
-    return {
-      aegra_message_id: message.id ?? `${index}:${getMessageRole(message)}`,
-      role: getMessageRole(message),
-      content,
-      status: "completed",
-      model: message.type === "ai" ? model : "",
-      metadata: {
-        ...(message.id ? { aegra_message_id: message.id } : {}),
-        ...(checkpointId ? { checkpoint_id: checkpointId } : {}),
-        branch_index: index,
-      },
-    };
+    const persistable = toPersistableMessage(message, checkpointId, index, model);
+    return persistable ? [persistable] : [];
   });
 }
 

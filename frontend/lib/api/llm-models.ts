@@ -39,16 +39,10 @@ function getHttpStatusMessage(status: number): string {
   return httpStatusMessages[status] ?? `请求失败（${status}）`;
 }
 
-function notifyHttpError(status: number) {
+function emitToast(message: string, type: "error" | "info" | "success" = "error") {
   if (typeof window === "undefined") return;
-
   window.dispatchEvent(
-    new CustomEvent("feedmind:toast", {
-      detail: {
-        message: getHttpStatusMessage(status),
-        type: "error",
-      },
-    }),
+    new CustomEvent("feedmind:toast", { detail: { message, type } }),
   );
 }
 
@@ -62,25 +56,38 @@ function toLLMModel(model: LLMModelResponse): LLMModel {
   };
 }
 
-async function readEnvelope<T>(response: Response): Promise<T> {
+async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    notifyHttpError(response.status);
     throw new Error(getHttpStatusMessage(response.status));
   }
-
   const envelope = (await response.json()) as ApiEnvelope<T>;
-  if (envelope.error) {
-    throw new Error(envelope.error.message);
-  }
-  if (envelope.data == null) {
-    throw new Error("Response data is empty");
-  }
+  if (envelope.error) throw new Error(envelope.error.message);
+  if (envelope.data == null) throw new Error("后端返回数据为空");
   return envelope.data;
 }
 
+async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(input, init);
+  } catch {
+    emitToast("无法连接到后端服务，请检查后端是否已启动", "error");
+    throw new Error("无法连接到后端服务");
+  }
+
+  try {
+    return await parseApiResponse<T>(response);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "请求失败";
+    emitToast(msg, "error");
+    throw err;
+  }
+}
+
 export async function listLLMModels(signal?: AbortSignal): Promise<LLMModel[]> {
-  const data = await readEnvelope<LLMModelResponse[]>(
-    await fetch(`${backendApiUrl}/api/llm-models`, { signal }),
+  const data = await apiFetch<LLMModelResponse[]>(
+    `${backendApiUrl}/api/llm-models`,
+    { signal },
   );
   return data.map(toLLMModel);
 }
@@ -88,8 +95,9 @@ export async function listLLMModels(signal?: AbortSignal): Promise<LLMModel[]> {
 export async function createLLMModel(
   payload: Omit<LLMModel, "id" | "hasApiKey"> & { apiKey: string },
 ): Promise<LLMModel> {
-  const data = await readEnvelope<LLMModelResponse>(
-    await fetch(`${backendApiUrl}/api/llm-models`, {
+  const data = await apiFetch<LLMModelResponse>(
+    `${backendApiUrl}/api/llm-models`,
+    {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -98,7 +106,7 @@ export async function createLLMModel(
         base_url: payload.baseUrl,
         api_key: payload.apiKey,
       }),
-    }),
+    },
   );
   return toLLMModel(data);
 }
@@ -107,8 +115,9 @@ export async function updateLLMModel(
   id: string,
   payload: Omit<LLMModel, "id" | "hasApiKey"> & { apiKey: string },
 ): Promise<LLMModel> {
-  const data = await readEnvelope<LLMModelResponse>(
-    await fetch(`${backendApiUrl}/api/llm-models/${id}`, {
+  const data = await apiFetch<LLMModelResponse>(
+    `${backendApiUrl}/api/llm-models/${id}`,
+    {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -117,16 +126,15 @@ export async function updateLLMModel(
         base_url: payload.baseUrl,
         api_key: payload.apiKey,
       }),
-    }),
+    },
   );
   return toLLMModel(data);
 }
 
 export async function deleteLLMModel(id: string): Promise<void> {
-  await readEnvelope<{ deleted: boolean }>(
-    await fetch(`${backendApiUrl}/api/llm-models/${id}`, {
-      method: "DELETE",
-    }),
+  await apiFetch<{ deleted: boolean }>(
+    `${backendApiUrl}/api/llm-models/${id}`,
+    { method: "DELETE" },
   );
 }
 
@@ -134,26 +142,31 @@ export async function getLLMModelRuntime(
   id: string,
   signal?: AbortSignal,
 ): Promise<LLMModelRuntimeResponse> {
-  return readEnvelope<LLMModelRuntimeResponse>(
-    await fetch(`${backendApiUrl}/api/llm-models/runtime?id=${Number(id)}`, { signal }),
+  return apiFetch<LLMModelRuntimeResponse>(
+    `${backendApiUrl}/api/llm-models/runtime?id=${Number(id)}`,
+    { signal },
   );
 }
 
 export async function getSelectedLLMModel(signal?: AbortSignal): Promise<string> {
-  const response = await fetch(`${backendApiUrl}/api/llm-models/selected`, { signal });
-  if (response.status === 404) return "";
-
-  const data = await readEnvelope<{ id: number }>(response);
-  return String(data.id);
+  try {
+    const response = await fetch(`${backendApiUrl}/api/llm-models/selected`, { signal });
+    if (response.status === 404) return "";
+    const data = await parseApiResponse<{ id: number }>(response);
+    return String(data.id);
+  } catch {
+    return "";
+  }
 }
 
 export async function setSelectedLLMModel(id: string): Promise<string> {
-  const data = await readEnvelope<{ id: number }>(
-    await fetch(`${backendApiUrl}/api/llm-models/selected`, {
+  const data = await apiFetch<{ id: number }>(
+    `${backendApiUrl}/api/llm-models/selected`,
+    {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: Number(id) }),
-    }),
+    },
   );
   return String(data.id);
 }

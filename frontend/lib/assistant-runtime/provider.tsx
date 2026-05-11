@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, type ReactNode } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useLangGraphRuntime } from "@assistant-ui/react-langgraph";
 import {
@@ -8,10 +8,8 @@ import {
   aegraStream,
   getAegraThreadState,
 } from "@/lib/api/aegra";
-import {
-  createFeedMindThreadListAdapter,
-  getLastActiveFeedMindThreadId,
-} from "@/lib/api/chat-sessions";
+import { createFeedMindThreadListAdapter } from "@/lib/api/chat-sessions";
+import { WebSearchToolUI } from "@/components/assistant-ui/tool-ui";
 
 export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
   const loadThread = useCallback(async (externalId: string, config?: { signal?: AbortSignal }) => {
@@ -41,15 +39,9 @@ export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
     unstable_threadListAdapter: threadListAdapter,
   });
 
-  useEffect(() => {
-    const activeThreadId = getLastActiveFeedMindThreadId();
-    if (!activeThreadId) return;
-
-    runtime.threads.switchToThread(activeThreadId).catch(() => undefined);
-  }, [runtime]);
-
   return (
     <AssistantRuntimeProvider runtime={runtime}>
+      <WebSearchToolUI />
       {children}
     </AssistantRuntimeProvider>
   );

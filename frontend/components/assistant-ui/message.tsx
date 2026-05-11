@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -9,8 +9,8 @@ import {
   ChevronRight,
   Copy,
   FileText,
-  Pencil,
   RotateCcw,
+  Undo2,
   ThumbsDown,
   ThumbsUp,
   User,
@@ -104,30 +104,35 @@ function UserMessage() {
       </div>
       <div className="flex flex-col items-end max-w-[85%]">
         <MessageAttachments />
-        <div className="px-4 py-3 rounded-2xl bg-[#e8e8ed] text-[#1d1d1f] rounded-tr-sm text-[14px] leading-relaxed selection:bg-[#0071e3] selection:text-white">
-          <MessagePrimitive.Parts
-            components={{ Text: ({ text }) => <span>{text}</span> }}
-          />
-        </div>
-        <MessageError />
-        <div className="mt-1.5 flex items-center gap-1.5 px-1">
-          <span className="text-[11px] text-[#86868b]">
-            {createdAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
-          </span>
-          <ActionBarPrimitive.Root hideWhenRunning autohide="never" className="flex items-center">
+        <div className="relative">
+          <div className="px-4 py-3 rounded-2xl bg-[#e8e8ed] text-[#1d1d1f] rounded-tr-sm text-[14px] leading-relaxed selection:bg-[#0071e3] selection:text-white">
+            <MessagePrimitive.Parts
+              components={{ Text: ({ text }) => <span>{text}</span> }}
+            />
+          </div>
+          <ActionBarPrimitive.Root
+            hideWhenRunning
+            autohide="never"
+            className="absolute right-full top-1/2 -translate-y-1/2 pr-2
+                       opacity-0 group-hover/action-area:opacity-100
+                       transition-opacity duration-150"
+          >
             <ActionBarPrimitive.Edit asChild>
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-6 rounded-md px-1.5 text-[11px] text-[#86868b] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
-                title="重新编辑"
+                size="icon-xs"
+                className="h-7 w-7 rounded-lg text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#1d1d1f] transition-colors"
+                title="修改"
               >
-                <Pencil size={12} strokeWidth={1.8} />
-                <span>重新编辑</span>
+                <Undo2 size={14} strokeWidth={1.8} />
               </Button>
             </ActionBarPrimitive.Edit>
           </ActionBarPrimitive.Root>
         </div>
+        <MessageError />
+        <span className="text-[11px] text-[#86868b] mt-1.5 px-1">
+          {createdAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+        </span>
         <MessageBranchPicker align="end" />
       </div>
     </MessagePrimitive.Root>
@@ -136,15 +141,7 @@ function UserMessage() {
 
 function UserEditComposer() {
   const aui = useAui();
-  const composerText = useAuiState((state) => state.composer.text);
-  const [value, setValue] = useState(composerText);
-  const isComposingRef = useRef(false);
-
-  useEffect(() => {
-    if (!isComposingRef.current) {
-      setValue(composerText);
-    }
-  }, [composerText]);
+  const isEmpty = useAuiState((s) => s.composer.isEmpty);
 
   return (
     <ComposerPrimitive.Root className="flex gap-3 flex-row-reverse animate-fade-in">
@@ -152,39 +149,11 @@ function UserEditComposer() {
         <User size={14} className="text-white" strokeWidth={2} />
       </div>
       <div className="flex w-full max-w-[85%] flex-col items-end gap-2">
-        <textarea
+        <ComposerPrimitive.Input
           autoFocus
           rows={3}
-          value={value}
           className="min-h-[96px] w-full resize-none rounded-2xl rounded-tr-sm border border-[#0071e3] bg-white px-4 py-3 text-[14px] leading-relaxed text-[#1d1d1f] shadow-[0_8px_24px_rgba(0,113,227,0.12)] outline-none placeholder:text-[#86868b]"
           placeholder="编辑你的消息"
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setValue(nextValue);
-            if (!isComposingRef.current) {
-              aui.composer().setText(nextValue);
-            }
-          }}
-          onCompositionStart={() => {
-            isComposingRef.current = true;
-          }}
-          onCompositionEnd={(event) => {
-            isComposingRef.current = false;
-            const nextValue = event.currentTarget.value;
-            setValue(nextValue);
-            aui.composer().setText(nextValue);
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !isComposingRef.current &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              aui.composer().send();
-            }
-          }}
         />
         <div className="flex items-center gap-2">
           <ComposerPrimitive.Cancel asChild>
@@ -198,16 +167,16 @@ function UserEditComposer() {
               <span>取消</span>
             </Button>
           </ComposerPrimitive.Cancel>
-          <ComposerPrimitive.Send asChild>
-            <Button
-              size="sm"
-              className="h-8 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0077ed]"
-              title="提交编辑"
-            >
-              <Check size={14} strokeWidth={1.8} />
-              <span>提交</span>
-            </Button>
-          </ComposerPrimitive.Send>
+          <Button
+            size="sm"
+            className="h-8 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0077ed]"
+            disabled={isEmpty}
+            title="提交编辑"
+            onClick={() => aui.composer().send({ startRun: true })}
+          >
+            <Check size={14} strokeWidth={1.8} />
+            <span>提交</span>
+          </Button>
         </div>
       </div>
     </ComposerPrimitive.Root>

@@ -179,9 +179,7 @@ const handleAddModel = () => {
         emitModelsChange();
         showToast("模型添加成功", "success");
       })
-      .catch((err: Error) => {
-        showToast(err.message || "添加模型失败", "error");
-      });
+      .catch(() => {});
   };
 
   const handleEditModel = (model: LLMModel) => {
@@ -210,9 +208,7 @@ const handleUpdateModel = () => {
         emitModelsChange();
         showToast("模型修改成功", "success");
       })
-      .catch((err: Error) => {
-        showToast(err.message || "修改模型失败", "error");
-      });
+      .catch(() => {});
   };
 
   const resetModelForm = () => {
@@ -263,9 +259,7 @@ const handleCopyModelApiKey = (model: LLMModel) => {
 
     void loadModelApiKey(model)
       .then((apiKey) => copyToClipboard(apiKey, "密钥已复制"))
-      .catch((err: Error) => {
-        showToast(err.message || "复制密钥失败", "error");
-      });
+      .catch(() => {});
   };
 
 const handleDeleteModel = () => {
@@ -280,9 +274,7 @@ const handleDeleteModel = () => {
         emitModelsChange();
         showToast("模型已删除", "success");
       })
-      .catch((err: Error) => {
-        showToast(err.message || "删除模型失败", "error");
-      });
+      .catch(() => {});
   };
 
   const visibleModels =

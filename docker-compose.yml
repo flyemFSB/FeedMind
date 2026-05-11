@@ -3,20 +3,24 @@ name: feedmind
 x-app-env: &app-env
   TZ: Asia/Shanghai
 
-x-frontend-build: &frontend-build
-  context: ./frontend
-  dockerfile: Dockerfile
-  target: runtime
-  args:
-    NEXT_PUBLIC_AEGRA_API_URL: ${NEXT_PUBLIC_AEGRA_API_URL:-http://localhost:2026}
-    NEXT_PUBLIC_AEGRA_ASSISTANT_ID: ${NEXT_PUBLIC_AEGRA_ASSISTANT_ID:-feedmind}
-    NEXT_PUBLIC_BACKEND_API_URL: ${NEXT_PUBLIC_BACKEND_API_URL:-http://localhost:8000}
-    NEXT_PUBLIC_FEEDMIND_MODEL: ${NEXT_PUBLIC_FEEDMIND_MODEL:-}
+x-health-startup: &health-startup
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
 
 services:
   frontend:
-    image: feedmind-frontend:${FEEDMIND_IMAGE_TAG:-latest}
-    build: *frontend-build
+    container_name: feedmind-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_AEGRA_API_URL: ${NEXT_PUBLIC_AEGRA_API_URL:-http://localhost:2026}
+        NEXT_PUBLIC_AEGRA_ASSISTANT_ID: ${NEXT_PUBLIC_AEGRA_ASSISTANT_ID:-feedmind}
+        NEXT_PUBLIC_BACKEND_API_URL: ${NEXT_PUBLIC_BACKEND_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_FEEDMIND_MODEL: ${NEXT_PUBLIC_FEEDMIND_MODEL:-}
     environment:
       <<: *app-env
       NEXT_PUBLIC_AEGRA_API_URL: ${NEXT_PUBLIC_AEGRA_API_URL:-http://localhost:2026}
@@ -29,20 +33,12 @@ services:
       aegra-api:
         condition: service_started
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\"",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/chat').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      <<: *health-startup
       start_period: 30s
-    networks:
-      - feedmind
 
   backend:
-    image: feedmind-backend:${FEEDMIND_IMAGE_TAG:-latest}
+    container_name: feedmind-backend
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -57,20 +53,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()\"",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    networks:
-      - feedmind
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).read()\""]
+      <<: *health-startup
 
   aegra-api:
-    image: feedmind-aegra-api:${FEEDMIND_IMAGE_TAG:-latest}
+    container_name: feedmind-aegra-api
     build:
       context: ./agent
       dockerfile: Dockerfile.aegra
@@ -95,14 +82,11 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:2026/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      <<: *health-startup
       start_period: 20s
-    networks:
-      - feedmind
 
   postgres:
+    container_name: feedmind-postgres
     image: pgvector/pgvector:pg18
     environment:
       <<: *app-env
@@ -115,14 +99,10 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    networks:
-      - feedmind
+      <<: *health-startup
 
   redis:
+    container_name: feedmind-redis
     image: redis:8-alpine
     environment:
       <<: *app-env
@@ -130,16 +110,7 @@ services:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    networks:
-      - feedmind
-
-networks:
-  feedmind:
-    driver: bridge
+      <<: *health-startup
 
 volumes:
   postgres_data:

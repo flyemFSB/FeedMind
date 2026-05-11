@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 
 type ToastPayload = {
@@ -20,13 +20,14 @@ function getToastClass(type: ToastItem["type"]): string {
 
 export function SystemToast() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const nextIdRef = useRef(1);
 
   useEffect(() => {
     const handleToast = (event: Event) => {
       const detail = (event as CustomEvent<ToastPayload>).detail;
       if (!detail?.message) return;
 
-      const id = Date.now();
+      const id = nextIdRef.current++;
       setToasts((items) => [
         ...items,
         {

@@ -14,24 +14,27 @@ RUN addgroup --system app && adduser --system --ingroup app app
 
 FROM base AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /bin/uv
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && python -m pip install --no-cache-dir uv==0.10.0
 
 # 先安装依赖，利用 Docker 缓存减少重复构建时间。
 COPY pyproject.toml uv.lock ./
-RUN uv sync --no-dev --no-install-project --compile-bytecode
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --no-install-project --compile-bytecode
 
 COPY feedmind ./feedmind
 COPY aegra.json ./aegra.json
-RUN uv sync --no-dev --compile-bytecode
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --compile-bytecode
 
 FROM builder AS dev
 
-RUN uv sync --compile-bytecode
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --compile-bytecode
 
 ENV PATH="/app/.venv/bin:$PATH"
 
@@ -41,11 +44,12 @@ CMD ["aegra", "serve"]
 
 FROM base AS final
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+    libpq5
 
 COPY --from=builder /app/.venv /app/.venv
 COPY aegra.json ./

@@ -1,9 +1,8 @@
 "use client";
 
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { Search, BookOpen, FileText, Loader2, Check, AlertCircle } from "lucide-react";
+import { Search, Loader2, Check, AlertCircle } from "lucide-react";
 
-// ─── 工具卡片通用壳 ───────────────────────────────────────────
 interface ToolCardProps {
   icon: React.ReactNode;
   title: string;
@@ -31,7 +30,6 @@ function ToolCard({ icon, title, status, children }: ToolCardProps) {
       className={`flex items-start gap-2.5 px-3 py-2.5 rounded-xl border bg-white
                   text-[12px] text-[#1d1d1f] my-1.5 ${borderColor}`}
     >
-      {/* 工具图标 */}
       <div className="w-5 h-5 rounded-md bg-[#f5f5f7] flex items-center justify-center shrink-0 mt-0.5">
         {icon}
       </div>
@@ -48,86 +46,67 @@ function ToolCard({ icon, title, status, children }: ToolCardProps) {
   );
 }
 
-// ─── Web 搜索工具 ─────────────────────────────────────────────
-export const WebSearchToolUI = makeAssistantToolUI<
-  { query: string },
-  { results?: Array<{ title: string; url: string }> }
->({
-  toolName: "web_search",
-  render: ({ args, result, status }) => (
+type WebSearchResult = {
+  answer?: string;
+  result_count?: number;
+  results?: unknown[];
+  summary?: string;
+};
+
+function readWebSearchResult(result: unknown): WebSearchResult {
+  if (typeof result === "string") {
+    try {
+      const parsed = JSON.parse(result);
+      return parsed && typeof parsed === "object" ? (parsed as WebSearchResult) : {};
+    } catch {
+      return { summary: result };
+    }
+  }
+
+  if (result && typeof result === "object") return result as WebSearchResult;
+  return {};
+}
+
+const toolStatusMap: Record<string, ToolCardProps["status"]> = {
+  running: "running",
+  complete: "complete",
+  incomplete: "error",
+};
+
+function toToolCardStatus(status: { type: string }): ToolCardProps["status"] {
+  return toolStatusMap[status.type] ?? "pending";
+}
+
+function WebSearchToolCard({
+  args,
+  result,
+  status,
+}: {
+  args?: Record<string, unknown>;
+  result?: unknown;
+  status: { type: string };
+}) {
+  const payload = readWebSearchResult(result);
+  const resultCount = payload.result_count ?? payload.results?.length;
+  const summary = payload.answer || payload.summary;
+  const query = typeof args?.query === "string" ? args.query : undefined;
+
+  return (
     <ToolCard
       icon={<Search size={12} className="text-[#0071e3]" strokeWidth={2} />}
       title="网络搜索"
-      status={
-        status.type === "running"
-          ? "running"
-          : status.type === "complete"
-          ? "complete"
-          : status.type === "incomplete"
-          ? "error"
-          : "pending"
-      }
+      status={toToolCardStatus(status)}
     >
-      {args?.query && <span className="text-[#0071e3]">“{args.query}”</span>}
-      {result?.results && (
-        <span className="ml-1 text-[#86868b]">· 找到 {result.results.length} 条结果</span>
+      {query && <span className="text-[#0071e3]">“{query}”</span>}
+      {typeof resultCount === "number" && (
+        <span className="ml-1 text-[#86868b]">· 找到 {resultCount} 条结果</span>
       )}
+      {summary && <div className="mt-1 text-[#86868b] line-clamp-2">{summary}</div>}
     </ToolCard>
-  ),
-});
+  );
+}
 
-// ─── 知识库检索工具 ───────────────────────────────────────────
-export const KnowledgeSearchToolUI = makeAssistantToolUI<
-  { query: string; knowledge_base?: string },
-  { chunks?: number }
->({
-  toolName: "knowledge_search",
-  render: ({ args, result, status }) => (
-    <ToolCard
-      icon={<BookOpen size={12} className="text-purple-500" strokeWidth={2} />}
-      title="知识库检索"
-      status={
-        status.type === "running"
-          ? "running"
-          : status.type === "complete"
-          ? "complete"
-          : status.type === "incomplete"
-          ? "error"
-          : "pending"
-      }
-    >
-      {args?.query && <span className="text-purple-500">“{args.query}”</span>}
-      {result?.chunks !== undefined && (
-        <span className="ml-1 text-[#86868b]">· 召回 {result.chunks} 片段</span>
-      )}
-    </ToolCard>
-  ),
-});
-
-// ─── 生成报告工具 ─────────────────────────────────────────────
-export const GenerateReportToolUI = makeAssistantToolUI<
-  { title: string; format?: string },
-  { word_count?: number }
->({
-  toolName: "generate_report",
-  render: ({ args, result, status }) => (
-    <ToolCard
-      icon={<FileText size={12} className="text-amber-500" strokeWidth={2} />}
-      title="生成报告"
-      status={
-        status.type === "running"
-          ? "running"
-          : status.type === "complete"
-          ? "complete"
-          : status.type === "incomplete"
-          ? "error"
-          : "pending"
-      }
-    >
-      {args?.title && <span>{args.title}</span>}
-      {result?.word_count && (
-        <span className="ml-1 text-[#86868b]">· {result.word_count} 字</span>
-      )}
-    </ToolCard>
-  ),
+export const WebSearchToolUI = makeAssistantToolUI<{ query: string }, unknown>({
+  toolName: "web_search",
+  render: WebSearchToolCard,
 });

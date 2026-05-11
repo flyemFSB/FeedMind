@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
@@ -15,13 +16,18 @@ const menuItemClass =
 
 function AssistantThreadListItem() {
   const externalId = useAuiState((state) => state.threadListItem.externalId);
+  const isChatPage = usePathname() === "/chat";
 
   return (
     <ThreadListItemPrimitive.Root className="group grid grid-cols-[minmax(0,1fr)_32px] items-center rounded-lg">
       <ThreadListItemPrimitive.Trigger asChild>
         <Button
           variant="ghost"
-          className="flex min-w-0 justify-start gap-2.5 rounded-lg px-3 py-2 pr-1 text-left text-[13px] text-[#1d1d1f] hover:bg-[#f5f5f7] data-[active]:bg-[#f5f5f7]"
+          className={`flex min-w-0 justify-start gap-2.5 rounded-lg px-3 py-2 pr-1 text-left text-[13px] text-[#1d1d1f] hover:bg-[#f5f5f7] ${
+            isChatPage
+              ? "group-data-[active]:bg-[#e8f0fe] group-data-[active]:text-[#0071e3]"
+              : ""
+          }`}
           onClick={() => {
             if (externalId) writeActiveFeedMindThreadId(externalId);
           }}
