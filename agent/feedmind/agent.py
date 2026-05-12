@@ -2,16 +2,14 @@ from langchain.agents import create_agent
 from loguru import logger
 
 from feedmind.config import get_settings
-from feedmind.middlewares import handle_tool_errors
+from feedmind.middlewares import dynamic_system_prompt, handle_tool_errors
 from feedmind.model import FeedMindResponsesModel
-from feedmind.prompts import DEFAULT_SYSTEM_PROMPT
 from feedmind.tools import web_search
 
 
 def build_agent():
     """构建可被 Aegra 加载的 LangChain Agent。"""
     settings = get_settings()
-    system_prompt = settings.feedmind_system_prompt or DEFAULT_SYSTEM_PROMPT
     logger.info("开始构建 FeedMind Agent default_model={}", settings.feedmind_model or "<empty>")
 
     model = FeedMindResponsesModel(
@@ -28,8 +26,7 @@ def build_agent():
     return create_agent(
         model=model,
         tools=[web_search],
-        system_prompt=system_prompt,
-        middleware=[handle_tool_errors],
+        middleware=[dynamic_system_prompt, handle_tool_errors],
     )
 
 

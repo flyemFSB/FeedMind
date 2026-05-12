@@ -8,6 +8,7 @@ import type {
   SyntaxHighlighterProps,
 } from "@assistant-ui/react-streamdown";
 import { cjk } from "@streamdown/cjk";
+import { openPreview } from "@/lib/preview-events";
 
 function SyntaxHighlighter({ code, language }: SyntaxHighlighterProps) {
   const displayCode = code.replace(/^\n+|\n+$/g, "");
@@ -48,8 +49,47 @@ const markdownComponents = {
       {children}
     </li>
   ),
+  table: ({ children }: MarkdownComponentProps) => (
+    <div className="my-3 max-w-full overflow-x-auto rounded-xl border border-[#d8d8de] bg-white">
+      <table className="w-full min-w-max border-collapse text-left text-[12px] leading-5">
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }: MarkdownComponentProps) => (
+    <thead className="bg-[#f5f5f7] text-[#1d1d1f]">{children}</thead>
+  ),
+  tbody: ({ children }: MarkdownComponentProps) => (
+    <tbody className="divide-y divide-[#e8e8ed]">{children}</tbody>
+  ),
+  tr: ({ children }: MarkdownComponentProps) => (
+    <tr className="transition-colors hover:bg-[#fbfbfd]">{children}</tr>
+  ),
+  th: ({ children }: MarkdownComponentProps) => (
+    <th className="border-r border-[#e8e8ed] px-3 py-2.5 font-semibold last:border-r-0">
+      {children}
+    </th>
+  ),
+  td: ({ children }: MarkdownComponentProps) => (
+    <td className="border-r border-[#f0f0f3] px-3 py-2.5 align-top text-[#1d1d1f] last:border-r-0">
+      {children}
+    </td>
+  ),
   a: ({ href, children }: MarkdownComponentProps) => (
-    <a href={href} className="text-[#0066cc] hover:underline text-[13px]">
+    <a
+      href={href}
+      className="text-[#0066cc] hover:underline text-[13px]"
+      onClick={(event) => {
+        if (!href) return;
+        event.preventDefault();
+        const title = readText(children).trim();
+        openPreview({
+          title: title && title !== href ? title : undefined,
+          url: href,
+          source: href,
+        });
+      }}
+    >
       {children}
     </a>
   ),
@@ -65,6 +105,12 @@ const markdownComponents = {
     </pre>
   ),
 };
+
+function readText(value: ReactNode): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(readText).join("");
+  return "";
+}
 
 // Streamdown's built-in animation gives incoming streaming text a typewriter feel.
 export const MarkdownText = memo(function MarkdownText() {

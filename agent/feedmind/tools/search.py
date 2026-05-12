@@ -1,75 +1,17 @@
-"""
-联网搜索工具：Tavily（需 API Key）→ DuckDuckGo（零配置回退）。
-"""
+"""联网工具：DuckDuckGo 搜索 + Jina Reader 网页读取。"""
 
 from __future__ import annotations
 
 import time
 from typing import Any
+from urllib.parse import urlparse
 
+import httpx
 from langchain_core.tools import tool
 from loguru import logger
 
-from feedmind.config import get_settings
-
-_tavily_client: Any = None
-
-
-def _get_tavily_client():
-    global _tavily_client
-    if _tavily_client is None:
-        from tavily import TavilyClient
-
-        _tavily_client = TavilyClient(api_key=get_settings().tavily_api_key)
-    return _tavily_client
-
-
-def _tavily_search(
-    query: str,
-    max_results: int = 5,
-    time_range: str = "",
-    search_depth: str = "basic",
-) -> tuple[list[dict[str, Any]], str]:
-    """Tavily 搜索，返回 (results, answer) 元组。"""
-    try:
-        client = _get_tavily_client()
-
-        tavily_time = {"d": "day", "w": "week", "m": "month", "y": "year"}.get(time_range)
-
-        kwargs: dict[str, Any] = {
-            "query": query,
-            "max_results": max_results,
-            "search_depth": search_depth,
-            "include_answer": True,
-            "include_raw_content": "markdown" if search_depth == "advanced" else False,
-            "timeout": 30,
-        }
-        if tavily_time:
-            kwargs["time_range"] = tavily_time
-
-        response = client.search(**kwargs)
-
-        results = []
-        for item in response.get("results", []):
-            entry: dict[str, Any] = {
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "content": item.get("content", ""),
-                "score": item.get("score", 0),
-            }
-            if item.get("raw_content"):
-                entry["raw_content"] = item["raw_content"][:500]
-            if entry["score"] >= 0.5:
-                results.append(entry)
-
-        answer = response.get("answer", "")
-
-        logger.info("Tavily 搜索成功 query={} results={}", query, len(results))
-        return results, answer
-
-    except Exception as e:
-        logger.warning("Tavily 搜索失败，将回退 DuckDuckGo: {}", e)
-        return [], ""
+JINA_READER_URL = "https://r.jina.ai/"
+MAX_FETCH_CHARS = 4096
 
 
 def _ddg_search(
@@ -127,7 +69,6 @@ def web_search(
     query: str,
     max_results: int = 5,
     time_range: str = "",
-    search_depth: str = "basic",
 ) -> dict[str, Any]:
     """搜索互联网获取最新信息。当用户询问实时、最新或不在知识范围内的问题时使用。
 
@@ -135,19 +76,53 @@ def web_search(
         query: 搜索关键词，建议使用中文或英文关键词。
         max_results: 返回结果数量（1-10，默认 5）。
         time_range: 时间范围。可选: "d"（一天内）、"w"（一周内）、"m"（一月内）、"y"（一年内），空字符串不限。
-        search_depth: 搜索深度。"basic"（标准）或 "advanced"（深度，含原始内容，仅 Tavily 生效）。
     """
-    settings = get_settings()
-
-    if settings.tavily_api_key:
-        results, answer = _tavily_search(query, max_results, time_range, search_depth)
-        if results:
-            return _payload(query, "tavily", results, answer, has_score=True)
-
     results = _ddg_search(query, max_results, time_range)
     if results:
         return _payload(query, "duckduckgo", results)
     return _payload(query, "none", [], message="未搜索到相关结果。")
+
+
+@tool
+def web_fetch(url: str, timeout: int = 10) -> dict[str, Any]:
+    """读取网页正文。仅用于用户提供或 web_search 返回的完整 URL。
+
+    Args:
+        url: 完整网页 URL，必须包含 http:// 或 https://。
+        timeout: Jina Reader 请求超时时间，默认 10 秒。
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return _fetch_payload(url, "error", message="URL 无效，必须包含 http:// 或 https://。")
+
+    try:
+        response = httpx.post(
+            JINA_READER_URL,
+            headers={
+                "Content-Type": "application/json",
+                "X-Return-Format": "markdown",
+                "X-Timeout": str(timeout),
+            },
+            json={"url": url},
+            timeout=timeout,
+        )
+    except Exception as exc:
+        logger.warning("Jina 读取失败 url={} error={}", url, exc)
+        return _fetch_payload(url, "error", message=f"网页读取失败：{exc}")
+
+    if response.status_code != 200:
+        logger.warning("Jina 返回异常 url={} status={}", url, response.status_code)
+        return _fetch_payload(
+            url,
+            "error",
+            message=f"Jina 返回状态码 {response.status_code}。",
+        )
+
+    content = response.text.strip()
+    if not content:
+        return _fetch_payload(url, "error", message="网页没有返回可用内容。")
+
+    return _fetch_payload(url, "jina", content=content[:MAX_FETCH_CHARS])
 
 
 def _fmt(
@@ -175,6 +150,10 @@ def _fmt(
     return "\n".join(parts)
 
 
+def _fetch_summary(content: str) -> str:
+    return content[:1000]
+
+
 def _payload(
     query: str,
     provider: str,
@@ -191,4 +170,18 @@ def _payload(
         "results": results,
         "result_count": len(results),
         "summary": message or _fmt(results, answer, has_score),
+    }
+
+
+def _fetch_payload(
+    url: str,
+    provider: str,
+    content: str = "",
+    message: str = "",
+) -> dict[str, Any]:
+    return {
+        "url": url,
+        "provider": provider,
+        "content": content,
+        "summary": message or _fetch_summary(content),
     }

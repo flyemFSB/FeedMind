@@ -4,7 +4,7 @@ import httpx
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
-from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
+from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -95,7 +95,6 @@ class FeedMindResponsesModel(BaseChatModel):
         kwargs: dict[str, Any] = {
             "model": runtime_config.get("model_name") or self.model,
             "temperature": self.temperature,
-            "streaming": True,
         }
         base_url = self._normalize_base_url(runtime_config.get("base_url") or self.api_base)
         api_key = runtime_config.get("api_key") or self.api_key
@@ -115,6 +114,14 @@ class FeedMindResponsesModel(BaseChatModel):
         client = ChatOpenAI(**self._build_client_kwargs(runtime_config))
         self._client_cache[cache_key] = client
         return client
+
+    def _get_bound_client_and_kwargs(self, runtime_config: dict) -> tuple[ChatOpenAI, dict[str, Any]]:
+        client = self._get_or_create_client(runtime_config)
+        if not self._bound_tools:
+            return client, {}
+
+        binding = client.bind_tools(self._bound_tools, **self._bound_tool_kwargs)
+        return binding.bound, dict(binding.kwargs)
 
     def _normalize_base_url(self, base_url: str | None) -> str | None:
         if not base_url:
@@ -137,14 +144,12 @@ class FeedMindResponsesModel(BaseChatModel):
         logger.info("开始非流式模型调用 message_count={}", len(messages))
         runtime_config = self._resolve_runtime_config()
 
-        if self._bound_tools:
-            client = ChatOpenAI(**self._build_client_kwargs(runtime_config))
-            bound = client.bind_tools(self._bound_tools, **self._bound_tool_kwargs)
-            result = bound.invoke(messages)
-            return ChatResult(generations=[ChatGeneration(message=result)])
-
-        return self._get_or_create_client(runtime_config)._generate(
-            messages, stop=stop, run_manager=run_manager, **kwargs
+        client, bound_kwargs = self._get_bound_client_and_kwargs(runtime_config)
+        return client._generate(
+            messages,
+            stop=stop,
+            run_manager=run_manager,
+            **{**bound_kwargs, **kwargs},
         )
 
     def _stream(
@@ -158,13 +163,10 @@ class FeedMindResponsesModel(BaseChatModel):
         logger.info("开始流式模型调用 message_count={}", len(messages))
         runtime_config = self._resolve_runtime_config()
 
-        if self._bound_tools:
-            client = ChatOpenAI(**self._build_client_kwargs(runtime_config))
-            bound = client.bind_tools(self._bound_tools, **self._bound_tool_kwargs)
-            for chunk in bound.stream(messages):
-                yield ChatGenerationChunk(message=chunk)
-            return
-
-        yield from self._get_or_create_client(runtime_config)._stream(
-            messages, stop=stop, run_manager=run_manager, **kwargs
+        client, bound_kwargs = self._get_bound_client_and_kwargs(runtime_config)
+        yield from client._stream(
+            messages,
+            stop=stop,
+            run_manager=run_manager,
+            **{**bound_kwargs, **kwargs},
         )
