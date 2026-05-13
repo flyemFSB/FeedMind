@@ -19,9 +19,6 @@ class AgentSettings(BaseSettings):
     openai_compatible_api_key: str | None = None
     backend_api_url: str = "http://localhost:8000"
 
-    # 联网搜索配置
-    tavily_api_key: str = ""
-
 
 @lru_cache
 def get_settings() -> AgentSettings:

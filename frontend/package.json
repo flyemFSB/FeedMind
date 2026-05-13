@@ -10,6 +10,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@assistant-ui/core": "0.1.15",
     "@assistant-ui/react": "^0.12.26",
     "@assistant-ui/react-langgraph": "^0.13.11",
     "@assistant-ui/react-streamdown": "^0.1.11",

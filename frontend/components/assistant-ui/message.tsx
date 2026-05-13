@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef, useEffect, type PropsWithChildren } from "react";
 import {
   AlertCircle,
+  Brain,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -25,6 +27,7 @@ import {
   ErrorPrimitive,
   useAui,
   useAuiState,
+  type ToolCallMessagePartProps,
 } from "@assistant-ui/react";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "./markdown-text";
@@ -142,6 +145,19 @@ function UserMessage() {
 function UserEditComposer() {
   const aui = useAui();
   const isEmpty = useAuiState((s) => s.composer.isEmpty);
+  const composerText = useAuiState((s) => s.composer.text);
+  const [value, setValue] = useState(composerText);
+  const isComposingRef = useRef(false);
+
+  useEffect(() => {
+    if (!isComposingRef.current) {
+      setValue(composerText);
+    }
+  }, [composerText]);
+
+  const syncText = (nextValue: string) => {
+    aui.composer().setText(nextValue);
+  };
 
   return (
     <ComposerPrimitive.Root className="flex gap-3 flex-row-reverse animate-fade-in">
@@ -149,9 +165,26 @@ function UserEditComposer() {
         <User size={14} className="text-white" strokeWidth={2} />
       </div>
       <div className="flex w-full max-w-[85%] flex-col items-end gap-2">
-        <ComposerPrimitive.Input
+        <textarea
           autoFocus
           rows={3}
+          value={value}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setValue(nextValue);
+            if (!isComposingRef.current) {
+              syncText(nextValue);
+            }
+          }}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
+          onCompositionEnd={(event) => {
+            isComposingRef.current = false;
+            const nextValue = event.currentTarget.value;
+            setValue(nextValue);
+            syncText(nextValue);
+          }}
           className="min-h-[96px] w-full resize-none rounded-2xl rounded-tr-sm border border-[#0071e3] bg-white px-4 py-3 text-[14px] leading-relaxed text-[#1d1d1f] shadow-[0_8px_24px_rgba(0,113,227,0.12)] outline-none placeholder:text-[#86868b]"
           placeholder="编辑你的消息"
         />
@@ -264,9 +297,81 @@ function AssistantActionBar() {
   );
 }
 
+type PartType = { type: string };
+
+function groupChainOfThought(parts: readonly PartType[]) {
+  const groups: { groupKey: string | undefined; indices: number[] }[] = [];
+  let chainIndices: number[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].type === "reasoning" || parts[i].type === "tool-call") {
+      chainIndices.push(i);
+    } else {
+      if (chainIndices.length > 0) {
+        groups.push({ groupKey: "chainOfThought", indices: [...chainIndices] });
+        chainIndices = [];
+      }
+      groups.push({ groupKey: undefined, indices: [i] });
+    }
+  }
+
+  if (chainIndices.length > 0) {
+    groups.push({ groupKey: "chainOfThought", indices: [...chainIndices] });
+  }
+
+  return groups;
+}
+
+function ToolCallAutoCollapse(props: ToolCallMessagePartProps) {
+  const isRunning = props.status?.type === "running";
+
+  const ToolUI = useAuiState((s) => {
+    const entry = s.tools.tools[props.toolName];
+    return Array.isArray(entry) ? entry[0] ?? null : entry ?? null;
+  });
+
+  if (!ToolUI || !isRunning) return null;
+  return <ToolUI {...props} />;
+}
+
+function ChainOfThoughtGroup({
+  groupKey,
+  indices,
+  children,
+}: PropsWithChildren<{
+  groupKey: string | undefined;
+  indices: number[];
+}>) {
+  const [open, setOpen] = useState(false);
+
+  const isRunning = useAuiState((s) =>
+    indices.some((i) => s.message.parts[i]?.status?.type === "running"),
+  );
+
+  useEffect(() => {
+    setOpen(isRunning);
+  }, [isRunning]);
+
+  if (groupKey !== "chainOfThought") return <>{children}</>;
+
+  return (
+    <div className="border border-[#d2d2d7] rounded-xl overflow-hidden my-2">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 w-full px-3 py-2 bg-[#f5f5f7] text-[12px] text-[#1d1d1f] hover:bg-[#e8e8ed] transition-colors"
+      >
+        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <Brain size={14} className="text-[#0071e3]" />
+        <span className="font-medium">思考过程</span>
+      </button>
+      {open && <div className="px-3 py-2">{children}</div>}
+    </div>
+  );
+}
+
 function AssistantMessage() {
   const createdAt = useAuiState((s) => s.message.createdAt);
-  const isRunning = useAuiState((s) => s.message.status?.type === "running");
 
   return (
     <MessagePrimitive.Root className="flex gap-3 animate-fade-in group/action-area">
@@ -290,20 +395,16 @@ function AssistantMessage() {
 
         <div className="text-[14px] text-[#1d1d1f] leading-relaxed">
           <MessageAttachments />
-          <MessagePrimitive.Parts
+          <MessagePrimitive.Unstable_PartsGrouped
+            groupingFunction={groupChainOfThought}
             components={{
               Text: () => <MarkdownText />,
+              Group: ChainOfThoughtGroup,
+              tools: { Override: ToolCallAutoCollapse },
             }}
           />
           <MessageError />
         </div>
-
-        {isRunning && (
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full border-2 border-[#0071e3] border-t-transparent animate-spin" />
-            <span className="text-[12px] text-[#86868b]">思考中...</span>
-          </div>
-        )}
 
         <div className="flex h-8 items-center gap-3">
           <div className="relative h-8 w-[128px]">

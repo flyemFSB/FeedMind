@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { makeAssistantToolUI } from "@assistant-ui/react";
-import { Search, Loader2, Check, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, Loader2, Check, AlertCircle, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { openPreview } from "@/lib/preview-events";
 
 interface ToolCardProps {
@@ -66,6 +66,13 @@ type WebSearchResult = {
   summary?: string;
 };
 
+type WebFetchResult = {
+  url?: string;
+  provider?: string;
+  content?: string;
+  summary?: string;
+};
+
 function readWebSearchResult(result: unknown): WebSearchResult {
   if (typeof result === "string") {
     try {
@@ -80,6 +87,20 @@ function readWebSearchResult(result: unknown): WebSearchResult {
   return {};
 }
 
+function readWebFetchResult(result: unknown): WebFetchResult {
+  if (typeof result === "string") {
+    try {
+      const parsed = JSON.parse(result);
+      return parsed && typeof parsed === "object" ? (parsed as WebFetchResult) : {};
+    } catch {
+      return { summary: result };
+    }
+  }
+
+  if (result && typeof result === "object") return result as WebFetchResult;
+  return {};
+}
+
 function readSearchResults(payload: WebSearchResult): WebSearchItem[] {
   return payload.results ?? payload.search_results ?? [];
 }
@@ -88,10 +109,11 @@ const toolStatusMap: Record<string, ToolCardProps["status"]> = {
   running: "running",
   complete: "complete",
   incomplete: "error",
+  "requires-action": "running",
 };
 
-function toToolCardStatus(status: { type: string }): ToolCardProps["status"] {
-  return toolStatusMap[status.type] ?? "pending";
+function toToolCardStatus(status: { type: string } | undefined): ToolCardProps["status"] {
+  return status ? toolStatusMap[status.type] ?? "complete" : "complete";
 }
 
 function readSearchItemSummary(item: WebSearchItem): string {
@@ -175,7 +197,64 @@ function WebSearchToolCard({
   );
 }
 
+function WebFetchToolCard({
+  args,
+  result,
+  status,
+}: {
+  args?: Record<string, unknown>;
+  result?: unknown;
+  status: { type: string };
+}) {
+  const cardStatus = toToolCardStatus(status);
+  const payload = readWebFetchResult(result);
+  const url =
+    typeof payload.url === "string"
+      ? payload.url
+      : typeof args?.url === "string"
+        ? args.url
+        : undefined;
+  const content = (payload.content || payload.summary || "").trim();
+
+  return (
+    <ToolCard
+      icon={<FileText size={12} className="text-[#0071e3]" strokeWidth={2} />}
+      title="网页读取"
+      status={cardStatus}
+      action={
+        content ? (
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-[11px] text-[#0066cc] transition-colors hover:bg-[#f5f5f7]"
+            onClick={() => {
+              openPreview({
+                title: url,
+                url,
+                content,
+                source: url || "网页读取",
+              });
+            }}
+          >
+            预览
+          </button>
+        ) : null
+      }
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        {url && <span className="break-all text-[#0071e3]">{url}</span>}
+        {cardStatus === "running" && <span>读取中</span>}
+        {content && <span>已提取正文</span>}
+      </div>
+    </ToolCard>
+  );
+}
+
 export const WebSearchToolUI = makeAssistantToolUI<{ query: string }, unknown>({
   toolName: "web_search",
   render: WebSearchToolCard,
+});
+
+export const WebFetchToolUI = makeAssistantToolUI<{ url: string }, unknown>({
+  toolName: "web_fetch",
+  render: WebFetchToolCard,
 });

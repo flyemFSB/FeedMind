@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@assistant-ui/core':
+        specifier: 0.1.15
+        version: 0.1.15(@assistant-ui/store@0.2.8(@assistant-ui/tap@0.5.9(@types/react@19.2.14)(react@19.2.4))(@types/react@19.2.14)(react@19.2.4))(@assistant-ui/tap@0.5.9(@types/react@19.2.14)(react@19.2.4))(@types/react@19.2.14)(assistant-cloud@0.1.27)(react@19.2.4)(zustand@5.0.12(@types/react@19.2.14)(immer@11.1.4)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       '@assistant-ui/react':
         specifier: ^0.12.26
         version: 0.12.26(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(immer@11.1.4)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))

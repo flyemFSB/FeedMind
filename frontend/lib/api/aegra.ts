@@ -179,7 +179,7 @@ function hasStableMessageIds(messages: readonly MessageWithId[]): boolean {
 const baseAegraStream = unstable_createLangGraphStream({
   client: aegraClient,
   assistantId: feedmindAegraAssistantId,
-  streamMode: ["messages-tuple", "custom"],
+  streamMode: ["messages-tuple", "updates", "custom"],
 });
 
 type PersistableRole = "user" | "assistant" | "system" | "tool";

@@ -4,7 +4,7 @@ from loguru import logger
 from feedmind.config import get_settings
 from feedmind.middlewares import dynamic_system_prompt, handle_tool_errors
 from feedmind.model import FeedMindResponsesModel
-from feedmind.tools import web_search
+from feedmind.tools import web_fetch, web_search
 
 
 def build_agent():
@@ -20,12 +20,11 @@ def build_agent():
         temperature=settings.feedmind_temperature,
     )
 
-    logger.info("联网搜索工具已挂载（Tavily Key={}）",
-                "已配置" if settings.tavily_api_key else "未配置，使用 DuckDuckGo 回退")
+    logger.info("联网工具已挂载：web_search=DDGS, web_fetch=Jina")
 
     return create_agent(
         model=model,
-        tools=[web_search],
+        tools=[web_search, web_fetch],
         middleware=[dynamic_system_prompt, handle_tool_errors],
     )
 

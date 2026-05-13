@@ -9,7 +9,7 @@ import {
   getAegraThreadState,
 } from "@/lib/api/aegra";
 import { createFeedMindThreadListAdapter } from "@/lib/api/chat-sessions";
-import { WebSearchToolUI } from "@/components/assistant-ui/tool-ui";
+import { WebFetchToolUI, WebSearchToolUI } from "@/components/assistant-ui/tool-ui";
 
 export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
   const loadThread = useCallback(async (externalId: string, config?: { signal?: AbortSignal }) => {
@@ -42,6 +42,7 @@ export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <WebSearchToolUI />
+      <WebFetchToolUI />
       {children}
     </AssistantRuntimeProvider>
   );
