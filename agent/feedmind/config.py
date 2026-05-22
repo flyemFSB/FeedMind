@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AgentSettings(BaseSettings):
-    """Agent 运行配置，供 Aegra 加载图时读取。"""
+    """Agent 运行配置，供本地 Agent API 读取。"""
 
     model_config = SettingsConfigDict(
         env_file=("../.env", ".env"),

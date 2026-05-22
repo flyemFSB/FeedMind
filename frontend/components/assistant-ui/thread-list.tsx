@@ -1,15 +1,17 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
   ThreadListPrimitive,
   useAuiState,
 } from "@assistant-ui/react";
-import { MessageSquare, MoreHorizontal, Pencil, Pin, Trash2 } from "lucide-react";
+import { Loader2, MessageSquare, MoreHorizontal, Pencil, Pin, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { writeActiveFeedMindThreadId } from "@/lib/api/chat-sessions";
+import { onAgentRunningChange } from "@/lib/api/agent";
 
 const menuItemClass =
   "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 outline-none hover:bg-[#f5f5f7] data-[highlighted]:bg-[#f5f5f7]";
@@ -17,6 +19,18 @@ const menuItemClass =
 function AssistantThreadListItem() {
   const externalId = useAuiState((state) => state.threadListItem.externalId);
   const isChatPage = usePathname() === "/chat";
+  const router = useRouter();
+  const [agentRunning, setAgentRunning] = useState(false);
+
+  useEffect(() => {
+    return onAgentRunningChange(setAgentRunning);
+  }, []);
+
+  const activeThreadId =
+    typeof window !== "undefined"
+      ? localStorage.getItem("feedmind:active-thread")
+      : null;
+  const isActiveThread = isChatPage && agentRunning && externalId === activeThreadId;
 
   return (
     <ThreadListItemPrimitive.Root className="group grid grid-cols-[minmax(0,1fr)_32px] items-center rounded-lg">
@@ -30,9 +44,14 @@ function AssistantThreadListItem() {
           }`}
           onClick={() => {
             if (externalId) writeActiveFeedMindThreadId(externalId);
+            if (!isChatPage) router.push("/chat");
           }}
         >
-          <MessageSquare size={14} strokeWidth={1.5} className="shrink-0 text-[#86868b]" />
+          {isActiveThread ? (
+            <Loader2 size={14} strokeWidth={1.5} className="shrink-0 text-[#0071e3] animate-spin" />
+          ) : (
+            <MessageSquare size={14} strokeWidth={1.5} className="shrink-0 text-[#86868b]" />
+          )}
           <span className="min-w-0 flex-1 truncate">
             <ThreadListItemPrimitive.Title fallback="新会话" />
           </span>

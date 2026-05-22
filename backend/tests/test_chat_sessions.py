@@ -1,7 +1,4 @@
-import os
-
 from fastapi.testclient import TestClient
-import pytest
 from sqlalchemy import select
 
 from app.core.config import get_settings
@@ -10,12 +7,8 @@ from app.main import create_app
 from app.models import ChatMessage, ChatSession
 
 
-def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
-    database_url = os.getenv("TEST_DATABASE_URL")
-    if database_url is None:
-        pytest.skip("TEST_DATABASE_URL is required for Postgres-backed tests")
-
-    monkeypatch.setenv("DATABASE_URL", database_url)
+def test_save_chat_session_snapshot_upserts_messages(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'chat-session-test.db'}")
     get_settings.cache_clear()
     app = create_app()
 
@@ -25,12 +18,12 @@ def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
             json={
                 "messages": [
                     {
-                        "aegra_message_id": "msg-user-1",
+                        "agent_message_id": "msg-user-1",
                         "role": "user",
                         "content": "帮我总结趋势",
                     },
                     {
-                        "aegra_message_id": "msg-ai-1",
+                        "agent_message_id": "msg-ai-1",
                         "role": "assistant",
                         "content": "这是趋势摘要",
                     },
@@ -46,7 +39,7 @@ def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
         list_response = client.get("/api/chat-sessions")
         assert list_response.status_code == 200
         listed_sessions = list_response.json()["data"]
-        assert listed_sessions[0]["aegra_thread_id"] == "thread-1"
+        assert listed_sessions[0]["agent_thread_id"] == "thread-1"
         assert listed_sessions[0]["title"] == "帮我总结趋势"
 
         replace_response = client.put(
@@ -54,7 +47,7 @@ def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
             json={
                 "messages": [
                     {
-                        "aegra_message_id": "msg-user-1",
+                        "agent_message_id": "msg-user-1",
                         "role": "user",
                         "content": "新的问题",
                     },
@@ -67,19 +60,19 @@ def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
 
         get_response = client.get("/api/chat-sessions/thread-1")
         assert get_response.status_code == 200
-        assert get_response.json()["data"]["aegra_thread_id"] == "thread-1"
+        assert get_response.json()["data"]["agent_thread_id"] == "thread-1"
 
     with get_session() as session:
         chat_session = session.scalar(
-            select(ChatSession).where(ChatSession.aegra_thread_id == "thread-1")
+            select(ChatSession).where(ChatSession.agent_thread_id == "thread-1")
         )
         assert chat_session is not None
         messages = session.scalars(
             select(ChatMessage)
             .where(ChatMessage.session_id == chat_session.id)
-            .order_by(ChatMessage.aegra_message_id.asc())
+            .order_by(ChatMessage.agent_message_id.asc())
         ).all()
-        assert [(message.aegra_message_id, message.content, message.status) for message in messages] == [
+        assert [(message.agent_message_id, message.content, message.status) for message in messages] == [
             ("msg-ai-1", "这是趋势摘要", "failed"),
             ("msg-user-1", "新的问题", "completed"),
         ]
@@ -87,12 +80,8 @@ def test_save_chat_session_snapshot_upserts_messages(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
-def test_delete_chat_session_removes_snapshot(monkeypatch) -> None:
-    database_url = os.getenv("TEST_DATABASE_URL")
-    if database_url is None:
-        pytest.skip("TEST_DATABASE_URL is required for Postgres-backed tests")
-
-    monkeypatch.setenv("DATABASE_URL", database_url)
+def test_delete_chat_session_removes_snapshot(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'chat-session-delete-test.db'}")
     get_settings.cache_clear()
     app = create_app()
 
@@ -102,7 +91,7 @@ def test_delete_chat_session_removes_snapshot(monkeypatch) -> None:
             json={
                 "messages": [
                     {
-                        "aegra_message_id": "msg-user-delete",
+                        "agent_message_id": "msg-user-delete",
                         "role": "user",
                         "content": "删除这个会话",
                     },
@@ -113,7 +102,7 @@ def test_delete_chat_session_removes_snapshot(monkeypatch) -> None:
 
         delete_response = client.delete("/api/chat-sessions/thread-delete")
         assert delete_response.status_code == 200
-        assert delete_response.json()["data"]["aegra_thread_id"] == "thread-delete"
+        assert delete_response.json()["data"]["agent_thread_id"] == "thread-delete"
 
         get_response = client.get("/api/chat-sessions/thread-delete")
         assert get_response.status_code == 404

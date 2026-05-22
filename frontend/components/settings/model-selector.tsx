@@ -8,7 +8,7 @@ import {
   onSelectedFeedMindModelChange,
   persistSelectedFeedMindModel,
   setSelectedFeedMindModel,
-} from "@/lib/api/aegra";
+} from "@/lib/api/agent";
 import {
   Select,
   SelectContent,
@@ -17,9 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ProviderIcon } from "@/components/settings/provider-icon";
 
 export function ModelSelector() {
+  const [loading, setLoading] = useState(true);
   const [selectedModel, setSelectedModel] = useState("");
   const [models, setModels] = useState<LLMModel[]>([]);
   const [loadError, setLoadError] = useState(false);
@@ -44,9 +46,11 @@ export function ModelSelector() {
       .catch((err) => {
         if (err instanceof Error && err.message.includes("404")) return;
         setLoadError(true);
-      });
+      })
+      .finally(() => setLoading(false));
 
     const handleModelsChange = () => {
+      setLoading(true);
       void listLLMModels()
         .then((loadedModels) => {
           setModels(loadedModels);
@@ -64,7 +68,8 @@ export function ModelSelector() {
             return "";
           });
         })
-        .catch(() => setLoadError(true));
+        .catch(() => setLoadError(true))
+        .finally(() => setLoading(false));
     };
     window.addEventListener("feedmind:llm-models-change", handleModelsChange);
 
@@ -82,6 +87,10 @@ export function ModelSelector() {
     setSelectedModel(model);
     void persistSelectedFeedMindModel(model);
   };
+
+  if (loading) {
+    return <Skeleton className="h-10 w-[260px] rounded-xl" />;
+  }
 
   const options = loadError && selectedModel
     ? [{ label: "模型加载失败", value: selectedModel, provider: "" }]

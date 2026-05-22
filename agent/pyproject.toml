@@ -1,13 +1,13 @@
 [project]
 name = "feedmind-agent"
 version = "0.1.0"
-description = "FeedMind LangChain agent served by Aegra"
+description = "FeedMind LangChain agent powered by LangGraph Server"
 requires-python = ">=3.12"
 dependencies = [
-    "aegra-cli>=0.9.11,<1.0",
     "langchain>=1.0,<2.0",
     "langchain-core>=1.0,<2.0",
     "langgraph>=1.0,<2.0",
+    "langgraph-cli[inmem]>=0.2,<1.0",
     "loguru>=0.7,<1.0",
     "pydantic-settings>=2.0,<3.0",
     "langchain-openai>=1.0,<2.0",
@@ -18,6 +18,7 @@ dependencies = [
     "readabilipy>=0.3.0",
     "markdownify>=1.2.2",
     "langfuse>=3.0",
+    "tzdata>=2024.0",
 ]
 
 [dependency-groups]

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class ChatMessageSnapshot(BaseModel):
     """前端提交的单条消息快照。"""
 
-    aegra_message_id: str = Field(min_length=1)
+    agent_message_id: str = Field(min_length=1)
     role: Literal["user", "assistant", "system", "tool"]
     content: str = Field(min_length=1)
     status: Literal["streaming", "completed", "failed"] = "completed"
@@ -27,7 +27,7 @@ class ChatSessionRead(BaseModel):
     """会话保存后的基础信息。"""
 
     id: UUID
-    aegra_thread_id: str
+    agent_thread_id: str
     title: str
     message_count: int
     last_message_at: datetime | None
@@ -37,7 +37,7 @@ class ChatSessionListItem(BaseModel):
     """历史会话列表项。"""
 
     id: UUID
-    aegra_thread_id: str
+    agent_thread_id: str
     title: str
     pinned: bool
     message_count: int

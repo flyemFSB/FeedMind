@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "feedmind": "./feedmind/agent.py:build_agent"
+  },
+  "env": "../.env",
+  "python_version": "3.12"
+}

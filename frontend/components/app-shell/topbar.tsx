@@ -9,7 +9,7 @@ interface TopbarProps {
 
 export function Topbar({ title, subtitle }: TopbarProps) {
   return (
-    <header className="h-14 flex items-center justify-between gap-4 px-6 border-b border-[#d2d2d7] bg-white shrink-0">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#d2d2d7] bg-white px-6 max-sm:px-4">
       <div className="min-w-0">
         <h1 className="text-[17px] font-semibold text-[#1d1d1f] tracking-[-0.2px]">
           {title}

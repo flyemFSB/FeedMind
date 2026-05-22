@@ -24,7 +24,7 @@ def _default_title(payload: ChatSessionSnapshot) -> str:
 def _to_read(chat_session: ChatSession) -> ChatSessionRead:
     return ChatSessionRead(
         id=chat_session.id,
-        aegra_thread_id=chat_session.aegra_thread_id,
+        agent_thread_id=chat_session.agent_thread_id,
         title=chat_session.title,
         message_count=chat_session.message_count,
         last_message_at=chat_session.last_message_at,
@@ -34,7 +34,7 @@ def _to_read(chat_session: ChatSession) -> ChatSessionRead:
 def _to_list_item(chat_session: ChatSession) -> ChatSessionListItem:
     return ChatSessionListItem(
         id=chat_session.id,
-        aegra_thread_id=chat_session.aegra_thread_id,
+        agent_thread_id=chat_session.agent_thread_id,
         title=chat_session.title,
         pinned=chat_session.pinned,
         message_count=chat_session.message_count,
@@ -58,12 +58,12 @@ async def list_chat_sessions() -> ApiEnvelope[list[ChatSessionListItem]]:
     return ApiEnvelope(data=data)
 
 
-@router.get("/{thread_id}", response_model=ApiEnvelope[ChatSessionRead])
-async def get_chat_session(thread_id: str) -> ApiEnvelope[ChatSessionRead]:
-    """按 Aegra 线程 ID 读取会话元数据。"""
+@router.get("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
+async def get_chat_session(session_id: str) -> ApiEnvelope[ChatSessionRead]:
+    """按路径中的 session_id 读取会话，当前值仍对应 Agent 线程 ID。"""
     with get_session() as session:
         chat_session = session.scalar(
-            select(ChatSession).where(ChatSession.aegra_thread_id == thread_id)
+            select(ChatSession).where(ChatSession.agent_thread_id == session_id)
         )
         if chat_session is None:
             raise HTTPException(status_code=404, detail="会话不存在")
@@ -72,20 +72,20 @@ async def get_chat_session(thread_id: str) -> ApiEnvelope[ChatSessionRead]:
     return ApiEnvelope(data=data)
 
 
-@router.put("/{thread_id}", response_model=ApiEnvelope[ChatSessionRead])
+@router.put("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
 async def save_chat_session(
-    thread_id: str,
+    session_id: str,
     payload: ChatSessionSnapshot,
 ) -> ApiEnvelope[ChatSessionRead]:
-    """按 Aegra 线程 ID 保存完整会话快照。"""
+    """按路径中的 session_id 保存快照，当前值仍对应 Agent 线程 ID。"""
     now = datetime.now(UTC)
 
     with get_session() as session:
         chat_session = session.scalar(
-            select(ChatSession).where(ChatSession.aegra_thread_id == thread_id)
+            select(ChatSession).where(ChatSession.agent_thread_id == session_id)
         )
         if chat_session is None:
-            chat_session = ChatSession(aegra_thread_id=thread_id)
+            chat_session = ChatSession(agent_thread_id=session_id)
             session.add(chat_session)
             session.flush()
 
@@ -97,35 +97,35 @@ async def save_chat_session(
         existing_messages = session.scalars(
             select(ChatMessage).where(ChatMessage.session_id == chat_session.id)
         ).all()
-        message_by_aegra_id = {
-            message.aegra_message_id: message for message in existing_messages
+        message_by_agent_id = {
+            message.agent_message_id: message for message in existing_messages
         }
 
         for message in payload.messages:
-            chat_message = message_by_aegra_id.get(message.aegra_message_id)
+            chat_message = message_by_agent_id.get(message.agent_message_id)
             if chat_message is None:
                 chat_message = ChatMessage(
                     session_id=chat_session.id,
-                    aegra_message_id=message.aegra_message_id,
+                    agent_message_id=message.agent_message_id,
                 )
                 session.add(chat_message)
 
-            # 同一 Aegra 消息重复保存时只更新内容，不产生重复行。
+            # 同一 Agent 消息重复保存时只更新内容，不产生重复行。
             chat_message.role = message.role
             chat_message.content = message.content
             chat_message.status = message.status
             chat_message.model = message.model
             chat_message.metadata_ = message.metadata
 
-        stale_ids = set(message_by_aegra_id) - {
-            message.aegra_message_id for message in payload.messages
+        stale_ids = set(message_by_agent_id) - {
+            message.agent_message_id for message in payload.messages
         }
         for stale_id in stale_ids:
-            message_by_aegra_id[stale_id].status = "failed"
-            message_by_aegra_id[stale_id].metadata_ = {
-                **message_by_aegra_id[stale_id].metadata_,
+            message_by_agent_id[stale_id].status = "failed"
+            message_by_agent_id[stale_id].metadata_ = {
+                **message_by_agent_id[stale_id].metadata_,
                 "branch_status": "inactive",
-                "inactive_at": now.isoformat(),
+                "inactive_at": datetime.now(UTC).isoformat(),
             }
 
         session.flush()
@@ -139,16 +139,16 @@ async def save_chat_session(
 
         data = _to_read(chat_session)
 
-    logger.info("已保存会话 thread_id={} message_count={}", thread_id, data.message_count)
+    logger.info("已保存会话 session_id={} message_count={}", session_id, data.message_count)
     return ApiEnvelope(data=data)
 
 
-@router.delete("/{thread_id}", response_model=ApiEnvelope[ChatSessionRead])
-async def delete_chat_session(thread_id: str) -> ApiEnvelope[ChatSessionRead]:
-    """删除历史会话索引和已保存的消息快照。"""
+@router.delete("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
+async def delete_chat_session(session_id: str) -> ApiEnvelope[ChatSessionRead]:
+    """按路径中的 session_id 删除快照，当前值仍对应 Agent 线程 ID。"""
     with get_session() as session:
         chat_session = session.scalar(
-            select(ChatSession).where(ChatSession.aegra_thread_id == thread_id)
+            select(ChatSession).where(ChatSession.agent_thread_id == session_id)
         )
         if chat_session is None:
             raise HTTPException(status_code=404, detail="会话不存在")
@@ -156,5 +156,5 @@ async def delete_chat_session(thread_id: str) -> ApiEnvelope[ChatSessionRead]:
         data = _to_read(chat_session)
         session.execute(delete(ChatSession).where(ChatSession.id == chat_session.id))
 
-    logger.info("已删除会话 thread_id={}", thread_id)
+    logger.info("已删除会话 session_id={}", session_id)
     return ApiEnvelope(data=data)

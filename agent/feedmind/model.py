@@ -3,11 +3,69 @@ from typing import Any, Iterator
 import httpx
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.outputs import ChatGenerationChunk, ChatResult
 from langchain_openai import ChatOpenAI
+from langchain_openai.chat_models import base as openai_chat_base
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
+
+def _extract_reasoning_text(payload: Any) -> str:
+    if isinstance(payload, str):
+        return payload
+    if isinstance(payload, list):
+        return "".join(_extract_reasoning_text(item) for item in payload)
+    if not isinstance(payload, dict):
+        return ""
+
+    for key in (
+        "reasoning_content",
+        "reasoning",
+        "reasoning_details",
+        "summary",
+        "thinking",
+        "text",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, list)):
+            text = _extract_reasoning_text(value)
+            if text:
+                return text
+    return ""
+
+
+def _patch_openai_compatible_reasoning() -> None:
+    """Preserve reasoning fields emitted by OpenAI-compatible chat endpoints."""
+
+    if getattr(openai_chat_base, "_feedmind_reasoning_patch", False):
+        return
+
+    original_convert_delta_to_message_chunk = openai_chat_base._convert_delta_to_message_chunk
+    original_convert_dict_to_message = openai_chat_base._convert_dict_to_message
+
+    def convert_delta_to_message_chunk(_dict: Any, default_class: Any) -> Any:
+        chunk = original_convert_delta_to_message_chunk(_dict, default_class)
+        reasoning_content = _extract_reasoning_text(_dict)
+        if reasoning_content and isinstance(chunk, AIMessageChunk):
+            chunk.additional_kwargs["reasoning_content"] = reasoning_content
+        return chunk
+
+    def convert_dict_to_message(_dict: Any) -> BaseMessage:
+        message = original_convert_dict_to_message(_dict)
+        reasoning_content = _extract_reasoning_text(_dict)
+        if reasoning_content and isinstance(message, AIMessage):
+            message.additional_kwargs["reasoning_content"] = reasoning_content
+        return message
+
+    openai_chat_base._convert_delta_to_message_chunk = convert_delta_to_message_chunk
+    openai_chat_base._convert_dict_to_message = convert_dict_to_message
+    openai_chat_base._feedmind_reasoning_patch = True
+
+
+_patch_openai_compatible_reasoning()
 
 
 class FeedMindResponsesModel(BaseChatModel):
@@ -44,7 +102,7 @@ class FeedMindResponsesModel(BaseChatModel):
 
         优先级:
           1. self.model（来自 .env 或 agent.py 构造时传入）
-          2. get_config().configurable.model（Aegra 在 invoke 时传入）
+          2. get_config().configurable.model（Agent API 在 invoke 时传入）
         """
         if self.model:
             return self.model
@@ -72,7 +130,7 @@ class FeedMindResponsesModel(BaseChatModel):
             raise RuntimeError("No model is selected. Add and select a model in model settings first.")
 
         params = {"id": model_id}
-        url = f"{self.backend_api_url.rstrip('/')}/api/llm-models/runtime"
+        url = f"{self.backend_api_url.rstrip('/')}/api/models/runtime"
         logger.debug("请求模型运行配置 model_id={} url={}", model_id, url)
 
         with httpx.Client(timeout=3.0) as client:

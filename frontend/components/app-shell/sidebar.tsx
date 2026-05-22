@@ -3,9 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Database, MoreHorizontal, Plus } from "lucide-react";
+import { Database, MoreHorizontal, Plus, Settings, LogOut } from "lucide-react";
 import { ThreadListPrimitive } from "@assistant-ui/react";
 import { AssistantThreadList } from "@/components/assistant-ui/thread-list";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -16,21 +23,20 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
   const router = useRouter();
 
   const secondaryNavItems = [
-    { href: "/knowledge", label: "知识库", icon: Database },
+    { href: "/wiki", label: "我的 WIKI", icon: Database },
   ];
 
   return (
-    <aside className="w-[260px] min-w-[260px] h-full bg-white border-r border-[#d2d2d7] flex flex-col">
+    <aside className="flex h-full w-[260px] min-w-[260px] flex-col border-r border-[#d2d2d7] bg-white max-md:hidden">
       <div className="px-5 pt-5 pb-4">
         <Link href="/chat" className="flex items-center gap-2.5">
           <Image
             src="/FeedMind-logo-text.png"
             alt="FeedMind"
-            width={140}
-            height={40}
+            width={139}
+            height={36}
             priority
-            className="h-9 w-auto"
-            style={{ width: "auto" }}
+            style={{ height: "auto" }}
           />
         </Link>
       </div>
@@ -74,16 +80,29 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       </div>
 
       <div className="p-3 border-t border-[#d2d2d7]">
-        <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer" onClick={onSettingsClick}>
-          <div className="w-8 h-8 rounded-full bg-[#0071e3] flex items-center justify-center text-white text-[13px] font-semibold">
-            Z
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-[#1d1d1f] truncate">Zack</p>
-            <p className="text-[11px] text-[#86868b] truncate">zack@example.com</p>
-          </div>
-          <MoreHorizontal size={14} className="text-[#86868b]" />
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-[#f5f5f7]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0071e3] text-[13px] font-semibold text-white">
+              Z
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-[#1d1d1f]">Zack</p>
+              <p className="truncate text-[11px] text-[#86868b]">zack@example.com</p>
+            </div>
+            <MoreHorizontal size={14} className="text-[#86868b]" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-48">
+            <DropdownMenuItem onClick={onSettingsClick}>
+              <Settings size={14} />
+              <span>设置</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive">
+              <LogOut size={14} />
+              <span>退出登录</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </aside>
   );

@@ -16,7 +16,7 @@ from app.schemas.llm_model import (
     SelectedModelUpdate,
 )
 
-router = APIRouter(prefix="/llm-models", tags=["llm-models"])
+router = APIRouter(prefix="/models", tags=["models"])
 
 
 def _to_model_read(row: ModelConfig) -> LLMModelRead:

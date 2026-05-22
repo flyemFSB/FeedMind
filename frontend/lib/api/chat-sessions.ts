@@ -1,33 +1,16 @@
 import type { RemoteThreadListAdapter } from "@assistant-ui/react";
-import { createAegraThread } from "@/lib/api/aegra";
-
-function emitToast(message: string, type: "error" | "info" | "success" = "error") {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent("feedmind:toast", { detail: { message, type } }),
-  );
-}
-
-type ApiEnvelope<T> = {
-  data: T | null;
-  error?: {
-    code: string;
-    message: string;
-  } | null;
-};
+import { createAgentThread } from "@/lib/api/agent";
+import { apiFetch } from "./client";
 
 export type ChatSessionListItem = {
   id: string;
-  aegra_thread_id: string;
+  agent_thread_id: string;
   title: string;
   pinned: boolean;
   message_count: number;
   last_message_at: string | null;
   updated_at: string;
 };
-
-const backendApiUrl =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "http://localhost:8000";
 
 const activeThreadStorageKey = "feedmind:active-thread";
 
@@ -48,35 +31,19 @@ function clearActiveThreadId(threadId: string): void {
   }
 }
 
-async function readEnvelope<T>(
-  response: Response,
-  fallbackMessage: string,
-): Promise<T> {
-  if (!response.ok) throw new Error(fallbackMessage);
-
-  const envelope = (await response.json()) as ApiEnvelope<T>;
-  if (envelope.error) throw new Error(envelope.error.message);
-  if (envelope.data == null) throw new Error(fallbackMessage);
-
-  return envelope.data;
-}
-
 export async function listChatSessions(): Promise<ChatSessionListItem[]> {
-  const response = await fetch(`${backendApiUrl}/api/chat-sessions`);
-  return readEnvelope(response, "加载历史会话失败");
+  return apiFetch<ChatSessionListItem[]>("/api/chat-sessions");
 }
 
 export async function deleteChatSession(threadId: string): Promise<void> {
-  const response = await fetch(
-    `${backendApiUrl}/api/chat-sessions/${encodeURIComponent(threadId)}`,
-    { method: "DELETE" },
-  );
-  if (response.status === 404) {
-    clearActiveThreadId(threadId);
-    return;
+  let found = true;
+  try {
+    await apiFetch<{ deleted: boolean }>(`/api/chat-sessions/${encodeURIComponent(threadId)}`, { method: "DELETE" });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "";
+    if (msg.includes("请求的资源不存在") || msg.includes("404")) { found = false; } else { throw err; }
   }
-
-  await readEnvelope(response, "删除历史会话失败");
+  if (!found) { clearActiveThreadId(threadId); return; }
   clearActiveThreadId(threadId);
 }
 
@@ -84,49 +51,27 @@ export function createFeedMindThreadListAdapter(): RemoteThreadListAdapter {
   return {
     async list() {
       const sessions = await listChatSessions();
-
       return {
         threads: sessions.map((session) => ({
-          remoteId: session.aegra_thread_id,
-          externalId: session.aegra_thread_id,
-          status: "regular",
-          title: session.title,
+          remoteId: session.agent_thread_id, externalId: session.agent_thread_id,
+          status: "regular" as const, title: session.title,
         })),
       };
     },
     async initialize() {
-      const thread = await createAegraThread();
+      const thread = await createAgentThread();
       writeActiveFeedMindThreadId(thread.thread_id);
-
-      return {
-        remoteId: thread.thread_id,
-        externalId: thread.thread_id,
-      };
+      return { remoteId: thread.thread_id, externalId: thread.thread_id };
     },
     async fetch(threadId) {
       writeActiveFeedMindThreadId(threadId);
-
-      return {
-        remoteId: threadId,
-        externalId: threadId,
-        status: "regular",
-      };
+      return { remoteId: threadId, externalId: threadId, status: "regular" as const };
     },
-    async delete(threadId) {
-      await deleteChatSession(threadId);
-    },
-    async rename() {
-      return undefined;
-    },
-    async archive() {
-      return undefined;
-    },
-    async unarchive() {
-      return undefined;
-    },
-    async generateTitle() {
-      return new ReadableStream();
-    },
+    async delete(threadId) { await deleteChatSession(threadId); },
+    async rename() { return undefined; },
+    async archive() { return undefined; },
+    async unarchive() { return undefined; },
+    async generateTitle() { return new ReadableStream(); },
   };
 }
 

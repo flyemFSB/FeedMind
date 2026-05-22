@@ -1,7 +1,0 @@
-{
-  "name": "FeedMind",
-  "dependencies": ["."],
-  "graphs": {
-    "feedmind": "./feedmind/agent.py:agent"
-  }
-}

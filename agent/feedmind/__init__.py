@@ -1,5 +1,5 @@
 """FeedMind Agent package."""
 
-from .agent import agent
+from .agent import build_agent
 
-__all__ = ["agent"]
+__all__ = ["build_agent"]

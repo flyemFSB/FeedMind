@@ -20,6 +20,9 @@ htmlcov/
 dist/
 *.egg-info/
 
+# LangGraph runtime
+.langgraph_api/
+
 # Node / pnpm / Next.js
 node_modules/
 .pnpm-store/
@@ -36,12 +39,13 @@ yarn-error.log*
 pnpm-debug.log*
 package-lock.json
 
-# Docker / runtime data
+# Runtime data
 *.sqlite
 *.sqlite3
 *.db
 *.db-*
 *.log
+data/
 logs/
 
 # OS / editor

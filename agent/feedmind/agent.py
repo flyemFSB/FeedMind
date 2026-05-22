@@ -6,9 +6,17 @@ from feedmind.middlewares import dynamic_system_prompt, handle_tool_errors
 from feedmind.model import FeedMindResponsesModel
 from feedmind.tools import web_fetch, web_search
 
+try:
+    from langfuse import Langfuse
+    from langfuse.langchain import CallbackHandler
+
+    Langfuse()
+    _langfuse_handler = CallbackHandler(update_trace=True)
+except Exception:
+    _langfuse_handler = None
+
 
 def build_agent():
-    """构建可被 Aegra 加载的 LangChain Agent。"""
     settings = get_settings()
     logger.info("开始构建 FeedMind Agent default_model={}", settings.feedmind_model or "<empty>")
 
@@ -22,13 +30,14 @@ def build_agent():
 
     logger.info("联网工具已挂载：web_search=DDGS, web_fetch=Jina")
 
-    return create_agent(
+    agent = create_agent(
         model=model,
         tools=[web_search, web_fetch],
         middleware=[dynamic_system_prompt, handle_tool_errors],
     )
 
+    if _langfuse_handler:
+        agent = agent.with_config({"callbacks": [_langfuse_handler]})
 
-# Aegra 直接加载该 runnable。
-# 模型 ID 由 Aegra 通过 get_config().configurable.model 传入。
-agent = build_agent()
+    return agent
+

@@ -10,11 +10,11 @@ import {
   loadSelectedFeedMindModel,
   onSelectedFeedMindModelChange,
   setSelectedFeedMindModel,
-} from "@/lib/api/aegra";
+} from "@/lib/api/agent";
 import { listLLMModels } from "@/lib/api/llm-models";
 
 const suggestions = [
-  "总结知识库中最近更新的重点内容",
+  "总结我的 WIKI 中最近更新的重点内容",
   "帮我生成一份竞品研究报告大纲",
   "检索浏览器 AI 插件的产品趋势",
 ];
@@ -83,7 +83,7 @@ export function Thread() {
                 FeedMind Agent
               </h2>
               <p className="text-[14px] text-[#86868b] max-w-md leading-relaxed">
-                输入你的研究任务，我将为你检索知识库与网络资料，整合关键洞察并生成结构化报告。
+                输入你的研究任务，我将为你检索 WIKI 与网络资料，整合关键洞察并生成结构化报告。
               </p>
               <div className="flex flex-wrap justify-center gap-2 mt-6 max-w-xl">
                 {suggestions.map((suggestion) => (

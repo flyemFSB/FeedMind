@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { Client } from "@langchain/langgraph-sdk";
 import {
   unstable_createLangGraphStream,
@@ -9,11 +10,25 @@ import {
 } from "@assistant-ui/react-langgraph";
 import { getSelectedLLMModel, setSelectedLLMModel } from "@/lib/api/llm-models";
 
-function emitToast(message: string, type: "error" | "info" | "success" = "error") {
+const agentRunningEvent = "feedmind:agent-running";
+
+export function emitAgentRunning(running: boolean) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent("feedmind:toast", { detail: { message, type } }),
-  );
+  window.dispatchEvent(new CustomEvent(agentRunningEvent, { detail: running }));
+}
+
+export function onAgentRunningChange(
+  listener: (running: boolean) => void,
+): () => void {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handler = (event: Event) => {
+    if (event instanceof CustomEvent) {
+      listener(event.detail as boolean);
+    }
+  };
+  window.addEventListener(agentRunningEvent, handler);
+  return () => window.removeEventListener(agentRunningEvent, handler);
 }
 
 type Thread = {
@@ -37,16 +52,131 @@ type MessageWithId = {
   id?: unknown;
 };
 
-const aegraApiUrl =
-  process.env.NEXT_PUBLIC_AEGRA_API_URL ?? "http://localhost:2026";
-const backendApiUrl =
-  process.env.NEXT_PUBLIC_BACKEND_API_URL ?? "http://localhost:8000";
+type UnknownRecord = Record<string, unknown>;
 
-export const feedmindAegraAssistantId =
-  process.env.NEXT_PUBLIC_AEGRA_ASSISTANT_ID ?? "feedmind";
+function isRecord(value: unknown): value is UnknownRecord {
+  return value !== null && typeof value === "object";
+}
 
-export const aegraClient = new Client({
-  apiUrl: aegraApiUrl,
+function toThinkingPart(text: string): UnknownRecord {
+  return { type: "thinking", thinking: text };
+}
+
+function readReasoningText(part: unknown): string {
+  if (!isRecord(part)) return "";
+
+  if (typeof part.reasoning === "string") return part.reasoning.trim();
+  if (typeof part.text === "string") return part.text.trim();
+  if (!Array.isArray(part.summary)) return "";
+
+  return part.summary
+    .flatMap((item) => (isRecord(item) && typeof item.text === "string" ? item.text : []))
+    .join("\n\n")
+    .trim();
+}
+
+function normalizeReasoningPart(part: unknown): unknown {
+  if (!isRecord(part) || part.type !== "reasoning") return part;
+
+  const text = readReasoningText(part);
+  return text ? { ...part, ...toThinkingPart(text) } : part;
+}
+
+function normalizeReasoningContent(content: unknown): unknown {
+  if (!Array.isArray(content)) return content;
+  return content.map(normalizeReasoningPart);
+}
+
+function normalizeReasoningMessage<TMessage>(message: TMessage): TMessage {
+  if (!isRecord(message)) return message;
+
+  const normalized: UnknownRecord = { ...message };
+  if ("content" in normalized) {
+    normalized.content = normalizeReasoningContent(normalized.content);
+  }
+
+  if (isRecord(normalized.additional_kwargs)) {
+    const additionalKwargs = { ...normalized.additional_kwargs };
+    if (
+      !("reasoning" in additionalKwargs) &&
+      typeof additionalKwargs.reasoning_content === "string" &&
+      additionalKwargs.reasoning_content.trim()
+    ) {
+      additionalKwargs.reasoning = toThinkingPart(additionalKwargs.reasoning_content.trim());
+    }
+    if ("reasoning" in additionalKwargs) {
+      additionalKwargs.reasoning = normalizeReasoningPart(additionalKwargs.reasoning);
+    }
+    normalized.additional_kwargs = additionalKwargs;
+  }
+
+  return normalized as TMessage;
+}
+
+function normalizeReasoningMessages<TMessage>(messages: TMessage[]): TMessage[] {
+  return messages.map(normalizeReasoningMessage);
+}
+
+function normalizeReasoningEventData<TMessage>(data: unknown): unknown {
+  if (Array.isArray(data)) {
+    if (data.length === 2 && isRecord(data[1])) {
+      return [normalizeReasoningMessage(data[0]), data[1]];
+    }
+    return normalizeReasoningMessages(data as TMessage[]);
+  }
+
+  if (!isRecord(data)) return data;
+
+  const normalized: UnknownRecord = { ...data };
+  if (Array.isArray(normalized.messages)) {
+    normalized.messages = normalizeReasoningMessages(normalized.messages as TMessage[]);
+  }
+
+  for (const [key, value] of Object.entries(normalized)) {
+    if (key === "messages" || !isRecord(value) || !Array.isArray(value.messages)) {
+      continue;
+    }
+
+    normalized[key] = {
+      ...value,
+      messages: normalizeReasoningMessages(value.messages as TMessage[]),
+    };
+  }
+
+  return normalized;
+}
+
+function normalizeReasoningEvent<TMessage>(
+  event: LangGraphMessagesEvent<TMessage>,
+): LangGraphMessagesEvent<TMessage> {
+  return {
+    ...event,
+    data: normalizeReasoningEventData<TMessage>(event.data),
+  };
+}
+
+function normalizeThreadStateReasoning(state: ThreadState): ThreadState {
+  if (!state.values?.messages) return state;
+
+  return {
+    ...state,
+    values: {
+      ...state.values,
+      messages: normalizeReasoningMessages(state.values.messages),
+    },
+  };
+}
+
+const agentApiUrl =
+  typeof window === "undefined"
+    ? "http://localhost:3000/api/agent"
+    : `${window.location.origin}/api/agent`;
+
+export const feedmindAgentAssistantId =
+  process.env.NEXT_PUBLIC_FEEDMIND_ASSISTANT_ID ?? "feedmind";
+
+export const agentClient = new Client({
+  apiUrl: agentApiUrl,
 });
 
 const selectedModelStorageKey = "feedmind:selected-model";
@@ -101,50 +231,50 @@ export function onSelectedFeedMindModelChange(
     window.removeEventListener(selectedModelChangeEvent, handleChange);
 }
 
-export async function createAegraThread(): Promise<Thread> {
-  return aegraClient.threads.create() as Promise<Thread>;
+export async function createAgentThread(): Promise<Thread> {
+  return agentClient.threads.create() as Promise<Thread>;
 }
 
-export async function getAegraThreadState(
+export async function getAgentThreadState(
   threadId: string,
   signal?: AbortSignal,
 ): Promise<ThreadState> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  const state = await aegraClient.threads.getState(threadId);
-  return state as unknown as ThreadState;
+  const state = await agentClient.threads.getState(threadId);
+  return normalizeThreadStateReasoning(state as unknown as ThreadState);
 }
 
-export async function getAegraThreadHistory(
+export async function getAgentThreadHistory(
   threadId: string,
   signal?: AbortSignal,
 ): Promise<ThreadState[]> {
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  const history = await aegraClient.threads.getHistory(threadId);
+  const history = await agentClient.threads.getHistory(threadId, { limit: 100 });
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
   return history as unknown as ThreadState[];
 }
 
-export async function getAegraCheckpointId(
+export async function getAgentCheckpointId(
   threadId: string,
   parentMessages: readonly MessageWithId[],
   signal?: AbortSignal,
 ): Promise<string | null> {
   const hasParentMessages = parentMessages.length > 0;
   if (hasParentMessages && !hasStableMessageIds(parentMessages)) {
-    emitToast("当前消息缺少稳定 ID，无法安全编辑或重新生成", "error");
+    toast.error("当前消息缺少稳定 ID，无法安全编辑或重新生成");
     console.warn("无法定位 checkpoint：parentMessages 缺少稳定 ID", parentMessages);
     return null;
   }
 
   let history: ThreadState[];
   try {
-    history = await getAegraThreadHistory(threadId, signal);
+    history = await getAgentThreadHistory(threadId, signal);
   } catch (error) {
     if (signal?.aborted) throw error;
-    emitToast("读取历史 checkpoint 失败，请重试", "error");
+    toast.error("读取历史 checkpoint 失败，请重试");
     console.warn("读取历史 checkpoint 失败", error);
     return null;
   }
@@ -163,7 +293,15 @@ export async function getAegraCheckpointId(
     }
   }
 
-  emitToast("无法定位对应的历史 checkpoint，编辑分支未启动", "error");
+  // fallback: match by message count only (IDs may differ between runtime and persisted state)
+  for (const state of history) {
+    const stateMessages = state.values?.messages ?? [];
+    if (stateMessages.length === parentMessages.length) {
+      return state.checkpoint?.checkpoint_id ?? null;
+    }
+  }
+
+  toast.error("无法定位对应的历史 checkpoint，编辑分支未启动");
   console.warn("无法定位 checkpoint", {
     threadId,
     parentMessageIds: parentMessages.map((message) => message.id),
@@ -176,16 +314,16 @@ function hasStableMessageIds(messages: readonly MessageWithId[]): boolean {
   return messages.every((message) => typeof message.id === "string");
 }
 
-const baseAegraStream = unstable_createLangGraphStream({
-  client: aegraClient,
-  assistantId: feedmindAegraAssistantId,
+const baseAgentStream = unstable_createLangGraphStream({
+  client: agentClient,
+  assistantId: feedmindAgentAssistantId,
   streamMode: ["messages-tuple", "updates", "custom"],
 });
 
 type PersistableRole = "user" | "assistant" | "system" | "tool";
 
 type PersistableMessage = {
-  aegra_message_id: string;
+  agent_message_id: string;
   role: PersistableRole;
   content: string;
   status: "completed" | "failed";
@@ -206,7 +344,7 @@ function readContentText(content: LangChainMessage["content"]): string {
     .flatMap((part) => {
       if (part.type === "text" || part.type === "text_delta") return part.text;
       if (part.type === "thinking") return part.thinking;
-      if (part.type === "reasoning") return part.summary.map((item) => item.text);
+      if (part.type === "reasoning") return readReasoningText(part);
       return [];
     })
     .join("")
@@ -251,7 +389,7 @@ function toPersistableMessage(
 
   const role = getMessageRole(message);
   const metadata: Record<string, unknown> = {
-    ...(message.id ? { aegra_message_id: message.id } : {}),
+    ...(message.id ? { agent_message_id: message.id } : {}),
     ...(checkpointId ? { checkpoint_id: checkpointId } : {}),
     branch_index: index,
   };
@@ -275,7 +413,7 @@ function toPersistableMessage(
   }
 
   return {
-    aegra_message_id: message.id ?? `${index}:${role}`,
+    agent_message_id: message.id ?? `${index}:${role}`,
     role,
     content,
     status:
@@ -300,31 +438,31 @@ function toPersistableMessages(
 }
 
 async function saveChatSessionSnapshot(threadId: string): Promise<void> {
-  const state = await getAegraThreadState(threadId);
+  const state = await getAgentThreadState(threadId);
   const messages = toPersistableMessages(
     state.values?.messages ?? [],
     state.checkpoint?.checkpoint_id,
   );
 
   // 会话快照只保存最终文本内容，不记录流式 token。
-  await fetch(`${backendApiUrl}/api/chat-sessions/${encodeURIComponent(threadId)}`, {
+  await fetch(`/api/chat-sessions/${encodeURIComponent(threadId)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages }),
   });
 }
 
-async function* filterAegraMetadataEvents(
+async function* filterAgentMetadataEvents(
   stream: AsyncGenerator<LangGraphMessagesEvent<LangChainMessage>>,
 ): AsyncGenerator<LangGraphMessagesEvent<LangChainMessage>> {
   for await (const event of stream) {
     if (event.event === "messages/metadata") continue;
-    yield event;
+    yield normalizeReasoningEvent(event);
   }
 }
 
-// Aegra 兼容 LangGraph SDK，assistant-ui 仍通过 react-langgraph 消费流。
-export const aegraStream: LangGraphStreamCallback<LangChainMessage> = async (
+// Agent 兼容 LangGraph SDK，assistant-ui 仍通过 react-langgraph 消费流。
+export const agentStream: LangGraphStreamCallback<LangChainMessage> = async (
   messages,
   config,
 ) => {
@@ -344,11 +482,11 @@ export const aegraStream: LangGraphStreamCallback<LangChainMessage> = async (
   const selectedModel = getSelectedFeedMindModel().trim();
 
   if (!selectedModel) {
-    emitToast("请先配置模型后再发送消息", "error");
+    toast.error("请先配置模型后再发送消息");
     return (async function* emptyStream() {})();
   }
 
-  const stream = await baseAegraStream(messages, {
+  const stream = await baseAgentStream(messages, {
     ...config,
     initialize: async () => {
       initializedThread ??= await config.initialize();
@@ -364,7 +502,7 @@ export const aegraStream: LangGraphStreamCallback<LangChainMessage> = async (
   });
 
   async function* persistAfterComplete() {
-    for await (const event of filterAegraMetadataEvents(stream)) {
+    for await (const event of filterAgentMetadataEvents(stream)) {
       yield event;
     }
 
@@ -373,7 +511,7 @@ export const aegraStream: LangGraphStreamCallback<LangChainMessage> = async (
     try {
       await saveChatSessionSnapshot(initializedThread.externalId);
     } catch (error) {
-      emitToast("保存会话快照失败，请重试", "error");
+      toast.error("保存会话快照失败，请重试");
       console.warn("保存会话快照失败", error);
     }
   }

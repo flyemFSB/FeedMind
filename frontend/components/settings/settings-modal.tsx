@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Menu } from "@base-ui/react/menu";
 import {
   X,
@@ -63,7 +64,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type TabId = "account" | "models" | "kb" | "session" | "security";
+type TabId = "account" | "models" | "wiki" | "session" | "security";
 
 interface Tab {
   id: TabId;
@@ -74,7 +75,7 @@ interface Tab {
 const tabs: Tab[] = [
   { id: "account", label: "账号与偏好", icon: User },
   { id: "models", label: "模型配置", icon: Cpu },
-  { id: "kb", label: "知识库配置", icon: Database },
+  { id: "wiki", label: "WIKI 配置", icon: Database },
   { id: "session", label: "会话模型配置", icon: MessageSquare },
   { id: "security", label: "安全与密钥", icon: Shield },
 ];
@@ -98,8 +99,6 @@ const emptyModelForm: Omit<LLMModel, "id" | "hasApiKey"> & { apiKey: string } = 
   baseUrl: "",
   apiKey: "",
 };
-
-type ToastType = "error" | "info" | "success";
 
 const tableIconButtonClass =
   "flex h-6 w-6 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-colors hover:bg-white hover:text-[#1d1d1f] focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
@@ -127,14 +126,6 @@ function getApiKeyTooltip(model: LLMModel, visible: boolean, apiKey?: string): s
   if (!model.hasApiKey) return "未配置";
   if (!visible) return "密钥已隐藏";
   return apiKey ?? "密钥加载中...";
-}
-
-function showToast(message: string, type: ToastType = "info") {
-  window.dispatchEvent(
-    new CustomEvent("feedmind:toast", {
-      detail: { message, type },
-    }),
-  );
 }
 
 function VisibilityIcon({ visible, size }: { visible: boolean; size: number }) {
@@ -177,7 +168,7 @@ const handleAddModel = () => {
         setModels((items) => [...items, createdModel]);
         setShowAddModel(false);
         emitModelsChange();
-        showToast("模型添加成功", "success");
+        toast.success("模型添加成功");
       })
       .catch(() => {});
   };
@@ -206,7 +197,7 @@ const handleUpdateModel = () => {
         }
         setShowAddModel(false);
         emitModelsChange();
-        showToast("模型修改成功", "success");
+        toast.success("模型修改成功");
       })
       .catch(() => {});
   };
@@ -227,8 +218,8 @@ const handleUpdateModel = () => {
 
     void navigator.clipboard
       .writeText(text)
-      .then(() => showToast(successMessage, "success"))
-      .catch(() => showToast("复制失败", "error"));
+      .then(() => toast.success(successMessage))
+      .catch(() => {});
   };
 
   const loadModelApiKey = (model: LLMModel) => {
@@ -250,7 +241,7 @@ const handleUpdateModel = () => {
 void loadModelApiKey(model)
       .catch((err: Error) => {
         setVisibleModelApiKeys((items) => ({ ...items, [model.id]: false }));
-        showToast(err.message || "读取密钥失败", "error");
+        toast.error(err.message || "读取密钥失败");
       });
   };
 
@@ -272,7 +263,7 @@ const handleDeleteModel = () => {
         setModelApiKeys((items) => removeRecordKey(items, deletingModel.id));
         setDeletingModel(null);
         emitModelsChange();
-        showToast("模型已删除", "success");
+        toast.success("模型已删除");
       })
       .catch(() => {});
   };
@@ -300,7 +291,7 @@ const handleDeleteModel = () => {
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-[16px] font-semibold text-[#1d1d1f]">个人设置与模型配置</h2>
-              <p className="truncate text-[11px] text-[#86868b]">管理模型供应商、知识库检索模型与当前会话参数</p>
+              <p className="truncate text-[11px] text-[#86868b]">管理模型供应商、WIKI 检索模型与当前会话参数</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -516,9 +507,9 @@ const handleDeleteModel = () => {
               </div>
             )}
 
-            {activeTab === "kb" && (
+            {activeTab === "wiki" && (
               <div className="space-y-6">
-                <h3 className="text-[15px] font-semibold text-[#1d1d1f]">知识库配置</h3>
+                <h3 className="text-[15px] font-semibold text-[#1d1d1f]">WIKI 配置</h3>
 
                 <div className="grid min-w-0 grid-cols-2 gap-6">
                   <div className="space-y-4">

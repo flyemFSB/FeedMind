@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect, type PropsWithChildren } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { ReactNode } from "react";
+import type { MessagePartState } from "@assistant-ui/core";
 import {
   AlertCircle,
   Brain,
@@ -16,6 +18,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   User,
+  Wrench,
   X,
 } from "lucide-react";
 import {
@@ -27,10 +30,37 @@ import {
   ErrorPrimitive,
   useAui,
   useAuiState,
-  type ToolCallMessagePartProps,
 } from "@assistant-ui/react";
 import { Button } from "@/components/ui/button";
 import { MarkdownText } from "./markdown-text";
+import { emitAgentRunning } from "@/lib/api/agent";
+
+const groupThinkingParts = (part: MessagePartState) => {
+  if (part.type === "reasoning") {
+    return ["group-chainOfThought", "group-reasoning"] as const;
+  }
+  if (part.type === "tool-call") {
+    return ["group-chainOfThought", "group-tool"] as const;
+  }
+  return null;
+};
+
+function formatToolPayload(value: unknown): string {
+  if (value === undefined) return "";
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
 
 function MessageAttachment() {
   return (
@@ -297,75 +327,120 @@ function AssistantActionBar() {
   );
 }
 
-type PartType = { type: string };
-
-function groupChainOfThought(parts: readonly PartType[]) {
-  const groups: { groupKey: string | undefined; indices: number[] }[] = [];
-  let chainIndices: number[] = [];
-
-  for (let i = 0; i < parts.length; i++) {
-    if (parts[i].type === "reasoning" || parts[i].type === "tool-call") {
-      chainIndices.push(i);
-    } else {
-      if (chainIndices.length > 0) {
-        groups.push({ groupKey: "chainOfThought", indices: [...chainIndices] });
-        chainIndices = [];
-      }
-      groups.push({ groupKey: undefined, indices: [i] });
-    }
-  }
-
-  if (chainIndices.length > 0) {
-    groups.push({ groupKey: "chainOfThought", indices: [...chainIndices] });
-  }
-
-  return groups;
-}
-
-function ToolCallAutoCollapse(props: ToolCallMessagePartProps) {
-  const isRunning = props.status?.type === "running";
-
-  const ToolUI = useAuiState((s) => {
-    const entry = s.tools.tools[props.toolName];
-    return Array.isArray(entry) ? entry[0] ?? null : entry ?? null;
-  });
-
-  if (!ToolUI || !isRunning) return null;
-  return <ToolUI {...props} />;
-}
-
-function ChainOfThoughtGroup({
-  groupKey,
-  indices,
+function ThinkingAccordion({
   children,
-}: PropsWithChildren<{
-  groupKey: string | undefined;
-  indices: number[];
-}>) {
+  status,
+}: {
+  children: ReactNode;
+  status?: MessagePartState["status"];
+}) {
+  const running = status?.type === "running";
   const [open, setOpen] = useState(false);
-
-  const isRunning = useAuiState((s) =>
-    indices.some((i) => s.message.parts[i]?.status?.type === "running"),
-  );
+  const expanded = running || open;
 
   useEffect(() => {
-    setOpen(isRunning);
-  }, [isRunning]);
-
-  if (groupKey !== "chainOfThought") return <>{children}</>;
+    emitAgentRunning(running);
+  }, [running]);
 
   return (
-    <div className="border border-[#d2d2d7] rounded-xl overflow-hidden my-2">
+    <div className="my-1.5 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 w-full px-3 py-2 bg-[#f5f5f7] text-[12px] text-[#1d1d1f] hover:bg-[#e8e8ed] transition-colors"
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-9 w-full items-center gap-2.5 border-b border-[#e5e5e5] px-4 text-left text-[13px] font-semibold text-[#111111] transition-colors hover:bg-[#fafafa]"
       >
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <Brain size={14} className="text-[#0071e3]" />
-        <span className="font-medium">思考过程</span>
+        {expanded ? (
+          <ChevronDown size={15} strokeWidth={2.2} />
+        ) : (
+          <ChevronRight size={15} strokeWidth={2.2} />
+        )}
+        <span>思考过程</span>
       </button>
-      {open && <div className="px-3 py-2">{children}</div>}
+      {expanded && <div className="space-y-2.5 px-4 py-3">{children}</div>}
+    </div>
+  );
+}
+
+function ReasoningGroup({ children }: { children: ReactNode }) {
+  return <div className="space-y-2">{children}</div>;
+}
+
+function ReasoningContent({ text }: { text: string }) {
+  if (!text.trim()) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-start gap-3 text-[13px] leading-6 text-[#6e6e73]">
+      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1f1f1] text-[#8a8a8a]">
+        <Brain size={11} strokeWidth={1.8} />
+      </span>
+      <div className="whitespace-pre-wrap">{text}</div>
+    </div>
+  );
+}
+
+function ToolGroup({ children }: { children: ReactNode }) {
+  return <div className="space-y-2">{children}</div>;
+}
+
+type ToolFallbackProps = Extract<MessagePartState, { type: "tool-call" }>;
+
+function ToolFallback(part: ToolFallbackProps) {
+  const { args, argsText, isError, result, status, toolName } = part;
+  const running = status?.type === "running";
+  const StatusIcon = running ? Wrench : Check;
+  const [open, setOpen] = useState(false);
+  const formattedArgs = argsText || formatToolPayload(args);
+  const formattedResult = formatToolPayload(result);
+  const hasArgs = formattedArgs.trim() && formattedArgs.trim() !== "{}";
+  const hasResult = formattedResult.trim();
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 text-[13px] font-semibold text-[#111111]">
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#d9f7ee] text-[#00a979]">
+          <StatusIcon size={10} strokeWidth={running ? 1.8 : 2} />
+        </span>
+        <span>{toolName}</span>
+        <button
+          type="button"
+          className="ml-auto grid h-6 w-6 place-items-center rounded-md text-[#6e6e73] transition-colors hover:bg-[#f5f5f7] hover:text-[#111111]"
+          title={open ? "收起工具调用详情" : "展开工具调用详情"}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? (
+            <ChevronDown size={14} strokeWidth={1.8} />
+          ) : (
+            <ChevronRight size={14} strokeWidth={1.8} />
+          )}
+        </button>
+      </div>
+      {open && (
+        <div className="ml-7 space-y-2 rounded-lg bg-[#f7f7f8] px-3 py-2 text-[12px] leading-5 text-[#424245]">
+          {hasArgs && (
+            <div>
+              <div className="mb-1 font-medium text-[#6e6e73]">参数</div>
+              <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5">
+                {formattedArgs}
+              </pre>
+            </div>
+          )}
+          {hasResult && (
+            <div>
+              <div className={`mb-1 font-medium ${isError ? "text-red-500" : "text-[#6e6e73]"}`}>
+                {isError ? "错误" : "结果"}
+              </div>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5">
+                {formattedResult}
+              </pre>
+            </div>
+          )}
+          {!hasArgs && !hasResult && (
+            <div className="text-[#86868b]">暂无参数或结果</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -395,14 +470,28 @@ function AssistantMessage() {
 
         <div className="text-[14px] text-[#1d1d1f] leading-relaxed">
           <MessageAttachments />
-          <MessagePrimitive.Unstable_PartsGrouped
-            groupingFunction={groupChainOfThought}
-            components={{
-              Text: () => <MarkdownText />,
-              Group: ChainOfThoughtGroup,
-              tools: { Override: ToolCallAutoCollapse },
+          <MessagePrimitive.GroupedParts
+            groupBy={groupThinkingParts}
+          >
+            {({ part, children }) => {
+              switch (part.type) {
+                case "group-chainOfThought":
+                  return <ThinkingAccordion status={part.status}>{children}</ThinkingAccordion>;
+                case "group-tool":
+                  return <ToolGroup>{children}</ToolGroup>;
+                case "group-reasoning":
+                  return <ReasoningGroup>{children}</ReasoningGroup>;
+                case "text":
+                  return <MarkdownText />;
+                case "reasoning":
+                  return <ReasoningContent text={part.text} />;
+                case "tool-call":
+                  return part.toolUI ?? <ToolFallback {...part} />;
+                default:
+                  return null;
+              }
             }}
-          />
+          </MessagePrimitive.GroupedParts>
           <MessageError />
         </div>
 
@@ -416,7 +505,6 @@ function AssistantMessage() {
     </MessagePrimitive.Root>
   );
 }
-
 export const messageComponents = {
   UserMessage,
   AssistantMessage,
