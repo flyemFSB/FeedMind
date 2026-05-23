@@ -113,12 +113,59 @@ export interface WikiSource {
   status: "pending" | "analyzing" | "generating" | "completed" | "failed";
   errorMessage: string;
   pageCount: number;
+  mimeType: string;
+  importKind: "text" | "file" | "url" | "clipboard" | "generated" | string;
+  originalUri: string;
+  contentSize: number;
+  version: number;
+  lastJobId?: string | null;
+  relatedPageCount: number;
+  lastJob?: WikiSourceJob | null;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface WikiSourceJob {
+  id: string;
+  sourceId: string;
+  jobType: string;
+  status: "queued" | "running" | "cancel_requested" | "completed" | "failed" | "canceled" | string;
+  stage: string;
+  progressCurrent: number;
+  progressTotal: number;
+  errorMessage: string;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
+export interface WikiSourceDetail {
+  source: WikiSource;
+  pages: WikiSourcePage[];
+  jobs: WikiSourceJob[];
+}
+
+export interface WikiSourceDeleteImpact {
+  sourceId: string;
+  filename: string;
+  relatedPageCount: number;
+  orphanPageCount: number;
+  pages: WikiSourcePage[];
+}
+
+export interface WikiSourcePage {
+  id: string;
+  title: string;
+  type: WikiGraphNodeType;
+  relation: string;
+  jobId?: string | null;
   updatedAt: string;
 }
 
 export interface WikiIngestResult {
   sourceId: string;
+  jobId?: string | null;
   status: string;
   pageCount: number;
   writtenPaths: string[];

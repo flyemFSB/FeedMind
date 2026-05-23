@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { LLMModel } from "@/lib/types";
-import { listLLMModels } from "@/lib/api/llm-models";
+import { listLLMModels } from "@/lib/api/model-configs";
 import {
   loadSelectedFeedMindModel,
   onSelectedFeedMindModelChange,
@@ -71,12 +71,12 @@ export function ModelSelector() {
         .catch(() => setLoadError(true))
         .finally(() => setLoading(false));
     };
-    window.addEventListener("feedmind:llm-models-change", handleModelsChange);
+    window.addEventListener("feedmind:model-configs-change", handleModelsChange);
 
     const unsubscribe = onSelectedFeedMindModelChange(setSelectedModel);
     return () => {
       controller.abort();
-      window.removeEventListener("feedmind:llm-models-change", handleModelsChange);
+      window.removeEventListener("feedmind:model-configs-change", handleModelsChange);
       unsubscribe();
     };
   }, []);

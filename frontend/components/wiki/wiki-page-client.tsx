@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { getWikiGraph, listSources, listWikiPages } from "@/lib/api/wiki";
+import { getWikiGraph, listSources, listWikiPages } from "@/lib/api/wiki-spaces";
 import type { WikiGraphNode, WikiGraphResponse, WikiPage, WikiSpace, WikiSource } from "@/lib/types";
 
 type WikiViewMode = "pages" | "graph" | "sources";
@@ -71,24 +71,33 @@ export function WikiPageClient({ spaces, pages, graph: initialGraph, error: init
     () => new Set(graph?.nodes.map((node) => node.id) ?? []),
     [graph],
   );
+  const graphLinkCounts = useMemo(
+    () => new Map(graph?.nodes.map((node) => [node.id, node.linkCount]) ?? []),
+    [graph],
+  );
   const activeGraphPages = useMemo(
     () =>
       wikiPages.map((page) => ({
         ...page,
-        relationCount: graph?.nodes.find((node) => node.id === page.id)?.linkCount ?? page.relationCount,
+        relationCount: graphLinkCounts.get(page.id) ?? page.relationCount,
       })),
-    [graph, wikiPages],
+    [graphLinkCounts, wikiPages],
   );
 
-  async function loadWikiData(spaceId: string) {
-    const [nextPages, nextGraph, nextSources] = await Promise.all([
+  async function loadWikiData(spaceId: string): Promise<string | null> {
+    const [pagesResult, graphResult, sourcesResult] = await Promise.allSettled([
       listWikiPages(spaceId),
       getWikiGraph(spaceId),
       listSources(spaceId),
     ]);
-    setWikiPages(nextPages);
-    setGraph(nextGraph);
-    setSources(nextSources);
+
+    if (pagesResult.status === "fulfilled") setWikiPages(pagesResult.value);
+    if (graphResult.status === "fulfilled") setGraph(graphResult.value);
+    if (sourcesResult.status === "fulfilled") setSources(sourcesResult.value);
+
+    return [pagesResult, graphResult, sourcesResult].some((result) => result.status === "rejected")
+      ? "部分 WIKI 数据加载失败，可稍后重试"
+      : null;
   }
 
   async function selectWiki(spaceId: string) {
@@ -96,7 +105,7 @@ export function WikiPageClient({ spaces, pages, graph: initialGraph, error: init
     setRefreshing(true);
     setError(null);
     try {
-      await loadWikiData(spaceId);
+      setError(await loadWikiData(spaceId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载 WIKI 数据失败");
     } finally {
@@ -109,7 +118,7 @@ export function WikiPageClient({ spaces, pages, graph: initialGraph, error: init
     setRefreshing(true);
     setError(null);
     try {
-      await loadWikiData(selectedWiki);
+      setError(await loadWikiData(selectedWiki));
     } catch (err) {
       setError(err instanceof Error ? err.message : "刷新 WIKI 数据失败");
     } finally {

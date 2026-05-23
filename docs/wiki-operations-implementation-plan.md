@@ -39,7 +39,7 @@
 
 ```mermaid
 flowchart LR
-  UI["WIKI UI"] --> API["FastAPI /api/wiki-spaces"]
+  UI["WIKI UI"] --> API["FastAPI /api/v1/wiki-spaces"]
   API --> DB["PostgreSQL"]
   API --> Queue["Ingest Job Queue"]
   Queue --> Importers["Format Importers"]
@@ -120,23 +120,23 @@ flowchart LR
 
 新增或增强：
 
-- `GET /api/wiki-spaces/{space_id}/sources`
+- `GET /api/v1/wiki-spaces/{space_id}/sources`
   - 返回 source 统计、最近任务、关联页面数。
-- `POST /api/wiki-spaces/{space_id}/sources`
+- `POST /api/v1/wiki-spaces/{space_id}/sources`
   - 支持纯文本 source。
-- `POST /api/wiki-spaces/{space_id}/sources/imports`
+- `POST /api/v1/wiki-spaces/{space_id}/sources/imports`
   - multipart 文件导入入口。
-- `POST /api/wiki-spaces/{space_id}/sources/{source_id}/ingestions`
+- `POST /api/v1/wiki-spaces/{space_id}/sources/{source_id}/ingestions`
   - 启动 ingest 或 reingest。
-- `POST /api/wiki-spaces/{space_id}/jobs/{job_id}/cancel`
+- `PATCH /api/v1/wiki-spaces/{space_id}/jobs/{job_id}`
   - 请求取消。
-- `POST /api/wiki-spaces/{space_id}/jobs/{job_id}/retry`
+- `POST /api/v1/wiki-spaces/{space_id}/jobs/{job_id}/retries`
   - 用同一输入重试。
-- `DELETE /api/wiki-spaces/{space_id}/sources/{source_id}?mode=detach|delete-orphans|delete-all-created`
+- `DELETE /api/v1/wiki-spaces/{space_id}/sources/{source_id}?mode=detach|delete-orphans|delete-all-created`
   - 明确删除策略。
-- `GET /api/wiki-spaces/{space_id}/jobs`
+- `GET /api/v1/wiki-spaces/{space_id}/jobs`
   - 任务列表。
-- `GET /api/wiki-spaces/{space_id}/jobs/{job_id}`
+- `GET /api/v1/wiki-spaces/{space_id}/jobs/{job_id}`
   - 任务详情。
 
 ### 后端实施步骤
@@ -259,15 +259,15 @@ flowchart LR
 
 ### API 设计
 
-- `GET /api/wiki-spaces/{space_id}/review-items`
+- `GET /api/v1/wiki-spaces/{space_id}/review-items`
   - query：`status`、`kind`、`severity`、`page_id`、`source_id`。
-- `POST /api/wiki-spaces/{space_id}/review-items/{item_id}/accept`
-- `POST /api/wiki-spaces/{space_id}/review-items/{item_id}/reject`
-- `POST /api/wiki-spaces/{space_id}/review-items/{item_id}/snooze`
-- `POST /api/wiki-spaces/{space_id}/review-items/{item_id}/apply`
-- `POST /api/wiki-spaces/{space_id}/lint-runs`
+- `POST /api/v1/wiki-spaces/{space_id}/review-items/{item_id}/accept`
+- `POST /api/v1/wiki-spaces/{space_id}/review-items/{item_id}/reject`
+- `POST /api/v1/wiki-spaces/{space_id}/review-items/{item_id}/snooze`
+- `POST /api/v1/wiki-spaces/{space_id}/review-items/{item_id}/apply`
+- `POST /api/v1/wiki-spaces/{space_id}/lint-runs`
   - 手动触发 lint。
-- `GET /api/wiki-spaces/{space_id}/lint-runs`
+- `GET /api/v1/wiki-spaces/{space_id}/lint-runs`
   - 历史记录。
 
 ### 自动修复动作
@@ -471,13 +471,13 @@ HTML/URL：
 
 ### API 设计
 
-- `POST /api/wiki-spaces/{space_id}/sources/imports`
+- `POST /api/v1/wiki-spaces/{space_id}/sources/imports`
   - multipart：`files[]`
   - 返回 created sources 和 import jobs。
-- `POST /api/wiki-spaces/{space_id}/sources/url-imports`
+- `POST /api/v1/wiki-spaces/{space_id}/sources/url-imports`
   - body：`url`
   - 抓取网页并创建 source。
-- `GET /api/wiki-spaces/{space_id}/imports/capabilities`
+- `GET /api/v1/wiki-spaces/{space_id}/imports/capabilities`
   - 前端读取当前支持格式、大小限制。
 
 ### 前端实施步骤
@@ -589,7 +589,7 @@ HTML/URL：
 
 ## 需要避免的实现方式
 
-- 不要把导入器逻辑塞进 `wiki.py` 路由。
+- 不要把导入器逻辑塞进 `wiki_spaces.py` 路由。
 - 不要让前端直接推断 job 状态，状态应由后端返回。
 - 不要只靠页面 metadata 维护 source 关系，必须有关系表。
 - 不要一开始自动合并/删除页面，破坏性动作必须有人确认。

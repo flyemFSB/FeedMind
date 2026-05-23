@@ -8,7 +8,8 @@ import {
   type LangGraphStreamCallback,
   type UIMessage,
 } from "@assistant-ui/react-langgraph";
-import { getSelectedLLMModel, setSelectedLLMModel } from "@/lib/api/llm-models";
+import { getSelectedLLMModel, setSelectedLLMModel } from "@/lib/api/model-configs";
+import { apiFetch, backendApiPath } from "./client";
 
 const agentRunningEvent = "feedmind:agent-running";
 
@@ -445,7 +446,7 @@ async function saveChatSessionSnapshot(threadId: string): Promise<void> {
   );
 
   // 会话快照只保存最终文本内容，不记录流式 token。
-  await fetch(`/api/chat-sessions/${encodeURIComponent(threadId)}`, {
+  await apiFetch(backendApiPath(`/chat-sessions/${encodeURIComponent(threadId)}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages }),

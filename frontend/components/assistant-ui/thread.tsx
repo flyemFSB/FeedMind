@@ -11,7 +11,7 @@ import {
   onSelectedFeedMindModelChange,
   setSelectedFeedMindModel,
 } from "@/lib/api/agent";
-import { listLLMModels } from "@/lib/api/llm-models";
+import { listLLMModels } from "@/lib/api/model-configs";
 
 const suggestions = [
   "总结我的 WIKI 中最近更新的重点内容",
@@ -50,7 +50,7 @@ export function Thread() {
       void refreshModelStatus().catch(() => setCanSendMessage(false));
     };
 
-    window.addEventListener("feedmind:llm-models-change", handleModelsChange);
+    window.addEventListener("feedmind:model-configs-change", handleModelsChange);
     const unsubscribe = onSelectedFeedMindModelChange((model) => {
       setCanSendMessage(model.trim().length > 0);
     });
@@ -58,7 +58,7 @@ export function Thread() {
     return () => {
       disposed = true;
       controller.abort();
-      window.removeEventListener("feedmind:llm-models-change", handleModelsChange);
+      window.removeEventListener("feedmind:model-configs-change", handleModelsChange);
       unsubscribe();
     };
   }, []);

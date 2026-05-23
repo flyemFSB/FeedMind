@@ -7,8 +7,8 @@ router = APIRouter(tags=["health"])
 
 
 @router.get("/health", response_model=ApiEnvelope[dict[str, str | bool]])
-async def health() -> ApiEnvelope[dict[str, str | bool]]:
-    """用于容器和开发环境探活的轻量接口，同时检查数据库可达性。"""
+def health() -> ApiEnvelope[dict[str, str | bool]]:
+    """返回服务健康状态，并用最小查询确认数据库可达。"""
     db_ok = check_db_connection()
     return ApiEnvelope(
         data={

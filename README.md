@@ -67,7 +67,7 @@ Windows PowerShell：
 
 ```text
 Frontend:    http://localhost:3000
-Backend API: http://localhost:8000/api/health
+Backend API: http://localhost:8000/api/v1/health
 Agent API:   http://localhost:2024/docs
 ```
 

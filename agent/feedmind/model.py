@@ -101,11 +101,9 @@ class FeedMindResponsesModel(BaseChatModel):
         """获取当前模型 ID。
 
         优先级:
-          1. self.model（来自 .env 或 agent.py 构造时传入）
-          2. get_config().configurable.model（Agent API 在 invoke 时传入）
+          1. get_config().configurable.model（前端在 invoke 时传入）
+          2. self.model（来自 .env 或 agent.py 构造时传入）
         """
-        if self.model:
-            return self.model
         try:
             from langgraph.config import get_config
 
@@ -115,6 +113,8 @@ class FeedMindResponsesModel(BaseChatModel):
                 return model_id
         except RuntimeError:
             pass  # 不在 LangGraph 执行上下文中
+        if self.model:
+            return self.model
         return ""
 
     @retry(
@@ -130,7 +130,7 @@ class FeedMindResponsesModel(BaseChatModel):
             raise RuntimeError("No model is selected. Add and select a model in model settings first.")
 
         params = {"id": model_id}
-        url = f"{self.backend_api_url.rstrip('/')}/api/models/runtime"
+        url = f"{self.backend_api_url.rstrip('/')}/api/v1/models/runtime"
         logger.debug("请求模型运行配置 model_id={} url={}", model_id, url)
 
         with httpx.Client(timeout=3.0) as client:

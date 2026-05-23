@@ -4,7 +4,7 @@ from uuid import uuid4
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, JSON, LargeBinary, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.chat import Base
+from app.models.base import Base
 
 
 class WikiSpace(Base):
@@ -126,6 +126,13 @@ class WikiSource(Base):
     filename: Mapped[str] = mapped_column(Text, nullable=False, comment="原始文件名")
     content: Mapped[str] = mapped_column(Text, nullable=False, comment="提取后的文本内容")
     content_hash: Mapped[str] = mapped_column(Text, nullable=False, comment="SHA256 内容哈希，用于幂等跳过")
+    mime_type: Mapped[str] = mapped_column(Text, nullable=False, default="text/plain", comment="来源 MIME 类型")
+    import_kind: Mapped[str] = mapped_column(Text, nullable=False, default="text", comment="导入方式：text/file/url/clipboard/generated")
+    original_uri: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="原始 URI、文件名或外部来源标识")
+    content_size: Mapped[int] = mapped_column(nullable=False, default=0, comment="原文字符数或文件大小")
+    version: Mapped[int] = mapped_column(nullable=False, default=1, comment="同一来源重新扫描后的版本号")
+    last_job_id: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="最近一次摄入任务ID")
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict, comment="来源解析和导入扩展元数据")
     status: Mapped[str] = mapped_column(Text, nullable=False, default="pending", comment="pending/analyzing/generating/completed/failed")
     error_message: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="失败原因")
     page_count: Mapped[int] = mapped_column(nullable=False, default=0, comment="生成的 Wiki 页面数")
@@ -136,5 +143,66 @@ class WikiSource(Base):
 
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'analyzing', 'generating', 'completed', 'failed')", name="ck_wiki_sources_status"),
+        CheckConstraint("import_kind IN ('text', 'file', 'url', 'clipboard', 'generated')", name="ck_wiki_sources_import_kind"),
+        CheckConstraint("version > 0", name="ck_wiki_sources_version_positive"),
+        CheckConstraint("content_size >= 0", name="ck_wiki_sources_content_size_non_negative"),
         Index("idx_wiki_sources_space_status", "space_id", "status"),
+        Index("idx_wiki_sources_space_hash", "space_id", "content_hash"),
+        Index("idx_wiki_sources_last_job_id", "last_job_id"),
+    )
+
+
+class WikiIngestJob(Base):
+    __tablename__ = "wiki_ingest_jobs"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=lambda: str(uuid4()), comment="摄入任务ID")
+    space_id: Mapped[str] = mapped_column(Text, ForeignKey("wiki_spaces.id", ondelete="CASCADE"), nullable=False, comment="所属空间ID")
+    source_id: Mapped[str] = mapped_column(Text, ForeignKey("wiki_sources.id", ondelete="CASCADE"), nullable=False, comment="关联来源ID")
+    job_type: Mapped[str] = mapped_column(Text, nullable=False, default="ingest", comment="任务类型：import/ingest/reingest/lint/repair")
+    status: Mapped[str] = mapped_column(Text, nullable=False, default="queued", comment="queued/running/cancel_requested/completed/failed/canceled")
+    stage: Mapped[str] = mapped_column(Text, nullable=False, default="queued", comment="当前阶段：queued/extracting/analyzing/generating/writing/reviewing/completed/failed")
+    progress_current: Mapped[int] = mapped_column(nullable=False, default=0, comment="当前进度值")
+    progress_total: Mapped[int] = mapped_column(nullable=False, default=4, comment="总进度值")
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default="", comment="任务失败原因")
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, nullable=False, default=dict, comment="任务扩展元数据")
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="开始时间")
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), comment="结束时间")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), comment="创建时间")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now(), comment="更新时间"
+    )
+
+    __table_args__ = (
+        CheckConstraint("job_type IN ('import', 'ingest', 'reingest', 'lint', 'repair')", name="ck_wiki_ingest_jobs_type"),
+        CheckConstraint("status IN ('queued', 'running', 'cancel_requested', 'completed', 'failed', 'canceled')", name="ck_wiki_ingest_jobs_status"),
+        CheckConstraint("progress_current >= 0", name="ck_wiki_ingest_jobs_progress_current_non_negative"),
+        CheckConstraint("progress_total >= 0", name="ck_wiki_ingest_jobs_progress_total_non_negative"),
+        Index("idx_wiki_ingest_jobs_space_status", "space_id", "status"),
+        Index("idx_wiki_ingest_jobs_source_created_at", "source_id", "created_at"),
+        Index(
+            "uq_wiki_ingest_jobs_active_source",
+            "source_id",
+            unique=True,
+            sqlite_where=status.in_(("queued", "running", "cancel_requested")),
+            postgresql_where=status.in_(("queued", "running", "cancel_requested")),
+        ),
+    )
+
+
+class WikiSourcePage(Base):
+    __tablename__ = "wiki_source_pages"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True, default=lambda: str(uuid4()), comment="来源页面关联ID")
+    source_id: Mapped[str] = mapped_column(Text, ForeignKey("wiki_sources.id", ondelete="CASCADE"), nullable=False, comment="来源ID")
+    page_id: Mapped[str] = mapped_column(Text, ForeignKey("wiki_pages.id", ondelete="CASCADE"), nullable=False, comment="页面ID")
+    job_id: Mapped[str | None] = mapped_column(Text, ForeignKey("wiki_ingest_jobs.id", ondelete="SET NULL"), nullable=True, comment="写入该关系的任务ID")
+    relation: Mapped[str] = mapped_column(Text, nullable=False, default="created", comment="关系类型：created/updated/cited/removed")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now(), comment="创建时间")
+
+    __table_args__ = (
+        CheckConstraint("relation IN ('created', 'updated', 'cited', 'removed')", name="ck_wiki_source_pages_relation"),
+        UniqueConstraint("source_id", "page_id", "job_id", "relation", name="uq_wiki_source_pages_source_page_job_relation"),
+        Index("idx_wiki_source_pages_source_id", "source_id"),
+        Index("idx_wiki_source_pages_page_id", "page_id"),
+        Index("idx_wiki_source_pages_job_id", "job_id"),
     )

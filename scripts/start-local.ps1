@@ -59,5 +59,5 @@ Start-Process powershell -ArgumentList @(
 
 Write-Host "FeedMind local services are starting:"
 Write-Host "  Frontend:    http://localhost:3000"
-Write-Host "  Backend API: http://localhost:8000/api/health"
+Write-Host "  Backend API: http://localhost:8000/api/v1/health"
 Write-Host "  Agent API:   http://localhost:2024/docs"

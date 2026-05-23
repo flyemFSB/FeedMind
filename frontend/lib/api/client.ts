@@ -5,6 +5,20 @@ export type ApiEnvelope<T> = {
   error?: { code: string; message: string } | null;
 };
 
+const backendApiBasePath = "/api/v1";
+const agentApiBasePath = "/api/agent";
+
+export function backendApiPath(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (normalizedPath === agentApiBasePath || normalizedPath.startsWith(`${agentApiBasePath}/`)) {
+    return normalizedPath;
+  }
+  if (normalizedPath === backendApiBasePath || normalizedPath.startsWith(`${backendApiBasePath}/`)) {
+    return normalizedPath;
+  }
+  return `${backendApiBasePath}${normalizedPath}`;
+}
+
 export async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   let response: Response;
   try {

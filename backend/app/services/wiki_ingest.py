@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import re
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import UUID
 
 import httpx
@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 
 from app.core.crypto import decrypt_value
 from app.db import get_session
-from app.models import ModelConfig, WikiLink, WikiPage, WikiSpace, WikiSource
+from app.models import ModelConfig, WikiIngestJob, WikiLink, WikiPage, WikiSourcePage, WikiSpace, WikiSource
 from app.services.wiki_utils import source_count
 
 # ── LLM 调用（精简，仅 ingest 使用） ──────────────────────────
@@ -160,9 +160,42 @@ def build_generation_prompt(schema: str, purpose: str, index: str, overview: str
 # ── 两阶段 Ingest ────────────────────────────────────────────
 
 
-async def auto_ingest(source_id: UUID | str) -> list[str]:
+class WikiIngestCanceled(Exception):
+    """任务在阶段边界被用户取消。"""
+
+
+def _update_job_stage(job_id: str | None, stage: str, progress_current: int) -> None:
+    """在阶段边界更新 job，避免长任务失败时丢失定位信息。"""
+    if job_id is None:
+        return
+    with get_session() as session:
+        job = session.get(WikiIngestJob, job_id)
+        if job is not None:
+            job.stage = stage
+            job.progress_current = progress_current
+
+
+def _ensure_job_active(job_id: str | None) -> None:
+    """取消请求在阶段边界生效，避免写入半成品页面。"""
+    if job_id is None:
+        return
+    with get_session() as session:
+        job = session.get(WikiIngestJob, job_id)
+        if job is not None and job.status == "cancel_requested":
+            job.status = "canceled"
+            job.stage = "canceled"
+            job.finished_at = datetime.now(timezone.utc)
+            source = session.get(WikiSource, job.source_id)
+            if source is not None:
+                source.status = "pending"
+                source.error_message = "任务已取消"
+            raise WikiIngestCanceled("任务已取消")
+
+
+async def auto_ingest(source_id: UUID | str, job_id: UUID | str | None = None) -> list[str]:
     """两阶段自动 Ingest：LLM 分析 → LLM 生成 Wiki 页面。"""
-    source_key = UUID(source_id) if isinstance(source_id, str) else source_id
+    source_key = str(source_id)
+    job_key = str(job_id) if job_id is not None else None
     with get_session() as session:
         source = session.get(WikiSource, source_key)
         if source is None:
@@ -177,6 +210,7 @@ async def auto_ingest(source_id: UUID | str) -> list[str]:
 
     try:
         # Step 1: LLM 分析
+        _update_job_stage(job_key, "analyzing", 1)
         logger.info("[ingest] Step 1/2: 分析 {}", source.filename)
         analysis = await _llm_call(
             [{"role": "system", "content": build_analysis_prompt(space.description, index, source.content, source.filename)},
@@ -185,6 +219,8 @@ async def auto_ingest(source_id: UUID | str) -> list[str]:
         )
 
         # Step 2: LLM 生成
+        _ensure_job_active(job_key)
+        _update_job_stage(job_key, "generating", 2)
         with get_session() as session:
             session.get(WikiSource, source_key).status = "generating"
             session.flush()
@@ -196,9 +232,11 @@ async def auto_ingest(source_id: UUID | str) -> list[str]:
         )
 
         # 解析并写入
+        _ensure_job_active(job_key)
+        _update_job_stage(job_key, "writing", 3)
         blocks = parse_file_blocks(generation)
         logger.info("[ingest] 解析到 {} 个 FILE 块", len(blocks))
-        written = await _write_blocks(source, blocks)
+        written = await _write_blocks(source, blocks, job_id=job_key)
         with get_session() as session:
             src = session.get(WikiSource, source_key)
             src.status = "completed"
@@ -206,6 +244,9 @@ async def auto_ingest(source_id: UUID | str) -> list[str]:
             session.flush()
         return written
 
+    except WikiIngestCanceled:
+        logger.info("[ingest] 已取消 {}", source.filename)
+        raise
     except Exception as e:
         logger.exception("[ingest] 失败 {}", source.filename)
         with get_session() as session:
@@ -275,17 +316,20 @@ def _refresh_wikilinks(session, space_id, pages: list[WikiPage]) -> None:
             )
 
 
-async def _write_blocks(source: WikiSource, blocks: list[dict]) -> list[str]:
+async def _write_blocks(source: WikiSource, blocks: list[dict], job_id: str | None = None) -> list[str]:
     """将 FILE 块写入数据库 WikiPage。"""
     written = []
     written_pages: list[WikiPage] = []
+    relation_keys: set[tuple[str, str, str]] = set()
     with get_session() as session:
         space = session.get(WikiSpace, source.space_id)
+        source_in_session = session.get(WikiSource, source.id)
         for b in blocks:
             title = _field(b["content"], "title") or b["path"].split("/")[-1].replace(".md", "")
             page_type = _field(b["content"], "type") or "source"
             src_list = _list_field(b["content"], "sources") or [source.filename]
             existing = session.scalar(select(WikiPage).where(WikiPage.space_id == space.id, WikiPage.title == title))
+            relation = "updated" if existing else "created"
             if existing:
                 existing_meta = existing.metadata_ or {}
                 existing_src = existing_meta.get("sources", [])
@@ -313,9 +357,35 @@ async def _write_blocks(source: WikiSource, blocks: list[dict]) -> list[str]:
             if page not in written_pages:
                 written_pages.append(page)
             written.append(b["path"])
+            session.flush()
+            relation_key = (page.id, job_id or "", relation)
+            if relation_key not in relation_keys and not _source_page_relation_exists(session, source.id, page.id, job_id, relation):
+                relation_keys.add(relation_key)
+                # 关系表是后续 review/lint/删除影响范围的可信追溯来源。
+                session.add(
+                    WikiSourcePage(
+                        source_id=source.id,
+                        page_id=page.id,
+                        job_id=job_id,
+                        relation=relation,
+                    )
+                )
         session.flush()
+        if source_in_session is not None:
+            source_in_session.page_count = len({page.id for page in written_pages})
         _refresh_wikilinks(session, space.id, written_pages)
     return written
+
+
+def _source_page_relation_exists(session, source_id: str, page_id: str, job_id: str | None, relation: str) -> bool:
+    return session.scalar(
+        select(WikiSourcePage.id).where(
+            WikiSourcePage.source_id == source_id,
+            WikiSourcePage.page_id == page_id,
+            WikiSourcePage.job_id == job_id,
+            WikiSourcePage.relation == relation,
+        )
+    ) is not None
 
 
 def _build_index(space: WikiSpace, pages: list[WikiPage]) -> str:

@@ -4,12 +4,13 @@
 未设置时使用内置开发密钥（重启后数据仍可解密，但不适用于生产环境）。
 """
 
-import os
 from base64 import urlsafe_b64encode
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+from app.core.config import get_settings
 
 # 内置开发密钥 —— 确保开发环境下重启容器后已有数据仍可解密。
 # 生产环境务必在 .env 中设置 ENCRYPTION_KEY 覆盖此值。
@@ -28,8 +29,10 @@ def _derive_fernet_key(raw_key: str) -> bytes:
 
 
 def _get_fernet() -> Fernet:
-    """获取 Fernet 实例，密钥来自 ENCRYPTION_KEY 环境变量或内置开发密钥。"""
-    raw_key = os.environ.get("ENCRYPTION_KEY") or _DEV_KEY
+    """获取 Fernet 实例，密钥统一来自 Settings 或内置开发密钥。"""
+    settings = get_settings()
+    settings.validate_runtime()
+    raw_key = settings.encryption_key or _DEV_KEY
     return Fernet(_derive_fernet_key(raw_key))
 
 

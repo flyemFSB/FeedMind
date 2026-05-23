@@ -1,5 +1,5 @@
 from datetime import datetime
-from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,7 +9,7 @@ class WikiSpaceRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
+    id: str
     name: str
     description: str
     category: str
@@ -25,8 +25,8 @@ class WikiPageRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID
-    space_id: UUID
+    id: str
+    space_id: str
     title: str
     type: str
     source: str
@@ -45,7 +45,7 @@ class WikiPageSearchRead(WikiPageRead):
 class WikiGraphNode(BaseModel):
     """知识图谱节点，对应一个 WikiPage。"""
 
-    id: UUID
+    id: str
     title: str
     type: str
     status: str
@@ -65,8 +65,8 @@ class WikiGraphEdgeSignals(BaseModel):
 class WikiGraphEdge(BaseModel):
     """知识图谱边，表示两节点间的关联强度。"""
 
-    source: UUID
-    target: UUID
+    source: str
+    target: str
     weight: float  # 综合权重，由四个信号加权求和
     signals: WikiGraphEdgeSignals
     relation_type: str
@@ -90,18 +90,30 @@ class WikiGraphResponse(BaseModel):
 
 
 class WikiSourceRead(BaseModel):
+    """来源列表项，包含最近任务和页面关联摘要。"""
+
     model_config = ConfigDict(from_attributes=True)
-    id: UUID
-    space_id: UUID
+    id: str
+    space_id: str
     filename: str
+    mime_type: str
+    import_kind: str
+    original_uri: str
+    content_size: int
+    version: int
+    last_job_id: str | None = None
     status: str
     error_message: str
     page_count: int
+    related_page_count: int = 0
+    last_job: "WikiIngestJobRead | None" = None
     created_at: datetime
     updated_at: datetime
 
 
 class WikiSourceCreate(BaseModel):
+    """创建文本来源的请求体。"""
+
     filename: str
     content: str
 
@@ -109,12 +121,67 @@ class WikiSourceCreate(BaseModel):
 class WikiIngestRequest(BaseModel):
     """统一摄入请求：一个来源也放进数组，便于后续扩展选项。"""
 
-    source_ids: list[UUID] = Field(min_length=1)
+    source_ids: list[str] = Field(min_length=1)
 
 
 class WikiIngestResult(BaseModel):
-    source_id: UUID
+    source_id: str
+    job_id: str | None = None
     status: str
     page_count: int
     written_paths: list[str]
     error: str | None = None
+
+
+class WikiIngestJobRead(BaseModel):
+    """来源摄入任务的前端展示模型。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    space_id: str
+    source_id: str
+    job_type: str
+    status: str
+    stage: str
+    progress_current: int
+    progress_total: int
+    error_message: str
+    started_at: datetime | None
+    finished_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class WikiSourcePageRead(BaseModel):
+    """来源关联页面的轻量视图。"""
+
+    id: str
+    title: str
+    type: str
+    relation: str
+    job_id: str | None = None
+    updated_at: datetime
+
+
+class WikiSourceDetailRead(WikiSourceRead):
+    """来源详情，包含页面和任务链路。"""
+
+    pages: list[WikiSourcePageRead]
+    jobs: list[WikiIngestJobRead]
+
+
+class WikiSourceDeleteImpact(BaseModel):
+    """删除来源前的影响范围预览。"""
+
+    source_id: str
+    filename: str
+    related_page_count: int
+    orphan_page_count: int
+    pages: list[WikiSourcePageRead]
+
+
+class WikiIngestJobUpdate(BaseModel):
+    """任务状态更新请求；当前只允许请求取消。"""
+
+    status: Literal["canceled"]

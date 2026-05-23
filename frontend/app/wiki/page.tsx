@@ -1,6 +1,6 @@
 import { WikiPageClient } from "@/components/wiki/wiki-page-client";
-import { toWikiGraph, toWikiPage, toWikiSpace } from "@/lib/api/wiki";
-import type { WikiGraphResponseWire, WikiPageResponse, WikiSpaceResponse } from "@/lib/api/wiki";
+import { toWikiGraph, toWikiPage, toWikiSpace } from "@/lib/api/wiki-spaces";
+import type { WikiGraphResponseWire, WikiPageResponse, WikiSpaceResponse } from "@/lib/api/wiki-spaces";
 import type { WikiGraphResponse, WikiPage, WikiSpace } from "@/lib/types";
 import { serverFetch } from "@/lib/api/server";
 
@@ -18,12 +18,18 @@ async function loadInitialWikiData(): Promise<InitialWikiData> {
   const firstSpaceId = spaces[0]?.id;
   if (!firstSpaceId) return { spaces, pages: [], graph: null, error: null };
 
-  const [pages, graph] = await Promise.all([
+  const [pagesResult, graphResult] = await Promise.allSettled([
     serverFetch<WikiPageResponse[]>(`/wiki-spaces/${firstSpaceId}/pages`),
     serverFetch<WikiGraphResponseWire>(`/wiki-spaces/${firstSpaceId}/graph`),
   ]);
 
-  return { spaces, pages: pages.map(toWikiPage), graph: toWikiGraph(graph), error: null };
+  const pages = pagesResult.status === "fulfilled" ? pagesResult.value.map(toWikiPage) : [];
+  const graph = graphResult.status === "fulfilled" ? toWikiGraph(graphResult.value) : null;
+  const error = [pagesResult, graphResult].some((result) => result.status === "rejected")
+    ? "部分 WIKI 数据加载失败，可稍后重试"
+    : null;
+
+  return { spaces, pages, graph, error };
 }
 
 export default async function MyWikiPage() {

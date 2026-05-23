@@ -26,7 +26,7 @@ import {
   getLLMModelRuntime,
   listLLMModels,
   updateLLMModel,
-} from "@/lib/api/llm-models";
+} from "@/lib/api/model-configs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -107,7 +107,7 @@ const menuItemClass =
   "flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[#1d1d1f] outline-none hover:bg-[#f5f5f7] data-highlighted:bg-[#f5f5f7]";
 
 function emitModelsChange() {
-  window.dispatchEvent(new Event("feedmind:llm-models-change"));
+  window.dispatchEvent(new Event("feedmind:model-configs-change"));
 }
 
 function removeRecordKey<T>(items: Record<string, T>, key: string): Record<string, T> {

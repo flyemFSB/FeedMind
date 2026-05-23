@@ -1,14 +1,12 @@
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from loguru import logger
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
-from app.models import Base
-from app.services.wiki_seed import seed_demo_wiki
 
 _engine: Engine | None = None
 _engine_url = ""
@@ -16,6 +14,7 @@ _SessionFactory: sessionmaker | None = None
 
 
 def get_engine() -> Engine:
+    """按当前配置懒加载数据库引擎，测试切库时会自动重建。"""
     global _engine, _engine_url
 
     database_url = get_settings().database_url
@@ -27,6 +26,7 @@ def get_engine() -> Engine:
                 connect_args={"check_same_thread": False},
                 pool_pre_ping=True,
             )
+            _enable_sqlite_foreign_keys(_engine)
         else:
             _engine = create_engine(
                 database_url,
@@ -40,12 +40,23 @@ def get_engine() -> Engine:
     return _engine
 
 
+def _enable_sqlite_foreign_keys(engine: Engine) -> None:
+    """SQLite 默认关闭外键，测试和本地库需要显式开启级联删除。"""
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 def _rebuild_session_factory() -> None:
     global _SessionFactory
     _SessionFactory = sessionmaker(bind=get_engine(), autoflush=False, expire_on_commit=False)
 
 
 def get_session_factory() -> sessionmaker:
+    """返回统一的 Session 工厂，避免各模块自行创建连接池。"""
     global _SessionFactory
     if _SessionFactory is None:
         _rebuild_session_factory()
@@ -54,6 +65,7 @@ def get_session_factory() -> sessionmaker:
 
 @contextmanager
 def get_session() -> Iterator[Session]:
+    """提供事务边界：正常提交，异常回滚，并始终关闭会话。"""
     session = get_session_factory()()
     try:
         yield session
@@ -64,22 +76,3 @@ def get_session() -> Iterator[Session]:
         raise
     finally:
         session.close()
-
-
-def check_db_connection() -> bool:
-    try:
-        with get_session() as session:
-            session.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        logger.exception("数据库连接检查失败")
-        return False
-
-
-def init_db() -> None:
-    logger.info("开始初始化数据库表")
-    engine = get_engine()
-    Base.metadata.create_all(engine)
-    with get_session() as session:
-        seed_demo_wiki(session)
-    logger.info("数据库表初始化完成")
