@@ -25,7 +25,7 @@ from app.services.wiki_space_service import (
     WikiSpaceNotFoundError,
 )
 
-router = APIRouter(prefix="/wiki-spaces", tags=["wiki-spaces"])
+router = APIRouter(prefix="/wikis", tags=["wikis"])
 
 
 def _not_found(exc: Exception) -> HTTPException:

@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 
 from app.core.crypto import decrypt_value
 from app.db import get_session
-from app.models import ModelConfig, WikiIngestJob, WikiLink, WikiPage, WikiSourcePage, WikiSpace, WikiSource
+from app.models import LLM, WikiIngestJob, WikiLink, WikiPage, WikiSourcePage, WikiSpace, WikiSource
 from app.services.wiki_utils import source_count
 
 # ── LLM 调用（精简，仅 ingest 使用） ──────────────────────────
@@ -27,7 +27,7 @@ def _llm_runtime(invalidate: bool = False) -> dict:
     global _cached_runtime
     if _cached_runtime is None or invalidate:
         with get_session() as session:
-            m = session.scalar(select(ModelConfig).where(ModelConfig.is_selected == True).limit(1))
+            m = session.scalar(select(LLM).where(LLM.is_selected == True).limit(1))
             if m is None:
                 raise RuntimeError("未配置 LLM 模型，请在设置中添加并选中一个模型")
             _cached_runtime = {"model": m.model_name, "base_url": m.base_url.rstrip("/"), "api_key": decrypt_value(m.encrypted_api_key) if m.encrypted_api_key else ""}

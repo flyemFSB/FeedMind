@@ -32,13 +32,13 @@ function clearActiveThreadId(threadId: string): void {
 }
 
 export async function listChatSessions(): Promise<ChatSessionListItem[]> {
-  return apiFetch<ChatSessionListItem[]>(backendApiPath("/chat-sessions"));
+  return apiFetch<ChatSessionListItem[]>(backendApiPath("/chats"));
 }
 
 export async function deleteChatSession(threadId: string): Promise<void> {
   let found = true;
   try {
-    await apiFetch<{ deleted: boolean }>(backendApiPath(`/chat-sessions/${encodeURIComponent(threadId)}`), { method: "DELETE" });
+    await apiFetch<{ deleted: boolean }>(backendApiPath(`/chats/${encodeURIComponent(threadId)}`), { method: "DELETE" });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "";
     if (msg.includes("请求的资源不存在") || msg.includes("404")) { found = false; } else { throw err; }

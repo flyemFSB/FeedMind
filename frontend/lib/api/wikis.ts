@@ -136,41 +136,41 @@ function toDeleteImpact(impact: WikiSourceDeleteImpactResponse): WikiSourceDelet
 }
 
 export async function listWikiSpaces(signal?: AbortSignal): Promise<WikiSpace[]> {
-  return (await apiFetch<WikiSpaceResponse[]>(backendApiPath("/wiki-spaces"), { signal })).map(toWikiSpace);
+  return (await apiFetch<WikiSpaceResponse[]>(backendApiPath("/wikis"), { signal })).map(toWikiSpace);
 }
 
 export async function listWikiPages(spaceId: string, signal?: AbortSignal): Promise<WikiPage[]> {
-  return (await apiFetch<WikiPageResponse[]>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/pages`), { signal })).map(toWikiPage);
+  return (await apiFetch<WikiPageResponse[]>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/pages`), { signal })).map(toWikiPage);
 }
 
 export async function getWikiGraph(spaceId: string, signal?: AbortSignal): Promise<WikiGraphResponse> {
-  return toWikiGraph(await apiFetch<WikiGraphResponseWire>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/graph`), { signal }));
+  return toWikiGraph(await apiFetch<WikiGraphResponseWire>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/graph`), { signal }));
 }
 
 export async function listSources(spaceId: string, signal?: AbortSignal): Promise<WikiSource[]> {
-  return (await apiFetch<WikiSourceResponse[]>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/sources`), { signal })).map(toSource);
+  return (await apiFetch<WikiSourceResponse[]>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/sources`), { signal })).map(toSource);
 }
 
 export async function getSourceDetail(spaceId: string, sourceId: string, signal?: AbortSignal): Promise<WikiSourceDetail> {
-  return toSourceDetail(await apiFetch<WikiSourceDetailResponse>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}`), { signal }));
+  return toSourceDetail(await apiFetch<WikiSourceDetailResponse>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}`), { signal }));
 }
 
 export async function getSourceDeleteImpact(spaceId: string, sourceId: string, signal?: AbortSignal): Promise<WikiSourceDeleteImpact> {
-  return toDeleteImpact(await apiFetch<WikiSourceDeleteImpactResponse>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}/deletion-impact`), { signal }));
+  return toDeleteImpact(await apiFetch<WikiSourceDeleteImpactResponse>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}/deletion-impact`), { signal }));
 }
 
 export async function createSource(spaceId: string, filename: string, content: string): Promise<WikiSource> {
-  return toSource(await apiFetch<WikiSourceResponse>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/sources`), {
+  return toSource(await apiFetch<WikiSourceResponse>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/sources`), {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename, content }),
   }));
 }
 
 export async function deleteSource(spaceId: string, sourceId: string): Promise<void> {
-  await apiFetch<{ deleted: boolean }>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}`), { method: "DELETE" });
+  await apiFetch<{ deleted: boolean }>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/sources/${encodeURIComponent(sourceId)}`), { method: "DELETE" });
 }
 
 export async function ingestSources(spaceId: string, sourceIds: string[]): Promise<WikiIngestResult[]> {
-  return (await apiFetch<WikiIngestResultResponse[]>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/ingestions`), {
+  return (await apiFetch<WikiIngestResultResponse[]>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/ingestions`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ source_ids: sourceIds }),
@@ -178,15 +178,15 @@ export async function ingestSources(spaceId: string, sourceIds: string[]): Promi
 }
 
 export async function listJobs(spaceId: string, signal?: AbortSignal): Promise<WikiSourceJob[]> {
-  return (await apiFetch<WikiSourceJobResponse[]>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/jobs`), { signal })).map(toJob);
+  return (await apiFetch<WikiSourceJobResponse[]>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/jobs`), { signal })).map(toJob);
 }
 
 export async function retryJob(spaceId: string, jobId: string): Promise<WikiSourceJob> {
-  return toJob(await apiFetch<WikiSourceJobResponse>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/jobs/${encodeURIComponent(jobId)}/retries`), { method: "POST" }));
+  return toJob(await apiFetch<WikiSourceJobResponse>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/jobs/${encodeURIComponent(jobId)}/retries`), { method: "POST" }));
 }
 
 export async function cancelJob(spaceId: string, jobId: string): Promise<WikiSourceJob> {
-  return toJob(await apiFetch<WikiSourceJobResponse>(backendApiPath(`/wiki-spaces/${encodeURIComponent(spaceId)}/jobs/${encodeURIComponent(jobId)}`), {
+  return toJob(await apiFetch<WikiSourceJobResponse>(backendApiPath(`/wikis/${encodeURIComponent(spaceId)}/jobs/${encodeURIComponent(jobId)}`), {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: "canceled" }),

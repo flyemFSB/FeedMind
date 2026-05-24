@@ -1,21 +1,21 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
-from app.schemas.chat_session import ChatSessionListItem, ChatSessionRead, ChatSessionSnapshot
+from app.schemas.chat import ChatSessionListItem, ChatSessionRead, ChatSessionSnapshot
 from app.schemas.envelope import ApiEnvelope
 from app.services import chat_session_service
 from app.services.chat_session_service import ChatSessionNotFoundError
 
-router = APIRouter(prefix="/chat-sessions", tags=["chat-sessions"])
+router = APIRouter(prefix="/chats", tags=["chats"])
 
 
 @router.get("", response_model=ApiEnvelope[list[ChatSessionListItem]])
-def list_chat_sessions() -> ApiEnvelope[list[ChatSessionListItem]]:
+def list_chats() -> ApiEnvelope[list[ChatSessionListItem]]:
     """返回可恢复的历史会话列表。"""
     return ApiEnvelope(data=chat_session_service.list_chat_sessions())
 
 
 @router.get("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
-def get_chat_session(session_id: str) -> ApiEnvelope[ChatSessionRead]:
+def get_chat(session_id: str) -> ApiEnvelope[ChatSessionRead]:
     """按路径中的 session_id 读取会话，当前值仍对应 Agent 线程 ID。"""
     try:
         return ApiEnvelope(data=chat_session_service.get_chat_session(session_id))
@@ -27,7 +27,7 @@ def get_chat_session(session_id: str) -> ApiEnvelope[ChatSessionRead]:
 
 
 @router.put("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
-def save_chat_session(
+def save_chat(
     session_id: str,
     payload: ChatSessionSnapshot,
 ) -> ApiEnvelope[ChatSessionRead]:
@@ -36,7 +36,7 @@ def save_chat_session(
 
 
 @router.delete("/{session_id}", response_model=ApiEnvelope[ChatSessionRead])
-def delete_chat_session(session_id: str) -> ApiEnvelope[ChatSessionRead]:
+def delete_chat(session_id: str) -> ApiEnvelope[ChatSessionRead]:
     """按路径中的 session_id 删除快照，当前值仍对应 Agent 线程 ID。"""
     try:
         return ApiEnvelope(data=chat_session_service.delete_chat_session(session_id))

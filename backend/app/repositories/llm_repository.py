@@ -1,33 +1,33 @@
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.models import ModelConfig
+from app.models import LLM
 
 
-class ModelConfigRepository:
+class LLMRepository:
     """封装模型配置相关的数据库访问。"""
 
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def list_model_configs(self) -> list[ModelConfig]:
+    def list_llms(self) -> list[LLM]:
         """按创建顺序读取全部模型配置。"""
-        return list(self.session.scalars(select(ModelConfig).order_by(ModelConfig.id.asc())).all())
+        return list(self.session.scalars(select(LLM).order_by(LLM.id.asc())).all())
 
-    def get_model_config(self, model_id: int) -> ModelConfig | None:
+    def get_llm(self, model_id: int) -> LLM | None:
         """按 ID 读取单个模型配置。"""
-        return self.session.get(ModelConfig, model_id)
+        return self.session.get(LLM, model_id)
 
-    def create_model_config(
+    def create_llm(
         self,
         *,
         provider: str,
         model_name: str,
         base_url: str,
         encrypted_api_key: str,
-    ) -> ModelConfig:
+    ) -> LLM:
         """创建模型配置并 flush，便于上层拿到主键和唯一约束错误。"""
-        model = ModelConfig(
+        model = LLM(
             provider=provider,
             model_name=model_name,
             base_url=base_url,
@@ -37,15 +37,15 @@ class ModelConfigRepository:
         self.session.flush()
         return model
 
-    def update_model_config(
+    def update_llm(
         self,
-        model: ModelConfig,
+        model: LLM,
         *,
         provider: str,
         model_name: str,
         base_url: str,
         encrypted_api_key: str | None = None,
-    ) -> ModelConfig:
+    ) -> LLM:
         """更新已有模型配置；密钥为 None 时保持原值。"""
         model.provider = provider
         model.model_name = model_name
@@ -55,21 +55,21 @@ class ModelConfigRepository:
         self.session.flush()
         return model
 
-    def delete_model_config(self, model: ModelConfig) -> None:
+    def delete_llm(self, model: LLM) -> None:
         """删除模型配置。"""
         self.session.delete(model)
 
-    def get_selected_model_id(self) -> int | None:
+    def get_selected_id(self) -> int | None:
         """读取当前选中模型 ID。"""
         return self.session.scalar(
-            select(ModelConfig.id).where(ModelConfig.is_selected == True).limit(1)
+            select(LLM.id).where(LLM.is_selected == True).limit(1)
         )
 
-    def clear_selected_models(self) -> None:
+    def clear_selected(self) -> None:
         """清除所有模型的选中标记。"""
-        self.session.execute(update(ModelConfig).values(is_selected=False))
+        self.session.execute(update(LLM).values(is_selected=False))
 
-    def set_model_selected(self, model: ModelConfig) -> None:
+    def set_selected(self, model: LLM) -> None:
         """设置指定模型为选中状态。"""
         model.is_selected = True
         self.session.flush()

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.envelope import ApiEnvelope
-from app.schemas.llm_model import (
+from app.schemas.llm import (
     LLMModelCreate,
     LLMModelRead,
     LLMModelRuntimeRead,
@@ -16,18 +16,18 @@ from app.services.llm_model_service import (
     SelectedModelNotFoundError,
 )
 
-router = APIRouter(prefix="/model-configs", tags=["model-configs"])
+router = APIRouter(prefix="/llms", tags=["llms"])
 llm_model_service = LLMModelService()
 
 
 @router.get("", response_model=ApiEnvelope[list[LLMModelRead]])
-def list_model_configs() -> ApiEnvelope[list[LLMModelRead]]:
+def list_llms() -> ApiEnvelope[list[LLMModelRead]]:
     """返回所有模型配置。"""
     return ApiEnvelope(data=llm_model_service.list_models())
 
 
 @router.post("", response_model=ApiEnvelope[LLMModelRead], status_code=status.HTTP_201_CREATED)
-def create_model_config(payload: LLMModelCreate) -> ApiEnvelope[LLMModelRead]:
+def create_llm(payload: LLMModelCreate) -> ApiEnvelope[LLMModelRead]:
     """创建新的模型配置。"""
     try:
         return ApiEnvelope(data=llm_model_service.create_llm_model(payload))
@@ -36,7 +36,7 @@ def create_model_config(payload: LLMModelCreate) -> ApiEnvelope[LLMModelRead]:
 
 
 @router.put("/{model_id:int}", response_model=ApiEnvelope[LLMModelRead])
-def update_model_config(model_id: int, payload: LLMModelUpdate) -> ApiEnvelope[LLMModelRead]:
+def update_llm(model_id: int, payload: LLMModelUpdate) -> ApiEnvelope[LLMModelRead]:
     """更新模型配置。"""
     try:
         return ApiEnvelope(data=llm_model_service.update_llm_model(model_id, payload))
@@ -47,7 +47,7 @@ def update_model_config(model_id: int, payload: LLMModelUpdate) -> ApiEnvelope[L
 
 
 @router.delete("/{model_id:int}", response_model=ApiEnvelope[dict[str, bool]])
-def delete_model_config(model_id: int) -> ApiEnvelope[dict[str, bool]]:
+def delete_llm(model_id: int) -> ApiEnvelope[dict[str, bool]]:
     """删除指定模型配置。"""
     try:
         return ApiEnvelope(data=llm_model_service.delete_llm_model(model_id))
@@ -56,7 +56,7 @@ def delete_model_config(model_id: int) -> ApiEnvelope[dict[str, bool]]:
 
 
 @router.get("/selected", response_model=ApiEnvelope[SelectedModelRead])
-def get_selected_model_config() -> ApiEnvelope[SelectedModelRead]:
+def get_selected_llm() -> ApiEnvelope[SelectedModelRead]:
     """读取当前选中的默认模型。"""
     try:
         return ApiEnvelope(data=llm_model_service.get_selected_llm_model())
@@ -65,7 +65,7 @@ def get_selected_model_config() -> ApiEnvelope[SelectedModelRead]:
 
 
 @router.get("/{model_id:int}/runtime", response_model=ApiEnvelope[LLMModelRuntimeRead])
-def get_model_config_runtime(model_id: int) -> ApiEnvelope[LLMModelRuntimeRead]:
+def get_llm_runtime(model_id: int) -> ApiEnvelope[LLMModelRuntimeRead]:
     """返回 Agent 调用 LLM 所需的运行时配置。"""
     try:
         return ApiEnvelope(data=llm_model_service.get_llm_model_runtime(model_id))
@@ -74,7 +74,7 @@ def get_model_config_runtime(model_id: int) -> ApiEnvelope[LLMModelRuntimeRead]:
 
 
 @router.put("/selected", response_model=ApiEnvelope[SelectedModelRead])
-def set_selected_model_config(payload: SelectedModelUpdate) -> ApiEnvelope[SelectedModelRead]:
+def set_selected_llm(payload: SelectedModelUpdate) -> ApiEnvelope[SelectedModelRead]:
     """设置默认模型。"""
     try:
         return ApiEnvelope(data=llm_model_service.set_selected_llm_model(payload))

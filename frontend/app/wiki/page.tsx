@@ -1,6 +1,6 @@
 import { WikiPageClient } from "@/components/wiki/wiki-page-client";
-import { toWikiGraph, toWikiPage, toWikiSpace } from "@/lib/api/wiki-spaces";
-import type { WikiGraphResponseWire, WikiPageResponse, WikiSpaceResponse } from "@/lib/api/wiki-spaces";
+import { toWikiGraph, toWikiPage, toWikiSpace } from "@/lib/api/wikis";
+import type { WikiGraphResponseWire, WikiPageResponse, WikiSpaceResponse } from "@/lib/api/wikis";
 import type { WikiGraphResponse, WikiPage, WikiSpace } from "@/lib/types";
 import { serverFetch } from "@/lib/api/server";
 
@@ -14,13 +14,13 @@ type InitialWikiData = {
 };
 
 async function loadInitialWikiData(): Promise<InitialWikiData> {
-  const spaces = (await serverFetch<WikiSpaceResponse[]>("/wiki-spaces")).map(toWikiSpace);
+  const spaces = (await serverFetch<WikiSpaceResponse[]>("/wikis")).map(toWikiSpace);
   const firstSpaceId = spaces[0]?.id;
   if (!firstSpaceId) return { spaces, pages: [], graph: null, error: null };
 
   const [pagesResult, graphResult] = await Promise.allSettled([
-    serverFetch<WikiPageResponse[]>(`/wiki-spaces/${firstSpaceId}/pages`),
-    serverFetch<WikiGraphResponseWire>(`/wiki-spaces/${firstSpaceId}/graph`),
+    serverFetch<WikiPageResponse[]>(`/wikis/${firstSpaceId}/pages`),
+    serverFetch<WikiGraphResponseWire>(`/wikis/${firstSpaceId}/graph`),
   ]);
 
   const pages = pagesResult.status === "fulfilled" ? pagesResult.value.map(toWikiPage) : [];

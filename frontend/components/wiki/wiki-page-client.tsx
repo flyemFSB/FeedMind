@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { getWikiGraph, listSources, listWikiPages } from "@/lib/api/wiki-spaces";
+import { getWikiGraph, listSources, listWikiPages } from "@/lib/api/wikis";
 import type { WikiGraphNode, WikiGraphResponse, WikiPage, WikiSpace, WikiSource } from "@/lib/types";
 
 type WikiViewMode = "pages" | "graph" | "sources";

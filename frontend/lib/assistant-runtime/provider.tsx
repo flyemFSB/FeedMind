@@ -8,7 +8,7 @@ import {
   agentStream,
   getAgentThreadState,
 } from "@/lib/api/agent";
-import { createFeedMindThreadListAdapter } from "@/lib/api/chat-sessions";
+import { createFeedMindThreadListAdapter } from "@/lib/api/chats";
 
 export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
   const loadThread = useCallback(async (externalId: string, config?: { signal?: AbortSignal }) => {

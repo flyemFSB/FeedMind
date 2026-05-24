@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { createSource, deleteSource, getSourceDeleteImpact, ingestSources, retryJob } from "@/lib/api/wiki-spaces";
+import { createSource, deleteSource, getSourceDeleteImpact, ingestSources, retryJob } from "@/lib/api/wikis";
 
 interface WikiSourceListProps {
   sources: WikiSource[];

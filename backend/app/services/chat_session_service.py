@@ -5,8 +5,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db import get_session
 from app.models import ChatSession
-from app.repositories import chat_session_repository as repository
-from app.schemas.chat_session import ChatSessionListItem, ChatSessionRead, ChatSessionSnapshot
+from app.repositories import chat_repository as repository
+from app.schemas.chat import ChatSessionListItem, ChatSessionRead, ChatSessionSnapshot
 
 
 class ChatSessionNotFoundError(Exception):

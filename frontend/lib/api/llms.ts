@@ -26,14 +26,14 @@ function toLLMModel(model: LLMModelResponse): LLMModel {
 }
 
 export async function listLLMModels(signal?: AbortSignal): Promise<LLMModel[]> {
-  const data = await apiFetch<LLMModelResponse[]>(backendApiPath("/model-configs"), { signal });
+  const data = await apiFetch<LLMModelResponse[]>(backendApiPath("/llms"), { signal });
   return data.map(toLLMModel);
 }
 
 export async function createLLMModel(
   payload: Omit<LLMModel, "id" | "hasApiKey"> & { apiKey: string },
 ): Promise<LLMModel> {
-  const data = await apiFetch<LLMModelResponse>(backendApiPath("/model-configs"), {
+  const data = await apiFetch<LLMModelResponse>(backendApiPath("/llms"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -50,7 +50,7 @@ export async function updateLLMModel(
   id: string,
   payload: Omit<LLMModel, "id" | "hasApiKey"> & { apiKey: string },
 ): Promise<LLMModel> {
-  const data = await apiFetch<LLMModelResponse>(backendApiPath(`/model-configs/${id}`), {
+  const data = await apiFetch<LLMModelResponse>(backendApiPath(`/llms/${id}`), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -64,16 +64,16 @@ export async function updateLLMModel(
 }
 
 export async function deleteLLMModel(id: string): Promise<void> {
-  await apiFetch<{ deleted: boolean }>(backendApiPath(`/model-configs/${id}`), { method: "DELETE" });
+  await apiFetch<{ deleted: boolean }>(backendApiPath(`/llms/${id}`), { method: "DELETE" });
 }
 
 export async function getLLMModelRuntime(id: string, signal?: AbortSignal): Promise<LLMModelRuntimeResponse> {
-  return apiFetch<LLMModelRuntimeResponse>(backendApiPath(`/model-configs/${Number(id)}/runtime`), { signal });
+  return apiFetch<LLMModelRuntimeResponse>(backendApiPath(`/llms/${Number(id)}/runtime`), { signal });
 }
 
 export async function getSelectedLLMModel(signal?: AbortSignal): Promise<string> {
   try {
-    const data = await apiFetch<{ id: number }>(backendApiPath("/model-configs/selected"), { signal });
+    const data = await apiFetch<{ id: number }>(backendApiPath("/llms/selected"), { signal });
     return String(data.id);
   } catch {
     return "";
@@ -81,7 +81,7 @@ export async function getSelectedLLMModel(signal?: AbortSignal): Promise<string>
 }
 
 export async function setSelectedLLMModel(id: string): Promise<string> {
-  const data = await apiFetch<{ id: number }>(backendApiPath("/model-configs/selected"), {
+  const data = await apiFetch<{ id: number }>(backendApiPath("/llms/selected"), {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id: Number(id) }),

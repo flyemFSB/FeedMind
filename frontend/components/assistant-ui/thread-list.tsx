@@ -10,7 +10,7 @@ import {
 } from "@assistant-ui/react";
 import { Loader2, MessageSquare, MoreHorizontal, Pencil, Pin, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { writeActiveFeedMindThreadId } from "@/lib/api/chat-sessions";
+import { writeActiveFeedMindThreadId } from "@/lib/api/chats";
 import { onAgentRunningChange } from "@/lib/api/agent";
 
 const menuItemClass =
