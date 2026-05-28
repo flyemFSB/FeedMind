@@ -129,12 +129,11 @@ class FeedMindResponsesModel(BaseChatModel):
             logger.error("模型调用失败，尚未选择模型")
             raise RuntimeError("No model is selected. Add and select a model in model settings first.")
 
-        params = {"id": model_id}
-        url = f"{self.backend_api_url.rstrip('/')}/api/v1/models/runtime"
+        url = f"{self.backend_api_url.rstrip('/')}/api/v1/llms/{model_id}/runtime"
         logger.debug("请求模型运行配置 model_id={} url={}", model_id, url)
 
         with httpx.Client(timeout=3.0) as client:
-            response = client.get(url, params=params)
+            response = client.get(url)
             response.raise_for_status()
             payload = response.json()
 
