@@ -1,0 +1,8 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "feedmind": "./src/agent.ts:agent"
+  },
+  "env": "../../.env",
+  "node_version": "22"
+}

@@ -1,0 +1,34 @@
+{
+  "name": "feedmind",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.2.2",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm build:packages && pnpm --parallel --filter @feedmind/api --filter @feedmind/agent --filter @feedmind/web dev",
+    "build": "pnpm -r build",
+    "build:packages": "pnpm --filter @feedmind/contracts --filter @feedmind/shared --filter @feedmind/db build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @feedmind/db db:generate",
+    "db:migrate": "pnpm --filter @feedmind/db db:migrate",
+    "db:reset": "pnpm --filter @feedmind/db db:reset",
+    "web:dev": "pnpm --filter @feedmind/web dev",
+    "api:dev": "pnpm --filter @feedmind/api dev",
+    "agent:dev": "pnpm --filter @feedmind/agent dev"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.47.0",
+    "vitest": "^4.1.0"
+  }
+}
