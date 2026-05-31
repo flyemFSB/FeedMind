@@ -26,6 +26,7 @@ import {
   listLLMModels,
   updateLLMModel,
 } from "@/lib/api/llms";
+import { getSearchConfig, updateSearchConfig, type SearchConfig } from "@/lib/api/search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -63,7 +64,7 @@ interface SettingsModalProps {
   onClose: () => void;
 }
 
-type TabId = "account" | "models" | "session" | "security";
+type TabId = "account" | "models" | "session" | "security" | "tools";
 
 interface Tab {
   id: TabId;
@@ -74,6 +75,7 @@ interface Tab {
 const tabs: Tab[] = [
   { id: "account", label: "账号与偏好", icon: User },
   { id: "models", label: "模型配置", icon: Cpu },
+  { id: "tools", label: "工具配置", icon: Wrench },
   { id: "session", label: "会话模型配置", icon: MessageSquare },
   { id: "security", label: "安全与密钥", icon: Shield },
 ];
@@ -131,6 +133,47 @@ function VisibilityIcon({ visible, size }: { visible: boolean; size: number }) {
   return <Icon size={size} strokeWidth={1.7} />;
 }
 
+function EngineConfigRow({
+  name, website, apiKey, showKey, onToggleKey, onChange,
+}: {
+  name: string; website: string; apiKey: string; showKey: boolean;
+  onToggleKey: () => void; onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-[#f5f5f7] flex items-center justify-center text-[11px] font-semibold text-[#6e6e73]">
+            {name.charAt(0)}
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-medium text-[#1d1d1f]">{name}</span>
+            <a href={website} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#0071e3] hover:underline">获取 Key</a>
+          </div>
+        </div>
+      </div>
+      <div className="relative w-[300px]">
+        <Input
+          value={apiKey}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="留空则不使用此引擎"
+          type={showKey ? "text" : "password"}
+          className="h-9 rounded-xl border-[#d2d2d7] pr-9 text-[12px]"
+        />
+        <button
+          type="button"
+          onClick={onToggleKey}
+          className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#86868b] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
+        >
+          {showKey ? <EyeOff size={13} strokeWidth={1.7} /> : <Eye size={13} strokeWidth={1.7} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>("models");
   const [providerFilter, setProviderFilter] = useState("全部");
@@ -142,6 +185,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [visibleModelApiKeys, setVisibleModelApiKeys] = useState<Record<string, boolean>>({});
   const [modelApiKeys, setModelApiKeys] = useState<Record<string, string>>({});
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
+  const [searchConfig, setSearchConfig] = useState<SearchConfig>({});
+  const [searchBraveKey, setSearchBraveKey] = useState("");
+  const [searchTavilyKey, setSearchTavilyKey] = useState("");
+  const [searchExaKey, setSearchExaKey] = useState("");
+  const [showSearchBraveKey, setShowSearchBraveKey] = useState(false);
+  const [showSearchTavilyKey, setShowSearchTavilyKey] = useState(false);
+  const [showSearchExaKey, setShowSearchExaKey] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -154,6 +204,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       .catch((err) => {
         if (err instanceof Error && err.message.includes("404")) return;
       });
+    void getSearchConfig(controller.signal)
+      .then((config) => {
+        setSearchConfig(config);
+        setSearchBraveKey(config.braveApiKey ?? "");
+        setSearchTavilyKey(config.tavilyApiKey ?? "");
+        setSearchExaKey(config.exaApiKey ?? "");
+      })
+      .catch(() => {});
 
     return () => controller.abort();
   }, [open]);
@@ -288,8 +346,8 @@ const handleDeleteModel = () => {
               </svg>
             </div>
             <div className="min-w-0">
-              <h2 className="truncate text-[16px] font-semibold text-[#1d1d1f]">个人设置与模型配置</h2>
-              <p className="truncate text-[11px] text-[#86868b]">管理模型供应商与当前会话参数</p>
+              <h2 className="truncate text-[16px] font-semibold text-[#1d1d1f]">配置中心</h2>
+              <p className="truncate text-[11px] text-[#86868b]">管理模型、工具与当前会话参数</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -627,6 +685,89 @@ const handleDeleteModel = () => {
                     <p className="text-[15px] font-semibold text-[#1d1d1f]">Zack</p>
                     <p className="text-[13px] text-[#86868b]">zack@example.com</p>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "tools" && (
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-[15px] font-semibold text-[#1d1d1f]">工具配置</h3>
+                    <p className="mt-0.5 text-[12px] text-[#86868b]">
+                      配置各工具的 API Key 与行为偏好。至少配置一个搜索引擎后，web_search 工具才会在对话中可用。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#d2d2d7] overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[#d2d2d7] bg-[#fbfbfd]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#0071e3]" />
+                      <span className="text-[14px] font-semibold text-[#1d1d1f]">搜索引擎</span>
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-[#86868b]">
+                      按优先级顺序：Brave Search → Tavily → Exa。只使用已配置密钥的引擎。
+                    </p>
+                  </div>
+
+                  <div className="divide-y divide-[#d2d2d7]">
+                    <EngineConfigRow
+                      name="Brave Search"
+                      website="https://brave.com/search/api/"
+                      apiKey={searchBraveKey}
+                      showKey={showSearchBraveKey}
+                      onToggleKey={() => setShowSearchBraveKey((v) => !v)}
+                      onChange={setSearchBraveKey}
+                    />
+                    <EngineConfigRow
+                      name="Tavily"
+                      website="https://tavily.com"
+                      apiKey={searchTavilyKey}
+                      showKey={showSearchTavilyKey}
+                      onToggleKey={() => setShowSearchTavilyKey((v) => !v)}
+                      onChange={setSearchTavilyKey}
+                    />
+                    <EngineConfigRow
+                      name="Exa"
+                      website="https://exa.ai"
+                      apiKey={searchExaKey}
+                      showKey={showSearchExaKey}
+                      onToggleKey={() => setShowSearchExaKey((v) => !v)}
+                      onChange={setSearchExaKey}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    onClick={() => {
+                      setSearchBraveKey(searchConfig.braveApiKey ?? "");
+                      setSearchTavilyKey(searchConfig.tavilyApiKey ?? "");
+                      setSearchExaKey(searchConfig.exaApiKey ?? "");
+                    }}
+                    variant="secondary"
+                    className="rounded-xl px-4 text-[13px]"
+                  >
+                    重置
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      void updateSearchConfig({
+                        braveApiKey: searchBraveKey || undefined,
+                        tavilyApiKey: searchTavilyKey || undefined,
+                        exaApiKey: searchExaKey || undefined,
+                      })
+                        .then((config) => {
+                          setSearchConfig(config);
+                          toast.success("搜索配置已保存");
+                        })
+                        .catch(() => toast.error("保存失败"));
+                    }}
+                    className="rounded-xl bg-[#0071e3] px-4 text-[13px] text-white hover:bg-[#0066cc]"
+                  >
+                    保存
+                  </Button>
                 </div>
               </div>
             )}
