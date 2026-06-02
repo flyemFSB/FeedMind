@@ -9,66 +9,32 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $envFile = Join-Path $root ".env"
 $envExample = Join-Path $root ".env.example"
+$dataDir = Join-Path $root "data"
+$dbPath = Join-Path $dataDir "feedmind.db"
 
 function Ensure-EnvFile {
     if (-not (Test-Path $envFile) -and (Test-Path $envExample)) {
         Copy-Item $envExample $envFile
     }
+
+    if (Test-Path $envFile) {
+        $envContent = Get-Content $envFile -Raw
+        if ($envContent -notmatch "(?m)^DATABASE_PATH=") {
+            Add-Content $envFile "`nDATABASE_PATH=./data/feedmind.db"
+        }
+    }
 }
 
-function Start-FeedMindPostgres {
-    $containerName = "feedmind-postgres"
-    $imageName = "pgvector/pgvector:pg18"
-    $dbUser = "postgres"
-    $dbPass = "postgres"
-    $dbName = "feedmind"
-    $hostPort = 5432
-    $volumeName = "feedmind-pgdata"
-
-    if (-not (docker --version 2>$null)) {
-        throw "未找到 Docker，请先安装 Docker Desktop。"
-    }
-
-    if (-not $SkipPull) {
-        docker pull $imageName
-    }
-
-    $existing = docker ps -a --filter "name=$containerName" --format "{{.Status}}" 2>$null
-    if ($existing) {
-        if ($existing -notmatch "^Up") {
-            docker start $containerName | Out-Null
-        }
-    } else {
-        docker volume create $volumeName 2>$null | Out-Null
-        docker run -d `
-            --name $containerName `
-            -e "TZ=Asia/Shanghai" `
-            -e "POSTGRES_USER=$dbUser" `
-            -e "POSTGRES_PASSWORD=$dbPass" `
-            -e "POSTGRES_DB=$dbName" `
-            -p "${hostPort}:5432" `
-            -v "${volumeName}:/var/lib/postgresql" `
-            --restart unless-stopped `
-            $imageName | Out-Null
-    }
-
-    Write-Host "等待 PostgreSQL 就绪..."
-    for ($i = 0; $i -lt 30; $i++) {
-        $ready = docker exec $containerName pg_isready -U $dbUser 2>$null
-        if ($ready) { break }
-        Start-Sleep -Seconds 1
-    }
-    if (-not $ready) {
-        throw "PostgreSQL 启动超时，请检查容器日志：docker logs $containerName"
-    }
-
-    docker exec $containerName psql -U $dbUser -d $dbName -c "CREATE EXTENSION IF NOT EXISTS vector;" 2>$null | Out-Null
+function Ensure-SqliteDb {
+    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+    $env:DATABASE_PATH = ".\data\feedmind.db"
+    Write-Host "SQLite 数据库路径：$dbPath"
 }
 
 Ensure-EnvFile
 
 if (-not $SkipDb) {
-    Start-FeedMindPostgres
+    Ensure-SqliteDb
 }
 
 Push-Location $root
@@ -77,9 +43,11 @@ try {
         pnpm install
     }
 
-    # 先构建共享包，再迁移数据库，避免 CLI 运行时找不到 workspace dist。
+    # 先构建共享包，再初始化 SQLite 表结构，避免 CLI 运行时找不到 workspace dist。
     pnpm build:packages
-    pnpm db:migrate
+    if (-not $SkipDb) {
+        pnpm --filter @feedmind/db db:init
+    }
 
     Start-Process powershell -ArgumentList @(
         "-NoExit",

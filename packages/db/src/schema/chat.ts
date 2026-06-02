@@ -1,19 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
-  boolean,
   check,
   index,
   integer,
-  json,
-  pgTable,
+  sqliteTable,
   text,
-  timestamp,
   unique,
-} from "drizzle-orm/pg-core";
+} from "drizzle-orm/sqlite-core";
 
 // 会话表：包含置顶排序和更新时间索引，支持会话列表按 pinned + updatedAt 排序
-export const chatSessions = pgTable(
+export const chatSessions = sqliteTable(
   "chat_sessions",
   {
     id: text("id")
@@ -21,11 +18,11 @@ export const chatSessions = pgTable(
       .$defaultFn(() => randomUUID()),
     agentThreadId: text("agent_thread_id").notNull().unique(),
     title: text("title").notNull().default("新会话"),
-    pinned: boolean("pinned").notNull().default(false),
+    pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     messageCount: integer("message_count").notNull().default(0),
-    lastMessageAt: timestamp("last_message_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    lastMessageAt: text("last_message_at"),
+    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
   },
   (table) => ({
     updatedAtIdx: index("idx_chat_sessions_updated_at").on(table.updatedAt),
@@ -37,7 +34,7 @@ export const chatSessions = pgTable(
 );
 
 // 消息表：agent_message_id + session_id 构成唯一约束支持幂等 upsert；级联删除随会话清除
-export const chatMessages = pgTable(
+export const chatMessages = sqliteTable(
   "chat_messages",
   {
     id: text("id")
@@ -51,12 +48,9 @@ export const chatMessages = pgTable(
     content: text("content").notNull(),
     status: text("status").notNull().default("completed"),
     model: text("model").notNull().default(""),
-    metadata: json("metadata")
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default(sql`'{}'::json`),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    metadata: text("metadata").notNull().default("{}"),
+    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
   },
   (table) => ({
     roleCheck: check("ck_chat_messages_role", sql`${table.role} in ('user', 'assistant', 'system', 'tool')`),

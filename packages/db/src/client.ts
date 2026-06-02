@@ -1,30 +1,32 @@
-import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { baseEnvSchema, loadFeedMindEnv } from "@feedmind/shared";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as schema from "./schema/index.js";
 
-loadFeedMindEnv();
-const env = baseEnvSchema.parse(process.env);
+// 以当前文件位置为基准定位项目根目录，不依赖 CWD
+const thisDir = dirname(fileURLToPath(import.meta.url));
+const projectRoot = resolve(thisDir, "..", "..", "..");
+const DB_PATH = process.env.DATABASE_PATH
+  ? resolve(projectRoot, process.env.DATABASE_PATH)
+  : resolve(projectRoot, "data", "feedmind.db");
 
-// 单例连接池，max=10 适用于中小并发场景
-let pool: Pool | undefined;
+// 确保目录存在
+mkdirSync(dirname(DB_PATH), { recursive: true });
 
-export function getPool(): Pool {
-  pool ??= new Pool({
-    connectionString: env.DATABASE_URL,
-    max: 10,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-  });
-  return pool;
-}
+// libsql 客户端（纯 JS 嵌入模式，无需原生编译）
+// 使用相对路径或 "file:" 前缀的绝对路径；Windows 上正斜杠兼容
+const client = createClient({
+  url: `file:${DB_PATH.replace(/\\/g, "/")}`,
+});
 
-export const db = drizzle(getPool(), { schema });
+export const db = drizzle(client, { schema });
 
-// 健康检查：向数据库发送轻量查询验证连接可用
+// 健康检查
 export async function checkDbConnection(): Promise<boolean> {
   try {
-    await getPool().query("select 1");
+    await client.execute("select 1");
     return true;
   } catch (error) {
     console.error("数据库连接检查失败", error);
@@ -32,9 +34,9 @@ export async function checkDbConnection(): Promise<boolean> {
   }
 }
 
-// 优雅关闭连接池（用于进程退出或测试清理）
-export async function closePool(): Promise<void> {
-  if (!pool) return;
-  await pool.end();
-  pool = undefined;
+// 关闭数据库连接
+export function closeDb(): void {
+  client.close();
 }
+
+export { client };

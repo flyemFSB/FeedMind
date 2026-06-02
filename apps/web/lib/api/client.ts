@@ -23,7 +23,9 @@ export async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promi
   let response: Response;
   try {
     response = await fetch(input, init);
-  } catch {
+  } catch (error) {
+    // AbortError（组件卸载/StrictMode 重挂载）不弹 toast，直接透传
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
     toast.error("无法连接到后端服务，请检查后端是否已启动");
     throw new Error("无法连接到后端服务");
   }

@@ -22,14 +22,13 @@ function toModelRead(row: LLMRow): LLMModelRead {
   };
 }
 
-// 检测 PostgreSQL 唯一约束冲突错误码（23505 = unique_violation）
+// 检测唯一约束冲突（兼容 PostgreSQL 的 23505 和 SQLite 的 SQLITE_CONSTRAINT_UNIQUE）
 function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: string }).code === "23505"
-  );
+  if (typeof error !== "object" || error === null) return false;
+  const err = error as { code?: string; message?: string };
+  return err.code === "23505"
+    || err.code === "SQLITE_CONSTRAINT_UNIQUE"
+    || /UNIQUE constraint failed/i.test(err.message ?? "");
 }
 
 export async function listModels(): Promise<LLMModelRead[]> {
@@ -60,7 +59,7 @@ export async function updateModel(modelId: number, payload: LLMModelUpdate): Pro
     provider: payload.provider,
     modelName: payload.model_name,
     baseUrl: payload.base_url,
-    updatedAt: new Date(),
+    updatedAt: new Date().toISOString(),
     ...(payload.api_key ? { encryptedApiKey: encryptValue(payload.api_key) } : {}),
   };
 
@@ -92,8 +91,8 @@ export async function setSelectedModel(payload: SelectedModelUpdate): Promise<Se
     const [model] = await tx.select({ id: llm.id }).from(llm).where(eq(llm.id, payload.id)).limit(1);
     if (!model) throw new HttpError(404, "HTTP_ERROR", "model not found");
 
-    await tx.update(llm).set({ isSelected: false, updatedAt: new Date() });
-    await tx.update(llm).set({ isSelected: true, updatedAt: new Date() }).where(eq(llm.id, payload.id));
+    await tx.update(llm).set({ isSelected: false, updatedAt: new Date().toISOString() });
+    await tx.update(llm).set({ isSelected: true, updatedAt: new Date().toISOString() }).where(eq(llm.id, payload.id));
     return { id: payload.id };
   });
 }

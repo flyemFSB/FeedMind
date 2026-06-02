@@ -33,13 +33,11 @@ function toListItem(row: ChatSessionRow): ChatSessionListItem {
 }
 
 // 标记被新分支取代的消息为 inactive，保留历史分支数据而不删除
-function mergeInactiveMetadata(row: ChatMessageRow, inactiveAt: string): Record<string, unknown> {
-  const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata) ? row.metadata : {};
-  return {
-    ...metadata,
-    branch_status: "inactive",
-    inactive_at: inactiveAt,
-  };
+function mergeInactiveMetadata(row: ChatMessageRow, inactiveAt: string): string {
+  const metadata = (() => {
+    try { return row.metadata ? JSON.parse(row.metadata) : {}; } catch { return {}; }
+  })() as Record<string, unknown>;
+  return JSON.stringify({ ...metadata, branch_status: "inactive", inactive_at: inactiveAt });
 }
 
 export async function listChatSessions(): Promise<ChatSessionListItem[]> {
@@ -71,8 +69,8 @@ async function upsertMessage(
     content: message.content,
     status: message.status,
     model: message.model,
-    metadata: message.metadata,
-    updatedAt: new Date(),
+    metadata: JSON.stringify(message.metadata ?? {}),
+    updatedAt: new Date().toISOString(),
   };
 
   if (existing) {
@@ -92,7 +90,7 @@ export async function saveChatSession(
   agentThreadId: string,
   payload: ChatSessionSnapshot,
 ): Promise<ChatSessionRead> {
-  const now = new Date();
+  const now = new Date().toISOString();
 
   return db.transaction(async (tx) => {
     let [session] = await tx
@@ -130,7 +128,7 @@ export async function saveChatSession(
     }
 
     // 标记被新分支取代的消息，保留历史数据用于分支切换回滚
-    const inactiveAt = now.toISOString();
+    const inactiveAt = now;
     for (const message of existingMessages) {
       if (incomingIds.has(message.agentMessageId)) continue;
       await tx

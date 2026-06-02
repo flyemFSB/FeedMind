@@ -29,20 +29,11 @@ export function loadFeedMindEnv(): void {
   }
 }
 
-// 统一数据库 URL 格式为 postgres://，避免 pg driver 不兼容 postgresql:// 前缀
-export function normalizeDatabaseUrl(value: string): string {
-  return value
-    .replace(/^postgresql\+psycopg:\/\//, "postgres://")
-    .replace(/^postgresql:\/\//, "postgres://")
-    .replace("localhost", "127.0.0.1");
-}
-
 export const baseEnvSchema = z.object({
   APP_ENV: z.string().default("development"),
-  DATABASE_URL: z
+  DATABASE_PATH: z
     .string()
-    .default("postgres://postgres:postgres@127.0.0.1:5432/feedmind")
-    .transform(normalizeDatabaseUrl),
+    .default("./data/feedmind.db"),
   ENCRYPTION_KEY: z.string().default(""),
 });
 

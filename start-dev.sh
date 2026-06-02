@@ -20,47 +20,20 @@ if [[ ! -f "$ROOT/.env" && -f "$ROOT/.env.example" ]]; then
 fi
 
 if [[ "$SKIP_DB" -eq 0 ]]; then
-  CONTAINER_NAME="feedmind-postgres"
-  IMAGE_NAME="pgvector/pgvector:pg18"
-  DB_USER="postgres"
-  DB_PASS="postgres"
-  DB_NAME="feedmind"
-  HOST_PORT="5432"
-  VOLUME_NAME="feedmind-pgdata"
-
-  command -v docker >/dev/null || { echo "Docker is required." >&2; exit 1; }
-  [[ "$SKIP_PULL" -eq 1 ]] || docker pull "$IMAGE_NAME"
-
-  STATUS="$(docker ps -a --filter "name=$CONTAINER_NAME" --format "{{.Status}}" || true)"
-  if [[ -z "$STATUS" ]]; then
-    docker volume create "$VOLUME_NAME" >/dev/null
-    docker run -d \
-      --name "$CONTAINER_NAME" \
-      -e "TZ=Asia/Shanghai" \
-      -e "POSTGRES_USER=$DB_USER" \
-      -e "POSTGRES_PASSWORD=$DB_PASS" \
-      -e "POSTGRES_DB=$DB_NAME" \
-      -p "${HOST_PORT}:5432" \
-      -v "${VOLUME_NAME}:/var/lib/postgresql" \
-      --restart unless-stopped \
-      "$IMAGE_NAME" >/dev/null
-  elif [[ "$STATUS" != Up* ]]; then
-    docker start "$CONTAINER_NAME" >/dev/null
+  mkdir -p "$ROOT/data"
+  export DATABASE_PATH="./data/feedmind.db"
+  echo "SQLite database: $ROOT/data/feedmind.db"
+  if [[ -f "$ROOT/.env" ]] && ! grep -q '^DATABASE_PATH=' "$ROOT/.env"; then
+    printf '\nDATABASE_PATH=./data/feedmind.db\n' >> "$ROOT/.env"
   fi
-
-  for _ in $(seq 1 30); do
-    if docker exec "$CONTAINER_NAME" pg_isready -U "$DB_USER" >/dev/null 2>&1; then
-      break
-    fi
-    sleep 1
-  done
-  docker exec "$CONTAINER_NAME" psql -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;" >/dev/null
 fi
 
 cd "$ROOT"
 [[ "$SKIP_INSTALL" -eq 1 ]] || pnpm install
 pnpm build:packages
-pnpm db:migrate
+if [[ "$SKIP_DB" -eq 0 ]]; then
+  pnpm --filter @feedmind/db db:init
+fi
 
 pnpm api:dev &
 TZ=Asia/Shanghai pnpm agent:dev &

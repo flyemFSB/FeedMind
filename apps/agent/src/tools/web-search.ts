@@ -1,34 +1,59 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { SearchConfigClient } from "./search/config.js";
-import { braveSearch } from "./search/brave.js";
+import { ToolConfigClient } from "./search/config.js";
+import { ddgSearch } from "./search/ddg.js";
 import { tavilySearch } from "./search/tavily.js";
 import { exaSearch } from "./search/exa.js";
 
 async function searchWeb({ query, max_results }: { query: string; max_results: number }) {
-  const config = SearchConfigClient.instance.get();
+  try {
+    await ToolConfigClient.instance.load();
+    const webSearch = ToolConfigClient.instance.getTool("web_search");
 
-  let results: Array<{ title: string; url: string; content: string }>;
-  let engine = "";
+    const engines: Array<{
+      name: string;
+      search: () => Promise<Array<{ title: string; url: string; content: string }>>;
+    }> = [];
 
-  if (config.braveApiKey) {
-    engine = "brave";
-    results = await braveSearch(query, max_results, config.braveApiKey);
-  } else if (config.tavilyApiKey) {
-    engine = "tavily";
-    results = await tavilySearch(query, max_results, config.tavilyApiKey);
-  } else if (config.exaApiKey) {
-    engine = "exa";
-    results = await exaSearch(query, max_results, config.exaApiKey);
-  } else {
-    return JSON.stringify({ error: "No search engine configured" });
+    if (webSearch?.is_enabled && webSearch.config?.tavilyApiKey) {
+      engines.push({
+        name: "tavily",
+        search: () => tavilySearch(query, max_results, webSearch.config.tavilyApiKey as string),
+      });
+    }
+    if (webSearch?.is_enabled && webSearch.config?.exaApiKey) {
+      engines.push({
+        name: "exa",
+        search: () => exaSearch(query, max_results, webSearch.config.exaApiKey as string),
+      });
+    }
+    engines.push({
+      name: "ddg",
+      search: () => ddgSearch(query, max_results),
+    });
+
+    const failures: string[] = [];
+    for (const engine of engines) {
+      try {
+        const results = await engine.search();
+        return JSON.stringify(
+          { query, engine: engine.name, total_results: results.length, results },
+          null,
+          2,
+        );
+      } catch (error) {
+        failures.push(`${engine.name}: ${error instanceof Error ? error.message : "Unknown search error"}`);
+      }
+    }
+
+    throw new Error(failures.join("; "));
+  } catch (error) {
+    return JSON.stringify({
+      error: "WEB_SEARCH_FAILED",
+      query,
+      message: error instanceof Error ? error.message : "Unknown search error",
+    });
   }
-
-  return JSON.stringify(
-    { query, engine, total_results: results.length, results },
-    null,
-    2,
-  );
 }
 
 export const webSearchTool = tool(searchWeb, {
