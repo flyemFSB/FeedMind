@@ -11,7 +11,6 @@ const agentEnvSchema = z.object({
   FEEDMIND_SYSTEM_PROMPT: z.string().optional(),  // 可覆盖内置中文 prompt
   OPENAI_COMPATIBLE_API_BASE: z.string().optional(),
   OPENAI_COMPATIBLE_API_KEY: z.string().optional(),
-  JINA_API_KEY: z.string().optional(),             // 空值时 Jina 仍可免费使用
 });
 
 export const agentEnv = agentEnvSchema.parse(process.env);

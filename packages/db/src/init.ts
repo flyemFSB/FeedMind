@@ -57,10 +57,11 @@ const SEED_TOOLS = [
     name: "web_search",
     category: "search",
     display_name: "搜索引擎",
-    description: "搜索互联网获取最新信息。未配置 API Key 时自动使用 DuckDuckGo 兜底。",
+    description: "搜索互联网获取最新信息。未配置 API Key 时自动使用 AnySearch 匿名模式兜底。",
     config_fields: JSON.stringify([
       { key: "tavilyApiKey", type: "password", label: "Tavily API Key", description: "从 Tavily 获取", link: "https://tavily.com" },
       { key: "exaApiKey", type: "password", label: "Exa API Key", description: "从 Exa 获取", link: "https://exa.ai" },
+      { key: "anysearchApiKey", type: "password", label: "AnySearch API Key", description: "从 AnySearch 获取（留空则自动使用匿名模式）", link: "https://www.anysearch.com/console/api-keys" },
     ]),
     is_enabled: true,
     sort_order: 0,
@@ -70,7 +71,9 @@ const SEED_TOOLS = [
     category: "utility",
     display_name: "网页抓取",
     description: "抓取网页内容并提取正文。",
-    config_fields: "[]",
+    config_fields: JSON.stringify([
+      { key: "jinaApiKey", type: "password", label: "Jina AI API Key", description: "从 Jina AI 获取（留空则自动使用匿名模式，20 RPM）", link: "https://jina.ai/reader" },
+    ]),
     is_enabled: true,
     sort_order: 1,
   },
@@ -82,9 +85,16 @@ export async function initDatabase(): Promise<void> {
   }
 
   for (const tool of SEED_TOOLS) {
+    // 首次写入：insert or ignore 按 name 主键去重
     client.execute({
       sql: `insert or ignore into tools (name, category, display_name, description, config_fields, is_enabled, sort_order) values (?, ?, ?, ?, ?, ?, ?)`,
       args: [tool.name, tool.category, tool.display_name, tool.description, tool.config_fields, tool.is_enabled, tool.sort_order],
+    });
+
+    // 已有行更新：仅刷新 config_fields 和 description，不触碰 config（用户已设的 API Key）
+    client.execute({
+      sql: `update tools set config_fields = ?, description = ? where name = ?`,
+      args: [tool.config_fields, tool.description, tool.name],
     });
   }
 

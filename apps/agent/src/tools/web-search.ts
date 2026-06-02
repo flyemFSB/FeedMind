@@ -1,7 +1,7 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { ToolConfigClient } from "./search/config.js";
-import { ddgSearch } from "./search/ddg.js";
+import { anysearchSearch } from "./search/anysearch.js";
 import { tavilySearch } from "./search/tavily.js";
 import { exaSearch } from "./search/exa.js";
 
@@ -28,8 +28,8 @@ async function searchWeb({ query, max_results }: { query: string; max_results: n
       });
     }
     engines.push({
-      name: "ddg",
-      search: () => ddgSearch(query, max_results),
+      name: "anysearch",
+      search: () => anysearchSearch(query, max_results, webSearch?.config?.anysearchApiKey as string | undefined),
     });
 
     const failures: string[] = [];

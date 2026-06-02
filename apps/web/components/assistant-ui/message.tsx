@@ -335,13 +335,15 @@ function ThinkingAccordion({
   children: ReactNode;
   status?: MessagePartState["status"];
 }) {
-  const running = status?.type === "running";
+  // running: 正在流式输出思考内容
+  // requires-action (tool-calls/interrupt): 工具执行中或等待用户输入，仍属于思考过程
+  const isActive = status?.type === "running" || status?.type === "requires-action";
   const [open, setOpen] = useState(false);
-  const expanded = running || open;
+  const expanded = isActive || open;
 
   useEffect(() => {
-    emitAgentRunning(running);
-  }, [running]);
+    emitAgentRunning(isActive);
+  }, [isActive]);
 
   return (
     <div className="my-1.5 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
