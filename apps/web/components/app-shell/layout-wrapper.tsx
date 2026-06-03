@@ -15,12 +15,14 @@ interface LayoutWrapperProps {
   children: React.ReactNode;
   title: string;
   subtitle?: string;
+  showModelSelector?: boolean;
 }
 
 export function LayoutWrapper({
   children,
   title,
   subtitle,
+  showModelSelector = false,
 }: LayoutWrapperProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -41,6 +43,7 @@ export function LayoutWrapper({
         <Topbar
           title={title}
           subtitle={subtitle}
+          showModelSelector={showModelSelector}
         />
 
         <div className="flex min-h-0 flex-1">

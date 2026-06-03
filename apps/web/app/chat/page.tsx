@@ -8,6 +8,7 @@ export default function ChatPage() {
   return (
     <LayoutWrapper
       title="FeedMind Agent"
+      showModelSelector
     >
       <div className="h-full">
         <Thread />
