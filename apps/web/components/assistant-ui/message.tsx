@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
-import type { MessagePartState } from "@assistant-ui/core";
+import { Button } from "@/components/ui/button";
 import {
   AlertCircle,
   Brain,
@@ -30,21 +30,14 @@ import {
   ErrorPrimitive,
   useAui,
   useAuiState,
+  TextMessagePartProvider,
 } from "@assistant-ui/react";
-import { Button } from "@/components/ui/button";
+import type {
+  ReasoningMessagePartProps,
+  ToolCallMessagePartProps,
+} from "@assistant-ui/react";
 import { MarkdownText } from "./markdown-text";
 import { emitAgentRunning } from "@/lib/api/agent";
-
-// 将 reasoning 和 tool-call 分配给"思考过程"分组，其余 parts 直接渲染
-const groupThinkingParts = (part: MessagePartState) => {
-  if (part.type === "reasoning") {
-    return ["group-chainOfThought", "group-reasoning"] as const;
-  }
-  if (part.type === "tool-call") {
-    return ["group-chainOfThought", "group-tool"] as const;
-  }
-  return null;
-};
 
 function formatToolPayload(value: unknown): string {
   if (value === undefined) return "";
@@ -330,19 +323,19 @@ function AssistantActionBar() {
 
 function ThinkingAccordion({
   children,
-  status,
+  isActive,
 }: {
   children: ReactNode;
-  status?: MessagePartState["status"];
+  isActive: boolean;
 }) {
-  // running: 正在流式输出思考内容
-  // requires-action (tool-calls/interrupt): 工具执行中或等待用户输入，仍属于思考过程
-  const isActive = status?.type === "running" || status?.type === "requires-action";
   const [open, setOpen] = useState(false);
   const expanded = isActive || open;
 
   useEffect(() => {
     emitAgentRunning(isActive);
+    return () => {
+      if (isActive) emitAgentRunning(false);
+    };
   }, [isActive]);
 
   return (
@@ -364,10 +357,6 @@ function ThinkingAccordion({
   );
 }
 
-function ReasoningGroup({ children }: { children: ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
-}
-
 function ReasoningContent({ text }: { text: string }) {
   if (!text.trim()) {
     return null;
@@ -383,17 +372,17 @@ function ReasoningContent({ text }: { text: string }) {
   );
 }
 
-function ToolGroup({ children }: { children: ReactNode }) {
-  return <div className="space-y-2">{children}</div>;
-}
-
-type ToolFallbackProps = Extract<MessagePartState, { type: "tool-call" }>;
+type ToolFallbackProps = ToolCallMessagePartProps;
 
 function ToolFallback(part: ToolFallbackProps) {
   const { args, argsText, isError, result, status, toolName } = part;
   const running = status?.type === "running";
   const StatusIcon = running ? Wrench : Check;
+  // Start collapsed; auto-expand during execution, auto-collapse on completion
   const [open, setOpen] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setOpen(running); }, [running]);
+
   const formattedArgs = argsText || formatToolPayload(args);
   const formattedResult = formatToolPayload(result);
   const hasArgs = formattedArgs.trim() && formattedArgs.trim() !== "{}";
@@ -450,6 +439,56 @@ function ToolFallback(part: ToolFallbackProps) {
 
 function AssistantMessage() {
   const createdAt = useAuiState((s) => s.message.createdAt);
+  const parts = useAuiState((s) => s.message.parts);
+  const messageStatus = useAuiState((s) => s.message.status);
+
+  // Classify parts into thinking (reasoning/tool-call) vs non-thinking (text, etc.)
+  const { hasThinking, thinkingIndices, nonThinkingIndices, hasTextParts } =
+    useMemo(() => {
+      const tIdx: number[] = [];
+      const ntIdx: number[] = [];
+      let seenText = false;
+
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i];
+        if (p.type === "reasoning" || p.type === "tool-call") {
+          tIdx.push(i);
+        } else {
+          ntIdx.push(i);
+          if (p.type === "text") seenText = true;
+        }
+      }
+
+      return {
+        hasThinking: tIdx.length > 0,
+        thinkingIndices: tIdx,
+        nonThinkingIndices: ntIdx,
+        hasTextParts: seenText,
+      };
+    }, [parts]);
+
+  // 当消息仍在流式传输、有思考内容、且尚未输出文本时，整个思考过程保持展开
+  const isMessageRunning =
+    (messageStatus as { type?: string })?.type === "running";
+  const accordionActive = isMessageRunning && hasThinking && !hasTextParts;
+
+  // When streaming starts with no parts yet, show a loading indicator
+  const isEmptyRunning =
+    parts.length === 0 && (messageStatus as { type?: string })?.type === "running";
+
+  // Stable part component config for PartByIndex
+  const partComponents = useMemo(
+    () => ({
+      Text: () => <MarkdownText />,
+      Reasoning: (props: ReasoningMessagePartProps) => (
+        <ReasoningContent text={props.text} />
+      ),
+      tools: {
+        Fallback: ToolFallback as React.ComponentType<ToolCallMessagePartProps>,
+      },
+    }),
+    [],
+  );
 
   return (
     <MessagePrimitive.Root className="flex gap-3 animate-fade-in group/action-area">
@@ -473,28 +512,35 @@ function AssistantMessage() {
 
         <div className="text-[14px] text-[#1d1d1f] leading-relaxed">
           <MessageAttachments />
-          <MessagePrimitive.GroupedParts
-            groupBy={groupThinkingParts}
-          >
-            {({ part, children }) => {
-              switch (part.type) {
-                case "group-chainOfThought":
-                  return <ThinkingAccordion status={part.status}>{children}</ThinkingAccordion>;
-                case "group-tool":
-                  return <ToolGroup>{children}</ToolGroup>;
-                case "group-reasoning":
-                  return <ReasoningGroup>{children}</ReasoningGroup>;
-                case "text":
-                  return <MarkdownText />;
-                case "reasoning":
-                  return <ReasoningContent text={part.text} />;
-                case "tool-call":
-                  return part.toolUI ?? <ToolFallback {...part} />;
-                default:
-                  return null;
-              }
-            }}
-          </MessagePrimitive.GroupedParts>
+
+          {isEmptyRunning && (
+            <TextMessagePartProvider text="" isRunning>
+              <MarkdownText />
+            </TextMessagePartProvider>
+          )}
+
+          {/* 单一大脑过程框：包含所有 reasoning 和 tool-call parts */}
+          {hasThinking && (
+            <ThinkingAccordion isActive={accordionActive}>
+              {thinkingIndices.map((i) => (
+                <MessagePrimitive.PartByIndex
+                  key={i}
+                  index={i}
+                  components={partComponents}
+                />
+              ))}
+            </ThinkingAccordion>
+          )}
+
+          {/* 非思考内容（text 等）直接在外部渲染 */}
+          {nonThinkingIndices.map((i) => (
+            <MessagePrimitive.PartByIndex
+              key={i}
+              index={i}
+              components={partComponents}
+            />
+          ))}
+
           <MessageError />
         </div>
 

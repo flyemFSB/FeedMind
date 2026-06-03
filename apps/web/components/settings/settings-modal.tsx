@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, User, Cpu, MessageSquare, Shield, Wrench } from "lucide-react";
+import { X, Cpu, MessageSquare, Wrench } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
 import { listLLMModels } from "@/lib/api/llms";
 import type { ToolRead } from "@feedmind/contracts";
@@ -22,11 +22,9 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: "account", label: "账号与偏好", icon: User },
   { id: "models", label: "模型配置", icon: Cpu },
   { id: "tools", label: "工具配置", icon: Wrench },
   { id: "session", label: "会话模型配置", icon: MessageSquare },
-  { id: "security", label: "安全与密钥", icon: Shield },
 ];
 
 function emitModelsChange() {
@@ -169,32 +167,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             )}
             {activeTab === "tools" && <ToolsPanel tools={searchTools} />}
             {activeTab === "session" && <SessionPanel />}
-            {activeTab === "account" && (
-              <div className="space-y-6">
-                <h3 className="text-[15px] font-semibold text-[#1d1d1f]">账号与偏好</h3>
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#f5f5f7]">
-                  <div className="w-14 h-14 rounded-full bg-[#0071e3] flex items-center justify-center text-white text-[20px] font-semibold">
-                    Z
-                  </div>
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#1d1d1f]">Zack</p>
-                    <p className="text-[13px] text-[#86868b]">zack@example.com</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            {activeTab === "security" && (
-              <div className="space-y-6">
-                <h3 className="text-[15px] font-semibold text-[#1d1d1f]">安全与密钥</h3>
-                <div className="p-6 rounded-2xl bg-[#f5f5f7] text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-[#0071e3]/10 flex items-center justify-center">
-                    <Shield size={24} className="text-[#0071e3]" />
-                  </div>
-                  <h4 className="text-[15px] font-semibold text-[#1d1d1f] mb-1">隐私与安全</h4>
-                  <p className="text-[13px] text-[#86868b]">本地化识别与脱敏控制，助力数据安全。</p>
-                </div>
-              </div>
-            )}
           </div>
         </Tabs>
 

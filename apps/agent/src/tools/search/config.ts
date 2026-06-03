@@ -15,6 +15,8 @@ export interface ToolEntry {
 
 export class ToolConfigClient {
   private tools: ToolEntry[] | null = null;
+  private lastLoaded: number = 0;
+  private readonly ttl: number = 60_000; // 缓存有效期 60 秒
   static instance: ToolConfigClient;
 
   constructor(private backendApiUrl: string) {
@@ -22,12 +24,17 @@ export class ToolConfigClient {
   }
 
   async load(signal?: AbortSignal): Promise<ToolEntry[]> {
+    // TTL 缓存：TTL 内跳过重复请求
+    if (this.tools && Date.now() - this.lastLoaded < this.ttl) {
+      return this.tools;
+    }
     // 使用 /tools/runtime 端点，返回解密后的 password 字段
     const url = `${this.backendApiUrl.replace(/\/$/, "")}/api/v1/tools/runtime`;
     const response = await fetch(url, { signal });
 
     if (response.status === 404) {
       this.tools = [];
+      this.lastLoaded = Date.now();
       return this.tools;
     }
     if (!response.ok) {
@@ -36,6 +43,7 @@ export class ToolConfigClient {
 
     const payload = (await response.json()) as { data?: ToolEntry[] };
     this.tools = payload.data ?? [];
+    this.lastLoaded = Date.now();
     return this.tools;
   }
 

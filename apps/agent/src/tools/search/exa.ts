@@ -1,4 +1,9 @@
-export async function exaSearch(query: string, maxResults: number, apiKey: string) {
+export async function exaSearch(
+  query: string,
+  maxResults: number,
+  apiKey: string,
+  signal?: AbortSignal,
+) {
   const response = await fetch("https://api.exa.ai/search", {
     method: "POST",
     headers: {
@@ -11,6 +16,7 @@ export async function exaSearch(query: string, maxResults: number, apiKey: strin
       numResults: maxResults,
       contents: { highlights: true },
     }),
+    signal,
   });
 
   if (!response.ok) {

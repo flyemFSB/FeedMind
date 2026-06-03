@@ -12,6 +12,11 @@ const turndownService = new TurndownService({
   headingStyle: "atx",
 });
 
+// 按 Unicode grapheme cluster 边界截断字符串
+const segmenter = typeof Intl?.Segmenter === "function"
+  ? new Intl.Segmenter("en", { granularity: "grapheme" })
+  : null;
+
 const MAX_HTML_SIZE = 2 * 1024 * 1024; // 2MB：超出此大小的 HTML 直接截断避免 OOM
 const MAX_OUTPUT_CHARS = 4096; // 按字符截断（非 UTF-16 code unit），避免切开多字节字符
 
@@ -21,31 +26,24 @@ function extractWithReadability(html: string, url: string) {
   const reader = new Readability(doc.window.document);
   const article = reader.parse();
   if (!article) return null;
-  return { title: article.title || "Untitled", content: article.content || null };
+  return { title: article.title ?? "Untitled", content: article.content ?? null };
 }
 
 // 按 Unicode 字符边界截断字符串，避免切开 surrogate pair 或 combining mark
 function truncateByChars(text: string, maxChars: number): string {
   if (text.length <= maxChars) return text;
 
-  // 使用 Intl.Segmenter（grapheme cluster 粒度）逐字计数，确保不切开多字节字符
-  if (typeof Intl?.Segmenter === "function") {
-    const seg = new Intl.Segmenter("en", { granularity: "grapheme" });
+  if (segmenter) {
     let result = "";
-    for (const { segment } of seg.segment(text)) {
+    for (const { segment } of segmenter.segment(text)) {
       if (result.length + segment.length > maxChars) break;
       result += segment;
     }
     return result;
   }
 
-  // 兜底：for-of 按 Unicode code point 遍历（至少 safe 于 code point 边界）
-  let result = "";
-  for (const char of text) {
-    if (result.length + char.length > maxChars) break;
-    result += char;
-  }
-  return result;
+  // 兜底：按 Unicode code point 截断
+  return Array.from(text).slice(0, maxChars).join("");
 }
 
 // 直接从 URL 获取原始 HTML（不通过 Jina）
@@ -62,12 +60,16 @@ async function fetchHtmlDirectly(url: string, signal: AbortSignal): Promise<stri
   });
 
   if (!response.ok) {
-    throw new Error(`Direct fetch returned status ${response.status}`);
+    const err = new Error(`Direct fetch returned status ${response.status} for ${url}`);
+    (err as any).status = response.status;
+    throw err;
   }
 
   const text = await response.text();
   if (!text.trim()) {
-    throw new Error("Direct fetch returned empty response");
+    const err = new Error("Direct fetch returned empty response");
+    (err as any).status = 0;
+    throw err;
   }
 
   return text;
@@ -128,13 +130,14 @@ export const webFetchTool = tool(
 
       try {
         html = await fetchHtmlViaJina(url, jinaSignal, jinaApiKey);
-      } catch {
+      } catch (err) {
         // Jina 异常（超时、DNS 失败等）→ 降级到直接 fetch
+        console.warn("[web_fetch] Jina fetch failed, falling back to direct fetch:", err instanceof Error ? err.message : err);
       }
 
       if (!html) {
         // 2) Jina 兜底方案：直接 HTTP 请求原始 HTML + Readability
-        const directSignal = AbortSignal.timeout(10_000); // 兜底超时缩短，避免 25s
+        const directSignal = AbortSignal.timeout(8_000); // 兜底超时缩短，避免 18s+
         html = await fetchHtmlDirectly(url, directSignal);
       }
 
@@ -150,7 +153,9 @@ export const webFetchTool = tool(
       if (article) {
         markdown = formatAsMarkdown(article.title, article.content);
       } else {
-        markdown = formatAsMarkdown("Untitled", null);
+        // Readability 无法提取正文（非文章类页面）→ 直接用 Turndown 转原始 HTML
+        const rawMarkdown = turndownService.turndown(html);
+        markdown = `# Untitled\n\n${rawMarkdown}`;
       }
 
       // 4) 按字符边界截断，避免切开多字节字符
@@ -160,6 +165,7 @@ export const webFetchTool = tool(
       return JSON.stringify({
         error: "WEB_FETCH_FAILED",
         url,
+        status: error instanceof Error && "status" in error ? (error as any).status : 500,
         message: error instanceof Error ? error.message : "Unknown fetch error",
       });
     }

@@ -1,6 +1,11 @@
 import { tavily } from "@tavily/core";
 
-export async function tavilySearch(query: string, maxResults: number, apiKey: string) {
+export async function tavilySearch(
+  query: string,
+  maxResults: number,
+  apiKey: string,
+  signal?: AbortSignal,
+) {
   const client = tavily({ apiKey });
 
   const response = await client.search(query, {

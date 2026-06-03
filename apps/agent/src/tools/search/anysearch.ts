@@ -12,6 +12,7 @@ export async function anysearchSearch(
   query: string,
   maxResults: number,
   apiKey?: string,
+  signal?: AbortSignal,
 ): Promise<{ title: string; url: string; content: string }[]> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -25,7 +26,7 @@ export async function anysearchSearch(
     method: "POST",
     headers,
     body: JSON.stringify({ query, max_results: maxResults }),
-    signal: AbortSignal.timeout(10_000),
+    signal: signal ?? AbortSignal.timeout(10_000),
   });
 
   // 402 表示免费额度耗尽，但响应体中包含可用的临时凭证
@@ -33,22 +34,22 @@ export async function anysearchSearch(
     const body = (await response.json()) as {
       data?: { api_key?: string; username?: string; password?: string };
     };
-    if (body?.data?.api_key || body?.data?.username) {
+    if (body?.data?.api_key) {
       // 匿名额度耗尽，但响应返回了自动注册的凭证 —— 重试一次
       const retryHeaders: Record<string, string> = {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${body.data.api_key}`,
       };
-      if (body.data.api_key) {
-        retryHeaders.Authorization = `Bearer ${body.data.api_key}`;
-      }
       const retryResponse = await fetch("https://api.anysearch.com/v1/search", {
         method: "POST",
         headers: retryHeaders,
         body: JSON.stringify({ query, max_results: maxResults }),
-        signal: AbortSignal.timeout(10_000),
+        signal: signal ?? AbortSignal.timeout(10_000),
       });
       if (!retryResponse.ok) {
-        throw new Error(`AnySearch search failed: ${retryResponse.status}`);
+        throw new Error(
+          `AnySearch search failed: ${retryResponse.status} — ${await retryResponse.text().catch(() => "(unreadable)")}`,
+        );
       }
       const retryData = (await retryResponse.json()) as {
         data?: { results?: Array<{ title: string; url: string; description?: string; content?: string }> };
@@ -59,7 +60,8 @@ export async function anysearchSearch(
   }
 
   if (!response.ok) {
-    throw new Error(`AnySearch search failed: ${response.status}`);
+    const body = await response.text().catch(() => "(unreadable)");
+    throw new Error(`AnySearch search failed: ${response.status} — ${body.slice(0, 200)}`);
   }
 
   const data = (await response.json()) as {
