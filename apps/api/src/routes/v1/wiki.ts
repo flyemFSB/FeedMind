@@ -14,10 +14,10 @@ import {
   createWikiSpace,
   deleteWikiPage,
   deleteWikiSource,
+  getWikiBacklinks,
   getWikiPage,
   getWikiSource,
   getWikiSpace,
-  listWikiJobs,
   listWikiPages,
   listWikiSources,
   listWikiSpaces,
@@ -62,7 +62,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
 wikiRoutes.get("/wiki/spaces/:spaceId/pages/resolve", async (c) => {
   const spaceId = c.req.param("spaceId");
   const target = c.req.query("target");
-  if (!target) return jsonOk(c, { resolved: false, status: "missing" });
+  if (!target) return jsonOk(c, { resolved: false, page_id: null, slug: null, title: null, status: "missing", candidates: [] });
   return jsonOk(c, await resolveWikiLink(spaceId, target));
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId", async (c) =>
@@ -73,6 +73,11 @@ wikiRoutes.put("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
   const pageId = c.req.param("pageId");
   const payload = await parseJson(c, wikiPageUpdateSchema);
   return jsonOk(c, await updateWikiPage(spaceId, pageId, payload));
+});
+wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId/backlinks", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const pageId = c.req.param("pageId");
+  return jsonOk(c, await getWikiBacklinks(spaceId, pageId));
 });
 wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
   await deleteWikiPage(c.req.param("spaceId"), c.req.param("pageId"));
@@ -108,13 +113,4 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/sources/:sourceId", async (c) => {
       mode,
     ),
   );
-});
-
-// ─── Jobs ──────────────────────────────────────────────────────
-wikiRoutes.get("/wiki/spaces/:spaceId/jobs", async (c) => {
-  const spaceId = c.req.param("spaceId");
-  const status = c.req.query("status");
-  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : 50;
-  const offset = c.req.query("offset") ? Number(c.req.query("offset")) : 0;
-  return jsonOk(c, await listWikiJobs(spaceId, { status, limit, offset }));
 });

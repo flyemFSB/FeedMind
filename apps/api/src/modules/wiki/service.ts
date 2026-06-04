@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, like, ne, or } from "drizzle-orm";
+import fs from "node:fs";
+import path from "node:path";
 import type {
   WikiPageCreate,
   WikiPageListItem,
@@ -15,325 +16,625 @@ import type {
   WikiSpaceSettings,
   WikiSpaceUpdate,
 } from "@feedmind/contracts";
-import {
-  db,
-  wikiLinks,
-  wikiPageRevisions,
-  wikiPages,
-  wikiSourcePages,
-  wikiSources,
-  wikiSpaces,
-  type WikiPageRow,
-  type WikiSourceRow,
-  type WikiSpaceRow,
-} from "@feedmind/db";
-import { toIsoString } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-// ─── Helpers ───────────────────────────────────────────────────
-function slugFromPath(path: string): string {
-  const basename = path.split("/").pop() ?? path;
-  return basename.replace(/\.md$/i, "");
+// ─── Configuration ────────────────────────────────────────────────
+const WIKI_ROOT = process.env.WIKI_DIR
+  ? path.resolve(process.env.WIKI_DIR)
+  : path.join(process.cwd(), "data", "wiki");
+
+// Maps wiki page type → filesystem subdirectory
+const TYPE_DIR_MAP: Record<string, string> = {
+  entity: "entities",
+  concept: "concepts",
+  source: "sources",
+  query: "queries",
+  comparison: "comparisons",
+  synthesis: "synthesis",
+  overview: "",
+  index: "",
+};
+const DIR_TYPE_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(TYPE_DIR_MAP).map(([t, d]) => [d, t]),
+);
+
+// ─── Helpers ──────────────────────────────────────────────────────
+
+function ensureDir(dir: string): void {
+  fs.mkdirSync(dir, { recursive: true });
 }
 
-function iso(val: string | null | undefined): string | null {
-  return toIsoString(val);
+function nowISO(): string {
+  return new Date().toISOString();
 }
 
-function parseJsonSafe<T>(val: string | null | undefined, fallback: T): T {
-  if (!val) return fallback;
-  try {
-    return JSON.parse(val) as T;
-  } catch {
-    return fallback;
+/** Derive a safe directory/file name from a string. */
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s一-鿿-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    || "untitled";
+}
+
+/** [FIX P0] Reject path traversal, ensure normalized path stays under wiki/. */
+function normalizePagePath(p: string): string {
+  const withExt = p.endsWith(".md") ? p : `${p}.md`;
+  const normalized = withExt.startsWith("wiki/") ? withExt : `wiki/${withExt}`;
+  const parts = normalized.split("/");
+  if (parts.some((part) => part === ".." || part === ".")) {
+    throw new HttpError(400, "HTTP_ERROR", "路径不能包含 .. 或 .");
   }
+  return normalized;
 }
 
-function buildFrontmatter(page: WikiPageRow): Record<string, unknown> {
-  return {
+function slugFromPath(p: string): string {
+  return path.basename(p, ".md");
+}
+
+/** Infer page type from the subdirectory name under wiki/. */
+function inferTypeFromDir(relDir: string): string {
+  const parts = relDir.replace(/\\/g, "/").split("/");
+  const wikiIdx = parts.indexOf("wiki");
+  if (wikiIdx >= 0 && wikiIdx + 1 < parts.length) {
+    const sub = parts[wikiIdx + 1];
+    return DIR_TYPE_MAP[sub] ?? (sub ? "concept" : "overview");
+  }
+  // file at wiki root or elsewhere
+  return wikiIdx >= 0 ? "overview" : "concept";
+}
+
+// ─── Frontmatter ──────────────────────────────────────────────────
+
+/** [FIX CRLF] Parse YAML frontmatter from markdown content. Handles \r\n. */
+function parseFrontmatter(
+  content: string,
+): { frontmatter: Record<string, unknown>; body: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\r?\n?/);
+  if (!match) return { frontmatter: {}, body: content };
+
+  const raw = match[1];
+  const frontmatter: Record<string, unknown> = {};
+
+  for (const line of raw.split(/\r?\n/)) {
+    const colonIdx = line.indexOf(":");
+    if (colonIdx === -1) continue;
+    const key = line.slice(0, colonIdx).trim();
+    const value = line.slice(colonIdx + 1).trim();
+    if (!key) continue;
+
+    if (value.startsWith("[") && value.endsWith("]")) {
+      const inner = value.slice(1, -1).trim();
+      frontmatter[key] = inner
+        ? inner.split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""))
+        : [];
+    } else {
+      frontmatter[key] = value.replace(/^["']|["']$/g, "");
+    }
+  }
+
+  return { frontmatter, body: content.slice(match[0].length) };
+}
+
+/** [FIX metadata] Format frontmatter, handling objects via JSON.stringify. */
+function formatFrontmatter(fm: Record<string, unknown>): string {
+  const lines: string[] = ["---"];
+  for (const [key, value] of Object.entries(fm)) {
+    if (value === undefined || value === null) continue;
+    if (Array.isArray(value)) {
+      lines.push(`${key}: [${value.map(String).join(", ")}]`);
+    } else if (typeof value === "object") {
+      lines.push(`${key}: ${JSON.stringify(value)}`);
+    } else {
+      lines.push(`${key}: ${value}`);
+    }
+  }
+  lines.push("---");
+  return lines.join("\n");
+}
+
+function buildPageContent(page: {
+  type: string;
+  title: string;
+  tags: string[];
+  sources: string[];
+  related: string[];
+  created: string;
+  updated: string;
+  content: string;
+}): string {
+  const fm: Record<string, unknown> = {
     type: page.type,
     title: page.title,
-    sources: parseJsonSafe<string[]>(page.sources, []),
-    tags: parseJsonSafe<string[]>(page.tags, []),
-    related: parseJsonSafe<string[]>(page.related, []),
+    tags: page.tags,
+    sources: page.sources,
+    related: page.related,
+    created: page.created,
+    updated: page.updated,
   };
+  return formatFrontmatter(fm) + "\n" + page.content;
 }
 
-function simpleHash(text: string): string {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
+// ─── Page file slug cache (in-memory, invalidated on write) ───────
+
+const pageFileCache = new Map<string, Map<string, string>>(); // spaceId → slug → absPath
+
+function getSlugCache(spaceId: string): Map<string, string> {
+  let cache = pageFileCache.get(spaceId);
+  if (cache) return cache;
+  cache = new Map<string, string>();
+  const dir = path.join(spaceDir(spaceId), "wiki");
+  // silently return empty cache if wiki dir doesn't exist yet
+  try {
+    const files = readDirRecursive(dir, (_f, name) => name.endsWith(".md"));
+    for (const f of files) {
+      cache.set(path.basename(f, ".md"), f);
+    }
+  } catch { /* dir not created yet */ }
+  pageFileCache.set(spaceId, cache);
+  return cache;
+}
+
+function findPageFile(spaceId: string, slug: string): string | null {
+  return getSlugCache(spaceId).get(slug) ?? null;
+}
+
+function invalidatePageFileCache(spaceId: string): void {
+  pageFileCache.delete(spaceId);
+}
+
+// ─── Space helpers ────────────────────────────────────────────────
+
+function safeWriteFile(filePath: string, content: string, encoding: BufferEncoding): void {
+  try {
+    fs.writeFileSync(filePath, content, encoding);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new HttpError(500, "INTERNAL_SERVER_ERROR", `文件写入失败: ${msg}`);
   }
-  return Math.abs(hash).toString(16);
 }
 
-function parseCount(val: unknown): number {
-  if (val === null || val === undefined) return 0;
-  if (typeof val === "object" && "value" in (val as Record<string, unknown>)) {
-    return Number((val as Record<string, unknown>).value ?? 0);
+function safeUnlink(filePath: string): void {
+  try {
+    fs.unlinkSync(filePath);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new HttpError(500, "INTERNAL_SERVER_ERROR", `文件删除失败: ${msg}`);
   }
-  return Number(val);
 }
 
-// ─── Space ─────────────────────────────────────────────────────
-function toSpaceRead(row: WikiSpaceRow): WikiSpaceRead {
-  return {
-    id: row.id,
-    name: row.name,
-    template: row.template as WikiSpaceRead["template"],
-    purpose: row.purpose,
-    schema: row.schema,
-    settings: parseJsonSafe<WikiSpaceSettings>(row.settings, {
-      language: "zh-CN",
-      enabledPageTypes: [
-        "entity",
-        "concept",
-        "source",
-        "query",
-        "comparison",
-        "synthesis",
-        "overview",
-      ],
-      extraDirs: [],
-    }),
-    page_count: 0,
-    source_count: 0,
-    created_at: iso(row.createdAt) ?? "",
-    updated_at: iso(row.updatedAt) ?? "",
-  };
+function safeRename(oldPath: string, newPath: string): void {
+  try {
+    fs.renameSync(oldPath, newPath);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new HttpError(500, "INTERNAL_SERVER_ERROR", `文件移动失败: ${msg}`);
+  }
 }
+
+function registryPath(): string {
+  return path.join(WIKI_ROOT, "registry.json");
+}
+
+function spaceDir(spaceId: string): string {
+  return path.join(WIKI_ROOT, spaceId);
+}
+
+function spaceMetaPath(spaceId: string): string {
+  return path.join(spaceDir(spaceId), "space.json");
+}
+
+function readRegistry(): Array<Record<string, unknown>> {
+  try {
+    return JSON.parse(fs.readFileSync(registryPath(), "utf-8"));
+  } catch {
+    return [];
+  }
+}
+
+function writeRegistry(registry: Array<Record<string, unknown>>): void {
+  ensureDir(WIKI_ROOT);
+  safeWriteFile(registryPath(), JSON.stringify(registry, null, 2), "utf-8");
+}
+
+function readSpaceMeta(spaceId: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(fs.readFileSync(spaceMetaPath(spaceId), "utf-8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeSpaceMeta(spaceId: string, meta: Record<string, unknown>): void {
+  ensureDir(spaceDir(spaceId));
+  safeWriteFile(spaceMetaPath(spaceId), JSON.stringify(meta, null, 2), "utf-8");
+}
+
+function createSpaceDirectories(spaceId: string): void {
+  const dirs = [
+    "wiki",
+    "wiki/entities",
+    "wiki/concepts",
+    "wiki/sources",
+    "wiki/queries",
+    "wiki/comparisons",
+    "wiki/synthesis",
+    "raw/sources",
+  ];
+  for (const d of dirs) {
+    ensureDir(path.join(spaceDir(spaceId), d));
+  }
+}
+
+function readDirRecursive(
+  dir: string,
+  predicate?: (filePath: string, relPath: string) => boolean,
+): string[] {
+  const results: string[] = [];
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...readDirRecursive(fullPath, predicate));
+      } else if (!predicate || predicate(fullPath, entry.name)) {
+        results.push(fullPath);
+      }
+    }
+  } catch { /* dir doesn't exist */ }
+  return results;
+}
+
+function countFiles(dir: string, ext?: string): number {
+  return readDirRecursive(dir, (_f, name) =>
+    ext ? name.endsWith(ext) : true,
+  ).length;
+}
+
+// ─── Date sort helper (safe against invalid/empty dates) ──────────
+
+function dateSortDesc(a: string, b: string): number {
+  const ta = a ? new Date(a).getTime() : 0;
+  const tb = b ? new Date(b).getTime() : 0;
+  return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+}
+
+// ─── Space ────────────────────────────────────────────────────────
 
 export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
-  const rows = await db
-    .select({
-      id: wikiSpaces.id,
-      name: wikiSpaces.name,
-      template: wikiSpaces.template,
-      createdAt: wikiSpaces.createdAt,
-      updatedAt: wikiSpaces.updatedAt,
-      pageCount: count(wikiPages.id),
-      sourceCount: count(wikiSources.id),
-    })
-    .from(wikiSpaces)
-    .leftJoin(wikiPages, eq(wikiPages.spaceId, wikiSpaces.id))
-    .leftJoin(wikiSources, eq(wikiSources.spaceId, wikiSpaces.id))
-    .groupBy(wikiSpaces.id)
-    .orderBy(desc(wikiSpaces.updatedAt));
+  const registry = readRegistry();
+  const items: WikiSpaceListItem[] = [];
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    template: r.template as WikiSpaceListItem["template"],
-    page_count: parseCount(r.pageCount),
-    source_count: parseCount(r.sourceCount),
-    created_at: iso(r.createdAt) ?? "",
-    updated_at: iso(r.updatedAt) ?? "",
-  }));
+  for (const entry of registry) {
+    const spaceId = entry.id as string;
+    const meta = readSpaceMeta(spaceId);
+    const spaceDirPath = spaceDir(spaceId);
+
+    const pageCount = countFiles(path.join(spaceDirPath, "wiki"), ".md");
+    const sourceCount = countFiles(path.join(spaceDirPath, "raw", "sources"));
+
+    items.push({
+      id: spaceId,
+      name: (meta?.name as string) ?? (entry.name as string) ?? spaceId,
+      template: (meta?.template ?? "general") as WikiSpaceListItem["template"],
+      page_count: pageCount,
+      source_count: sourceCount,
+      created_at: (meta?.created_at as string) ?? "",
+      updated_at: (meta?.updated_at as string) ?? "",
+    });
+  }
+
+  return items.sort((a, b) => dateSortDesc(a.updated_at, b.updated_at));
 }
 
 export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
-  const [space] = await db
-    .select()
-    .from(wikiSpaces)
-    .where(eq(wikiSpaces.id, spaceId))
-    .limit(1);
-  if (!space) throw new HttpError(404, "HTTP_ERROR", "Wiki 空间不存在");
-  const read = toSpaceRead(space);
+  const meta = readSpaceMeta(spaceId);
+  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
 
-  const [pc] = await db
-    .select({ value: count() })
-    .from(wikiPages)
-    .where(eq(wikiPages.spaceId, spaceId));
-  const [sc] = await db
-    .select({ value: count() })
-    .from(wikiSources)
-    .where(eq(wikiSources.spaceId, spaceId));
-  return { ...read, page_count: pc?.value ?? 0, source_count: sc?.value ?? 0 };
+  const spaceDirPath = spaceDir(spaceId);
+  const pageCount = countFiles(path.join(spaceDirPath, "wiki"), ".md");
+  const sourceCount = countFiles(path.join(spaceDirPath, "raw", "sources"));
+
+  return {
+    id: spaceId,
+    name: (meta.name as string) ?? spaceId,
+    template: (meta.template ?? "general") as WikiSpaceRead["template"],
+    purpose: (meta.purpose as string) ?? "",
+    schema: (meta.schema as string) ?? "",
+    settings: (meta.settings as WikiSpaceSettings) ?? {
+      language: "zh-CN",
+      enabledPageTypes: [
+        "entity", "concept", "source", "query",
+        "comparison", "synthesis", "overview",
+      ],
+      extraDirs: [],
+    },
+    page_count: pageCount,
+    source_count: sourceCount,
+    created_at: (meta.created_at as string) ?? "",
+    updated_at: (meta.updated_at as string) ?? "",
+  };
 }
 
 export async function createWikiSpace(
   payload: WikiSpaceCreate,
 ): Promise<WikiSpaceRead> {
-  const id = randomUUID();
-  const defaults = {
-    language: "zh-CN" as const,
-    enabledPageTypes: [
-      "entity",
-      "concept",
-      "source",
-      "query",
-      "comparison",
-      "synthesis",
-      "overview",
-    ] as string[],
-    extraDirs: [] as string[],
+  const spaceId = slugify(payload.name);
+  if (readSpaceMeta(spaceId)) {
+    throw new HttpError(409, "HTTP_ERROR", `同名空间已存在 (${spaceId})`);
+  }
+
+  const now = nowISO();
+  const meta: Record<string, unknown> = {
+    id: spaceId,
+    name: payload.name,
+    template: payload.template ?? "general",
+    purpose: payload.purpose ?? "",
+    schema: payload.schema ?? "",
+    settings: {
+      language: "zh-CN",
+      enabledPageTypes: [
+        "entity", "concept", "source", "query",
+        "comparison", "synthesis", "overview",
+      ],
+      extraDirs: [],
+    },
+    created_at: now,
+    updated_at: now,
   };
-  const settings: WikiSpaceSettings = { ...defaults, ...payload.settings };
-  const [row] = await db
-    .insert(wikiSpaces)
-    .values({
-      id,
-      name: payload.name,
-      template: payload.template,
-      purpose: payload.purpose,
-      schema: payload.schema,
-      settings: JSON.stringify(settings),
-    })
-    .returning();
-  return toSpaceRead(row);
+
+  writeSpaceMeta(spaceId, meta);
+  createSpaceDirectories(spaceId);
+
+  // Write purpose.md and schema.md for llm_wiki compat
+  safeWriteFile(
+    path.join(spaceDir(spaceId), "purpose.md"),
+    payload.purpose || "# Purpose\n\n",
+    "utf-8",
+  );
+  safeWriteFile(
+    path.join(spaceDir(spaceId), "schema.md"),
+    payload.schema || "# Schema\n\n",
+    "utf-8",
+  );
+
+  // Register
+  const registry = readRegistry();
+  registry.push({
+    id: spaceId,
+    name: payload.name,
+  });
+  writeRegistry(registry);
+
+  return {
+    id: spaceId,
+    name: payload.name,
+    template: payload.template ?? "general",
+    purpose: payload.purpose ?? "",
+    schema: payload.schema ?? "",
+    settings: meta.settings as WikiSpaceSettings,
+    page_count: 0,
+    source_count: 0,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export async function updateWikiSpace(
   spaceId: string,
   payload: WikiSpaceUpdate,
 ): Promise<WikiSpaceRead> {
-  const [existing] = await db
-    .select()
-    .from(wikiSpaces)
-    .where(eq(wikiSpaces.id, spaceId))
-    .limit(1);
-  if (!existing) throw new HttpError(404, "HTTP_ERROR", "Wiki 空间不存在");
+  const meta = readSpaceMeta(spaceId);
+  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
 
-  const updates: Record<string, string> = {};
-  if (payload.name !== undefined) updates.name = payload.name;
-  if (payload.purpose !== undefined) updates.purpose = payload.purpose;
-  if (payload.schema !== undefined) updates.schema = payload.schema;
+  if (payload.name !== undefined) meta.name = payload.name;
+  if (payload.purpose !== undefined) meta.purpose = payload.purpose;
+  if (payload.schema !== undefined) meta.schema = payload.schema;
   if (payload.settings !== undefined) {
-    const current = parseJsonSafe<WikiSpaceSettings>(
-      existing.settings,
-      {} as WikiSpaceSettings,
-    );
-    updates.settings = JSON.stringify({ ...current, ...payload.settings });
+    meta.settings = { ...(meta.settings as object), ...payload.settings };
   }
+  meta.updated_at = nowISO();
+  writeSpaceMeta(spaceId, meta);
 
-  const [row] = await db
-    .update(wikiSpaces)
-    .set({ ...updates, updatedAt: new Date().toISOString() })
-    .where(eq(wikiSpaces.id, spaceId))
-    .returning();
-  return toSpaceRead(row);
-}
+  const spaceDirPath = spaceDir(spaceId);
+  const pageCount = countFiles(path.join(spaceDirPath, "wiki"), ".md");
+  const sourceCount = countFiles(path.join(spaceDirPath, "raw", "sources"));
 
-// ─── Page ──────────────────────────────────────────────────────
-function toPageRead(row: WikiPageRow): WikiPageRead {
   return {
-    id: row.id,
-    space_id: row.spaceId,
-    path: row.path,
-    slug: row.slug,
-    type: row.type as WikiPageRead["type"],
-    title: row.title,
-    content: row.content,
-    frontmatter: parseJsonSafe(row.frontmatter, {}),
-    sources: parseJsonSafe<string[]>(row.sources, []),
-    tags: parseJsonSafe<string[]>(row.tags, []),
-    related: parseJsonSafe<string[]>(row.related, []),
-    created_at: iso(row.createdAt) ?? "",
-    updated_at: iso(row.updatedAt) ?? "",
+    id: spaceId,
+    name: (meta.name as string) ?? spaceId,
+    template: (meta.template ?? "general") as WikiSpaceRead["template"],
+    purpose: (meta.purpose as string) ?? "",
+    schema: (meta.schema as string) ?? "",
+    settings: (meta.settings as WikiSpaceSettings) ?? {
+      language: "zh-CN",
+      enabledPageTypes: [],
+      extraDirs: [],
+    },
+    page_count: pageCount,
+    source_count: sourceCount,
+    created_at: (meta.created_at as string) ?? "",
+    updated_at: (meta.updated_at as string) ?? "",
   };
 }
 
-function toPageListItem(row: WikiPageRow): WikiPageListItem {
+// ─── Page ─────────────────────────────────────────────────────────
+
+function pageFileToRead(
+  filePath: string,
+  spaceId: string,
+): WikiPageRead | null {
+  try {
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter, body } = parseFrontmatter(content);
+
+    const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
+    const slug = path.basename(filePath, ".md");
+    const pageType = (frontmatter.type as string) || inferTypeFromDir(relPath) || "concept";
+
+    return {
+      id: slug,
+      space_id: spaceId,
+      path: relPath,
+      slug,
+      type: pageType as WikiPageRead["type"],
+      title: (frontmatter.title as string) ?? slug,
+      content: body.trim(),
+      frontmatter: frontmatter as Record<string, unknown>,
+      sources: (frontmatter.sources as string[]) ?? [],
+      tags: (frontmatter.tags as string[]) ?? [],
+      related: (frontmatter.related as string[]) ?? [],
+      created_at: (frontmatter.created as string) ?? "",
+      updated_at: (frontmatter.updated as string) ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function pageFileToListItem(
+  filePath: string,
+  spaceId: string,
+): WikiPageListItem | null {
+  const read = pageFileToRead(filePath, spaceId);
+  if (!read) return null;
   return {
-    id: row.id,
-    space_id: row.spaceId,
-    path: row.path,
-    slug: row.slug,
-    type: row.type as WikiPageListItem["type"],
-    title: row.title,
-    tags: parseJsonSafe<string[]>(row.tags, []),
-    created_at: iso(row.createdAt) ?? "",
-    updated_at: iso(row.updatedAt) ?? "",
+    id: read.id,
+    space_id: read.space_id,
+    path: read.path,
+    slug: read.slug,
+    type: read.type,
+    title: read.title,
+    tags: read.tags,
+    created_at: read.created_at,
+    updated_at: read.updated_at,
   };
+}
+
+function walkAllPages(spaceId: string): string[] {
+  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  return readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
+}
+
+/** [FIX P3] When type filter is specified, only scan that subdirectory. */
+function walkScopedPages(spaceId: string, typeFilter?: string): string[] {
+  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  if (typeFilter && TYPE_DIR_MAP[typeFilter] !== undefined) {
+    const sub = TYPE_DIR_MAP[typeFilter];
+    const scanDir = sub ? path.join(wikiDir, sub) : wikiDir;
+    try {
+      return readDirRecursive(scanDir, (_f, name) => name.endsWith(".md"));
+    } catch { return []; }
+  }
+  return walkAllPages(spaceId);
 }
 
 export async function listWikiPages(
   spaceId: string,
   opts?: { type?: string; q?: string; limit?: number; offset?: number },
 ): Promise<{ items: WikiPageListItem[]; total: number }> {
-  const conditions = [eq(wikiPages.spaceId, spaceId)];
-  if (opts?.type) conditions.push(eq(wikiPages.type, opts.type));
-  if (opts?.q) {
-    const kw = `%${opts.q}%`;
-    conditions.push(
-      or(
-        like(wikiPages.title, kw),
-        like(wikiPages.path, kw),
-        like(wikiPages.slug, kw),
-      )!,
-    );
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
   }
 
+  const files = walkScopedPages(spaceId, opts?.type);
+  const items: WikiPageListItem[] = [];
+
+  for (const filePath of files) {
+    const item = pageFileToListItem(filePath, spaceId);
+    if (!item) continue;
+
+    if (opts?.q) {
+      const q = opts.q.toLowerCase();
+      if (
+        !item.title.toLowerCase().includes(q) &&
+        !item.path.toLowerCase().includes(q) &&
+        !item.slug.toLowerCase().includes(q)
+      ) continue;
+    }
+    items.push(item);
+  }
+
+  // Sort by updated_at descending
+  items.sort((a, b) => dateSortDesc(a.updated_at, b.updated_at));
+
+  const total = items.length;
   const limit = opts?.limit ?? 50;
   const offset = opts?.offset ?? 0;
+  const paged = items.slice(offset, offset + limit);
 
-  const [totalRow] = await db
-    .select({ value: count() })
-    .from(wikiPages)
-    .where(and(...conditions));
-  const total = totalRow?.value ?? 0;
-
-  const rows = await db
-    .select()
-    .from(wikiPages)
-    .where(and(...conditions))
-    .orderBy(desc(wikiPages.updatedAt))
-    .limit(limit)
-    .offset(offset);
-  return { items: rows.map(toPageListItem), total };
+  return { items: paged, total };
 }
 
 export async function getWikiPage(
   spaceId: string,
   pageId: string,
 ): Promise<WikiPageRead> {
-  const [row] = await db
-    .select()
-    .from(wikiPages)
-    .where(and(eq(wikiPages.id, pageId), eq(wikiPages.spaceId, spaceId)))
-    .limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "Wiki 页面不存在");
-  return toPageRead(row);
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
+
+  const filePath = findPageFile(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki 页面不存在 (${pageId})`);
+
+  const page = pageFileToRead(filePath, spaceId);
+  if (!page) throw new HttpError(404, "HTTP_ERROR", `Wiki 页面不存在 (${pageId})`);
+
+  return page;
 }
 
 export async function createWikiPage(
   spaceId: string,
   payload: WikiPageCreate,
 ): Promise<WikiPageRead> {
-  const [existing] = await db
-    .select()
-    .from(wikiPages)
-    .where(
-      and(eq(wikiPages.spaceId, spaceId), eq(wikiPages.path, payload.path)),
-    )
-    .limit(1);
-  if (existing) throw new HttpError(409, "HTTP_ERROR", "路径已存在");
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
 
-  const slug = slugFromPath(payload.path);
-  const [row] = await db
-    .insert(wikiPages)
-    .values({
-      spaceId,
-      path: payload.path,
-      slug,
-      type: payload.type,
-      title: payload.title,
-      content: payload.content,
-      sources: JSON.stringify(payload.sources),
-      tags: JSON.stringify(payload.tags),
-      related: JSON.stringify(payload.related),
-      frontmatter: JSON.stringify({
-        type: payload.type,
-        title: payload.title,
-        sources: payload.sources,
-        tags: payload.tags,
-        related: payload.related,
-      }),
-    })
-    .returning();
-  return toPageRead(row);
+  const normalizedPath = normalizePagePath(payload.path);
+  const slug = slugFromPath(normalizedPath);
+  const relPath = normalizedPath;
+  const absPath = path.join(spaceDir(spaceId), relPath);
+
+  if (fs.existsSync(absPath)) {
+    throw new HttpError(409, "HTTP_ERROR", `路径已存在 (${relPath})`);
+  }
+
+  ensureDir(path.dirname(absPath));
+
+  const now = nowISO();
+  const pageData = {
+    type: payload.type ?? "concept",
+    title: payload.title,
+    tags: payload.tags ?? [],
+    sources: payload.sources ?? [],
+    related: payload.related ?? [],
+    created: now,
+    updated: now,
+    content: payload.content || "",
+  };
+
+  const fileContent = buildPageContent(pageData);
+  safeWriteFile(absPath, fileContent, "utf-8");
+  invalidatePageFileCache(spaceId);
+
+  return {
+    id: slug,
+    space_id: spaceId,
+    path: relPath,
+    slug,
+    type: pageData.type as WikiPageRead["type"],
+    title: pageData.title,
+    content: pageData.content,
+    frontmatter: { ...pageData } as Record<string, unknown>,
+    sources: pageData.sources,
+    tags: pageData.tags,
+    related: pageData.related,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export async function updateWikiPage(
@@ -341,128 +642,158 @@ export async function updateWikiPage(
   pageId: string,
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
-  const [existing] = await db
-    .select()
-    .from(wikiPages)
-    .where(and(eq(wikiPages.id, pageId), eq(wikiPages.spaceId, spaceId)))
-    .limit(1);
-  if (!existing) throw new HttpError(404, "HTTP_ERROR", "Wiki 页面不存在");
-
-  const updates: Record<string, unknown> = {};
-  if (payload.path !== undefined) {
-    updates.path = payload.path;
-    updates.slug = slugFromPath(payload.path);
-  }
-  if (payload.title !== undefined) updates.title = payload.title;
-  if (payload.content !== undefined) updates.content = payload.content;
-  if (payload.sources !== undefined) updates.sources = JSON.stringify(payload.sources);
-  if (payload.tags !== undefined) updates.tags = JSON.stringify(payload.tags);
-  if (payload.related !== undefined) updates.related = JSON.stringify(payload.related);
-  updates.updatedAt = new Date().toISOString();
-
-  // Write revision if content changed
-  if (payload.content !== undefined && payload.content !== existing.content) {
-    await db.insert(wikiPageRevisions).values({
-      pageId,
-      beforeContent: existing.content,
-      afterContent: payload.content,
-      reason: "manual_edit",
-    });
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
   }
 
-  await db.update(wikiPages).set(updates).where(eq(wikiPages.id, pageId));
+  const filePath = findPageFile(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki 页面不存在 (${pageId})`);
 
-  // Re-read to get updated row
-  const [updated] = await db
-    .select()
-    .from(wikiPages)
-    .where(eq(wikiPages.id, pageId))
-    .limit(1);
+  const existing = pageFileToRead(filePath, spaceId);
+  if (!existing) throw new HttpError(404, "HTTP_ERROR", `Wiki 页面不存在 (${pageId})`);
 
-  // Refresh links
-  if (updated) {
-    await refreshPageLinks(spaceId, updated);
+  const now = nowISO();
+  const updatedData = {
+    type: existing.type,
+    title: payload.title ?? existing.title,
+    tags: payload.tags ?? existing.tags,
+    sources: payload.sources ?? existing.sources,
+    related: payload.related ?? existing.related,
+    created: existing.created_at, // preserve original creation time
+    updated: now,
+    content: payload.content ?? existing.content,
+  };
 
-    // Refresh frontmatter cache
-    const fm = buildFrontmatter(updated);
-    await db
-      .update(wikiPages)
-      .set({ frontmatter: JSON.stringify(fm) })
-      .where(eq(wikiPages.id, pageId));
+  // Handle path change: move the file
+  if (payload.path && payload.path !== existing.path.replace(/^wiki\//, "")) {
+    const newPath = normalizePagePath(payload.path);
+    const newAbsPath = path.join(spaceDir(spaceId), newPath);
 
-    return toPageRead(updated);
+    if (fs.existsSync(newAbsPath)) {
+      throw new HttpError(409, "HTTP_ERROR", `目标路径已存在 (${newPath})`);
+    }
+
+    ensureDir(path.dirname(newAbsPath));
+    safeRename(filePath, newAbsPath);
+    safeWriteFile(newAbsPath, buildPageContent(updatedData), "utf-8");
+    invalidatePageFileCache(spaceId);
+
+    const newSlug = slugFromPath(newPath);
+    return {
+      id: newSlug,
+      space_id: spaceId,
+      path: newPath,
+      slug: newSlug,
+      type: updatedData.type as WikiPageRead["type"],
+      title: updatedData.title,
+      content: updatedData.content,
+      frontmatter: { ...updatedData } as Record<string, unknown>,
+      sources: updatedData.sources,
+      tags: updatedData.tags,
+      related: updatedData.related,
+      created_at: existing.created_at, // [FIX] preserve original creation time
+      updated_at: now,
+    };
   }
 
-  throw new HttpError(500, "INTERNAL_SERVER_ERROR", "更新页面后读取失败");
+  // Same path — rewrite in place
+  safeWriteFile(filePath, buildPageContent(updatedData), "utf-8");
+  invalidatePageFileCache(spaceId);
+
+  return {
+    id: existing.id,
+    space_id: spaceId,
+    path: existing.path,
+    slug: existing.slug,
+    type: updatedData.type as WikiPageRead["type"],
+    title: updatedData.title,
+    content: updatedData.content,
+    frontmatter: { ...updatedData } as Record<string, unknown>,
+    sources: updatedData.sources,
+    tags: updatedData.tags,
+    related: updatedData.related,
+    created_at: existing.created_at, // [FIX] preserve original creation time
+    updated_at: now,
+  };
 }
 
 export async function deleteWikiPage(
   spaceId: string,
   pageId: string,
 ): Promise<void> {
-  const [existing] = await db
-    .select()
-    .from(wikiPages)
-    .where(and(eq(wikiPages.id, pageId), eq(wikiPages.spaceId, spaceId)))
-    .limit(1);
-  if (!existing) throw new HttpError(404, "HTTP_ERROR", "Wiki 页面不存在");
-  await db.delete(wikiPages).where(eq(wikiPages.id, pageId));
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
+
+  const filePath = findPageFile(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki 页面不存在 (${pageId})`);
+
+  safeUnlink(filePath);
+  invalidatePageFileCache(spaceId);
 }
 
 export async function resolveWikiLink(
   spaceId: string,
   target: string,
 ): Promise<WikiResolveResult> {
-  // Try exact path match
-  const exactPath = target.endsWith(".md") ? target : `wiki/${target}.md`;
-  const [byPath] = await db
-    .select()
-    .from(wikiPages)
-    .where(
-      and(eq(wikiPages.spaceId, spaceId), eq(wikiPages.path, exactPath)),
-    )
-    .limit(1);
-  if (byPath) {
+  if (!readSpaceMeta(spaceId)) {
+    return { resolved: false, page_id: null, slug: null, title: null, status: "missing", candidates: [] };
+  }
+
+  const files = walkAllPages(spaceId);
+  const bySlug = new Map<string, WikiPageRead>(); // slug → parsed page (avoids double-read)
+  const slugList: Array<{ slug: string; path: string; title: string }> = [];
+
+  for (const filePath of files) {
+    const slug = path.basename(filePath, ".md");
+    const page = pageFileToRead(filePath, spaceId);
+    if (!page) continue;
+    bySlug.set(slug, page);
+    slugList.push({ slug, path: page.path, title: page.title });
+  }
+
+  // Try exact slug match first
+  if (bySlug.has(target)) {
+    const page = bySlug.get(target)!;
     return {
       resolved: true,
-      page_id: byPath.id,
-      slug: byPath.slug,
-      title: byPath.title,
+      page_id: page.id,
+      slug: page.slug,
+      title: page.title,
       status: "resolved",
       candidates: [],
     };
   }
 
-  // Try by slug
-  const slug = target.replace(/\.md$/i, "");
-  const bySlug = await db
-    .select()
-    .from(wikiPages)
-    .where(and(eq(wikiPages.spaceId, spaceId), eq(wikiPages.slug, slug)));
+  // Try normalized match
+  const normalized = target.toLowerCase().replace(/\s+/g, "-");
+  const matches = slugList.filter(
+    (s) => s.slug.toLowerCase() === normalized || s.slug.toLowerCase() === target.toLowerCase(),
+  );
 
-  if (bySlug.length === 1) {
+  if (matches.length === 1) {
     return {
       resolved: true,
-      page_id: bySlug[0].id,
-      slug: bySlug[0].slug,
-      title: bySlug[0].title,
+      page_id: matches[0].slug,
+      slug: matches[0].slug,
+      title: matches[0].title,
       status: "resolved",
       candidates: [],
     };
   }
 
-  if (bySlug.length > 1) {
+  if (matches.length > 1) {
     return {
       resolved: false,
       page_id: null,
       slug: null,
       title: null,
       status: "ambiguous",
-      candidates: bySlug.map((p) => ({
-        page_id: p.id,
-        path: p.path,
-        title: p.title,
-        slug: p.slug,
+      candidates: matches.map((m) => ({
+        page_id: m.slug,
+        path: m.path,
+        title: m.title,
+        slug: m.slug,
       })),
     };
   }
@@ -477,41 +808,103 @@ export async function resolveWikiLink(
   };
 }
 
-// ─── Source ────────────────────────────────────────────────────
-function toSourceRead(row: WikiSourceRow): WikiSourceRead {
-  return {
-    id: row.id,
-    space_id: row.spaceId,
-    identity: row.identity,
-    title: row.title,
-    kind: row.kind as WikiSourceRead["kind"],
-    original_name: row.originalName,
-    original_uri: row.originalUri,
-    storage_path: row.storagePath,
-    mime_type: row.mimeType,
-    size_bytes: row.sizeBytes,
-    content_hash: row.contentHash,
-    status: row.status as WikiSourceRead["status"],
-    metadata: parseJsonSafe(row.metadata, {}),
-    page_count: 0,
-    created_at: iso(row.createdAt) ?? "",
-    updated_at: iso(row.updatedAt) ?? "",
-  };
+// ─── Source ───────────────────────────────────────────────────────
+
+function sourceFilePath(spaceId: string, identity: string): string {
+  return path.join(spaceDir(spaceId), "raw", "sources", identity);
 }
 
-function toSourceListItem(row: WikiSourceRow): WikiSourceListItem {
+/** [FIX race + FIX perf] Pre-read mtimes with error handling. */
+function listSourceFiles(spaceId: string): string[] {
+  const sourcesDir = path.join(spaceDir(spaceId), "raw", "sources");
+  const files = readDirRecursive(sourcesDir);
+  const withMtime: Array<{ path: string; mtime: number }> = [];
+  for (const f of files) {
+    try {
+      withMtime.push({ path: f, mtime: fs.statSync(f).mtimeMs });
+    } catch { /* file deleted between readdir and stat */ }
+  }
+  withMtime.sort((a, b) => b.mtime - a.mtime);
+  return withMtime.map((e) => e.path);
+}
+
+/**
+ * [FIX O(m*n)] Compute page_count for all sources in a single pass.
+ * Scans all wiki pages once, builds a slug→count map.
+ */
+function computeSourcePageCounts(spaceId: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  const wikiFiles = walkAllPages(spaceId);
+  for (const wf of wikiFiles) {
+    try {
+      const wc = fs.readFileSync(wf, "utf-8");
+      const { frontmatter } = parseFrontmatter(wc);
+      const srcs = (frontmatter.sources as string[]) ?? [];
+      for (const s of srcs) {
+        counts.set(s, (counts.get(s) ?? 0) + 1);
+      }
+    } catch { /* skip unreadable */ }
+  }
+  return counts;
+}
+
+function sourceFileToRead(
+  filePath: string,
+  spaceId: string,
+): Omit<WikiSourceRead, "page_count"> | null {
+  try {
+    const stat = fs.statSync(filePath);
+    const content = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter } = parseFrontmatter(content);
+    // [FIX body] Use parseFrontmatter's body, not manual split
+    const bodyStart = content.indexOf("---\n", content.indexOf("---\n") + 1);
+    const body = bodyStart !== -1 ? content.slice(bodyStart + 4) : content;
+
+    const fileName = path.basename(filePath);
+    const slug = path.basename(filePath, path.extname(filePath));
+    const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
+
+    return {
+      id: slug,
+      space_id: spaceId,
+      identity: fileName,
+      title: (frontmatter.title as string) ?? slug,
+      kind: (frontmatter.kind as WikiSourceRead["kind"]) ?? "text",
+      original_name: fileName,
+      original_uri: (frontmatter.original_uri as string) ?? null,
+      storage_path: relPath,
+      mime_type: "text/plain",
+      size_bytes: stat.size,
+      content_hash: simpleHash(body.trim()),
+      status: "ready",
+      metadata: (frontmatter.metadata as Record<string, unknown>) ?? {},
+      created_at: (frontmatter.created as string) ?? stat.birthtime.toISOString(),
+      updated_at: (frontmatter.updated as string) ?? stat.mtime.toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function sourceFileToList(
+  filePath: string,
+  spaceId: string,
+  pageCounts: Map<string, number>,
+): WikiSourceListItem | null {
+  const read = sourceFileToRead(filePath, spaceId);
+  if (!read) return null;
   return {
-    id: row.id,
-    space_id: row.spaceId,
-    identity: row.identity,
-    title: row.title,
-    kind: row.kind as WikiSourceListItem["kind"],
-    original_name: row.originalName,
-    mime_type: row.mimeType,
-    status: row.status as WikiSourceListItem["status"],
-    page_count: 0,
-    created_at: iso(row.createdAt) ?? "",
-    updated_at: iso(row.updatedAt) ?? "",
+    id: read.id,
+    space_id: read.space_id,
+    identity: read.identity,
+    title: read.title,
+    kind: read.kind,
+    original_name: read.original_name,
+    mime_type: read.mime_type,
+    status: read.status,
+    page_count: pageCounts.get(read.id) ?? 0,
+    created_at: read.created_at,
+    updated_at: read.updated_at,
   };
 }
 
@@ -519,199 +912,217 @@ export async function listWikiSources(
   spaceId: string,
   opts?: { status?: string; limit?: number; offset?: number },
 ): Promise<{ items: WikiSourceListItem[]; total: number }> {
-  const conditions = [eq(wikiSources.spaceId, spaceId)];
-  if (opts?.status) conditions.push(eq(wikiSources.status, opts.status));
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
 
+  const files = listSourceFiles(spaceId);
+  // [FIX O(m*n)] Compute page counts in a single pass
+  const pageCounts = computeSourcePageCounts(spaceId);
+  const items: WikiSourceListItem[] = [];
+
+  for (const filePath of files) {
+    const item = sourceFileToList(filePath, spaceId, pageCounts);
+    if (!item) continue;
+    if (opts?.status && item.status !== opts.status) continue;
+    items.push(item);
+  }
+
+  const total = items.length;
   const limit = opts?.limit ?? 50;
   const offset = opts?.offset ?? 0;
 
-  const [totalRow] = await db
-    .select({ value: count() })
-    .from(wikiSources)
-    .where(and(...conditions));
-  const total = totalRow?.value ?? 0;
-
-  const rows = await db
-    .select()
-    .from(wikiSources)
-    .where(and(...conditions))
-    .orderBy(desc(wikiSources.updatedAt))
-    .limit(limit)
-    .offset(offset);
-  return { items: rows.map(toSourceListItem), total };
+  return { items: items.slice(offset, offset + limit), total };
 }
 
 export async function getWikiSource(
   spaceId: string,
   sourceId: string,
 ): Promise<WikiSourceRead> {
-  const [row] = await db
-    .select()
-    .from(wikiSources)
-    .where(
-      and(eq(wikiSources.id, sourceId), eq(wikiSources.spaceId, spaceId)),
-    )
-    .limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "Wiki 来源不存在");
-  const read = toSourceRead(row);
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
 
-  const [pc] = await db
-    .select({ value: count() })
-    .from(wikiSourcePages)
-    .where(eq(wikiSourcePages.sourceId, sourceId));
-  return { ...read, page_count: pc?.value ?? 0 };
+  const filePath = findSourceFile(spaceId, sourceId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki 来源不存在 (${sourceId})`);
+
+  const base = sourceFileToRead(filePath, spaceId);
+  if (!base) throw new HttpError(404, "HTTP_ERROR", `Wiki 来源不存在 (${sourceId})`);
+
+  const pageCount = computeSourcePageCounts(spaceId).get(base.id) ?? 0;
+
+  return { ...base, page_count: pageCount };
+}
+
+function findSourceFile(spaceId: string, sourceId: string): string | null {
+  const sourcesDir = path.join(spaceDir(spaceId), "raw", "sources");
+  const files = readDirRecursive(sourcesDir);
+  for (const filePath of files) {
+    if (path.basename(filePath, path.extname(filePath)) === sourceId) return filePath;
+  }
+  return null;
 }
 
 export async function createWikiSource(
   spaceId: string,
   payload: WikiSourceCreate,
 ): Promise<WikiSourceRead> {
-  const sourceId = randomUUID();
-  const identity =
-    payload.original_name ??
-    payload.title.toLowerCase().replace(/\s+/g, "-") + ".md";
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
 
-  const [row] = await db
-    .insert(wikiSources)
-    .values({
-      id: sourceId,
-      spaceId,
-      identity,
-      title: payload.title,
-      kind: payload.kind,
-      originalName: payload.original_name ?? null,
-      originalUri: payload.original_uri ?? null,
-      normalizedText: payload.content,
-      mimeType:
-        payload.kind === "url"
-          ? "text/html"
-          : payload.kind === "text"
-            ? "text/plain"
-            : null,
-      sizeBytes: payload.content.length,
-      contentHash: simpleHash(payload.content),
-      metadata: JSON.stringify(payload.metadata),
-    })
-    .returning();
-  return toSourceRead(row);
+  const slug = slugify(payload.title);
+  const fileName = `${slug}.md`;
+  const absPath = sourceFilePath(spaceId, fileName);
+
+  if (fs.existsSync(absPath)) {
+    throw new HttpError(409, "HTTP_ERROR", `同名来源已存在 (${slug})`);
+  }
+
+  ensureDir(path.dirname(absPath));
+
+  const now = nowISO();
+  const fm: Record<string, unknown> = {
+    title: payload.title,
+    kind: payload.kind ?? "text",
+    original_uri: payload.original_uri ?? "",
+    // [FIX metadata] metadata stored as JSON string in frontmatter
+    metadata: payload.metadata ?? {},
+    created: now,
+    updated: now,
+  };
+  const fileContent = formatFrontmatter(fm) + "\n" + (payload.content ?? "");
+
+  safeWriteFile(absPath, fileContent, "utf-8");
+
+  const stat = fs.statSync(absPath);
+  return {
+    id: slug,
+    space_id: spaceId,
+    identity: fileName,
+    title: payload.title,
+    kind: (payload.kind as WikiSourceRead["kind"]) ?? "text",
+    original_name: payload.original_name ?? fileName,
+    original_uri: payload.original_uri ?? null,
+    storage_path: `raw/sources/${fileName}`,
+    mime_type: "text/plain",
+    size_bytes: stat.size,
+    content_hash: simpleHash(payload.content ?? ""),
+    status: "ready",
+    metadata: payload.metadata ?? {},
+    page_count: 0,
+    created_at: now,
+    updated_at: now,
+  };
 }
 
 export async function deleteWikiSource(
   spaceId: string,
   sourceId: string,
-  mode: "detach" | "delete-orphans" = "detach",
+  _mode: "detach" | "delete-orphans" = "detach",
 ): Promise<{ deleted_pages: number; updated_pages: number }> {
-  const [source] = await db
-    .select()
-    .from(wikiSources)
-    .where(
-      and(eq(wikiSources.id, sourceId), eq(wikiSources.spaceId, spaceId)),
-    )
-    .limit(1);
-  if (!source) throw new HttpError(404, "HTTP_ERROR", "Wiki 来源不存在");
-
-  const relations = await db
-    .select()
-    .from(wikiSourcePages)
-    .where(eq(wikiSourcePages.sourceId, sourceId));
-
-  let deletedPages = 0;
-  let updatedPages = 0;
-
-  if (mode === "delete-orphans" && relations.length > 0) {
-    for (const rel of relations) {
-      const [otherCount] = await db
-        .select({ value: count() })
-        .from(wikiSourcePages)
-        .where(
-          and(
-            eq(wikiSourcePages.pageId, rel.pageId),
-            ne(wikiSourcePages.sourceId, sourceId),
-          ),
-        );
-
-      if (otherCount?.value === 0) {
-        await db.delete(wikiPages).where(eq(wikiPages.id, rel.pageId));
-        deletedPages++;
-      } else {
-        const [page] = await db
-          .select()
-          .from(wikiPages)
-          .where(eq(wikiPages.id, rel.pageId))
-          .limit(1);
-        if (page) {
-          const sources = parseJsonSafe<string[]>(page.sources, []);
-          const updated = sources.filter((s) => s !== source.identity);
-          await db
-            .update(wikiPages)
-            .set({ sources: JSON.stringify(updated) })
-            .where(eq(wikiPages.id, rel.pageId));
-          updatedPages++;
-        }
-      }
-    }
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
   }
 
-  await db.delete(wikiSources).where(eq(wikiSources.id, sourceId));
+  const filePath = findSourceFile(spaceId, sourceId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki 来源不存在 (${sourceId})`);
+
+  const fileName = path.basename(filePath);
+  const slug = path.basename(filePath, path.extname(filePath));
+
+  safeUnlink(filePath);
+
+  // Find pages referencing this source and remove the reference
+  let deletedPages = 0;
+  let updatedPages = 0;
+  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  const wikiFiles = readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
+
+  for (const wf of wikiFiles) {
+    try {
+      const wc = fs.readFileSync(wf, "utf-8");
+      const { frontmatter, body } = parseFrontmatter(wc);
+      const srcs = (frontmatter.sources as string[]) ?? [];
+
+      if (!srcs.includes(slug) && !srcs.includes(fileName)) continue;
+
+      if (_mode === "delete-orphans") {
+        const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
+        if (filtered.length === 0) {
+          safeUnlink(wf);
+          deletedPages++;
+          continue;
+        }
+      }
+
+      // Update sources list
+      const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
+      frontmatter.sources = filtered;
+      const newContent = formatFrontmatter(frontmatter) + "\n" + body;
+      safeWriteFile(wf, newContent, "utf-8");
+      updatedPages++;
+    } catch { /* skip */ }
+  }
+
   return { deleted_pages: deletedPages, updated_pages: updatedPages };
 }
 
-// ─── Jobs ──────────────────────────────────────────────────────
-export async function listWikiJobs(
+// ─── Wikilink Backlinks ───────────────────────────────────────────
+
+/** Scan all pages in the space for [[wikilinks]] pointing to the given page. */
+export async function getWikiBacklinks(
   spaceId: string,
-  _opts?: { status?: string; limit?: number; offset?: number },
-) {
-  return { items: [], total: 0 };
+  pageId: string,
+): Promise<Array<{ page_id: string; slug: string; title: string; path: string }>> {
+  if (!readSpaceMeta(spaceId)) {
+    throw new HttpError(404, "HTTP_ERROR", `Wiki 空间不存在 (${spaceId})`);
+  }
+
+  const files = walkAllPages(spaceId);
+  const backlinks: Array<{ page_id: string; slug: string; title: string; path: string }> = [];
+  const linkPattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+  const targetSlug = pageId.toLowerCase();
+
+  for (const filePath of files) {
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const slug = path.basename(filePath, ".md");
+      if (slug === pageId) continue; // skip self
+
+      // Skip fenced code blocks, then scan for wikilinks
+      const clean = content.replace(/```[\s\S]*?```/g, "");
+      linkPattern.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      let found = false;
+      while ((match = linkPattern.exec(clean)) !== null) {
+        const rawTarget = match[1]!.trim();
+        const normalized = rawTarget.toLowerCase().replace(/\s+/g, "-");
+        if (normalized === targetSlug || normalized === pageId.toLowerCase()) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
+
+      const { frontmatter } = parseFrontmatter(content);
+      const title = (frontmatter.title as string) ?? slug;
+      const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
+      backlinks.push({ page_id: slug, slug, title, path: relPath });
+    } catch { /* skip unreadable */ }
+  }
+
+  return backlinks;
 }
 
-// ─── Wikilink Refresh ──────────────────────────────────────────
-export async function refreshPageLinks(
-  spaceId: string,
-  page: WikiPageRow,
-): Promise<void> {
-  // Delete existing links from this page
-  await db
-    .delete(wikiLinks)
-    .where(
-      and(eq(wikiLinks.spaceId, spaceId), eq(wikiLinks.fromPageId, page.id)),
-    );
+// ─── Misc ─────────────────────────────────────────────────────────
 
-  // Extract [[wikilink]] patterns from content
-  // Simply skip fenced code blocks by stripping them first
-  const content = page.content.replace(/```[\s\S]*?```/g, "");
-  const linkPattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
-
-  const links: Array<{
-    spaceId: string;
-    fromPageId: string;
-    rawTarget: string;
-    alias: string | null;
-    status: string;
-    toPageId: string | null;
-  }> = [];
-
-  let match: RegExpExecArray | null;
-  while ((match = linkPattern.exec(content)) !== null) {
-    const rawTarget = match[1]!.trim();
-    const alias = match[2]?.trim() ?? null;
-    links.push({
-      spaceId,
-      fromPageId: page.id,
-      rawTarget,
-      alias,
-      status: "missing",
-      toPageId: null,
-    });
+function simpleHash(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
   }
-
-  if (links.length === 0) return;
-
-  // Resolve each link
-  for (const link of links) {
-    const result = await resolveWikiLink(spaceId, link.rawTarget);
-    link.status = result.status;
-    link.toPageId = result.page_id;
-  }
-
-  await db.insert(wikiLinks).values(links);
+  return Math.abs(hash).toString(16);
 }

@@ -1,15 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Database, FileText, Search } from "lucide-react";
+import { BookOpen, Database, FileText, Plus, Search } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
+import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { listWikiSpaces, resolveWikiLink } from "@/lib/api/wiki";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 type WikiTab = "pages" | "sources" | "search";
 
@@ -18,6 +20,7 @@ export default function MyWikiPage() {
   const [activeTab, setActiveTab] = useState<WikiTab>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,10 +79,27 @@ export default function MyWikiPage() {
               尚未创建 Wiki 空间
             </p>
             <p className="mt-1 text-xs text-border-strong">
-              请启动后端服务后刷新页面
+              创建一个新空间来开始整理你的知识
             </p>
+            <Button
+              variant="default"
+              size="sm"
+              className="mt-4 gap-1.5"
+              onClick={() => setShowCreateSpace(true)}
+            >
+              <Plus size={14} />
+              创建空间
+            </Button>
           </div>
         </div>
+        <CreateWikiSpaceDialog
+          open={showCreateSpace}
+          onClose={() => setShowCreateSpace(false)}
+          onCreated={(id) => {
+            setSpaceId(id);
+            setShowCreateSpace(false);
+          }}
+        />
       </LayoutWrapper>
     );
   }

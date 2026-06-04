@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -16,7 +16,14 @@ interface SidebarProps {
 export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebar-collapsed") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar-collapsed", String(collapsed));
+  }, [collapsed]);
   const asideClassName = `flex h-full flex-col border-r border-[#d2d2d7] bg-white transition-all duration-200 ${
     collapsed ? "w-[60px] min-w-[60px]" : "w-[260px] min-w-[260px]"
   } ${mobile ? "" : "max-md:hidden"}`;
@@ -74,7 +81,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         </Link>
       </div>
 
-      {!collapsed && (
+      {!collapsed ? (
         <div className="flex-1 overflow-y-auto px-3">
           <div className="px-3 pb-2 pt-1">
             <span className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">
@@ -83,6 +90,8 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
           </div>
           <AssistantThreadList />
         </div>
+      ) : (
+        <div className="flex-1" />
       )}
 
       <div className="flex items-center p-3 border-t border-[#d2d2d7]">

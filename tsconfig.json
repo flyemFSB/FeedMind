@@ -4,6 +4,7 @@
     { "path": "./packages/contracts" },
     { "path": "./packages/shared" },
     { "path": "./packages/db" },
+    { "path": "./packages/crawler-core" },
     { "path": "./apps/api" },
     { "path": "./apps/agent" }
   ]

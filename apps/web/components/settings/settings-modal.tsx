@@ -78,8 +78,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-      <div className="flex h-[min(840px,calc(100vh-48px))] w-[min(1180px,calc(100vw-48px))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex h-[min(840px,calc(100vh-48px))] w-[min(1180px,calc(100vw-48px))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center">

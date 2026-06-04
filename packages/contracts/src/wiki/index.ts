@@ -208,7 +208,7 @@ export const wikiSourceListItemSchema = wikiSourceReadSchema.pick({
 });
 export type WikiSourceListItem = z.infer<typeof wikiSourceListItemSchema>;
 
-// ─── Wiki Link ─────────────────────────────────────────────────
+// ─── Wiki Link / Backlinks ──────────────────────────────────────
 export const wikiLinkStatusSchema = z.enum([
   "resolved",
   "missing",
@@ -226,6 +226,14 @@ export const wikiLinkReadSchema = z.object({
   status: wikiLinkStatusSchema,
 });
 export type WikiLinkRead = z.infer<typeof wikiLinkReadSchema>;
+
+export const wikiBacklinkSchema = z.object({
+  page_id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  path: z.string(),
+});
+export type WikiBacklink = z.infer<typeof wikiBacklinkSchema>;
 
 // ─── Wiki Resolve ──────────────────────────────────────────────
 export const wikiResolveQuery = z.object({

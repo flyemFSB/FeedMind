@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileText, Hash, Search } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
+import { wikiPageTypeSchema } from "@feedmind/contracts";
 import { listWikiPages } from "@/lib/api/wiki";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,11 +42,13 @@ export function WikiPageList({
     }
   }, [spaceId, search, typeFilter]);
 
+  // Debounce: only fire API after 300ms of inactivity
   useEffect(() => {
-    loadPages();
+    const timer = setTimeout(() => loadPages(), 300);
+    return () => clearTimeout(timer);
   }, [loadPages]);
 
-  const filterTypes = ["", "entity", "concept", "source", "query"];
+  const filterTypes = ["", ...wikiPageTypeSchema.options];
 
   return (
     <div className="flex h-full flex-col">

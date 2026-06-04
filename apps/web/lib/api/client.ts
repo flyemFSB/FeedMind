@@ -57,3 +57,36 @@ const _msgs: Record<number, string> = {
 function httpMsg(status: number): string {
   return _msgs[status] ?? `请求失败（${status}）`;
 }
+
+// ─── HTTP verb helpers ─────────────────────────────────────────
+function jsonHeaders(): HeadersInit {
+  return { "content-type": "application/json" };
+}
+
+export function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch(backendApiPath(path), {
+    method: "POST",
+    headers: jsonHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiPut<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch(backendApiPath(path), {
+    method: "PUT",
+    headers: jsonHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return apiFetch(backendApiPath(path), {
+    method: "PATCH",
+    headers: jsonHeaders(),
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiDelete<T = void>(path: string): Promise<T> {
+  return apiFetch(backendApiPath(path), { method: "DELETE" });
+}

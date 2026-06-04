@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
-import type { WikiPageRead } from "@feedmind/contracts";
-import { getWikiPage } from "@/lib/api/wiki";
+import { ArrowLeft, Pencil } from "lucide-react";
+import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
+import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,13 +22,18 @@ export function WikiReader({
   onNavigate,
 }: WikiReaderProps) {
   const [page, setPage] = useState<WikiPageRead | null>(null);
+  const [backlinks, setBacklinks] = useState<WikiBacklink[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadPage = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getWikiPage(spaceId, pageId);
+      const [result, links] = await Promise.all([
+        getWikiPage(spaceId, pageId),
+        getWikiBacklinks(spaceId, pageId),
+      ]);
       setPage(result);
+      setBacklinks(links);
     } catch {
       // handled by apiFetch toast
     } finally {
@@ -127,6 +132,30 @@ export function WikiReader({
             onWikilinkClick={onNavigate}
           />
         </div>
+
+        {/* Backlinks */}
+        {backlinks.length > 0 && (
+          <div className="mt-8 border-t border-border pt-5">
+            <h3 className="mb-3 text-[13px] font-semibold text-foreground">
+              反向链接 ({backlinks.length})
+            </h3>
+            <div className="space-y-1">
+              {backlinks.map((bl) => (
+                <button
+                  key={bl.page_id}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-primary transition-colors hover:bg-surface"
+                  onClick={() => onNavigate(bl.slug)}
+                >
+                  <ArrowLeft size={12} className="shrink-0" />
+                  <span className="truncate">{bl.title}</span>
+                  <span className="shrink-0 text-[10px] text-secondary-text">
+                    {bl.path}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
