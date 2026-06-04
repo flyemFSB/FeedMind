@@ -1,23 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Database, FileText, Plus, Search } from "lucide-react";
+import { BookOpen, Database, FileText, Network, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
+import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { listWikiSpaces, resolveWikiLink } from "@/lib/api/wiki";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
-type WikiTab = "pages" | "sources" | "search";
+type WikiView = "pages" | "graph" | "sources" | "review";
 
 export default function MyWikiPage() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<WikiTab>("pages");
+  const [activeView, setActiveView] = useState<WikiView>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
@@ -39,11 +39,10 @@ export default function MyWikiPage() {
     init();
   }, []);
 
-  const handlePageSelect = (pageId: string) => {
+  const handlePageSelect = useCallback((pageId: string) => {
     setActivePageId(pageId);
     setIsEditing(false);
-    setActiveTab("pages");
-  };
+  }, []);
 
   const handleWikilinkClick = useCallback(
     async (target: string) => {
@@ -57,12 +56,12 @@ export default function MyWikiPage() {
         // handled by apiFetch toast
       }
     },
-    [spaceId],
+    [spaceId, handlePageSelect],
   );
 
   if (loading) {
     return (
-      <LayoutWrapper title="我的 Wiki">
+      <LayoutWrapper title="Wiki">
         <div className="flex h-full items-center justify-center">
           <Skeleton className="h-4 w-24" />
         </div>
@@ -72,13 +71,14 @@ export default function MyWikiPage() {
 
   if (!spaceId) {
     return (
-      <LayoutWrapper title="我的 Wiki">
+      <LayoutWrapper title="Wiki">
         <div className="flex h-full items-center justify-center">
           <div className="text-center">
-            <p className="text-sm text-secondary-text">
-              尚未创建 Wiki 空间
-            </p>
-            <p className="mt-1 text-xs text-border-strong">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
+              <BookOpen size={20} className="text-[#6e6e73]" />
+            </div>
+            <p className="text-sm text-[#6e6e73]">尚未创建 Wiki 空间</p>
+            <p className="mt-1 text-xs text-[#86868b]">
               创建一个新空间来开始整理你的知识
             </p>
             <Button
@@ -105,103 +105,159 @@ export default function MyWikiPage() {
   }
 
   return (
-    <LayoutWrapper title="我的 Wiki">
+    <LayoutWrapper title="Wiki">
       <div className="flex h-full">
-        {/* Wiki sidebar */}
-        <aside className="flex w-[240px] shrink-0 flex-col border-r border-border bg-card">
-          <Tabs
-            value={activeTab}
-            onValueChange={(v) => setActiveTab(v as WikiTab)}
-            className="flex flex-1 flex-col gap-0"
-          >
-            <TabsList
-              variant="line"
-              className="w-full justify-stretch gap-0 rounded-none bg-transparent p-0"
-            >
-              {[
-                { id: "pages" as const, label: "页面", icon: FileText },
-                { id: "sources" as const, label: "来源", icon: Database },
-                { id: "search" as const, label: "搜索", icon: Search },
-              ].map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="h-auto flex-1 rounded-none px-2 py-2.5 text-[11px] font-medium after:bottom-0"
-                >
-                  <tab.icon size={13} />
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+        {/* Left icon sidebar — like llm_wiki but slim */}
+        <nav className="flex w-12 shrink-0 flex-col items-center border-r border-[#e8e8ed] bg-[#fafafc] py-2">
+          <WikiNavButton
+            icon={FileText}
+            label="页面"
+            active={activeView === "pages"}
+            onClick={() => setActiveView("pages")}
+          />
+          <WikiNavButton
+            icon={Network}
+            label="图谱"
+            active={activeView === "graph"}
+            onClick={() => setActiveView("graph")}
+          />
+          <div className="mt-auto flex flex-col items-center gap-1 pt-4">
+            <WikiNavButton
+              icon={Database}
+              label="来源"
+              active={activeView === "sources"}
+              onClick={() => setActiveView("sources")}
+            />
+          </div>
+        </nav>
 
-            <TabsContent
-              value="pages"
-              className="mt-0 flex-1 overflow-hidden"
-            >
-              <WikiPageList
-                spaceId={spaceId}
-                activePageId={activePageId}
-                onPageSelect={handlePageSelect}
-              />
-            </TabsContent>
-            <TabsContent
-              value="sources"
-              className="mt-0 flex-1 overflow-hidden"
-            >
+        {/* Content area */}
+        <div className="flex min-w-0 flex-1">
+          {activeView === "pages" && (
+            <DualPaneLayout
+              spaceId={spaceId}
+              activePageId={activePageId}
+              isEditing={isEditing}
+              onPageSelect={handlePageSelect}
+              onEdit={() => setIsEditing(true)}
+              onCancelEdit={() => setIsEditing(false)}
+              onWikilinkClick={handleWikilinkClick}
+            />
+          )}
+          {activeView === "graph" && spaceId && (
+            <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
+          )}
+          {activeView === "sources" && spaceId && (
+            <div className="flex-1 overflow-y-auto">
               <WikiSourcesView spaceId={spaceId} />
-            </TabsContent>
-            <TabsContent
-              value="search"
-              className="mt-0 flex-1 overflow-hidden"
-            >
-              <div className="flex h-full items-center justify-center p-6">
-                <p className="text-xs text-secondary-text">
-                  搜索功能将在后续版本实现
-                </p>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </aside>
-
-        {/* Main content area */}
-        <div className="flex flex-1 overflow-hidden">
-          {activePageId ? (
-            isEditing ? (
-              <WikiEditor
-                spaceId={spaceId}
-                pageId={activePageId}
-                onSave={() => {
-                  setIsEditing(false);
-                  // Force re-render of reader
-                  setActivePageId(activePageId);
-                }}
-                onCancel={() => setIsEditing(false)}
-              />
-            ) : (
-              <WikiReader
-                spaceId={spaceId}
-                pageId={activePageId}
-                onEdit={() => setIsEditing(true)}
-                onNavigate={handleWikilinkClick}
-              />
-            )
-          ) : (
-            <div className="flex h-full flex-1 items-center justify-center">
-              <div className="mx-auto max-w-[280px] text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-surface">
-                  <BookOpen size={20} className="text-secondary-text" />
-                </div>
-                <h3 className="mb-1 text-[15px] font-semibold text-foreground">
-                  选择一个页面
-                </h3>
-                <p className="text-xs leading-relaxed text-secondary-text">
-                  从左侧列表选择一个页面查看，或创建新页面开始整理你的知识。
-                </p>
-              </div>
             </div>
           )}
         </div>
       </div>
     </LayoutWrapper>
+  );
+}
+
+// ─── Icon nav button ──────────────────────────────────────────
+
+function WikiNavButton({
+  icon: Icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: React.ElementType;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
+        active
+          ? "bg-[#0071e3] text-white shadow-sm"
+          : "text-[#86868b] hover:bg-[#e8e8ed] hover:text-[#1d1d1f]"
+      }`}
+    >
+      <Icon size={18} strokeWidth={active ? 2.2 : 1.6} />
+    </button>
+  );
+}
+
+// ─── Dual pane: page list + reader/editor ─────────────────────
+
+function DualPaneLayout({
+  spaceId,
+  activePageId,
+  isEditing,
+  onPageSelect,
+  onEdit,
+  onCancelEdit,
+  onWikilinkClick,
+}: {
+  spaceId: string;
+  activePageId: string | null;
+  isEditing: boolean;
+  onPageSelect: (pageId: string) => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onWikilinkClick: (target: string) => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1">
+      {/* Page list panel */}
+      <aside className="flex w-[260px] shrink-0 flex-col border-r border-[#e8e8ed] bg-white">
+        <WikiPageList
+          spaceId={spaceId}
+          activePageId={activePageId}
+          onPageSelect={onPageSelect}
+        />
+      </aside>
+
+      {/* Reader / Editor */}
+      <div className="flex min-w-0 flex-1 flex-col bg-white">
+        {activePageId ? (
+          isEditing ? (
+            <WikiEditor
+              spaceId={spaceId}
+              pageId={activePageId}
+              onSave={() => {
+                onCancelEdit();
+              }}
+              onCancel={onCancelEdit}
+            />
+          ) : (
+            <WikiReader
+              spaceId={spaceId}
+              pageId={activePageId}
+              onEdit={onEdit}
+              onNavigate={onWikilinkClick}
+            />
+          )
+        ) : (
+          <WikiEmptyState />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WikiEmptyState() {
+  return (
+    <div className="flex h-full flex-1 items-center justify-center">
+      <div className="mx-auto max-w-[280px] text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
+          <BookOpen size={20} className="text-[#6e6e73]" />
+        </div>
+        <h3 className="mb-1 text-[15px] font-semibold text-[#1d1d1f]">
+          选择一个页面
+        </h3>
+        <p className="text-xs leading-relaxed text-[#6e6e73]">
+          从左侧列表选择一个页面查看，或创建新页面开始整理你的知识
+        </p>
+      </div>
+    </div>
   );
 }
