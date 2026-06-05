@@ -10,6 +10,7 @@
     { "path": "../../packages/contracts" },
     { "path": "../../packages/db" },
     { "path": "../../packages/shared" },
-    { "path": "../../packages/crawler-core" }
+    { "path": "../../packages/crawler-core" },
+    { "path": "../../packages/wiki-core" }
   ]
 }

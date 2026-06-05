@@ -2,10 +2,16 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { apiEnv } from "./env.js";
 import { initDatabase } from "@feedmind/db";
+import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
 
 async function main(): Promise<void> {
   // 初始化数据库（建表 + 种子工具）
   await initDatabase();
+
+  // 启动 Wiki Ingest 后台工作者
+  if (process.env.DISABLE_INGEST_WORKER !== "1") {
+    startIngestWorker();
+  }
 
   // 启动 HTTP 服务
   serve(

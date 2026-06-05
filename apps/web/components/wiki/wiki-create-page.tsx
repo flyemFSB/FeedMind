@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { WikiPageType } from "@feedmind/contracts";
 
 interface CreateWikiPageDialogProps {
   open: boolean;
@@ -28,7 +29,7 @@ export function CreateWikiPageDialog({
   onCreated,
 }: CreateWikiPageDialogProps) {
   const [title, setTitle] = useState("");
-  const [type, setType] = useState<string>("concept");
+  const [type, setType] = useState<WikiPageType>("concept");
   const [creating, setCreating] = useState(false);
 
   if (!open) return null;
@@ -39,9 +40,12 @@ export function CreateWikiPageDialog({
     try {
       const payload: WikiPageCreate = {
         title: title.trim(),
-        type: type as any,
+        type,
         path: `wiki/${title.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-一-鿿]/g, "")}.md`,
         content: `# ${title.trim()}\n\n`,
+        sources: [],
+        tags: [],
+        related: [],
       };
       const page = await createWikiPage(spaceId, payload);
       onCreated(page.id);
@@ -54,10 +58,15 @@ export function CreateWikiPageDialog({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
       onClick={onClose}
+      onKeyDown={handleKeyDown}
     >
       <div
         className="w-full max-w-sm rounded-2xl border border-[#d2d2d7] bg-white shadow-2xl"
@@ -85,7 +94,7 @@ export function CreateWikiPageDialog({
             <label className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">
               类型
             </label>
-            <Select value={type} onValueChange={setType}>
+            <Select value={type} onValueChange={(v: WikiPageType | null) => { if (v) setType(v); }}>
               <SelectTrigger className="h-9 rounded-lg border-[#d2d2d7] text-[13px]">
                 <SelectValue />
               </SelectTrigger>

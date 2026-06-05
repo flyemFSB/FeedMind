@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WIKI_TYPE_COLORS } from "./constants";
 
 interface WikiReaderProps {
   spaceId: string;
@@ -14,34 +14,29 @@ interface WikiReaderProps {
   onNavigate: (target: string) => void;
 }
 
-const TYPE_COLORS: Record<string, string> = {
-  concept: "#0071e3",
-  entity: "#34c759",
-  source: "#ff9500",
-  query: "#ff3b30",
-  comparison: "#5856d6",
-  synthesis: "#af52de",
-  overview: "#1d1d1f",
-};
+const TYPE_COLORS = WIKI_TYPE_COLORS;
 
 export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderProps) {
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [backlinks, setBacklinks] = useState<WikiBacklink[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadIdRef = useRef(0);
 
   const loadPage = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
     setLoading(true);
     try {
       const [result, links] = await Promise.all([
         getWikiPage(spaceId, pageId),
         getWikiBacklinks(spaceId, pageId),
       ]);
+      if (loadId !== loadIdRef.current) return; // stale
       setPage(result);
       setBacklinks(links);
     } catch {
       // handled by apiFetch toast
     } finally {
-      setLoading(false);
+      if (loadId === loadIdRef.current) setLoading(false);
     }
   }, [spaceId, pageId]);
 
@@ -52,7 +47,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   if (loading) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-4">
+        <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
           <div className="space-y-1.5">
             <Skeleton className="h-5 w-48" />
             <Skeleton className="h-3 w-32" />

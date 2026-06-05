@@ -16,8 +16,11 @@
     "@feedmind/crawler-core": "workspace:*",
     "@feedmind/db": "workspace:*",
     "@feedmind/shared": "workspace:*",
+    "@feedmind/wiki-core": "workspace:*",
     "@hono/node-server": "^2.0.4",
     "drizzle-orm": "^0.45.2",
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
     "hono": "^4.12.23",
     "zod": "^4.4.3"
   },

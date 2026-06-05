@@ -31,6 +31,13 @@ export function CreateWikiSpaceDialog({
       const payload: WikiSpaceCreate = {
         name: name.trim(),
         purpose: purpose.trim(),
+        template: "general",
+        schema: "",
+        settings: {
+          language: "zh-CN",
+          enabledPageTypes: ["entity", "concept", "source", "overview"],
+          extraDirs: [],
+        },
       };
       const space = await createWikiSpace(payload);
       onCreated(space.id);

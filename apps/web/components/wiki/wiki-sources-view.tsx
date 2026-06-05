@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FileText,
   Globe,
+  Loader2,
+  Play,
   Plus,
   Trash2,
   Type,
@@ -13,6 +15,7 @@ import {
   createWikiSource,
   deleteWikiSource,
   listWikiSources,
+  runIngest,
 } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -69,12 +72,33 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     }
   };
 
+  const [ingestingId, setIngestingId] = useState<string | null>(null);
+  const [ingestResult, setIngestResult] = useState<string | null>(null);
+
   const handleDelete = async (sourceId: string) => {
     try {
       await deleteWikiSource(spaceId, sourceId, "detach");
       await loadSources();
     } catch {
       // handled by apiFetch toast
+    }
+  };
+
+  const handleIngest = async (sourceIdentity: string, sourceTitle: string) => {
+    setIngestingId(sourceIdentity);
+    setIngestResult(null);
+    try {
+      const result = await runIngest(spaceId, sourceIdentity);
+      setIngestResult(
+        `✓ "${sourceTitle}": ${result.pagesCreated} created, ${result.pagesUpdated} updated`,
+      );
+      await loadSources();
+    } catch (err) {
+      setIngestResult(
+        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
+    } finally {
+      setIngestingId(null);
     }
   };
 
@@ -114,7 +138,10 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         </div>
         <Button
           size="sm"
-          onClick={() => setShowCreate(!showCreate)}
+          onClick={() => {
+            if (showCreate) { setTitle(""); setContent(""); }
+            setShowCreate(!showCreate);
+          }}
           className="h-8 gap-1.5 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0066cc]"
         >
           <Plus size={13} />
@@ -192,7 +219,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             {sources.map((source) => (
               <div
                 key={source.id}
-                className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[#fafafc]"
+                className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[#fafafc] group"
               >
                 <div className="text-[#86868b] shrink-0">{kindIcon(source.kind)}</div>
                 <div className="min-w-0 flex-1">
@@ -210,14 +237,39 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   )}
                 </div>
                 <button
+                  onClick={() => handleIngest(source.identity, source.title)}
+                  disabled={ingestingId === source.id}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#0071e3] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1 disabled:opacity-50"
+                  title={ingestingId === source.id ? "Ingesting..." : "运行 Ingest"}
+                >
+                  {ingestingId === source.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Play size={12} />
+                  )}
+                </button>
+                <button
                   onClick={() => handleDelete(source.id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#ff3b30] group-hover:opacity-100"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#ff3b30] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1"
                   title="删除来源"
                 >
                   <Trash2 size={13} />
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Ingest result toast */}
+        {ingestResult && (
+          <div className="mx-4 mb-3 mt-2 rounded-lg border border-[#e8e8ed] bg-[#fafafc] px-4 py-2.5 text-[12px] leading-relaxed text-[#1d1d1f] shadow-sm">
+            {ingestResult}
+            <button
+              className="ml-2 text-[#86868b] hover:text-[#1d1d1f]"
+              onClick={() => setIngestResult(null)}
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>

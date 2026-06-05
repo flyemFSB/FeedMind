@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { WikiPageRead, WikiPageUpdate } from "@feedmind/contracts";
 import { getWikiPage, updateWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,14 @@ export function WikiEditor({
   const [content, setContent] = useState("");
   const [path, setPath] = useState("");
   const [saving, setSaving] = useState(false);
+  const loadIdRef = useRef(0);
 
   const loadPage = useCallback(async () => {
+    const loadId = ++loadIdRef.current;
     setLoading(true);
     try {
       const result = await getWikiPage(spaceId, pageId);
+      if (loadId !== loadIdRef.current) return; // stale
       setPage(result);
       setTitle(result.title);
       setContent(result.content);
@@ -39,7 +42,7 @@ export function WikiEditor({
     } catch {
       // handled by apiFetch toast
     } finally {
-      setLoading(false);
+      if (loadId === loadIdRef.current) setLoading(false);
     }
   }, [spaceId, pageId]);
 
@@ -64,7 +67,7 @@ export function WikiEditor({
   if (loading) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-4">
+        <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
           <Skeleton className="h-5 w-48" />
           <div className="flex gap-2">
             <Skeleton className="h-7 w-14 rounded-lg" />

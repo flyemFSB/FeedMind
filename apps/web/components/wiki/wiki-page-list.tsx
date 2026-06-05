@@ -4,65 +4,50 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Plus, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
 import { wikiPageTypeSchema } from "@feedmind/contracts";
-import { listWikiPages } from "@/lib/api/wiki";
+import { useWikiPages, useInvalidateWiki } from "@/lib/wiki/queries";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateWikiPageDialog } from "./wiki-create-page";
+import { WIKI_TYPE_COLORS } from "./constants";
 
-const TYPE_COLORS: Record<string, string> = {
-  concept: "#0071e3",
-  entity: "#34c759",
-  source: "#ff9500",
-  query: "#ff3b30",
-  comparison: "#5856d6",
-  synthesis: "#af52de",
-  overview: "#1d1d1f",
-};
+const TYPE_COLORS = WIKI_TYPE_COLORS;
 
 interface WikiPageListProps {
   spaceId: string;
   activePageId: string | null;
   onPageSelect: (pageId: string) => void;
+  refreshTrigger?: number;
 }
 
 export function WikiPageList({
   spaceId,
   activePageId,
   onPageSelect,
+  refreshTrigger,
 }: WikiPageListProps) {
-  const [pages, setPages] = useState<WikiPageListItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const invalidate = useInvalidateWiki();
 
-  const loadPages = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await listWikiPages(spaceId, {
-        q: search || undefined,
-        type: typeFilter || undefined,
-        limit: 200,
-      });
-      setPages(result.items);
-    } catch {
-      // handled by apiFetch toast
-    } finally {
-      setLoading(false);
-    }
-  }, [spaceId, search, typeFilter]);
+  const { data, loading } = useWikiPages(spaceId, {
+    q: search || undefined,
+    type: typeFilter || undefined,
+    limit: 200,
+  });
 
-  // Debounce search
+  const pages = data?.items ?? [];
+
+  // Refresh when external trigger changes
   useEffect(() => {
-    const timer = setTimeout(() => loadPages(), 300);
-    return () => clearTimeout(timer);
-  }, [loadPages]);
+    if (refreshTrigger) invalidate(spaceId);
+  }, [refreshTrigger]);
 
   const filterTypes = useCallback(() => {
     const types = new Set(pages.map((p) => p.type));
-    return ["", ...wikiPageTypeSchema.options.filter((t) => types.has(t))];
+    return wikiPageTypeSchema.options.filter((t) => types.has(t));
   }, [pages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -106,15 +91,14 @@ export function WikiPageList({
         </div>
       </div>
 
-      {/* Type filter chips */}
-      {search === "" && (
+      {/* Type filter chips — always visible so user knows active filter */}
         <div className="flex gap-1 overflow-x-auto px-3 pb-2">
           <FilterChip
             label="全部"
             active={typeFilter === ""}
             onClick={() => setTypeFilter("")}
           />
-          {filterTypes().filter(Boolean).map((t) => (
+          {filterTypes().map((t) => (
             <FilterChip
               key={t}
               label={t}
@@ -124,7 +108,6 @@ export function WikiPageList({
             />
           ))}
         </div>
-      )}
 
       {/* Page list */}
       <div className="flex-1 overflow-y-auto">
@@ -170,11 +153,11 @@ export function WikiPageList({
         open={showCreate}
         spaceId={spaceId}
         onClose={() => setShowCreate(false)}
-        onCreated={(pageId) => {
-          setShowCreate(false);
-          onPageSelect(pageId);
-          loadPages();
-        }}
+          onCreated={(pageId) => {
+            setShowCreate(false);
+            onPageSelect(pageId);
+            invalidate(spaceId);
+          }}
       />
     </div>
   );

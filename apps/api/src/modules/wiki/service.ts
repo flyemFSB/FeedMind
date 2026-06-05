@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type {
@@ -28,9 +28,6 @@ const TYPE_DIR_MAP: Record<string, string> = {
   entity: "entities",
   concept: "concepts",
   source: "sources",
-  query: "queries",
-  comparison: "comparisons",
-  synthesis: "synthesis",
   overview: "",
   index: "",
 };
@@ -258,10 +255,8 @@ function createSpaceDirectories(spaceId: string): void {
     "wiki/entities",
     "wiki/concepts",
     "wiki/sources",
-    "wiki/queries",
-    "wiki/comparisons",
-    "wiki/synthesis",
     "raw/sources",
+    ".llm-wiki",
   ];
   for (const d of dirs) {
     ensureDir(path.join(spaceDir(spaceId), d));
@@ -346,8 +341,7 @@ export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
     settings: (meta.settings as WikiSpaceSettings) ?? {
       language: "zh-CN",
       enabledPageTypes: [
-        "entity", "concept", "source", "query",
-        "comparison", "synthesis", "overview",
+        "entity", "concept", "source", "overview",
       ],
       extraDirs: [],
     },
@@ -376,8 +370,7 @@ export async function createWikiSpace(
     settings: {
       language: "zh-CN",
       enabledPageTypes: [
-        "entity", "concept", "source", "query",
-        "comparison", "synthesis", "overview",
+        "entity", "concept", "source", "overview",
       ],
       extraDirs: [],
     },
@@ -875,7 +868,7 @@ function sourceFileToRead(
       storage_path: relPath,
       mime_type: "text/plain",
       size_bytes: stat.size,
-      content_hash: simpleHash(body.trim()),
+      content_hash: sha256(body.trim()),
       status: "ready",
       metadata: (frontmatter.metadata as Record<string, unknown>) ?? {},
       created_at: (frontmatter.created as string) ?? stat.birthtime.toISOString(),
@@ -1007,7 +1000,7 @@ export async function createWikiSource(
     storage_path: `raw/sources/${fileName}`,
     mime_type: "text/plain",
     size_bytes: stat.size,
-    content_hash: simpleHash(payload.content ?? ""),
+    content_hash: sha256(payload.content ?? ""),
     status: "ready",
     metadata: payload.metadata ?? {},
     page_count: 0,
@@ -1039,6 +1032,9 @@ export async function deleteWikiSource(
   const wikiDir = path.join(spaceDir(spaceId), "wiki");
   const wikiFiles = readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
 
+  const deletedSlugs: string[] = [];
+  const deletedKeys = new Set<string>();
+
   for (const wf of wikiFiles) {
     try {
       const wc = fs.readFileSync(wf, "utf-8");
@@ -1052,6 +1048,9 @@ export async function deleteWikiSource(
         if (filtered.length === 0) {
           safeUnlink(wf);
           deletedPages++;
+          const deletedSlug = path.basename(wf, ".md");
+          deletedSlugs.push(deletedSlug);
+          deletedKeys.add(deletedSlug.toLowerCase().replace(/[\s\-_]+/g, ""));
           continue;
         }
       }
@@ -1064,6 +1063,38 @@ export async function deleteWikiSource(
       updatedPages++;
     } catch { /* skip */ }
   }
+
+  // Clean index.md — remove entries for deleted pages
+  const indexPath = path.join(spaceDir(spaceId), "wiki", "index.md");
+  if (deletedSlugs.length > 0 && fs.existsSync(indexPath)) {
+    try {
+      let indexContent = fs.readFileSync(indexPath, "utf-8");
+      const indexLines = indexContent.split("\n");
+      const cleaned = indexLines.filter((line) => {
+        const match = line.match(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/);
+        if (!match) return true;
+        const refSlug = match[1].trim().toLowerCase().replace(/[\s\-_]+/g, "");
+        return !deletedKeys.has(refSlug);
+      });
+      if (cleaned.length !== indexLines.length) {
+        fs.writeFileSync(indexPath, cleaned.join("\n"), "utf-8");
+      }
+    } catch { /* skip */ }
+  }
+
+  // Update log.md
+  const logPath = path.join(spaceDir(spaceId), "wiki", "log.md");
+  try {
+    let logContent = "";
+    if (fs.existsSync(logPath)) logContent = fs.readFileSync(logPath, "utf-8");
+    if (!logContent.trim()) logContent = "# Change Log\n\n";
+    const now = new Date().toISOString().replace("T", " ").slice(0, 16);
+    logContent += `- ${now}: Deleted source "${slug}". `;
+    if (deletedPages > 0) logContent += `${deletedPages} orphan pages removed. `;
+    if (updatedPages > 0) logContent += `${updatedPages} pages updated.`;
+    logContent += "\n";
+    fs.writeFileSync(logPath, logContent, "utf-8");
+  } catch { /* skip */ }
 
   return { deleted_pages: deletedPages, updated_pages: updatedPages };
 }
@@ -1117,12 +1148,6 @@ export async function getWikiBacklinks(
 
 // ─── Misc ─────────────────────────────────────────────────────────
 
-function simpleHash(text: string): string {
-  let hash = 0;
-  for (let i = 0; i < text.length; i++) {
-    const char = text.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  return Math.abs(hash).toString(16);
+function sha256(text: string): string {
+  return crypto.createHash("sha256").update(text).digest("hex");
 }

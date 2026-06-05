@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "pnpm build:packages && pnpm --parallel --filter @feedmind/api --filter @feedmind/agent --filter @feedmind/web dev",
     "build": "pnpm -r build",
-    "build:packages": "pnpm --filter @feedmind/contracts --filter @feedmind/shared --filter @feedmind/db --filter @feedmind/crawler-core build",
+    "build:packages": "pnpm --filter @feedmind/contracts --filter @feedmind/shared --filter @feedmind/db --filter @feedmind/crawler-core --filter @feedmind/wiki-core build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

@@ -1,19 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { BookOpen, Database, FileText, Network, Plus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BookOpen, ClipboardCheck, Database, FileText, Network, Plus, Search, ShieldCheck } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
 import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
+import { WikiSearchView } from "@/components/wiki/wiki-search-view";
+import { WikiReviewView } from "@/components/wiki/wiki-review-view";
+import { WikiLintView } from "@/components/wiki/wiki-lint-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { listWikiSpaces, resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type WikiView = "pages" | "graph" | "sources" | "review";
+type WikiView = "pages" | "search" | "graph" | "review" | "lint" | "sources";
 
 export default function MyWikiPage() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
@@ -22,6 +25,16 @@ export default function MyWikiPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pageListRefreshKey, setPageListRefreshKey] = useState(0);
+  const prevIsEditing = useRef(isEditing);
+
+  // Refresh page list when exiting edit mode (page was possibly saved/edited)
+  useEffect(() => {
+    if (prevIsEditing.current && !isEditing) {
+      setPageListRefreshKey((k) => k + 1);
+    }
+    prevIsEditing.current = isEditing;
+  }, [isEditing]);
 
   useEffect(() => {
     async function init() {
@@ -116,12 +129,30 @@ export default function MyWikiPage() {
             onClick={() => setActiveView("pages")}
           />
           <WikiNavButton
+            icon={Search}
+            label="搜索"
+            active={activeView === "search"}
+            onClick={() => setActiveView("search")}
+          />
+          <WikiNavButton
             icon={Network}
             label="图谱"
             active={activeView === "graph"}
             onClick={() => setActiveView("graph")}
           />
           <div className="mt-auto flex flex-col items-center gap-1 pt-4">
+            <WikiNavButton
+              icon={ClipboardCheck}
+              label="Review"
+              active={activeView === "review"}
+              onClick={() => setActiveView("review")}
+            />
+            <WikiNavButton
+              icon={ShieldCheck}
+              label="Lint"
+              active={activeView === "lint"}
+              onClick={() => setActiveView("lint")}
+            />
             <WikiNavButton
               icon={Database}
               label="来源"
@@ -142,10 +173,20 @@ export default function MyWikiPage() {
               onEdit={() => setIsEditing(true)}
               onCancelEdit={() => setIsEditing(false)}
               onWikilinkClick={handleWikilinkClick}
+              pageListRefreshKey={pageListRefreshKey}
             />
+          )}
+          {activeView === "search" && spaceId && (
+            <WikiSearchView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
           {activeView === "graph" && spaceId && (
             <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
+          )}
+          {activeView === "review" && spaceId && (
+            <WikiReviewView spaceId={spaceId} />
+          )}
+          {activeView === "lint" && spaceId && (
+            <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
           {activeView === "sources" && spaceId && (
             <div className="flex-1 overflow-y-auto">
@@ -175,6 +216,7 @@ function WikiNavButton({
     <button
       onClick={onClick}
       title={label}
+      aria-label={label}
       className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
         active
           ? "bg-[#0071e3] text-white shadow-sm"
@@ -196,6 +238,7 @@ function DualPaneLayout({
   onEdit,
   onCancelEdit,
   onWikilinkClick,
+  pageListRefreshKey,
 }: {
   spaceId: string;
   activePageId: string | null;
@@ -204,6 +247,7 @@ function DualPaneLayout({
   onEdit: () => void;
   onCancelEdit: () => void;
   onWikilinkClick: (target: string) => void;
+  pageListRefreshKey?: number;
 }) {
   return (
     <div className="flex min-w-0 flex-1">
@@ -213,6 +257,7 @@ function DualPaneLayout({
           spaceId={spaceId}
           activePageId={activePageId}
           onPageSelect={onPageSelect}
+          refreshTrigger={pageListRefreshKey}
         />
       </aside>
 

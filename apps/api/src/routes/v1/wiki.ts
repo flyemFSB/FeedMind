@@ -1,30 +1,80 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { formatFrontmatter } from "@feedmind/wiki-core";
 import { Hono } from "hono";
 import {
   wikiPageCreateSchema,
   wikiPageUpdateSchema,
-  wikiResolveQuery,
   wikiSourceCreateSchema,
   wikiSpaceCreateSchema,
   wikiSpaceUpdateSchema,
 } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
-  createWikiPage,
-  createWikiSource,
-  createWikiSpace,
-  deleteWikiPage,
-  deleteWikiSource,
-  getWikiBacklinks,
-  getWikiPage,
-  getWikiSource,
-  getWikiSpace,
-  listWikiPages,
-  listWikiSources,
   listWikiSpaces,
-  resolveWikiLink,
-  updateWikiPage,
+  getWikiSpace,
+  createWikiSpace,
   updateWikiSpace,
-} from "../../modules/wiki/service.js";
+} from "../../modules/wiki/space-registry.js";
+import {
+  listWikiPages,
+  getWikiPage,
+  createWikiPage,
+  updateWikiPage,
+  deleteWikiPage,
+  resolveWikiLink,
+  getWikiBacklinks,
+} from "../../modules/wiki/page-store.js";
+import {
+  listWikiSources,
+  getWikiSource,
+  createWikiSource,
+  deleteWikiSource,
+  previewDeleteImpact,
+} from "../../modules/wiki/source-store.js";
+import {
+  getWikiGraph,
+  getWikiGraphInsights,
+} from "../../modules/wiki/graph-service.js";
+import {
+  searchWiki,
+} from "../../modules/wiki/search-service.js";
+import {
+  listIngestJobs,
+  enqueueIngest,
+  cancelIngestJob,
+  retryIngestJob,
+} from "../../modules/wiki/job-service.js";
+import {
+  runIngest,
+} from "../../modules/wiki/ingest-pipeline.js";
+import {
+  listReviewItems,
+  resolveReviewItem,
+  dismissReviewItem,
+  sweepReviewItems,
+} from "../../modules/wiki/review-service.js";
+import {
+  runLint,
+  getLintItems,
+} from "../../modules/wiki/lint-service.js";
+
+function sha256(text: string): string {
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
+
+function sanitizeFileName(name: string): string {
+  const normalized = name.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  const base = parts[parts.length - 1] ?? name;
+  return base.replace(/[^a-zA-Z0-9一-鿿._-]/g, "").replace(/^\.+/, "").replace(/\.{2,}/g, ".") || "untitled";
+}
+
+function slugFromName(name: string): string {
+  const stem = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name;
+  return stem.toLowerCase().replace(/[^a-z0-9一-鿿-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "untitled";
+}
 
 export const wikiRoutes = new Hono();
 
@@ -49,10 +99,7 @@ wikiRoutes.get("/wiki/spaces/:spaceId/pages", async (c) => {
   const q = c.req.query("q");
   const limit = c.req.query("limit") ? Number(c.req.query("limit")) : 50;
   const offset = c.req.query("offset") ? Number(c.req.query("offset")) : 0;
-  return jsonOk(
-    c,
-    await listWikiPages(spaceId, { type, q, limit, offset }),
-  );
+  return jsonOk(c, await listWikiPages(spaceId, { type, q, limit, offset }));
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -97,20 +144,146 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
   const payload = await parseJson(c, wikiSourceCreateSchema);
   return jsonOk(c, await createWikiSource(spaceId, payload), 201);
 });
+wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const contentType = c.req.header("Content-Type") ?? "";
+
+  if (!contentType.includes("multipart/form-data")) {
+    return jsonOk(c, { error: "Content-Type must be multipart/form-data" }, 400);
+  }
+
+  const formData = await c.req.parseBody();
+  const file = formData["file"];
+  if (!file || !(file instanceof File)) {
+    return jsonOk(c, { error: "File field is required" }, 400);
+  }
+
+  const byteArray = new Uint8Array(await file.arrayBuffer());
+  const safeName = sanitizeFileName(file.name);
+  const ext = safeName.includes(".") ? safeName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const slug = slugFromName(safeName);
+  const sourceFileName = `${slug}.md`;
+
+  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
+  const sourcesDir = path.join(wikiRoot, spaceId, "raw", "sources");
+  fs.mkdirSync(sourcesDir, { recursive: true });
+
+  const now = new Date().toISOString();
+  const textExts = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
+  const binaryExts = new Set(["pdf", "doc", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
+
+  if (textExts.has(ext)) {
+    const decoder = new TextDecoder("utf-8", { fatal: false });
+    const text = decoder.decode(byteArray);
+    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: ext === "md" ? "text/markdown" : `text/${ext}`, size_bytes: byteArray.length, created: now, updated: now, import_ext: ext };
+    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text, "utf-8");
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
+    return jsonOk(c, {
+      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
+      kind: "file", original_name: safeName, original_uri: safeName,
+      storage_path: `raw/sources/${sourceFileName}`,
+      mime_type: ext === "md" ? "text/markdown" : `text/${ext}`,
+      size_bytes: stat.size, content_hash: sha256(text),
+      status: "ready", metadata: { import_ext: ext }, page_count: 0,
+      created_at: now, updated_at: now,
+    }, 201);
+  }
+
+  if (binaryExts.has(ext)) {
+    fs.writeFileSync(path.join(sourcesDir, safeName), Buffer.from(byteArray));
+    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: `application/${ext === "pdf" ? "pdf" : "octet-stream"}`, size_bytes: byteArray.length, status: "new", created: now, updated: now, import_ext: ext };
+    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n\n(Binary file — run ingest to extract content)", "utf-8");
+    return jsonOk(c, {
+      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
+      kind: "file", original_name: safeName, original_uri: safeName,
+      storage_path: `raw/sources/${sourceFileName}`,
+      mime_type: `application/${ext === "pdf" ? "pdf" : "octet-stream"}`,
+      size_bytes: byteArray.length, content_hash: "",
+      status: "new", metadata: { import_ext: ext }, page_count: 0,
+      created_at: now, updated_at: now,
+    }, 201);
+  }
+
+  return jsonOk(c, { error: `Unsupported file type: .${ext}` }, 400);
+});
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId", async (c) =>
-  jsonOk(
-    c,
-    await getWikiSource(c.req.param("spaceId"), c.req.param("sourceId")),
-  ),
+  jsonOk(c, await getWikiSource(c.req.param("spaceId"), c.req.param("sourceId"))),
 );
 wikiRoutes.delete("/wiki/spaces/:spaceId/sources/:sourceId", async (c) => {
   const mode = (c.req.query("mode") ?? "detach") as "detach" | "delete-orphans";
-  return jsonOk(
-    c,
-    await deleteWikiSource(
-      c.req.param("spaceId"),
-      c.req.param("sourceId"),
-      mode,
-    ),
-  );
+  return jsonOk(c, await deleteWikiSource(c.req.param("spaceId"), c.req.param("sourceId"), mode));
 });
+wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId/delete-impact", async (c) =>
+  jsonOk(c, await previewDeleteImpact(c.req.param("spaceId"), c.req.param("sourceId"))),
+);
+
+// ─── Ingest (Direct) ────────────────────────────────────────────
+wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const body = await c.req.json().catch(() => ({}));
+  const sourcePath = body.sourcePath as string;
+  if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
+  return jsonOk(c, await runIngest(spaceId, sourcePath));
+});
+
+// ─── Search ────────────────────────────────────────────────────
+wikiRoutes.post("/wiki/spaces/:spaceId/search", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const body = await c.req.json().catch(() => ({}));
+  const query = body.query as string || "";
+  const topK = Number(body.topK) || 20;
+  return jsonOk(c, await searchWiki(spaceId, query, topK));
+});
+
+// ─── Graph ─────────────────────────────────────────────────────
+wikiRoutes.get("/wiki/spaces/:spaceId/graph", async (c) =>
+  jsonOk(c, await getWikiGraph(c.req.param("spaceId"))),
+);
+wikiRoutes.get("/wiki/spaces/:spaceId/graph/insights", async (c) =>
+  jsonOk(c, await getWikiGraphInsights(c.req.param("spaceId"))),
+);
+
+// ─── Ingest Jobs ─────────────────────────────────────────────────
+wikiRoutes.get("/wiki/spaces/:spaceId/jobs/ingest", async (c) =>
+  jsonOk(c, await listIngestJobs(c.req.param("spaceId"))),
+);
+wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const body = await c.req.json().catch(() => ({}));
+  const sourcePath = body.sourcePath as string;
+  const folderContext = body.folderContext as string | undefined;
+  if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
+  return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext));
+});
+wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
+  await cancelIngestJob(c.req.param("spaceId"), c.req.param("jobId"));
+  return jsonOk(c, { success: true });
+});
+wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/retry", async (c) => {
+  await retryIngestJob(c.req.param("spaceId"), c.req.param("jobId"));
+  return jsonOk(c, { success: true });
+});
+
+// ─── Lint ──────────────────────────────────────────────────────
+wikiRoutes.post("/wiki/spaces/:spaceId/lint", async (c) =>
+  jsonOk(c, await runLint(c.req.param("spaceId"))),
+);
+wikiRoutes.get("/wiki/spaces/:spaceId/lint-items", async (c) =>
+  jsonOk(c, await getLintItems(c.req.param("spaceId"))),
+);
+
+// ─── Review ────────────────────────────────────────────────────
+wikiRoutes.get("/wiki/spaces/:spaceId/review-items", async (c) =>
+  jsonOk(c, await listReviewItems(c.req.param("spaceId"))),
+);
+wikiRoutes.post("/wiki/spaces/:spaceId/review-items/:itemId/resolve", async (c) => {
+  await resolveReviewItem(c.req.param("spaceId"), c.req.param("itemId"));
+  return jsonOk(c, { success: true });
+});
+wikiRoutes.post("/wiki/spaces/:spaceId/review-items/:itemId/dismiss", async (c) => {
+  await dismissReviewItem(c.req.param("spaceId"), c.req.param("itemId"));
+  return jsonOk(c, { success: true });
+});
+wikiRoutes.post("/wiki/spaces/:spaceId/review-items/sweep", async (c) =>
+  jsonOk(c, { swept: await sweepReviewItems(c.req.param("spaceId")) }),
+);

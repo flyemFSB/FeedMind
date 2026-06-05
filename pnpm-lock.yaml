@@ -105,12 +105,21 @@ importers:
       '@feedmind/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@feedmind/wiki-core':
+        specifier: workspace:*
+        version: link:../../packages/wiki-core
       '@hono/node-server':
         specifier: ^2.0.4
         version: 2.0.4(hono@4.12.23)
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@libsql/client@0.15.7)
+      graphology:
+        specifier: ^0.26.0
+        version: 0.26.0(graphology-types@0.24.8)
+      graphology-communities-louvain:
+        specifier: ^2.0.2
+        version: 2.0.2(graphology-types@0.24.8)
       hono:
         specifier: ^4.12.23
         version: 4.12.23
@@ -132,13 +141,13 @@ importers:
     dependencies:
       '@assistant-ui/core':
         specifier: 0.2.7
-        version: 0.2.7(@assistant-ui/store@0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4))(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(assistant-cloud@0.1.29)(react@19.2.4)(zustand@5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+        version: 0.2.7(@assistant-ui/store@0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4))(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(assistant-cloud@0.1.29)(react@19.2.4)(zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       '@assistant-ui/react':
         specifier: ^0.14.5
         version: 0.14.11(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
       '@assistant-ui/react-langgraph':
         specifier: ^0.14.0
-        version: 0.14.4(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@langchain/langgraph-sdk@1.9.9(@langchain/core@1.1.48(openai@6.39.0(ws@8.21.0)(zod@3.24.1))(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)(zustand@5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+        version: 0.14.4(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@langchain/langgraph-sdk@1.9.9(@langchain/core@1.1.48(openai@6.39.0(ws@8.21.0)(zod@3.24.1))(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)(zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       '@assistant-ui/react-streamdown':
         specifier: ^0.3.0
         version: 0.3.1(@assistant-ui/react@0.14.11(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))(@streamdown/cjk@1.0.3(@types/mdast@4.0.4)(micromark-util-types@2.0.0)(micromark@4.0.0)(react@19.2.4)(unified@11.0.5))(@types/react@19.2.15)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -193,6 +202,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      zustand:
+        specifier: ^5.0.14
+        version: 5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4
@@ -297,6 +309,25 @@ importers:
         specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.0
+        version: 4.1.7(@types/node@24.12.4)(jsdom@29.1.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@24.12.4)(typescript@5.9.3))(vite@8.0.14(@types/node@24.12.4)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3)(yaml@2.9.0))
+
+  packages/wiki-core:
+    dependencies:
+      '@feedmind/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      js-yaml:
+        specifier: ^4.2.0
+        version: 4.2.0
+    devDependencies:
+      '@types/js-yaml':
+        specifier: ^4.0.9
+        version: 4.0.9
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
@@ -3493,6 +3524,9 @@ packages:
   '@types/js-cookie@3.0.6':
     resolution: {integrity: sha512-wkw9yd1kEXOPnvEeEV1Go1MmxtBJL0RR79aOTAApecWFVu7w0NNXNqhcWgvw2YgZDYadliXkl14pa3WXw5jlCQ==}
 
+  '@types/js-yaml@4.0.9':
+    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
+
   '@types/jsdom@28.0.3':
     resolution: {integrity: sha512-/HQ2uFoetFTXuye8vzIcHw2z6Fwi7Hi/qcgC+RoS9NCyewiqxhVGqlG+ViGB6lkax481R6dmhf1I7lIGlzJStQ==}
 
@@ -5003,6 +5037,10 @@ packages:
   eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
+  events@3.3.0:
+    resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
+    engines: {node: '>=0.8.x'}
+
   eventsource-parser@3.1.0:
     resolution: {integrity: sha512-kJezFj9YFAMLeORyi7aCLxLbD5/qWMQnoMVlVPyHIll7lgRJCc3JVln9Vgl9nwQi0YkMnhdGTMNn7CkRRAptMg==}
     engines: {node: '>=18.0.0'}
@@ -5316,6 +5354,29 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  graphology-communities-louvain@2.0.2:
+    resolution: {integrity: sha512-zt+2hHVPYxjEquyecxWXoUoIuN/UvYzsvI7boDdMNz0rRvpESQ7+e+Ejv6wK7AThycbZXuQ6DkG8NPMCq6XwoA==}
+    peerDependencies:
+      graphology-types: '>=0.19.0'
+
+  graphology-indices@0.17.0:
+    resolution: {integrity: sha512-A7RXuKQvdqSWOpn7ZVQo4S33O0vCfPBnUSf7FwE0zNCasqwZVUaCXePuWo5HBpWw68KJcwObZDHpFk6HKH6MYQ==}
+    peerDependencies:
+      graphology-types: '>=0.20.0'
+
+  graphology-types@0.24.8:
+    resolution: {integrity: sha512-hDRKYXa8TsoZHjgEaysSRyPdT6uB78Ci8WnjgbStlQysz7xR52PInxNsmnB7IBOM1BhikxkNyCVEFgmPKnpx3Q==}
+
+  graphology-utils@2.5.2:
+    resolution: {integrity: sha512-ckHg8MXrXJkOARk56ZaSCM1g1Wihe2d6iTmz1enGOz4W/l831MBCKSayeFQfowgF8wd+PQ4rlch/56Vs/VZLDQ==}
+    peerDependencies:
+      graphology-types: '>=0.23.0'
+
+  graphology@0.26.0:
+    resolution: {integrity: sha512-8SSImzgUUYC89Z042s+0r/vMibY7GX/Emz4LDO5e7jYXhuoWfHISPFJYjpRLUSJGq6UQ6xlenvX1p/hJdfXuXg==}
+    peerDependencies:
+      graphology-types: '>=0.24.0'
 
   graphql@16.14.0:
     resolution: {integrity: sha512-BBvQ/406p+4CZbTpCbVPSxfzrZrbnuWSP1ELYgyS6B+hNeKzgrdB4JczCa5VZUBQrDa9hUngm0KnexY6pJRN5Q==}
@@ -5767,8 +5828,8 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
-  js-yaml@4.1.1:
-    resolution: {integrity: sha512-qQKT4zQxXl8lLwBtHMWwaTcGfFOZviOJet3Oy/xmGk2gZH677CJM9EvtfdSkgWcATZhj/55JZ0rmy3myCT5lsA==}
+  js-yaml@4.2.0:
+    resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
     hasBin: true
 
   jsdom@29.1.1:
@@ -6376,6 +6437,12 @@ packages:
     resolution: {integrity: sha512-WRoDn//mXBiJ1H40rqa3vH0toePwSsGb45iInWlTySa+Uu4k3tYUSxa2v1KqAiLtvlrSzaExqS1gtk96A9zvEA==}
     engines: {node: '>=0.10.0'}
 
+  mnemonist@0.39.0:
+    resolution: {integrity: sha512-7v08Ldk1lnlywnIShqfKYN7EW4WKLUnkoWApdmR47N1xA2xmEtWERfEvyRCepbuFCETG5OnfaGQpp/p4Bus6ZQ==}
+
+  mnemonist@0.39.2:
+    resolution: {integrity: sha512-n3ZCEosuMH03DVivZ9N0fcXPWiZrBLEdfSlEJ+S/mJxmk3zuo1ur0dj9URDczFyP1VS3wfiyKzqLLDXoPJ6rPA==}
+
   motion-dom@12.40.0:
     resolution: {integrity: sha512-HxU3ZaBwNPVQUBQf1xxgq+7JrPNZvjLVxgbpEZL7RrWJnsxOf0/OM+yrHG9ogLQ31Do/r57Oz2gQWPK+6q62mg==}
 
@@ -6542,6 +6609,9 @@ packages:
     resolution: {integrity: sha512-gXah6aZrcUxjWg2zR2MwouP2eHlCBzdV4pygudehaKXSGW4v2AsRQUK+lwwXhii6KFZcunEnmSUoYp5CXibxtA==}
     engines: {node: '>= 0.4'}
 
+  obliterator@2.0.5:
+    resolution: {integrity: sha512-42CPE9AhahZRsMNslczq0ctAEtqk8Eka26QofnqC346BZdHDySk3LWka23LI7ULIw11NmltpiLagIq8gBozxTw==}
+
   obug@2.1.1:
     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
 
@@ -6661,6 +6731,9 @@ packages:
 
   package-manager-detector@1.6.0:
     resolution: {integrity: sha512-61A5ThoTiDG/C8s8UMZwSorAGwMJ0ERVGj2OjoW5pAalsNOg15+iQiPzrLJ4jhZ1HJzmC2PIHT2oEiH3R5fzNA==}
+
+  pandemonium@2.4.1:
+    resolution: {integrity: sha512-wRqjisUyiUfXowgm7MFH2rwJzKIr20rca5FsHXCMNm1W5YPP1hCtrZfgmQ62kP7OZ7Xt+cR858aB28lu5NX55g==}
 
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
@@ -8272,6 +8345,24 @@ packages:
       use-sync-external-store:
         optional: true
 
+  zustand@5.0.14:
+    resolution: {integrity: sha512-/8tAspM5LMPr28b3fwLYrtdj77ECpfZviaP75CMTnwO8ISyaE4GDIG/9rDDYq/cH9D2Xw2A2RXglLInmVBQB/g==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=18.0.0'
+      immer: '>=9.0.6'
+      react: '>=18.0.0'
+      use-sync-external-store: '>=1.2.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+      use-sync-external-store:
+        optional: true
+
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
@@ -8365,9 +8456,24 @@ snapshots:
       - ioredis
       - redis
 
-  '@assistant-ui/react-langgraph@0.14.4(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@langchain/langgraph-sdk@1.9.9(@langchain/core@1.1.48(openai@6.39.0(ws@8.21.0)(zod@3.24.1))(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)(zustand@5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
+  '@assistant-ui/core@0.2.7(@assistant-ui/store@0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4))(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(assistant-cloud@0.1.29)(react@19.2.4)(zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
     dependencies:
-      '@assistant-ui/core': 0.2.7(@assistant-ui/store@0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4))(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(assistant-cloud@0.1.29)(react@19.2.4)(zustand@5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
+      '@assistant-ui/store': 0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)
+      '@assistant-ui/tap': 0.5.13(@types/react@19.2.15)(react@19.2.4)
+      assistant-stream: 0.3.17
+      nanoid: 5.1.11
+    optionalDependencies:
+      '@types/react': 19.2.15
+      assistant-cloud: 0.1.29
+      react: 19.2.4
+      zustand: 5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
+    transitivePeerDependencies:
+      - ioredis
+      - redis
+
+  '@assistant-ui/react-langgraph@0.14.4(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@langchain/langgraph-sdk@1.9.9(@langchain/core@1.1.48(openai@6.39.0(ws@8.21.0)(zod@3.24.1))(ws@8.21.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)(zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))':
+    dependencies:
+      '@assistant-ui/core': 0.2.7(@assistant-ui/store@0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4))(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(assistant-cloud@0.1.29)(react@19.2.4)(zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)))
       '@assistant-ui/store': 0.2.12(@assistant-ui/tap@0.5.13(@types/react@19.2.15)(react@19.2.4))(@types/react@19.2.15)(react@19.2.4)
       assistant-cloud: 0.1.29
       assistant-stream: 0.3.17
@@ -9200,7 +9306,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.3.2
       import-fresh: 3.2.1
-      js-yaml: 4.1.1
+      js-yaml: 4.2.0
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -11565,6 +11671,8 @@ snapshots:
 
   '@types/js-cookie@3.0.6': {}
 
+  '@types/js-yaml@4.0.9': {}
+
   '@types/jsdom@28.0.3':
     dependencies:
       '@types/node': 24.12.4
@@ -12402,7 +12510,7 @@ snapshots:
     dependencies:
       env-paths: 2.2.1
       import-fresh: 3.3.0
-      js-yaml: 4.1.1
+      js-yaml: 4.2.0
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.9.3
@@ -13086,8 +13194,8 @@ snapshots:
       '@next/eslint-plugin-next': 16.2.4
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.4(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.4(jiti@2.7.0))
@@ -13109,7 +13217,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
       debug: 4.4.3
@@ -13120,22 +13228,22 @@ snapshots:
       tinyglobby: 0.2.16
       unrs-resolver: 1.12.2
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
+  eslint-module-utils@2.12.1(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       '@typescript-eslint/parser': 8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.4(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -13146,7 +13254,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.4(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.10
-      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0)))(eslint@9.39.4(jiti@2.7.0))
+      eslint-module-utils: 2.12.1(@typescript-eslint/parser@8.60.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3))(eslint-import-resolver-node@0.3.10)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.4(jiti@2.7.0))
       hasown: 2.0.3
       is-core-module: 2.16.2
       is-glob: 4.0.3
@@ -13326,6 +13434,8 @@ snapshots:
   eventemitter3@4.0.4: {}
 
   eventemitter3@5.0.4: {}
+
+  events@3.3.0: {}
 
   eventsource-parser@3.1.0: {}
 
@@ -13688,6 +13798,31 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  graphology-communities-louvain@2.0.2(graphology-types@0.24.8):
+    dependencies:
+      graphology-indices: 0.17.0(graphology-types@0.24.8)
+      graphology-types: 0.24.8
+      graphology-utils: 2.5.2(graphology-types@0.24.8)
+      mnemonist: 0.39.0
+      pandemonium: 2.4.1
+
+  graphology-indices@0.17.0(graphology-types@0.24.8):
+    dependencies:
+      graphology-types: 0.24.8
+      graphology-utils: 2.5.2(graphology-types@0.24.8)
+      mnemonist: 0.39.0
+
+  graphology-types@0.24.8: {}
+
+  graphology-utils@2.5.2(graphology-types@0.24.8):
+    dependencies:
+      graphology-types: 0.24.8
+
+  graphology@0.26.0(graphology-types@0.24.8):
+    dependencies:
+      events: 3.3.0
+      graphology-types: 0.24.8
 
   graphql@16.14.0: {}
 
@@ -14194,7 +14329,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.1.1:
+  js-yaml@4.2.0:
     dependencies:
       argparse: 2.0.1
 
@@ -15100,6 +15235,14 @@ snapshots:
       for-in: 1.0.2
       is-extendable: 1.0.1
 
+  mnemonist@0.39.0:
+    dependencies:
+      obliterator: 2.0.5
+
+  mnemonist@0.39.2:
+    dependencies:
+      obliterator: 2.0.5
+
   motion-dom@12.40.0:
     dependencies:
       motion-utils: 12.39.0
@@ -15291,6 +15434,8 @@ snapshots:
       define-properties: 1.2.1
       es-object-atoms: 1.1.2
 
+  obliterator@2.0.5: {}
+
   obug@2.1.1: {}
 
   on-change@4.0.0: {}
@@ -15419,6 +15564,10 @@ snapshots:
   package-json-from-dist@1.0.1: {}
 
   package-manager-detector@1.6.0: {}
+
+  pandemonium@2.4.1:
+    dependencies:
+      mnemonist: 0.39.2
 
   parent-module@1.0.1:
     dependencies:
@@ -17329,6 +17478,13 @@ snapshots:
       react: 19.2.4
 
   zustand@5.0.13(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
+    optionalDependencies:
+      '@types/react': 19.2.15
+      immer: 11.1.8
+      react: 19.2.4
+      use-sync-external-store: 1.6.0(react@19.2.4)
+
+  zustand@5.0.14(@types/react@19.2.15)(immer@11.1.8)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):
     optionalDependencies:
       '@types/react': 19.2.15
       immer: 11.1.8

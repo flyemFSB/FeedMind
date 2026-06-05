@@ -16,9 +16,6 @@ export const wikiSpaceSettingsSchema = z.object({
     "entity",
     "concept",
     "source",
-    "query",
-    "comparison",
-    "synthesis",
     "overview",
   ]),
   extraDirs: z.array(z.string()).default([]),
@@ -36,9 +33,6 @@ export const wikiSpaceCreateSchema = z.object({
       "entity",
       "concept",
       "source",
-      "query",
-      "comparison",
-      "synthesis",
       "overview",
     ],
     extraDirs: [],
@@ -84,9 +78,6 @@ export const wikiPageTypeSchema = z.enum([
   "entity",
   "concept",
   "source",
-  "query",
-  "comparison",
-  "synthesis",
   "overview",
   "index",
 ]);
@@ -216,17 +207,6 @@ export const wikiLinkStatusSchema = z.enum([
 ]);
 export type WikiLinkStatus = z.infer<typeof wikiLinkStatusSchema>;
 
-export const wikiLinkReadSchema = z.object({
-  id: z.string(),
-  space_id: z.string(),
-  from_page_id: z.string(),
-  to_page_id: z.string().nullable(),
-  raw_target: z.string(),
-  alias: z.string().nullable(),
-  status: wikiLinkStatusSchema,
-});
-export type WikiLinkRead = z.infer<typeof wikiLinkReadSchema>;
-
 export const wikiBacklinkSchema = z.object({
   page_id: z.string(),
   slug: z.string(),
@@ -259,3 +239,132 @@ export const wikiResolveResultSchema = z.object({
     .default([]),
 });
 export type WikiResolveResult = z.infer<typeof wikiResolveResultSchema>;
+
+// ─── Graph Types ───────────────────────────────────────────────
+export const graphNodeSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  type: z.string(),
+  path: z.string(),
+  linkCount: z.number().int().default(0),
+  community: z.number().int().default(0).optional(),
+});
+export type GraphNode = z.infer<typeof graphNodeSchema>;
+
+export const graphEdgeSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  weight: z.number().default(1),
+});
+export type GraphEdge = z.infer<typeof graphEdgeSchema>;
+
+export const communityInfoSchema = z.object({
+  id: z.number().int(),
+  nodeCount: z.number().int(),
+  cohesion: z.number(),
+  topNodes: z.array(z.string()),
+});
+export type CommunityInfo = z.infer<typeof communityInfoSchema>;
+
+export const wikiGraphSchema = z.object({
+  nodes: z.array(graphNodeSchema),
+  edges: z.array(graphEdgeSchema),
+  communities: z.array(communityInfoSchema),
+});
+export type WikiGraph = z.infer<typeof wikiGraphSchema>;
+
+// ─── Search Types ──────────────────────────────────────────────
+export const wikiSearchResultSchema = z.object({
+  path: z.string(),
+  title: z.string(),
+  snippet: z.string(),
+  titleMatch: z.boolean(),
+  score: z.number(),
+});
+export type WikiSearchResult = z.infer<typeof wikiSearchResultSchema>;
+
+export const wikiSearchResponseSchema = z.object({
+  mode: z.enum(["keyword", "hybrid"]),
+  results: z.array(wikiSearchResultSchema),
+  totalHits: z.number().int(),
+});
+export type WikiSearchResponse = z.infer<typeof wikiSearchResponseSchema>;
+
+// ─── Ingest Queue Types ────────────────────────────────────────
+export const ingestJobStatusSchema = z.enum([
+  "pending",
+  "processing",
+  "done",
+  "failed",
+  "cancelled",
+]);
+export type IngestJobStatus = z.infer<typeof ingestJobStatusSchema>;
+
+export const ingestJobSchema = z.object({
+  id: z.string(),
+  projectId: z.string(),
+  sourcePath: z.string(),
+  folderContext: z.string().default(""),
+  status: ingestJobStatusSchema.default("pending"),
+  addedAt: z.number(),
+  startedAt: z.number().nullable().default(null),
+  completedAt: z.number().nullable().default(null),
+  error: z.string().nullable().default(null),
+  retryCount: z.number().int().default(0),
+  writtenFiles: z.array(z.string()).default([]),
+});
+export type IngestJob = z.infer<typeof ingestJobSchema>;
+
+// ─── Review Types ──────────────────────────────────────────────
+export const reviewItemTypeSchema = z.enum([
+  "contradiction",
+  "duplicate",
+  "missing-page",
+  "suggestion",
+]);
+export type ReviewItemType = z.infer<typeof reviewItemTypeSchema>;
+
+export const reviewItemSchema = z.object({
+  id: z.string(),
+  type: reviewItemTypeSchema,
+  title: z.string(),
+  description: z.string(),
+  sourcePath: z.string().default(""),
+  affectedPages: z.array(z.string()).default([]),
+  searchQueries: z.array(z.string()).default([]),
+  options: z
+    .array(
+      z.object({
+        label: z.string(),
+        action: z.string(),
+      }),
+    )
+    .default([
+      { label: "Approve", action: "Approve" },
+      { label: "Skip", action: "Skip" },
+    ]),
+  resolved: z.boolean().default(false),
+  createdAt: z.number(),
+});
+export type ReviewItem = z.infer<typeof reviewItemSchema>;
+
+// ─── Lint Types ────────────────────────────────────────────────
+export const lintResultTypeSchema = z.enum([
+  "orphan",
+  "broken-link",
+  "no-outlinks",
+  "semantic",
+]);
+export type LintResultType = z.infer<typeof lintResultTypeSchema>;
+
+export const lintSeveritySchema = z.enum(["warning", "info"]);
+export type LintSeverity = z.infer<typeof lintSeveritySchema>;
+
+export const lintResultSchema = z.object({
+  type: lintResultTypeSchema,
+  severity: lintSeveritySchema,
+  page: z.string(),
+  detail: z.string(),
+  affectedPages: z.array(z.string()).optional(),
+});
+export type LintResult = z.infer<typeof lintResultSchema>;

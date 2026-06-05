@@ -1,0 +1,27 @@
+{
+  "name": "@feedmind/wiki-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@feedmind/contracts": "workspace:*",
+    "js-yaml": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
