@@ -13,9 +13,10 @@ import {
 
 interface LayoutWrapperProps {
   children: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   subtitle?: string;
   showModelSelector?: boolean;
+  topRightContent?: React.ReactNode;
 }
 
 export function LayoutWrapper({
@@ -23,6 +24,7 @@ export function LayoutWrapper({
   title,
   subtitle,
   showModelSelector = false,
+  topRightContent,
 }: LayoutWrapperProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -44,6 +46,7 @@ export function LayoutWrapper({
           title={title}
           subtitle={subtitle}
           showModelSelector={showModelSelector}
+          rightContent={topRightContent}
         />
 
         <div className="flex min-h-0 flex-1">

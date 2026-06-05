@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
 import { wikiPageTypeSchema } from "@feedmind/contracts";
 import { useWikiPages, useInvalidateWiki } from "@/lib/wiki/queries";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CreateWikiPageDialog } from "./wiki-create-page";
 import { WIKI_TYPE_COLORS } from "./constants";
 
 const TYPE_COLORS = WIKI_TYPE_COLORS;
@@ -28,7 +26,6 @@ export function WikiPageList({
 }: WikiPageListProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const invalidate = useInvalidateWiki();
 
@@ -40,7 +37,6 @@ export function WikiPageList({
 
   const pages = data?.items ?? [];
 
-  // Refresh when external trigger changes
   useEffect(() => {
     if (refreshTrigger) invalidate(spaceId);
   }, [refreshTrigger]);
@@ -59,27 +55,13 @@ export function WikiPageList({
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3">
+      <div className="px-4 py-3">
         <span className="text-[13px] font-semibold text-[#1d1d1f]">页面</span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={() => setShowCreate(true)}
-          className="h-7 w-7 rounded-md text-[#86868b] hover:bg-[#f5f5f7] hover:text-[#0071e3]"
-          title="新建页面"
-        >
-          <Plus size={15} strokeWidth={1.8} />
-        </Button>
       </div>
 
-      {/* Search */}
       <div className="px-3 pb-2">
         <div className="relative">
-          <Search
-            size={13}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#86868b]"
-          />
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#86868b]" />
           <Input
             ref={searchInputRef}
             className="h-8 rounded-lg border-[#e8e8ed] pl-8 text-[12px] placeholder:text-[#86868b] focus:border-[#0071e3]"
@@ -91,25 +73,13 @@ export function WikiPageList({
         </div>
       </div>
 
-      {/* Type filter chips — always visible so user knows active filter */}
-        <div className="flex gap-1 overflow-x-auto px-3 pb-2">
-          <FilterChip
-            label="全部"
-            active={typeFilter === ""}
-            onClick={() => setTypeFilter("")}
-          />
-          {filterTypes().map((t) => (
-            <FilterChip
-              key={t}
-              label={t}
-              color={TYPE_COLORS[t]}
-              active={typeFilter === t}
-              onClick={() => setTypeFilter(t)}
-            />
-          ))}
-        </div>
+      <div className="flex gap-1 overflow-x-auto px-3 pb-2">
+        <FilterChip label="全部" active={typeFilter === ""} onClick={() => setTypeFilter("")} />
+        {filterTypes().map((t) => (
+          <FilterChip key={t} label={t} color={TYPE_COLORS[t]} active={typeFilter === t} onClick={() => setTypeFilter(t)} />
+        ))}
+      </div>
 
-      {/* Page list */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="space-y-1 px-3 py-2">
@@ -132,38 +102,61 @@ export function WikiPageList({
               {search ? "没有匹配的页面" : "暂无页面"}
             </p>
             <p className="mt-1 text-[11px] text-[#86868b]">
-              {search ? "尝试其他关键词" : "点击 + 创建第一个页面"}
+              {search ? "尝试其他关键词" : "导入文档由 LLM 自动生成"}
             </p>
           </div>
         ) : (
-          <div className="px-2 py-1">
-            {pages.map((page) => (
-              <PageListItem
-                key={page.id}
-                page={page}
-                active={activePageId === page.id}
-                onClick={() => onPageSelect(page.id)}
-              />
-            ))}
-          </div>
+          <CategorizedPageList pages={pages} activePageId={activePageId} onPageSelect={onPageSelect} />
         )}
       </div>
-
-      <CreateWikiPageDialog
-        open={showCreate}
-        spaceId={spaceId}
-        onClose={() => setShowCreate(false)}
-          onCreated={(pageId) => {
-            setShowCreate(false);
-            onPageSelect(pageId);
-            invalidate(spaceId);
-          }}
-      />
     </div>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────
+function CategorizedPageList({ pages, activePageId, onPageSelect }: {
+  pages: WikiPageListItem[];
+  activePageId: string | null;
+  onPageSelect: (pageId: string) => void;
+}) {
+  const typeOrder = ["entity", "concept", "source", "overview", "index"];
+  const typeLabels: Record<string, string> = {
+    entity: "实体", concept: "概念", source: "来源",
+    overview: "概览", index: "索引",
+  };
+
+  const grouped = pages.reduce<Record<string, WikiPageListItem[]>>((acc, page) => {
+    const t = page.type || "other";
+    if (!acc[t]) acc[t] = [];
+    acc[t].push(page);
+    return acc;
+  }, {});
+
+  const sortedTypes = Object.keys(grouped).sort((a, b) => {
+    const ia = typeOrder.indexOf(a);
+    const ib = typeOrder.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1;
+    if (ib !== -1) return 1;
+    return a.localeCompare(b, "zh-CN");
+  });
+
+  return (
+    <div className="px-2 py-1">
+      {sortedTypes.map((type) => (
+        <div key={type} className="mb-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
+            <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WIKI_TYPE_COLORS[type] || "#86868b" }} />
+            <span className="text-[11px] font-medium text-[#86868b]">{typeLabels[type] || type}</span>
+            <span className="text-[10px] text-[#d2d2d7]">{grouped[type].length}</span>
+          </div>
+          {grouped[type].map((page) => (
+            <PageListItem key={page.id} page={page} active={activePageId === page.id} onClick={() => onPageSelect(page.id)} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function FilterChip({
   label,

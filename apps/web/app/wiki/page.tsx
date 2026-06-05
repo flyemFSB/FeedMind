@@ -1,29 +1,41 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, ClipboardCheck, Database, FileText, Network, Plus, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, ChevronDown, ClipboardCheck, Database, FileText, Import, Network, Plus, ShieldCheck } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
+import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
+import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
 import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
-import { WikiSearchView } from "@/components/wiki/wiki-search-view";
 import { WikiReviewView } from "@/components/wiki/wiki-review-view";
 import { WikiLintView } from "@/components/wiki/wiki-lint-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { listWikiSpaces, resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-type WikiView = "pages" | "search" | "graph" | "review" | "lint" | "sources";
+type WikiView = "pages" | "graph" | "review" | "lint" | "sources";
 
 export default function MyWikiPage() {
   const [spaceId, setSpaceId] = useState<string | null>(null);
+  const [spaceName, setSpaceName] = useState("Wiki");
+  const [spaces, setSpaces] = useState<WikiSpaceListItem[]>([]);
   const [activeView, setActiveView] = useState<WikiView>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageListRefreshKey, setPageListRefreshKey] = useState(0);
   const prevIsEditing = useRef(isEditing);
@@ -40,8 +52,10 @@ export default function MyWikiPage() {
     async function init() {
       try {
         const spaces = await listWikiSpaces();
+        setSpaces(spaces);
         if (spaces.length > 0) {
           setSpaceId(spaces[0].id);
+          setSpaceName(spaces[0].name);
         }
       } catch {
         // handled by apiFetch toast
@@ -54,14 +68,19 @@ export default function MyWikiPage() {
 
   const handlePageSelect = useCallback((pageId: string) => {
     setActivePageId(pageId);
+    setActiveView("pages");
     setIsEditing(false);
   }, []);
 
+  const spaceIdRef = useRef(spaceId);
+  spaceIdRef.current = spaceId;
+
   const handleWikilinkClick = useCallback(
     async (target: string) => {
-      if (!spaceId) return;
+      const currentSpaceId = spaceIdRef.current;
+      if (!currentSpaceId) return;
       try {
-        const result = await resolveWikiLink(spaceId, target);
+        const result = await resolveWikiLink(currentSpaceId, target);
         if (result.resolved && result.page_id) {
           handlePageSelect(result.page_id);
         }
@@ -69,8 +88,27 @@ export default function MyWikiPage() {
         // handled by apiFetch toast
       }
     },
-    [spaceId, handlePageSelect],
+    [handlePageSelect],
   );
+
+  const handleCreateSpace = useCallback(() => {
+    setShowCreateSpace(true);
+    setShowSpaceMenu(false);
+  }, []);
+
+  const handleImportSuccess = useCallback(() => {
+    setShowImport(false);
+    setPageListRefreshKey((k) => k + 1);
+  }, []);
+
+  const handleSpaceSelect = useCallback((s: WikiSpaceListItem) => {
+    setSpaceId(s.id);
+    setSpaceName(s.name);
+    setShowSpaceMenu(false);
+    setActiveView("pages");
+    setActivePageId(null);
+    setIsEditing(false);
+  }, []);
 
   if (loading) {
     return (
@@ -111,14 +149,61 @@ export default function MyWikiPage() {
           onCreated={(id) => {
             setSpaceId(id);
             setShowCreateSpace(false);
+            // Refresh spaces list
+            listWikiSpaces().then((s) => {
+              setSpaces(s);
+              const created = s.find((sp) => sp.id === id);
+              if (created) setSpaceName(created.name);
+            });
           }}
         />
       </LayoutWrapper>
     );
   }
 
+  // ─── Space selector dropdown title bar ─────────────────────────
+
+  const spaceTitle = spaceId ? (
+    <DropdownMenu open={showSpaceMenu} onOpenChange={setShowSpaceMenu}>
+      <DropdownMenuTrigger className="flex items-center gap-1.5 text-[17px] font-semibold text-[#1d1d1f] transition-colors hover:text-[#0071e3] cursor-pointer" aria-label="切换空间">
+        <span>{spaceName}</span>
+        <ChevronDown size={14} className="text-[#86868b]" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[200px] rounded-xl p-1.5">
+        {spaces.map((s) => (
+          <DropdownMenuItem
+            key={s.id}
+            onClick={() => handleSpaceSelect(s)}
+            className="rounded-lg text-[13px]"
+          >
+            {s.name}
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleCreateSpace} className="flex items-center gap-2 rounded-lg text-[13px] text-[#0071e3]">
+          <Plus size={14} />
+          创建新空间
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : (
+    "Wiki"
+  );
+
+  const topRightContent = spaceId ? (
+    <Button
+      variant="default"
+      size="sm"
+      className="gap-1.5 rounded-lg text-[12px]"
+      onClick={() => setShowCreateSpace(true)}
+    >
+      <Plus size={14} />
+      创建空间
+    </Button>
+  ) : undefined;
+
   return (
-    <LayoutWrapper title="Wiki">
+    <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
       <div className="flex h-full">
         {/* Left icon sidebar — like llm_wiki but slim */}
         <nav className="flex w-12 shrink-0 flex-col items-center border-r border-[#e8e8ed] bg-[#fafafc] py-2">
@@ -129,17 +214,14 @@ export default function MyWikiPage() {
             onClick={() => setActiveView("pages")}
           />
           <WikiNavButton
-            icon={Search}
-            label="搜索"
-            active={activeView === "search"}
-            onClick={() => setActiveView("search")}
-          />
-          <WikiNavButton
             icon={Network}
             label="图谱"
             active={activeView === "graph"}
             onClick={() => setActiveView("graph")}
           />
+          <div className="mt-2 mb-2 w-6 border-t border-[#e8e8ed]" />
+          <WikiNavButton icon={Database} label="来源" active={activeView === "sources"} onClick={() => setActiveView("sources")} />
+          <WikiNavButton icon={Import} label="导入" onClick={() => setShowImport(true)} />
           <div className="mt-auto flex flex-col items-center gap-1 pt-4">
             <WikiNavButton
               icon={ClipboardCheck}
@@ -152,12 +234,6 @@ export default function MyWikiPage() {
               label="Lint"
               active={activeView === "lint"}
               onClick={() => setActiveView("lint")}
-            />
-            <WikiNavButton
-              icon={Database}
-              label="来源"
-              active={activeView === "sources"}
-              onClick={() => setActiveView("sources")}
             />
           </div>
         </nav>
@@ -176,9 +252,6 @@ export default function MyWikiPage() {
               pageListRefreshKey={pageListRefreshKey}
             />
           )}
-          {activeView === "search" && spaceId && (
-            <WikiSearchView spaceId={spaceId} onPageSelect={handlePageSelect} />
-          )}
           {activeView === "graph" && spaceId && (
             <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
@@ -195,6 +268,32 @@ export default function MyWikiPage() {
           )}
         </div>
       </div>
+
+      {/* Import dialog */}
+      {spaceId && (
+        <WikiImportDialog
+          open={showImport}
+          spaceId={spaceId}
+          onClose={() => setShowImport(false)}
+          onImported={handleImportSuccess}
+        />
+      )}
+
+      {/* Create space dialog */}
+      <CreateWikiSpaceDialog
+        open={showCreateSpace}
+        onClose={() => setShowCreateSpace(false)}
+        onCreated={(id) => {
+          setSpaceId(id);
+          setShowCreateSpace(false);
+          // Update spaces list after creation
+          listWikiSpaces().then((s) => {
+            setSpaces(s);
+            const created = s.find((sp) => sp.id === id);
+            if (created) setSpaceName(created.name);
+          });
+        }}
+      />
     </LayoutWrapper>
   );
 }
@@ -209,7 +308,7 @@ function WikiNavButton({
 }: {
   icon: React.ElementType;
   label: string;
-  active: boolean;
+  active?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -300,7 +399,7 @@ function WikiEmptyState() {
           选择一个页面
         </h3>
         <p className="text-xs leading-relaxed text-[#6e6e73]">
-          从左侧列表选择一个页面查看，或创建新页面开始整理你的知识
+          从左侧列表选择一个页面，或导入文档自动生成知识
         </p>
       </div>
     </div>

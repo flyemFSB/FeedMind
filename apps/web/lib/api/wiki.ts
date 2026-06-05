@@ -118,6 +118,19 @@ export function deleteWikiSource(
   return apiDelete(`/wiki/spaces/${spaceId}/sources/${sourceId}?mode=${mode}`);
 }
 
+// ─── File Upload ────────────────────────────────────────────────
+export function uploadWikiFile(
+  spaceId: string,
+  file: File,
+): Promise<{ identity: string; title: string; kind: string; status: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiFetch(
+    backendApiPath(`/wiki/spaces/${spaceId}/sources/files`),
+    { method: "POST", body: formData },
+  );
+}
+
 // ─── Search ────────────────────────────────────────────────────
 export function searchWiki(
   spaceId: string,

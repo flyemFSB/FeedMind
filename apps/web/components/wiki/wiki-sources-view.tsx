@@ -6,21 +6,17 @@ import {
   Globe,
   Loader2,
   Play,
-  Plus,
   Trash2,
   Type,
 } from "lucide-react";
 import type { WikiSourceListItem } from "@feedmind/contracts";
 import {
-  createWikiSource,
   deleteWikiSource,
   listWikiSources,
   runIngest,
 } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface WikiSourcesViewProps {
@@ -30,10 +26,6 @@ interface WikiSourcesViewProps {
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const [sources, setSources] = useState<WikiSourceListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [creating, setCreating] = useState(false);
 
   const loadSources = useCallback(async () => {
     setLoading(true);
@@ -50,27 +42,6 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   useEffect(() => {
     loadSources();
   }, [loadSources]);
-
-  const handleCreate = async () => {
-    if (!title.trim()) return;
-    setCreating(true);
-    try {
-      await createWikiSource(spaceId, {
-        kind: "text",
-        title: title.trim(),
-        content,
-        metadata: {},
-      });
-      setTitle("");
-      setContent("");
-      setShowCreate(false);
-      await loadSources();
-    } catch {
-      // handled by apiFetch toast
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
@@ -133,63 +104,10 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         <div>
           <h2 className="text-[15px] font-semibold text-[#1d1d1f]">来源管理</h2>
           <p className="mt-0.5 text-[11px] text-[#86868b]">
-            管理原始资料，创建 Ingest 任务生成 Wiki 页面
+            上传文档后自动创建来源
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => {
-            if (showCreate) { setTitle(""); setContent(""); }
-            setShowCreate(!showCreate);
-          }}
-          className="h-8 gap-1.5 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0066cc]"
-        >
-          <Plus size={13} />
-          新建来源
-        </Button>
       </div>
-
-      {/* Create form */}
-      {showCreate && (
-        <div className="border-b border-[#e8e8ed] bg-[#fafafc] px-6 py-4">
-          <div className="mb-3">
-            <label className="mb-1 block text-[11px] font-medium text-[#1d1d1f]">标题</label>
-            <Input
-              className="h-9 rounded-lg border-[#d2d2d7] text-[13px]"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="来源标题"
-            />
-          </div>
-          <div className="mb-3">
-            <label className="mb-1 block text-[11px] font-medium text-[#1d1d1f]">内容</label>
-            <Textarea
-              className="min-h-[80px] rounded-lg border-[#d2d2d7] text-[13px]"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="原始文本内容..."
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setShowCreate(false); setTitle(""); setContent(""); }}
-              className="h-8 rounded-lg px-3 text-[12px] text-[#86868b] hover:bg-[#f0f0f2]"
-            >
-              取消
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleCreate}
-              disabled={creating || !title.trim()}
-              className="h-8 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0066cc]"
-            >
-              {creating ? "创建中..." : "创建"}
-            </Button>
-          </div>
-        </div>
-      )}
 
       {/* Source list */}
       <div className="flex-1 overflow-y-auto">
@@ -212,7 +130,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
               <FileText size={20} className="text-[#86868b]" />
             </div>
             <p className="text-[15px] font-medium text-[#1d1d1f]">暂无来源</p>
-            <p className="mt-1 text-[12px] text-[#86868b]">点击"新建来源"添加原始资料</p>
+            <p className="mt-1 text-[12px] text-[#86868b]">在侧边栏点击"导入"上传文档自动创建</p>
           </div>
         ) : (
           <div className="divide-y divide-[#f0f0f2]">
@@ -238,11 +156,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 </div>
                 <button
                   onClick={() => handleIngest(source.identity, source.title)}
-                  disabled={ingestingId === source.id}
+                  disabled={ingestingId === source.identity}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#0071e3] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1 disabled:opacity-50"
-                  title={ingestingId === source.id ? "Ingesting..." : "运行 Ingest"}
+                  title={ingestingId === source.identity ? "Ingesting..." : "运行 Ingest"}
                 >
-                  {ingestingId === source.id ? (
+                  {ingestingId === source.identity ? (
                     <Loader2 size={12} className="animate-spin" />
                   ) : (
                     <Play size={12} />

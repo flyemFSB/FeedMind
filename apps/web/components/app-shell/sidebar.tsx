@@ -16,10 +16,12 @@ interface SidebarProps {
 export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
-  });
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebar-collapsed");
+    if (stored === "true") setCollapsed(true);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
