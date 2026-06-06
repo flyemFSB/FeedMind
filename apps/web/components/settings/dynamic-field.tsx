@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -87,8 +93,8 @@ function PasswordField({ field, value, onChange }: DynamicFieldProps) {
   const [editValue, setEditValue] = useState(isSet ? "" : ((value as string) ?? ""));
 
   return (
-    <div className="relative w-full">
-      <Input
+    <InputGroup className="h-9 rounded-xl border-[#d2d2d7]">
+      <InputGroupInput
         value={editValue}
         onChange={(e) => {
           setEditValue(e.target.value);
@@ -96,15 +102,18 @@ function PasswordField({ field, value, onChange }: DynamicFieldProps) {
         }}
         placeholder={isSet ? "已配置，输入新值以替换" : (field.placeholder ?? "留空则不使用")}
         type={show ? "text" : "password"}
-        className="h-9 rounded-xl border-[#d2d2d7] pr-9 text-[12px]"
+        className="text-[12px]"
       />
-      <button
-        type="button"
-        onClick={() => setShow((v) => !v)}
-        className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-[#86868b] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f]"
-      >
-        {show ? <EyeOff size={13} strokeWidth={1.7} /> : <Eye size={13} strokeWidth={1.7} />}
-      </button>
-    </div>
+      <InputGroupAddon align="inline-end">
+        <InputGroupButton
+          onClick={() => setShow((v) => !v)}
+          className="text-[#86868b] hover:text-[#1d1d1f]"
+          aria-label={show ? "隐藏密钥" : "显示密钥"}
+          title={show ? "隐藏密钥" : "显示密钥"}
+        >
+          {show ? <EyeOff size={13} strokeWidth={1.7} /> : <Eye size={13} strokeWidth={1.7} />}
+        </InputGroupButton>
+      </InputGroupAddon>
+    </InputGroup>
   );
 }

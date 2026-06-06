@@ -12,6 +12,11 @@ import {
 import type { WikiPageListItem } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/wiki/queries";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WIKI_TYPE_COLORS } from "./constants";
@@ -165,10 +170,9 @@ function TreeNodeItem({
 
   if (node.type === "folder") {
     return (
-      <div>
-        <button
-          onClick={() => onToggle(node.id)}
-          className="flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[#f5f5f7]"
+      <Collapsible open={isExpanded} onOpenChange={() => onToggle(node.id)}>
+        <CollapsibleTrigger
+          className="flex w-full items-center gap-1 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-[#f5f5f7] cursor-pointer"
           style={{ paddingLeft: `${8 + node.depth * 16}px` }}
         >
           {isExpanded ? (
@@ -178,8 +182,8 @@ function TreeNodeItem({
           )}
           <Folder size={13} className="shrink-0 text-[#0071e3]" strokeWidth={1.5} />
           <span className="truncate text-[12px] text-[#1d1d1f]">{node.label}</span>
-        </button>
-        {isExpanded && (
+        </CollapsibleTrigger>
+        <CollapsibleContent>
           <div>
             {node.children.map((child) => (
               <TreeNodeItem
@@ -192,8 +196,8 @@ function TreeNodeItem({
               />
             ))}
           </div>
-        )}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
     );
   }
 

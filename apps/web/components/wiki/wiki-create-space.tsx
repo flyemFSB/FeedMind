@@ -4,7 +4,15 @@ import { useState } from "react";
 import type { WikiSpaceCreate } from "@feedmind/contracts";
 import { createWikiSpace } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 interface CreateWikiSpaceDialogProps {
@@ -21,8 +29,6 @@ export function CreateWikiSpaceDialog({
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [creating, setCreating] = useState(false);
-
-  if (!open) return null;
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -51,29 +57,15 @@ export function CreateWikiSpaceDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
-          <h2 className="text-[17px] font-semibold text-foreground">
-            创建 Wiki 空间
-          </h2>
-          <button
-            className="text-[13px] text-secondary-text hover:text-foreground"
-            onClick={onClose}
-          >
-            取消
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent showCloseButton={false} className="max-w-md gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-md">
+        <DialogHeader className="flex h-[72px] shrink-0 flex-row items-center justify-between border-b border-[#d2d2d7] px-6">
+          <DialogTitle className="text-[17px] font-semibold">创建 Wiki 空间</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-4 p-6">
           <div className="space-y-1.5">
-            <span className="text-[13px] font-medium text-foreground">名称</span>
+            <Label htmlFor="space-name" className="text-[13px] font-medium">名称</Label>
             <Input
               id="space-name"
               placeholder="输入空间名称"
@@ -84,7 +76,7 @@ export function CreateWikiSpaceDialog({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-[13px] font-medium text-foreground">描述</span>
+            <Label htmlFor="space-purpose" className="text-[13px] font-medium">描述</Label>
             <Textarea
               id="space-purpose"
               placeholder="可选：描述空间的目的"
@@ -94,12 +86,12 @@ export function CreateWikiSpaceDialog({
             />
           </div>
 
-          <div className="text-[11px] text-secondary-text">
+          <div className="text-[11px] text-[#86868b]">
             空间名称将作为标识符，创建后不可更改。
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[#d2d2d7] px-6 py-4">
+        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-[#d2d2d7] bg-white px-6 py-4">
           <Button variant="outline" size="sm" onClick={onClose}>
             取消
           </Button>
@@ -111,8 +103,8 @@ export function CreateWikiSpaceDialog({
           >
             {creating ? "创建中..." : "创建"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

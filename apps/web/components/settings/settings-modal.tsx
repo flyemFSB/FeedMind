@@ -7,6 +7,12 @@ import { listLLMModels } from "@/lib/api/llms";
 import type { ToolRead } from "@feedmind/contracts";
 import { listTools } from "@/lib/api/tools";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TabId } from "./settings-types";
 import { ModelsPanel } from "./models-panel";
@@ -75,12 +81,10 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       .catch(() => {});
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm" onClick={onClose}>
-      <div className="flex h-[min(840px,calc(100vh-48px))] w-[min(1180px,calc(100vw-48px))] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent showCloseButton={false} className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-[1180px]">
+        <DialogHeader className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -120,7 +124,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           >
             <X size={18} className="text-[#86868b]" />
           </Button>
-        </div>
+        </DialogHeader>
 
         <Tabs
           orientation="vertical"
@@ -188,16 +192,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           onDeleted={handleModelDeleted}
         />
 
-        <div className="flex h-[68px] shrink-0 items-center justify-end border-t border-[#d2d2d7] bg-white px-6">
-          <Button
-            onClick={onClose}
-            variant="ghost"
-            className="px-5 py-2 rounded-xl text-[13px] font-medium text-[#1d1d1f] hover:bg-[#f5f5f7] transition-colors"
-          >
-            关闭
-          </Button>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

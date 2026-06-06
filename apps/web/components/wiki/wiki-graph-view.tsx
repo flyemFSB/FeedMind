@@ -5,6 +5,7 @@ import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";
 import { getWikiGraph, getWikiGraphInsights } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { WIKI_TYPE_COLORS } from "./constants";
 
 interface WikiGraphViewProps {
@@ -135,22 +136,14 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
         </div>
         <div className="flex items-center gap-1 ml-auto">
           <span className="text-[11px] text-[#86868b]">{filteredNodes.length} nodes, {filteredEdges.length} edges</span>
-          <Button
-            variant={colorMode === "type" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setColorMode("type")}
-            className="h-8 gap-1 rounded-lg px-2 text-[11px]"
-          >
-            <Type size={13} /> Type
-          </Button>
-          <Button
-            variant={colorMode === "community" ? "secondary" : "ghost"}
-            size="sm"
-            onClick={() => setColorMode("community")}
-            className="h-8 gap-1 rounded-lg px-2 text-[11px]"
-          >
-            <Layers size={13} /> Community
-          </Button>
+          <ToggleGroup value={[colorMode]} onValueChange={(v) => { if (v.length > 0) setColorMode(v[0] as ColorMode); }} size="sm" className="h-8">
+            <ToggleGroupItem value="type" className="gap-1 px-2 text-[11px]" aria-label="Color by type">
+              <Type size={13} /> Type
+            </ToggleGroupItem>
+            <ToggleGroupItem value="community" className="gap-1 px-2 text-[11px]" aria-label="Color by community">
+              <Layers size={13} /> Community
+            </ToggleGroupItem>
+          </ToggleGroup>
           <Button
             variant="ghost"
             size="sm"

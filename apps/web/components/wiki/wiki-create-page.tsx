@@ -5,7 +5,15 @@ import type { WikiPageCreate } from "@feedmind/contracts";
 import { wikiPageTypeSchema } from "@feedmind/contracts";
 import { createWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -32,8 +40,6 @@ export function CreateWikiPageDialog({
   const [type, setType] = useState<WikiPageType>("concept");
   const [creating, setCreating] = useState(false);
 
-  if (!open) return null;
-
   const handleCreate = async () => {
     if (!title.trim()) return;
     setCreating(true);
@@ -58,30 +64,18 @@ export function CreateWikiPageDialog({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") onClose();
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl border border-[#d2d2d7] bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="border-b border-[#e8e8ed] px-5 py-4">
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">新建页面</h2>
-        </div>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent showCloseButton={false} className="max-w-sm gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-sm">
+        <DialogHeader className="border-b border-[#e8e8ed] px-5 py-4">
+          <DialogTitle className="text-[15px] font-semibold">新建页面</DialogTitle>
+        </DialogHeader>
 
         <div className="space-y-3 px-5 py-4">
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">
-              标题
-            </label>
+            <Label htmlFor="page-title" className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">标题</Label>
             <Input
+              id="page-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="页面标题"
@@ -91,11 +85,9 @@ export function CreateWikiPageDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">
-              类型
-            </label>
+            <Label htmlFor="page-type" className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">类型</Label>
             <Select value={type} onValueChange={(v: WikiPageType | null) => { if (v) setType(v); }}>
-              <SelectTrigger className="h-9 rounded-lg border-[#d2d2d7] text-[13px]">
+              <SelectTrigger id="page-type" className="h-9 rounded-lg border-[#d2d2d7] text-[13px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="rounded-xl border-[#d2d2d7]">
@@ -109,13 +101,8 @@ export function CreateWikiPageDialog({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[#e8e8ed] px-5 py-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="rounded-lg text-[13px]"
-          >
+        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-[#e8e8ed] bg-white px-5 py-3">
+          <Button variant="ghost" size="sm" onClick={onClose} className="rounded-lg text-[13px]">
             取消
           </Button>
           <Button
@@ -126,8 +113,8 @@ export function CreateWikiPageDialog({
           >
             {creating ? "创建中..." : "创建"}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
