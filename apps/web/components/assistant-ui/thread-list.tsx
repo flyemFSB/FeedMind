@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   ThreadListItemMorePrimitive,
   ThreadListItemPrimitive,
@@ -18,8 +18,10 @@ const menuItemClass =
 
 function AssistantThreadListItem() {
   const externalId = useAuiState((state) => state.threadListItem.externalId);
-  const isChatPage = usePathname() === "/chat";
-  const router = useRouter();
+  const isChatPage = useRouterState({
+    select: (s) => s.location.pathname,
+  }) === "/chat";
+  const navigate = useNavigate();
   const [agentRunning, setAgentRunning] = useState(false);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ function AssistantThreadListItem() {
           }`}
           onClick={() => {
             if (externalId) writeActiveFeedMindThreadId(externalId);
-            if (!isChatPage) router.push("/chat");
+            if (!isChatPage) navigate({ to: "/chat" });
           }}
         >
           {isActiveThread ? (

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useRef, useEffect, useMemo } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -380,7 +379,6 @@ function ToolFallback(part: ToolFallbackProps) {
   const StatusIcon = running ? Wrench : Check;
   // Start collapsed; auto-expand during execution, auto-collapse on completion
   const [open, setOpen] = useState(false);
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setOpen(running); }, [running]);
 
   const formattedArgs = argsText || formatToolPayload(args);
@@ -493,12 +491,14 @@ function AssistantMessage() {
   return (
     <MessagePrimitive.Root className="flex gap-3 animate-fade-in group/action-area">
       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center shrink-0 mt-0.5">
-        <Image
+        <img
           src="/FeedMind-logo.png"
           alt="FeedMind Agent"
           width={28}
           height={28}
           className="h-7 w-7 rounded-full object-cover"
+          loading="eager"
+          decoding="async"
         />
       </div>
 

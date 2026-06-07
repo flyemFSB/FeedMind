@@ -61,12 +61,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     try {
       const result = await runIngest(spaceId, sourceIdentity);
       setIngestResult(
-        `✓ "${sourceTitle}": ${result.pagesCreated} created, ${result.pagesUpdated} updated`,
+        `✓ "${sourceTitle}": ${result.pagesCreated} 创建，${result.pagesUpdated} 更新`,
       );
       await loadSources();
     } catch (err) {
       setIngestResult(
-        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : "Unknown error"}`,
+        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : "未知错误"}`,
       );
     } finally {
       setIngestingId(null);
@@ -87,11 +87,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const statusBadge = (status: string) => {
     switch (status) {
       case "ready":
-        return <Badge variant="default" className="text-[10px] bg-[#34c759]">ready</Badge>;
+        return <Badge variant="default" className="text-[10px] bg-[#34c759]">已就绪</Badge>;
       case "failed":
-        return <Badge variant="destructive" className="text-[10px]">failed</Badge>;
+        return <Badge variant="destructive" className="text-[10px]">失败</Badge>;
       case "ingesting":
-        return <Badge variant="secondary" className="text-[10px] bg-[#ff9500] text-white">ingesting</Badge>;
+        return <Badge variant="secondary" className="text-[10px] bg-[#ff9500] text-white">摄取中</Badge>;
       default:
         return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
     }
@@ -158,7 +158,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   onClick={() => handleIngest(source.identity, source.title)}
                   disabled={ingestingId === source.identity}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#0071e3] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1 disabled:opacity-50"
-                  title={ingestingId === source.identity ? "Ingesting..." : "运行 Ingest"}
+                  title={ingestingId === source.identity ? "摄取中..." : "运行摄取"}
                 >
                   {ingestingId === source.identity ? (
                     <Loader2 size={12} className="animate-spin" />

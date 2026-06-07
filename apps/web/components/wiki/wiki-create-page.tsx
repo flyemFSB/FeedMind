@@ -23,6 +23,14 @@ import {
 } from "@/components/ui/select";
 import type { WikiPageType } from "@feedmind/contracts";
 
+const PAGE_TYPE_LABELS: Record<string, string> = {
+  entity: "实体",
+  concept: "概念",
+  source: "来源",
+  overview: "概览",
+  index: "索引",
+};
+
 interface CreateWikiPageDialogProps {
   open: boolean;
   spaceId: string;
@@ -93,7 +101,7 @@ export function CreateWikiPageDialog({
               <SelectContent className="rounded-xl border-[#d2d2d7]">
                 {wikiPageTypeSchema.options.map((t) => (
                   <SelectItem key={t} value={t} className="text-[13px]">
-                    {t}
+                    {PAGE_TYPE_LABELS[t] ?? t}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -32,6 +32,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
       const result = await getLintItems(spaceId);
       setItems(result);
     } catch {
+      // errors handled by apiFetch toast
     } finally {
       setLoading(false);
     }
@@ -57,9 +58,9 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">Lint</h2>
+          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">检查</h2>
           <p className="mt-0.5 text-[11px] text-[#86868b]">
-            {items.length} issues ({warnings.length} warnings, {infos.length} info)
+            {items.length} 个问题（{warnings.length} 个警告，{infos.length} 条提示）
           </p>
         </div>
         <Button
@@ -69,7 +70,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
           className="h-8 gap-1.5 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0066cc]"
         >
           {running ? <RefreshCw size={13} className="animate-spin" /> : <Play size={13} />}
-          Run
+          运行
         </Button>
       </div>
 
@@ -86,8 +87,8 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
             <Info size={32} className="mb-3 text-[#34c759]" />
-            <p className="text-[13px] font-medium text-[#1d1d1f]">No issues found</p>
-            <p className="mt-1 text-[11px] text-[#86868b]">Run lint to check for problems</p>
+            <p className="text-[13px] font-medium text-[#1d1d1f]">未发现问题</p>
+            <p className="mt-1 text-[11px] text-[#86868b]">运行检查以查找潜在问题</p>
           </div>
         ) : (
           <div className="space-y-2 p-6">

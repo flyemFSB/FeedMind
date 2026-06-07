@@ -1,4 +1,5 @@
 import type { RemoteThreadListAdapter } from "@assistant-ui/react";
+import type { QueryClient } from "@tanstack/react-query";
 import { createAgentThread } from "@/lib/api/agent";
 import { apiFetch, backendApiPath } from "./client";
 
@@ -10,6 +11,12 @@ export type ChatSessionListItem = {
   message_count: number;
   last_message_at: string | null;
   updated_at: string;
+};
+
+/** Query key factory for chat sessions */
+export const chatKeys = {
+  all: ["chats"] as const,
+  list: () => [...chatKeys.all, "list"] as const,
 };
 
 const activeThreadStorageKey = "feedmind:active-thread";
@@ -48,7 +55,7 @@ export async function deleteChatSession(threadId: string): Promise<void> {
   clearActiveThreadId(threadId);
 }
 
-export function createFeedMindThreadListAdapter(): RemoteThreadListAdapter {
+export function createFeedMindThreadListAdapter(queryClient: QueryClient): RemoteThreadListAdapter {
   return {
     async list() {
       const sessions = await listChatSessions();
@@ -68,7 +75,10 @@ export function createFeedMindThreadListAdapter(): RemoteThreadListAdapter {
       writeActiveFeedMindThreadId(threadId);
       return { remoteId: threadId, externalId: threadId, status: "regular" as const };
     },
-    async delete(threadId) { await deleteChatSession(threadId); },
+    async delete(threadId) {
+      await deleteChatSession(threadId);
+      queryClient.invalidateQueries({ queryKey: chatKeys.list() });
+    },
     async rename() { return undefined; },
     async archive() { return undefined; },
     async unarchive() { return undefined; },

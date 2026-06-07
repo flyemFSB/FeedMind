@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FileText, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
 import { wikiPageTypeSchema } from "@feedmind/contracts";
-import { useWikiPages, useInvalidateWiki } from "@/lib/wiki/queries";
+import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WIKI_TYPE_COLORS } from "./constants";
@@ -15,36 +15,32 @@ interface WikiPageListProps {
   spaceId: string;
   activePageId: string | null;
   onPageSelect: (pageId: string) => void;
-  refreshTrigger?: number;
 }
 
 export function WikiPageList({
   spaceId,
   activePageId,
   onPageSelect,
-  refreshTrigger,
 }: WikiPageListProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const invalidate = useInvalidateWiki();
 
-  const { data, loading } = useWikiPages(spaceId, {
-    q: search || undefined,
-    type: typeFilter || undefined,
-    limit: 200,
+  const { data, isLoading } = useWikiPages(spaceId);
+
+  const pages: WikiPageListItem[] = data?.items ?? [];
+
+  // Client-side filtering
+  const filteredPages = pages.filter((page) => {
+    if (typeFilter && page.type !== typeFilter) return false;
+    if (search && !page.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
-  const pages = data?.items ?? [];
-
-  useEffect(() => {
-    if (refreshTrigger) invalidate(spaceId);
-  }, [refreshTrigger]);
-
-  const filterTypes = useCallback(() => {
+  const filterTypes = () => {
     const types = new Set(pages.map((p) => p.type));
     return wikiPageTypeSchema.options.filter((t) => types.has(t));
-  }, [pages]);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -81,7 +77,7 @@ export function WikiPageList({
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-1 px-3 py-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-2">
@@ -93,20 +89,20 @@ export function WikiPageList({
               </div>
             ))}
           </div>
-        ) : pages.length === 0 ? (
+        ) : filteredPages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7]">
               <FileText size={16} className="text-[#86868b]" />
             </div>
             <p className="text-[13px] font-medium text-[#1d1d1f]">
-              {search ? "没有匹配的页面" : "暂无页面"}
+              {search || typeFilter ? "没有匹配的页面" : "暂无页面"}
             </p>
             <p className="mt-1 text-[11px] text-[#86868b]">
-              {search ? "尝试其他关键词" : "导入文档由 LLM 自动生成"}
+              {search || typeFilter ? "尝试其他关键词或清除筛选" : "导入文档由 LLM 自动生成"}
             </p>
           </div>
         ) : (
-          <CategorizedPageList pages={pages} activePageId={activePageId} onPageSelect={onPageSelect} />
+          <CategorizedPageList pages={filteredPages} activePageId={activePageId} onPageSelect={onPageSelect} />
         )}
       </div>
     </div>

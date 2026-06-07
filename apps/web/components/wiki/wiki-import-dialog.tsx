@@ -3,7 +3,6 @@
 import { useCallback, useRef, useState } from "react";
 import {
   CheckCircle2,
-  File,
   FileText,
   Globe,
   Loader2,
@@ -15,12 +14,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -46,43 +41,56 @@ export function WikiImportDialog({
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-lg">
-        <DialogHeader className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-4">
-          <DialogTitle className="text-[17px] font-semibold">导入内容</DialogTitle>
-        </DialogHeader>
+        {/* Header row — no border, kept clean */}
+        <div className="flex items-center justify-between px-6 pt-4">
+          <DialogTitle className="text-[16px] font-semibold">导入内容</DialogTitle>
+          <button
+            onClick={onClose}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f5f5f7]"
+          >
+            <X size={16} />
+          </button>
+        </div>
 
-        {/* Tabs */}
-        <Tabs value={tab} onValueChange={(v) => { if (v) setTab(v as ImportTab); }} className="flex flex-col">
-          <TabsList className="flex border-b border-[#e8e8ed] px-6 rounded-none bg-transparent h-auto gap-0">
-            <TabsTrigger
-              value="file"
-              className="flex items-center gap-2 border-b-2 px-4 py-3 text-[13px] font-medium transition-colors data-[state=active]:border-[#0071e3] data-[state=active]:text-[#0071e3] data-[state=active]:bg-transparent data-[state=active]:shadow-none text-[#86868b] rounded-none"
-            >
-              <FileText size={15} strokeWidth={1.6} />
-              上传文件
-            </TabsTrigger>
-            <TabsTrigger
-              value="url"
-              className="flex items-center gap-2 border-b-2 px-4 py-3 text-[13px] font-medium transition-colors data-[state=active]:border-[#0071e3] data-[state=active]:text-[#0071e3] data-[state=active]:bg-transparent data-[state=active]:shadow-none text-[#86868b] rounded-none"
-            >
-              <Globe size={15} strokeWidth={1.6} />
-              粘贴链接
-            </TabsTrigger>
-          </TabsList>
-
-          <div className="min-h-[240px] px-6 py-5">
-            {tab === "file" ? (
-              <FileUploadTab spaceId={spaceId} onImported={onImported} />
-            ) : (
-              <UrlPasteTab spaceId={spaceId} onImported={onImported} />
+        {/* Tab bar — plain buttons, full control over styling */}
+        <div className="mx-6 mt-3 flex gap-5 border-b border-[#e8e8ed]">
+          <button
+            onClick={() => setTab("file")}
+            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
+              tab === "file"
+                ? "text-[#0071e3]"
+                : "text-[#86868b] hover:text-[#1d1d1f]"
+            }`}
+          >
+            <FileText size={15} strokeWidth={1.6} />
+            上传文件
+            {tab === "file" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0071e3] rounded-full" />
             )}
-          </div>
-        </Tabs>
+          </button>
+          <button
+            onClick={() => setTab("url")}
+            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
+              tab === "url"
+                ? "text-[#0071e3]"
+                : "text-[#86868b] hover:text-[#1d1d1f]"
+            }`}
+          >
+            <Globe size={15} strokeWidth={1.6} />
+            粘贴链接
+            {tab === "url" && (
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0071e3] rounded-full" />
+            )}
+          </button>
+        </div>
 
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-[#e8e8ed] bg-white px-6 py-3">
-          <Button variant="ghost" size="sm" onClick={onClose} className="rounded-lg text-[13px] text-[#86868b]">
-            关闭
-          </Button>
-        </DialogFooter>
+        <div className="min-h-[240px] px-6 py-5">
+          {tab === "file" ? (
+            <FileUploadTab spaceId={spaceId} onImported={onImported} />
+          ) : (
+            <UrlPasteTab spaceId={spaceId} onImported={onImported} />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -338,7 +346,12 @@ function UrlPasteTab({
         )}
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-end gap-3">
+        {urlList.length > 0 && (
+          <span className="text-[11px] text-[#86868b]">
+            将创建 {validUrls.length} 个来源
+          </span>
+        )}
         <Button
           size="sm"
           onClick={handleSubmit}
@@ -348,20 +361,15 @@ function UrlPasteTab({
           {processing ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              处理中...
+              导入中...
             </>
           ) : (
             <>
               <Globe size={14} />
-              开始处理
+              开始导入
             </>
           )}
         </Button>
-        {urlList.length > 0 && (
-          <span className="text-[11px] text-[#86868b]">
-            将创建 {validUrls.length} 个来源
-          </span>
-        )}
       </div>
 
       {/* Results */}

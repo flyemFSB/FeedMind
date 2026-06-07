@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BookOpen, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
 import { ThreadListPrimitive } from "@assistant-ui/react";
 import { AssistantThreadList } from "@/components/assistant-ui/thread-list";
@@ -14,8 +12,10 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -33,22 +33,24 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
   return (
     <aside className={asideClassName}>
       <div className="px-5 pt-5 pb-4">
-        <Link href="/chat" className="flex items-center gap-2.5">
+        <Link to="/chat" className="flex items-center gap-2.5">
           {collapsed ? (
-            <Image
+            <img
               src="/FeedMind-logo.png"
               alt="FeedMind"
               width={28}
               height={28}
-              priority
+              loading="eager"
+              decoding="async"
             />
           ) : (
-            <Image
+            <img
               src="/FeedMind-logo-text.png"
               alt="FeedMind"
               width={139}
               height={36}
-              priority
+              loading="eager"
+              decoding="async"
               style={{ height: "auto" }}
             />
           )}
@@ -59,7 +61,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         <ThreadListPrimitive.New
           className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0071e3] px-3 text-[14px] font-semibold text-white shadow-sm shadow-[#0071e3]/20 transition-all hover:bg-[#0066cc] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30 active:translate-y-px data-[active]:bg-[#0066cc]"
           onClick={() => {
-            if (pathname !== "/chat") router.push("/chat");
+            if (pathname !== "/chat") navigate({ to: "/chat" });
           }}
         >
           <Plus size={16} strokeWidth={2} />
@@ -69,7 +71,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
 
       <div className="px-3 pb-1">
         <Link
-          href="/wiki"
+          to="/wiki"
           className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors hover:bg-[#f5f5f7] ${
             collapsed ? "justify-center" : ""
           } ${

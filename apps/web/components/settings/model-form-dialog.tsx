@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { LLMModel } from "@/lib/types";
-import { createLLMModel, updateLLMModel } from "@/lib/api/llms";
+import { useCreateLLMModel, useUpdateLLMModel } from "@/lib/hooks/use-llms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -65,16 +65,31 @@ export function ModelFormDialog({
   );
   const [showKey, setShowKey] = useState(false);
 
+  const createMutation = useCreateLLMModel();
+  const updateMutation = useUpdateLLMModel();
+  const isPending = createMutation.isPending || updateMutation.isPending;
+
   function handleSubmit() {
-    const action = isEditing ? updateLLMModel(initialModel.id, form) : createLLMModel(form);
-    action
-      .then(() => {
-        toast.success(isEditing ? "模型修改成功" : "模型添加成功");
-        onSubmit();
-      })
-      .catch(() => {
-        toast.error("操作失败");
+    if (isEditing) {
+      updateMutation.mutate(
+        { id: initialModel!.id, ...form },
+        {
+          onSuccess: () => {
+            toast.success("模型修改成功");
+            onSubmit();
+          },
+          onError: () => toast.error("修改失败"),
+        },
+      );
+    } else {
+      createMutation.mutate(form, {
+        onSuccess: () => {
+          toast.success("模型添加成功");
+          onSubmit();
+        },
+        onError: () => toast.error("添加失败"),
       });
+    }
   }
 
   function handleClose() {
@@ -193,7 +208,7 @@ export function ModelFormDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!form.modelName}
+            disabled={!form.modelName || isPending}
             className="rounded-xl bg-[#0071e3] px-4 text-[13px] text-white hover:bg-[#0066cc] disabled:cursor-not-allowed disabled:bg-[#d2d2d7]"
           >
             {isEditing ? "保存修改" : "添加模型"}

@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { X, Cpu, MessageSquare, Wrench } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
-import { listLLMModels } from "@/lib/api/llms";
-import type { ToolRead } from "@feedmind/contracts";
-import { listTools } from "@/lib/api/tools";
+import { useLLMModels } from "@/lib/hooks/use-llms";
+import { useTools } from "@/lib/hooks/use-tools";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,10 +31,6 @@ const TABS: Tab[] = [
   { id: "session", label: "会话模型配置", icon: MessageSquare },
 ];
 
-function emitModelsChange() {
-  window.dispatchEvent(new Event("feedmind:llms-change"));
-}
-
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
@@ -44,47 +38,31 @@ interface SettingsModalProps {
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>("models");
-  const [models, setModels] = useState<LLMModel[]>([]);
-  const [searchTools, setSearchTools] = useState<ToolRead[]>([]);
   const [showModelForm, setShowModelForm] = useState(false);
   const [editingModel, setEditingModel] = useState<LLMModel | null>(null);
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const ctrl = new AbortController();
-    listLLMModels(ctrl.signal)
-      .then(setModels)
-      .catch(() => {});
-    listTools(ctrl.signal)
-      .then(setSearchTools)
-      .catch(() => {});
-    return () => ctrl.abort();
-  }, [open]);
+  // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
+  const { data: models = [] } = useLLMModels({ enabled: open });
+  const { data: tools = [] } = useTools({ enabled: open });
 
   function handleModelSaved() {
     setShowModelForm(false);
     setEditingModel(null);
-    emitModelsChange();
-    const ctrl = new AbortController();
-    listLLMModels(ctrl.signal)
-      .then(setModels)
-      .catch(() => {});
   }
 
   function handleModelDeleted() {
     setDeletingModel(null);
-    emitModelsChange();
-    const ctrl = new AbortController();
-    listLLMModels(ctrl.signal)
-      .then(setModels)
-      .catch(() => {});
   }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-[1180px]">
-        <DialogHeader className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-[1180px]"
+      >
+        {/* Custom horizontal header bar with DialogTitle for a11y */}
+        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
@@ -112,7 +90,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </svg>
             </div>
             <div>
-              <h2 className="text-[16px] font-semibold text-[#1d1d1f]">配置中心</h2>
+              <DialogTitle className="text-[16px] font-semibold text-[#1d1d1f]">配置中心</DialogTitle>
               <p className="text-[11px] text-[#86868b]">管理模型、工具与当前会话参数</p>
             </div>
           </div>
@@ -124,7 +102,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           >
             <X size={18} className="text-[#86868b]" />
           </Button>
-        </DialogHeader>
+        </div>
 
         <Tabs
           orientation="vertical"
@@ -169,7 +147,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 onDeleteModel={setDeletingModel}
               />
             )}
-            {activeTab === "tools" && <ToolsPanel tools={searchTools} />}
+            {activeTab === "tools" && <ToolsPanel tools={tools} />}
             {activeTab === "session" && <SessionPanel />}
           </div>
         </Tabs>

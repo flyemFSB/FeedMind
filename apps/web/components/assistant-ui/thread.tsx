@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ThreadPrimitive } from "@assistant-ui/react";
 import { ArrowDown } from "lucide-react";
@@ -11,7 +10,7 @@ import {
   onSelectedFeedMindModelChange,
   setSelectedFeedMindModel,
 } from "@/lib/api/agent";
-import { listLLMModels } from "@/lib/api/llms";
+import { useLLMModels } from "@/lib/hooks/use-llms";
 
 const suggestions = [
   "总结最近这段对话中的重点内容",
@@ -21,44 +20,30 @@ const suggestions = [
 
 export function Thread() {
   const [canSendMessage, setCanSendMessage] = useState(false);
+  const { data: models = [] } = useLLMModels();
 
+  // Re-evaluate sendability whenever models or selection changes
   useEffect(() => {
-    let disposed = false;
-
-    const refreshModelStatus = async (signal?: AbortSignal) => {
-      const models = await listLLMModels(signal);
-      if (disposed) return;
-
+    const checkModelStatus = async () => {
       if (models.length === 0) {
         setSelectedFeedMindModel("");
         setCanSendMessage(false);
         return;
       }
 
-      const selectedModel = await loadSelectedFeedMindModel(signal);
-      if (disposed) return;
-
+      const selectedModel = await loadSelectedFeedMindModel();
       setCanSendMessage(models.some((model) => model.id === selectedModel));
     };
 
-    const controller = new AbortController();
-    void refreshModelStatus(controller.signal).catch(() => {
-      if (!disposed) setCanSendMessage(false);
-    });
+    checkModelStatus().catch(() => setCanSendMessage(false));
+  }, [models]);
 
-    const handleModelsChange = () => {
-      void refreshModelStatus().catch(() => setCanSendMessage(false));
-    };
-
-    window.addEventListener("feedmind:llms-change", handleModelsChange);
+  useEffect(() => {
     const unsubscribe = onSelectedFeedMindModelChange((model) => {
       setCanSendMessage(model.trim().length > 0);
     });
 
     return () => {
-      disposed = true;
-      controller.abort();
-      window.removeEventListener("feedmind:llms-change", handleModelsChange);
       unsubscribe();
     };
   }, []);
@@ -70,13 +55,14 @@ export function Thread() {
           <ThreadPrimitive.Empty>
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center mb-4">
-                <Image
+                <img
                   src="/FeedMind-logo.png"
                   alt="FeedMind Agent"
                   width={56}
                   height={56}
                   className="h-14 w-14 rounded-2xl object-cover"
-                  priority
+                  loading="eager"
+                  decoding="async"
                 />
               </div>
               <h2 className="text-[24px] font-semibold text-[#1d1d1f] tracking-[-0.2px] mb-2">

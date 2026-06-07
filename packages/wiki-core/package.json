@@ -17,7 +17,13 @@
   },
   "dependencies": {
     "@feedmind/contracts": "workspace:*",
-    "js-yaml": "^4.2.0"
+    "@types/pdf-parse": "^1.1.5",
+    "exceljs": "^4.4.0",
+    "file-type": "^22.0.1",
+    "js-yaml": "^4.2.0",
+    "mammoth": "^1.12.0",
+    "officeparser": "^7.2.0",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

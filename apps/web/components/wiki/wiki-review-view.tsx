@@ -35,6 +35,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
       const result = await listReviewItems(spaceId);
       setItems(result);
     } catch {
+      // errors handled by apiFetch toast
     } finally {
       setLoading(false);
     }
@@ -49,7 +50,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
     } catch { /* handled by apiFetch toast */ }
   };
 
-  const handleDismiss = async (itemId: string) => {
+  const handle忽略 = async (itemId: string) => {
     try {
       await dismissReviewItem(spaceId, itemId);
       setItems((prev) => prev.filter((r) => r.id !== itemId));
@@ -72,9 +73,9 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
     <div className="flex h-full flex-col bg-white">
       <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">Review</h2>
+          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">审核</h2>
           <p className="mt-0.5 text-[11px] text-[#86868b]">
-            {unresolved.length} pending / {items.length} total
+            待处理 {unresolved.length} 项 / 共 {items.length} 项
           </p>
         </div>
         <Button
@@ -85,7 +86,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
           className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
         >
           <RefreshCw size={13} className={sweeping ? "animate-spin" : ""} />
-          Sweep
+          一键清理
         </Button>
       </div>
 
@@ -102,8 +103,8 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
             <CheckCircle2 size={32} className="mb-3 text-[#34c759]" />
-            <p className="text-[13px] font-medium text-[#1d1d1f]">All clear</p>
-            <p className="mt-1 text-[11px] text-[#86868b]">No review items pending</p>
+            <p className="text-[13px] font-medium text-[#1d1d1f]">全部通过</p>
+            <p className="mt-1 text-[11px] text-[#86868b]">暂无待审核项</p>
           </div>
         ) : (
           <div className="space-y-3 p-6">
@@ -137,16 +138,16 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                         className="h-7 rounded-lg px-2.5 text-[11px] text-[#34c759] hover:bg-[#f0faf0]"
                       >
                         <CheckCircle2 size={12} className="mr-1" />
-                        Approve
+                        批准
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleDismiss(item.id)}
+                        onClick={() => handle忽略(item.id)}
                         className="h-7 rounded-lg px-2.5 text-[11px] text-[#86868b] hover:bg-[#f5f5f7]"
                       >
                         <XCircle size={12} className="mr-1" />
-                        Dismiss
+                        忽略
                       </Button>
                     </div>
                   )}

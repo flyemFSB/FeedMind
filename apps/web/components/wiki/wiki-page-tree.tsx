@@ -10,7 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
-import { useWikiPages } from "@/lib/wiki/queries";
+import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -50,11 +50,7 @@ export function WikiPageTree({
     () => new Set(),
   );
 
-  const { data, loading } = useWikiPages(spaceId, {
-    q: search || undefined,
-    limit: 200,
-  });
-
+  const { data, isLoading } = useWikiPages(spaceId);
   const pages = data?.items ?? [];
   const tree = useMemo(() => buildTree(pages, search), [pages, search]);
 
@@ -102,7 +98,7 @@ export function WikiPageTree({
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 pb-2">
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-1 py-2">
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2 px-3 py-1.5" style={{ paddingLeft: `${12 + (i % 3) * 16}px` }}>

@@ -143,22 +143,22 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               <div className="flex flex-wrap gap-x-6 gap-y-1">
                 {page.type && (
                   <span>
-                    <span className="font-medium text-[#1d1d1f]">Type:</span> {page.type}
+                    <span className="font-medium text-[#1d1d1f]">类型：</span> {page.type}
                   </span>
                 )}
                 {page.sources && page.sources.length > 0 && (
                   <span>
-                    <span className="font-medium text-[#1d1d1f]">Sources:</span> {page.sources.length}
+                    <span className="font-medium text-[#1d1d1f]">来源：</span> {page.sources.length}
                   </span>
                 )}
                 {page.tags && page.tags.length > 0 && (
                   <span>
-                    <span className="font-medium text-[#1d1d1f]">Tags:</span> {page.tags.length}
+                    <span className="font-medium text-[#1d1d1f]">标签：</span> {page.tags.length}
                   </span>
                 )}
                 {page.related && page.related.length > 0 && (
                   <span>
-                    <span className="font-medium text-[#1d1d1f]">Related:</span> {page.related.length}
+                    <span className="font-medium text-[#1d1d1f]">关联：</span> {page.related.length}
                   </span>
                 )}
               </div>

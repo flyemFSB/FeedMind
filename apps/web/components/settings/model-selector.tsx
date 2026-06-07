@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { LLMModel } from "@/lib/types";
-import { listLLMModels } from "@/lib/api/llms";
+import { useLLMModels, useSelectedLLMModel, useSetSelectedLLMModel } from "@/lib/hooks/use-llms";
 import {
-  loadSelectedFeedMindModel,
   onSelectedFeedMindModelChange,
   persistSelectedFeedMindModel,
   setSelectedFeedMindModel,
@@ -21,74 +20,42 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProviderIcon } from "@/components/settings/provider-icon";
 
 export function ModelSelector() {
-  const [loading, setLoading] = useState(true);
+  // Use TanStack Query for data fetching — auto-refreshes on cache invalidation
+  const { data: models = [], isLoading, isError } = useLLMModels();
+  const { data: selectedModelId = "" } = useSelectedLLMModel();
+  const setSelectedMutation = useSetSelectedLLMModel();
+
+  // Local state for the dropdown, synced with both server selection and external changes
   const [selectedModel, setSelectedModel] = useState("");
-  const [models, setModels] = useState<LLMModel[]>([]);
   const [loadError, setLoadError] = useState(false);
 
+  // Sync selected model ID from Query when it resolves
   useEffect(() => {
-    const controller = new AbortController();
+    if (selectedModelId) {
+      setSelectedModel(selectedModelId);
+    }
+  }, [selectedModelId]);
 
-    void listLLMModels(controller.signal)
-      .then((loadedModels) => {
-        setModels(loadedModels);
-        setLoadError(false);
-        if (loadedModels.length === 0) {
-          setSelectedModel("");
-          setSelectedFeedMindModel("");
-          return "";
-        }
-        return loadSelectedFeedMindModel(controller.signal);
-      })
-      .then((selected) => {
-        setSelectedModel(selected);
-      })
-      .catch((err) => {
-        if (err instanceof Error && err.message.includes("404")) return;
-        setLoadError(true);
-      })
-      .finally(() => setLoading(false));
+  // Sync load error state
+  useEffect(() => {
+    setLoadError(isError);
+  }, [isError]);
 
-    const handleModelsChange = () => {
-      setLoading(true);
-      void listLLMModels()
-        .then((loadedModels) => {
-          setModels(loadedModels);
-          setLoadError(false);
-          if (loadedModels.length === 0) {
-            setSelectedModel("");
-            setSelectedFeedMindModel("");
-            return;
-          }
-
-          setSelectedModel((current) => {
-            if (loadedModels.some((model) => model.id === current)) return current;
-
-            setSelectedFeedMindModel("");
-            return "";
-          });
-        })
-        .catch(() => setLoadError(true))
-        .finally(() => setLoading(false));
-    };
-    window.addEventListener("feedmind:llms-change", handleModelsChange);
-
+  // Listen for model changes from outside (e.g., agent.ts persistSelectedFeedMindModel)
+  useEffect(() => {
     const unsubscribe = onSelectedFeedMindModelChange(setSelectedModel);
-    return () => {
-      controller.abort();
-      window.removeEventListener("feedmind:llms-change", handleModelsChange);
-      unsubscribe();
-    };
+    return unsubscribe;
   }, []);
 
-  const handleChange = (model: string | null) => {
-    if (!model) return;
+  const handleChange = async (modelId: string | null) => {
+    if (!modelId) return;
 
-    setSelectedModel(model);
-    void persistSelectedFeedMindModel(model);
+    setSelectedModel(modelId);
+    await setSelectedMutation.mutateAsync(modelId);
+    await persistSelectedFeedMindModel(modelId);
   };
 
-  if (loading) {
+  if (isLoading) {
     return <Skeleton className="h-10 w-[260px] rounded-xl" />;
   }
 

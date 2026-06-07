@@ -179,7 +179,7 @@ const agentApiUrl =
     : `${window.location.origin}/api/agent`;
 
 export const feedmindAgentAssistantId =
-  process.env.NEXT_PUBLIC_FEEDMIND_ASSISTANT_ID ?? "feedmind";
+  import.meta.env.VITE_FEEDMIND_ASSISTANT_ID ?? "feedmind";
 
 export const agentClient = new Client({
   apiUrl: agentApiUrl,
@@ -194,7 +194,7 @@ export function getSelectedFeedMindModel(): string {
     if (selectedModel) return selectedModel;
   }
 
-  return process.env.NEXT_PUBLIC_FEEDMIND_MODEL ?? "";
+  return import.meta.env.VITE_FEEDMIND_MODEL ?? "";
 }
 
 export async function loadSelectedFeedMindModel(

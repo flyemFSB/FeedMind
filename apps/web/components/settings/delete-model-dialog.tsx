@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import type { LLMModel } from "@/lib/types";
-import { deleteLLMModel } from "@/lib/api/llms";
+import { useDeleteLLMModel } from "@/lib/hooks/use-llms";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,16 +20,17 @@ interface DeleteModelDialogProps {
 }
 
 export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDialogProps) {
+  const deleteMutation = useDeleteLLMModel();
+
   function handleDelete() {
     if (!model) return;
-    deleteLLMModel(model.id)
-      .then(() => {
+    deleteMutation.mutate(model.id, {
+      onSuccess: () => {
         onDeleted();
         toast.success("模型已删除");
-      })
-      .catch(() => {
-        toast.error("删除失败");
-      });
+      },
+      onError: () => toast.error("删除失败"),
+    });
   }
 
   return (
@@ -55,7 +56,8 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
           </Button>
           <Button
             onClick={handleDelete}
-            className="rounded-xl bg-red-500 px-4 text-[13px] text-white hover:bg-red-600"
+            disabled={deleteMutation.isPending}
+            className="rounded-xl bg-red-500 px-4 text-[13px] text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             确认删除
           </Button>

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, type ReactNode } from "react";
 import { AssistantRuntimeProvider } from "@assistant-ui/react";
 import { useLangGraphRuntime, type LangChainMessage } from "@assistant-ui/react-langgraph";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   getAgentCheckpointId,
   agentStream,
@@ -36,6 +37,8 @@ function normalizeMessage(message: unknown): unknown {
 }
 
 export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
+
   const loadThread = useCallback(async (externalId: string, config?: { signal?: AbortSignal }) => {
     const state = await getAgentThreadState(externalId, config?.signal);
     const values = state.values ?? {};
@@ -55,7 +58,10 @@ export function FeedMindRuntimeProvider({ children }: { children: ReactNode }) {
     ) => getAgentCheckpointId(externalId, parentMessages, config?.signal),
     [],
   );
-  const threadListAdapter = useMemo(() => createFeedMindThreadListAdapter(), []);
+  const threadListAdapter = useMemo(
+    () => createFeedMindThreadListAdapter(queryClient),
+    [queryClient],
+  );
 
   const runtime = useLangGraphRuntime({
     stream: agentStream,
