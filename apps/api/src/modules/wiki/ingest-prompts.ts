@@ -24,7 +24,8 @@ source (document summaries), overview (global summary).`}
 - Use [[wikilink]] to cross-reference related pages
 - Frontmatter fields: type, title, created, updated, tags, sources, related
 - Only create entity/concept pages for genuinely important content
-- Do NOT create trivial or speculative pages`;
+- Do NOT create trivial or speculative pages
+- All page titles, tags, and content must be written in Chinese`;
 }
 
 // ─── Stage 1: Analysis Prompt ────────────────────────────────────
@@ -65,7 +66,7 @@ export function buildGenerationPrompt(
     ? existingSlugs.join(", ")
     : "(empty)";
 
-  return `Based on the analysis below, generate wiki pages as FILE blocks.
+  return `Based on the analysis below, generate wiki pages as FILE blocks. All wiki page titles and content must be in Chinese.
 
 ## Existing Page Slugs
 ${slugList}

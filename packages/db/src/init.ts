@@ -142,7 +142,7 @@ const SEED_TOOLS = [
     display_name: "网页抓取",
     description: "抓取网页内容并提取正文。",
     config_fields: JSON.stringify([
-      { key: "jinaApiKey", type: "password", label: "Jina AI API Key", description: "从 Jina AI 获取（留空则自动使用匿名模式，20 RPM）", link: "https://jina.ai/reader" },
+      { key: "firecrawlApiKey", type: "password", label: "Firecrawl API Key", description: "从 Firecrawl 获取（留空则自动使用直接抓取兜底）", link: "https://www.firecrawl.dev/" },
     ]),
     is_enabled: true,
     sort_order: 1,
@@ -165,6 +165,14 @@ export async function initDatabase(): Promise<void> {
     await client.execute({
       sql: `update tools set config_fields = ?, description = ? where name = ?`,
       args: [tool.config_fields, tool.description, tool.name],
+    });
+  }
+
+  // 确保默认场景配置行存在
+  for (const scenario of ["session", "wiki"]) {
+    await client.execute({
+      sql: `insert or ignore into runtime_config (scenario, temperature, max_tokens, context_length, system_prompt) values (?, ?, ?, ?, ?)`,
+      args: [scenario, 0.2, 8192, "128k", ""],
     });
   }
 

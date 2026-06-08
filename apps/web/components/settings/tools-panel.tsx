@@ -14,28 +14,43 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
     for (const t of initialTools) init[t.name] = { ...t.config };
     return init;
   });
+  const [touched, setTouched] = useState<Set<string>>(new Set());
 
   function handleChange(toolName: string, key: string, value: unknown) {
+    setTouched((prev) => new Set(prev).add(`${toolName}:${key}`));
     setConfigs((prev) => ({
       ...prev,
       [toolName]: { ...prev[toolName], [key]: value },
     }));
   }
 
-  function reset() {
-    const init: Record<string, Record<string, unknown>> = {};
-    for (const t of initialTools) init[t.name] = { ...t.config };
-    setConfigs(init);
-    toast.success("已重置");
+  function handleToolSwitch(toolName: string) {
+    // 切换 tool 时清除该 tool 的 touched 记录，避免残留
+    setTouched((prev) => {
+      const next = new Set(prev);
+      for (const key of next) {
+        if (key.startsWith(`${toolName}:`)) next.delete(key);
+      }
+      return next;
+    });
+    setActiveTool(toolName);
   }
 
   async function save() {
     try {
       const payload: Record<string, { config: Record<string, unknown> }> = {};
       for (const tool of initialTools) {
-        payload[tool.name] = { config: configs[tool.name] ?? {} };
+        const current = configs[tool.name] ?? {};
+        const changed: Record<string, unknown> = {};
+        for (const key of Object.keys(current)) {
+          if (touched.has(`${tool.name}:${key}`)) {
+            changed[key] = current[key];
+          }
+        }
+        payload[tool.name] = { config: changed };
       }
       await updateAllToolConfigs(payload);
+      setTouched(new Set());
       toast.success("工具配置已保存");
     } catch {
       toast.error("保存失败");
@@ -59,7 +74,6 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" onClick={reset} className="h-8 rounded-xl border-[#d2d2d7] text-[12px] text-[#86868b]">重置</Button>
           <Button size="sm" onClick={save} className="h-8 rounded-xl bg-[#0071e3] text-[12px] text-white hover:bg-[#0066cc]">保存</Button>
         </div>
       </div>
@@ -69,7 +83,7 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
         {initialTools.map((tool) => (
           <button
             key={tool.name}
-            onClick={() => setActiveTool(tool.name)}
+            onClick={() => handleToolSwitch(tool.name)}
             className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
               activeTool === tool.name
                 ? "border-[#0071e3] text-[#1d1d1f]"
@@ -107,6 +121,8 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
               <DynamicField
                 field={field}
                 value={toolConfig[field.key] ?? field.defaultValue ?? ""}
+                toolName={currentTool.name}
+                passwordSet={currentTool.password_set}
                 onChange={(key, val) => handleChange(currentTool.name, key, val)}
               />
             </div>

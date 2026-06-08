@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WIKI_TYPE_COLORS } from "./constants";
+import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 import { CreateWikiPageDialog } from "./wiki-create-page";
 
 interface WikiPageTreeProps {
@@ -213,7 +213,7 @@ function TreeNodeItem({
       </span>
       {node.pageType && (
         <span className="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-medium text-white opacity-70" style={{ backgroundColor: typeColor }}>
-          {node.pageType}
+          {WIKI_TYPE_LABELS[node.pageType] || node.pageType}
         </span>
       )}
     </button>

@@ -12,3 +12,4 @@ export * from "./graph.js";
 export * from "./graph-insights.js";
 export * from "./search.js";
 export * from "./lint.js";
+export * from "./extract.js";

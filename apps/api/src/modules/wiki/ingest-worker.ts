@@ -3,7 +3,8 @@ import path from "node:path";
 import { formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
 import { runIngest, extractIdentity } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
-import { spaceDir, nowISO, safeWriteFile } from "./wiki-utils.js";
+import { invalidatePageFileCache } from "./page-store.js";
+import { spaceDir, wikiRootDir, nowISO, safeWriteFile } from "./wiki-utils.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const MAX_RETRIES = 3;
@@ -19,9 +20,7 @@ export function startIngestWorker(): void {
     running = true;
 
     try {
-      const wikiRoot = process.env.WIKI_DIR
-        ? path.resolve(process.env.WIKI_DIR)
-        : path.join(process.cwd(), "data", "wiki");
+      const wikiRoot = wikiRootDir();
 
       let spaceDirs: string[] = [];
       try {
@@ -43,7 +42,14 @@ export function startIngestWorker(): void {
         console.log(`[ingest-worker] ${spaceId}: processing ${job.sourcePath}`);
 
         try {
-          const result = await runIngest(spaceId, job.sourcePath);
+          const result = await runIngest(spaceId, job.sourcePath, (message, step, totalSteps) => {
+            store.updateStatus(spaceId, job.id, "processing", {
+              progress: { message, step, totalSteps },
+            });
+          });
+
+          // Invalidate page cache so newly created pages appear immediately
+          invalidatePageFileCache(spaceId);
 
           // Mark job as done instead of removing — keeps import history
           store.updateStatus(spaceId, job.id, "done", {

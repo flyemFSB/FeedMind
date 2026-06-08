@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { extractDocument, formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
+import { extractDocument, formatFrontmatter } from "@feedmind/wiki-core";
+
 import { Hono } from "hono";
 import {
   wikiPageCreateSchema,
@@ -61,6 +62,7 @@ import {
   runLint,
   getLintItems,
 } from "../../modules/wiki/lint-service.js";
+import { wikiRootDir, readSourceTitle } from "../../modules/wiki/wiki-utils.js";
 
 function sha256(text: string): string {
   return crypto.createHash("sha256").update(text).digest("hex");
@@ -162,11 +164,15 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
 
   const byteArray = new Uint8Array(await file.arrayBuffer());
   const safeName = sanitizeFileName(file.name);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  if (byteArray.length > MAX_FILE_SIZE) {
+    return jsonOk(c, { error: `文件大小超过 10MB 限制: ${safeName}` }, 413);
+  }
   const ext = safeName.includes(".") ? safeName.split(".").pop()?.toLowerCase() ?? "" : "";
   const slug = slugFromName(safeName);
   const sourceFileName = `${slug}.md`;
 
-  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
+  const wikiRoot = wikiRootDir();
   const sourcesDir = path.join(wikiRoot, spaceId, "raw", "sources");
   fs.mkdirSync(sourcesDir, { recursive: true });
 
@@ -197,8 +203,9 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     const binPath = path.join(sourcesDir, safeName);
     fs.writeFileSync(binPath, Buffer.from(byteArray));
 
-    let extractedText = "";
-    let docMime = `application/${ext}`;
+    let extractedText: string;
+    let docMime: string;
+
     let warnings: string[] = [];
     try {
       const doc = await extractDocument(binPath, safeName);
@@ -207,9 +214,10 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       warnings = doc.warnings;
     } catch (err) {
       extractedText = `[Extraction failed: ${err instanceof Error ? err.message : String(err)}]`;
+    } finally {
+      // 无论提取成功与否，都清理临时二进制文件
+      try { fs.unlinkSync(binPath); } catch { /* best-effort */ }
     }
-
-    fs.unlinkSync(binPath); // 删除原始二进制
 
     const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: docMime, size_bytes: byteArray.length, status: "ready", created: now, updated: now, import_ext: ext };
     fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + extractedText, "utf-8");
@@ -274,14 +282,8 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
 
   // Extract source title from file for import history display
-  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
-  const sourceFilePath = path.join(wikiRoot, spaceId, "raw", "sources", sourcePath);
-  let sourceTitle = "";
-  try {
-    const srcRaw = fs.readFileSync(sourceFilePath, "utf-8");
-    const { frontmatter } = parseFrontmatter(srcRaw);
-    sourceTitle = (frontmatter.title as string) || "";
-  } catch { /* non-critical */ }
+  const sourceTitle = readSourceTitle(spaceId, sourcePath);
+
 
   // Record a job entry for import history
   const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);
@@ -327,14 +329,8 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
 
   // Extract source title for import history display
-  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
-  const sourceFilePath = path.join(wikiRoot, spaceId, "raw", "sources", sourcePath);
-  let sourceTitle = "";
-  try {
-    const srcRaw = fs.readFileSync(sourceFilePath, "utf-8");
-    const { frontmatter } = parseFrontmatter(srcRaw);
-    sourceTitle = (frontmatter.title as string) || "";
-  } catch { /* non-critical */ }
+  const sourceTitle = readSourceTitle(spaceId, sourcePath);
+
 
   return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));
 });

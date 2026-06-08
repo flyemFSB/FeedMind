@@ -7,7 +7,7 @@ import { wikiPageTypeSchema } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WIKI_TYPE_COLORS } from "./constants";
+import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 
 const TYPE_COLORS = WIKI_TYPE_COLORS;
 
@@ -72,7 +72,7 @@ export function WikiPageList({
       <div className="flex gap-1 overflow-x-auto px-3 pb-2">
         <FilterChip label="全部" active={typeFilter === ""} onClick={() => setTypeFilter("")} />
         {filterTypes().map((t) => (
-          <FilterChip key={t} label={t} color={TYPE_COLORS[t]} active={typeFilter === t} onClick={() => setTypeFilter(t)} />
+          <FilterChip key={t} label={WIKI_TYPE_LABELS[t] || t} color={TYPE_COLORS[t]} active={typeFilter === t} onClick={() => setTypeFilter(t)} />
         ))}
       </div>
 
@@ -213,8 +213,8 @@ function PageListItem({
         className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
         style={{ backgroundColor: color }}
       >
-        {page.type}
-      </span>
-    </button>
-  );
-}
+        {WIKI_TYPE_LABELS[page.type] || page.type}
+            </span>
+          </button>
+        );
+      }

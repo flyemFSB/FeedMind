@@ -6,7 +6,7 @@ import { getWikiGraph, getWikiGraphInsights } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { WIKI_TYPE_COLORS } from "./constants";
+import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 
 interface WikiGraphViewProps {
   spaceId: string;
@@ -203,7 +203,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
                 {Object.entries(WIKI_TYPE_COLORS).map(([type, color]) => (
                   <div key={type} className="flex items-center gap-2">
                     <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[11px] text-[#6e6e73]">{type}</span>
+                    <span className="text-[11px] text-[#6e6e73]">{WIKI_TYPE_LABELS[type] || type}</span>
                   </div>
                 ))}
               </div>

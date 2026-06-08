@@ -16,7 +16,7 @@ import {
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WIKI_TYPE_COLORS } from "./constants";
+import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -139,7 +139,7 @@ function PageDetail({
           className="inline-block rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
           style={{ backgroundColor: typeColor }}
         >
-          {page.type}
+          {WIKI_TYPE_LABELS[page.type] || page.type}
         </span>
         <h3 className="text-[14px] font-semibold leading-snug text-[#1d1d1f]">
           {page.title}

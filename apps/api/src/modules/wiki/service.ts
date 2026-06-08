@@ -17,13 +17,8 @@ import type {
   WikiSpaceUpdate,
 } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
+import { wikiRootDir } from "./wiki-utils.js";
 
-// ─── Configuration ────────────────────────────────────────────────
-const WIKI_ROOT = process.env.WIKI_DIR
-  ? path.resolve(process.env.WIKI_DIR)
-  : path.join(process.cwd(), "data", "wiki");
-
-// Maps wiki page type → filesystem subdirectory
 const TYPE_DIR_MAP: Record<string, string> = {
   entity: "entities",
   concept: "concepts",
@@ -212,11 +207,11 @@ function safeRename(oldPath: string, newPath: string): void {
 }
 
 function registryPath(): string {
-  return path.join(WIKI_ROOT, "registry.json");
+  return path.join(wikiRootDir(), "registry.json");
 }
 
 function spaceDir(spaceId: string): string {
-  return path.join(WIKI_ROOT, spaceId);
+  return path.join(wikiRootDir(), spaceId);
 }
 
 function spaceMetaPath(spaceId: string): string {
@@ -232,7 +227,7 @@ function readRegistry(): Array<Record<string, unknown>> {
 }
 
 function writeRegistry(registry: Array<Record<string, unknown>>): void {
-  ensureDir(WIKI_ROOT);
+  ensureDir(wikiRootDir());
   safeWriteFile(registryPath(), JSON.stringify(registry, null, 2), "utf-8");
 }
 

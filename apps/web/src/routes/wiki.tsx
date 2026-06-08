@@ -46,7 +46,7 @@ export const Route = createFileRoute("/wiki")({
 function MyWikiPage() {
   const queryClient = useQueryClient();
   const [spaceId, setSpaceId] = useState<string | null>(null);
-  const [spaceName, setSpaceName] = useState("知识库");
+  const [spaceName, setSpaceName] = useState("我的 WIKI");
   const [activeView, setActiveView] = useState<WikiView>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -109,6 +109,7 @@ function MyWikiPage() {
     setShowImport(false);
     if (spaceId) {
       queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
+      queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
     }
   }, [spaceId, queryClient]);
 
@@ -123,7 +124,7 @@ function MyWikiPage() {
 
   if (isLoading) {
     return (
-      <LayoutWrapper title="知识库">
+      <LayoutWrapper title="我的 WIKI">
         <div className="flex h-full items-center justify-center">
           <Skeleton className="h-4 w-24" />
         </div>
@@ -133,7 +134,7 @@ function MyWikiPage() {
 
   if (!spaceId) {
     return (
-      <LayoutWrapper title="知识库">
+      <LayoutWrapper title="我的 WIKI">
         <div className="flex h-full items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
@@ -159,11 +160,11 @@ function MyWikiPage() {
         <CreateWikiSpaceDialog
           open={showCreateSpace}
           onClose={() => setShowCreateSpace(false)}
-          onCreated={(id) => {
+          onCreated={(id, name) => {
             setSpaceId(id);
+            setSpaceName(name);
             setShowCreateSpace(false);
-            const created = spaces.find((sp) => sp.id === id);
-            if (created) setSpaceName(created.name);
+            queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
           }}
         />
       </LayoutWrapper>
@@ -314,11 +315,10 @@ function MyWikiPage() {
       <CreateWikiSpaceDialog
         open={showCreateSpace}
         onClose={() => setShowCreateSpace(false)}
-        onCreated={(id) => {
+        onCreated={(id, name) => {
           setSpaceId(id);
+          setSpaceName(name);
           setShowCreateSpace(false);
-          const created = spaces.find((sp) => sp.id === id);
-          if (created) setSpaceName(created.name);
         }}
       />
     </LayoutWrapper>

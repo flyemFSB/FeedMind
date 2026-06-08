@@ -15,7 +15,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TabId } from "./settings-types";
 import { ModelsPanel } from "./models-panel";
 import { ToolsPanel } from "./tools-panel";
-import { SessionPanel } from "./session-panel";
+import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
 
@@ -27,8 +27,8 @@ interface Tab {
 
 const TABS: Tab[] = [
   { id: "models", label: "模型配置", icon: Cpu },
+  { id: "runtime", label: "运行配置", icon: MessageSquare },
   { id: "tools", label: "工具配置", icon: Wrench },
-  { id: "session", label: "会话模型配置", icon: MessageSquare },
 ];
 
 interface SettingsModalProps {
@@ -148,7 +148,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               />
             )}
             {activeTab === "tools" && <ToolsPanel tools={tools} />}
-            {activeTab === "session" && <SessionPanel />}
+            {activeTab === "runtime" && <RuntimePanel />}
           </div>
         </Tabs>
 

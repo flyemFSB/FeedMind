@@ -15,13 +15,7 @@ import {
   normalizePath,
 } from "@feedmind/wiki-core";
 import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";
-
-function spaceDir(spaceId: string): string {
-  const wikiRoot = process.env.WIKI_DIR
-    ? path.resolve(process.env.WIKI_DIR)
-    : path.join(process.cwd(), "data", "wiki");
-  return path.join(wikiRoot, spaceId);
-}
+import { spaceDir } from "./wiki-utils.js";
 
 function collectMdFiles(dir: string): Array<{ name: string; path: string; is_dir: boolean }> {
   const results: Array<{ name: string; path: string; is_dir: boolean }> = [];

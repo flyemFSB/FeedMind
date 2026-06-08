@@ -2,13 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { ReviewItem } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
-
-function spaceDir(spaceId: string): string {
-  const wikiRoot = process.env.WIKI_DIR
-    ? path.resolve(process.env.WIKI_DIR)
-    : path.join(process.cwd(), "data", "wiki");
-  return path.join(wikiRoot, spaceId);
-}
+import { spaceDir } from "./wiki-utils.js";
 
 function reviewPath(spaceId: string): string {
   return path.join(spaceDir(spaceId), ".llm-wiki", "review.json");

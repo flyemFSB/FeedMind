@@ -36,6 +36,7 @@ const PROVIDERS = [
   "Kimi",
   "MiniMax",
   "Qwen",
+  "自定义",
 ] as const;
 const EMPTY_FORM = { provider: "ChatGPT", modelName: "", baseUrl: "", apiKey: "" };
 

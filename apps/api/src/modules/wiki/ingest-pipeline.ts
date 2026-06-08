@@ -4,48 +4,19 @@ import { parseFileBlocks, isSafeIngestPath, sanitizeIngestedFileContent, parseFr
 import { buildSystemPrompt, buildAnalysisPrompt, buildGenerationPrompt } from "./ingest-prompts.js";
 import { addReviewItems } from "./review-service.js";
 import type { ReviewItem } from "@feedmind/contracts";
+import { spaceDir } from "./wiki-utils.js";
 
 // ─── Config ──────────────────────────────────────────────────────
 
 const MAX_SOURCE_CHARS = 80_000;
 
-// ─── LLM Client — lazy singleton ──────────────────────────────────
+// ─── LLM Client ──────────────────────────────────────────────────
 
 import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
-
-let _llmClient: LlmClient | null = null;
-
-function getLlmClient(): LlmClient {
-  if (!_llmClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    const model = process.env.WIKI_LLM_MODEL || "gpt-4o";
-
-    if (!apiKey) {
-      throw new Error(
-        "OPENAI_API_KEY environment variable is required for wiki ingest. " +
-        "Set it in .env or provide an alternative via OPENAI_BASE_URL.",
-      );
-    }
-
-    _llmClient = new OpenAiLlmClient({ apiKey, baseUrl, model });
-  }
-  return _llmClient;
-}
+import { getScenarioRuntime } from "../models/config-service.js";
 
 // ─── Space Directory Helpers ─────────────────────────────────────
-
-function wikiRoot(): string {
-  return (
-    process.env.WIKI_DIR
-      ? path.resolve(process.env.WIKI_DIR)
-      : path.join(process.cwd(), "data", "wiki")
-  );
-}
-
-function spaceDir(spaceId: string): string {
-  return path.join(wikiRoot(), spaceId);
-}
+// spaceDir 从 wiki-utils.ts 导入（固定以项目根目录为基准）
 
 function llmWikiDir(spaceId: string): string {
   return path.join(spaceDir(spaceId), ".llm-wiki");
@@ -191,11 +162,12 @@ interface AnalysisResult {
 async function stage1Analysis(
   sourceContent: string,
   context: SpaceContext,
+  llmClient: LlmClient,
 ): Promise<AnalysisResult> {
   const systemPrompt = buildSystemPrompt(context.purpose, context.schema);
   const analysisPrompt = buildAnalysisPrompt(sourceContent, context.index);
 
-  const raw = await getLlmClient().chat(
+  const raw = await llmClient.chat(
     [
       { role: "system", content: systemPrompt },
       { role: "user", content: analysisPrompt },
@@ -228,6 +200,7 @@ async function stage2Generation(
   analysisJSON: string,
   context: SpaceContext,
   sourceIdentity: string,
+  llmClient: LlmClient,
 ): Promise<string> {
   const systemPrompt = buildSystemPrompt(context.purpose, context.schema);
   const generationPrompt = buildGenerationPrompt(
@@ -236,7 +209,7 @@ async function stage2Generation(
     sourceIdentity,
   );
 
-  return getLlmClient().chat(
+  return llmClient.chat(
     [
       { role: "system", content: systemPrompt },
       { role: "user", content: generationPrompt },
@@ -400,15 +373,23 @@ function updateOverview(spaceId: string, newSummary: string): void {
 
   const overviewPath = path.join(spaceDir(spaceId), "wiki", "overview.md");
 
-  let existingSummary = "";
+  let existingFrontmatter: Record<string, unknown> = {};
+  let existingBody = "";
   if (fs.existsSync(overviewPath)) {
     const raw = fs.readFileSync(overviewPath, "utf-8");
-    const { body } = parseFrontmatter(raw);
-    existingSummary = body.trim();
+    const { frontmatter, body } = parseFrontmatter(raw);
+    existingFrontmatter = frontmatter;
+    existingBody = body.trim();
   }
 
-  // Prepend new summary to existing overview
-  const combined = `---\ntype: overview\ntitle: Wiki Overview\nupdated: ${new Date().toISOString().slice(0, 10)}\n---\n\n${newSummary}\n\n---\n\n${existingSummary}`;
+  // Preserve existing frontmatter fields, only override known ones
+  const fm = {
+    ...existingFrontmatter,
+    type: "overview",
+    title: "Wiki Overview",
+    updated: new Date().toISOString().slice(0, 10),
+  };
+  const combined = formatFrontmatter(fm) + `\n\n${newSummary}\n\n---\n\n${existingBody}`;
 
   fs.writeFileSync(overviewPath, combined, "utf-8");
 }
@@ -459,6 +440,8 @@ export function extractIdentity(sourcePath: string): string {
 
 // ─── Main Ingest Orchestrator ────────────────────────────────────
 
+export type IngestProgressCallback = (message: string, step: number, totalSteps: number) => void;
+
 export interface IngestResult {
   pagesCreated: number;
   pagesUpdated: number;
@@ -467,9 +450,12 @@ export interface IngestResult {
   log: string[];
 }
 
+const TOTAL_STEPS = 5;
+
 export async function runIngest(
   spaceId: string,
   sourcePath: string,
+  onProgress?: IngestProgressCallback,
 ): Promise<IngestResult> {
   const log: string[] = [];
   const warnings: string[] = [];
@@ -478,9 +464,21 @@ export async function runIngest(
     log.push(msg);
   }
 
-  addLog(`Starting ingest for source: ${sourcePath}`);
+  function reportProgress(message: string, step: number) {
+    addLog(message);
+    onProgress?.(message, step, TOTAL_STEPS);
+  }
 
-  // 1. Read source content
+  // Resolve wiki runtime config & create LLM client
+  const runtime = await getScenarioRuntime("wiki");
+  const llmClient: LlmClient = new OpenAiLlmClient({
+    apiKey: runtime.api_key,
+    baseUrl: runtime.base_url,
+    model: runtime.model_name,
+  });
+  addLog(`Wiki LLM: ${runtime.model_name}`);
+
+  // Step 1: Read source content
   const sourceIdentity = extractIdentity(sourcePath);
   let sourceContent: string;
   let sourceStem: string;
@@ -488,7 +486,7 @@ export async function runIngest(
     const result = readSourceContent(spaceId, sourceIdentity);
     sourceContent = result.content;
     sourceStem = result.sourceStem;
-    addLog(`Read source: ${sourceIdentity} (${sourceContent.length} chars)`);
+    reportProgress(`读取源文件: ${sourceIdentity} (${sourceContent.length} 字符)`, 1);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to read source: ${msg}`);
@@ -498,11 +496,11 @@ export async function runIngest(
   const context = readSpaceContext(spaceId);
   addLog(`Space context: ${context.existingSlugs.length} existing pages`);
 
-  // 3. Stage 1: Analysis
-  addLog("Stage 1: Analyzing source with LLM...");
+  // Step 3: Analysis
+  reportProgress("正在分析内容...", 2);
   let analysis: AnalysisResult;
   try {
-    analysis = await stage1Analysis(sourceContent, context);
+    analysis = await stage1Analysis(sourceContent, context, llmClient);
     addLog(
       `Analysis complete: ${analysis.keyEntities.length} entities, ` +
       `${analysis.keyConcepts.length} concepts, ` +
@@ -513,14 +511,15 @@ export async function runIngest(
     throw new Error(`Stage 1 (Analysis) failed: ${msg}`);
   }
 
-  // 4. Stage 2: Generation
-  addLog("Stage 2: Generating wiki pages with LLM...");
+  // Step 4: Generation
+  reportProgress("正在生成 Wiki 页面...", 3);
   let generationText: string;
   try {
     generationText = await stage2Generation(
       JSON.stringify(analysis, null, 2),
       context,
       sourceIdentity,
+      llmClient,
     );
     addLog(`Generation complete (${generationText.length} chars)`);
   } catch (err) {
@@ -528,7 +527,7 @@ export async function runIngest(
     throw new Error(`Stage 2 (Generation) failed: ${msg}`);
   }
 
-  // 5. Parse FILE blocks
+  // Parse FILE blocks
   const { blocks, warnings: parseWarnings } = parseFileBlocks(generationText);
   for (const w of parseWarnings) {
     warnings.push(w);
@@ -542,11 +541,12 @@ export async function runIngest(
     return { pagesCreated: 0, pagesUpdated: 0, reviewItemsCreated: 0, warnings, log };
   }
 
-  // 6. Process blocks — write/merge pages
+  // Step 5: Write pages
+  reportProgress("正在写入页面...", 4);
   const { created, updated } = processFileBlocks(spaceId, blocks, sourceIdentity);
   addLog(`Written: ${created.length} created, ${updated.length} updated`);
 
-  // 7. Update index.md
+  // Update index.md
   const newPageEntries = [...created, ...updated].map((p) => ({
     path: p,
     title: path.basename(p, ".md"),
@@ -554,18 +554,18 @@ export async function runIngest(
   }));
   updateIndex(spaceId, newPageEntries);
 
-  // 8. Update log.md
+  // Update log.md
   updateLog(
     spaceId,
     `Ingested "${sourceIdentity}": ${created.length} pages created, ${updated.length} updated`,
   );
 
-  // 9. Update overview.md with source summary
+  // Update overview.md with source summary
   if (analysis.summary) {
     updateOverview(spaceId, analysis.summary);
   }
 
-  // 10. Save review items
+  // Save review items
   let reviewItemsCreated = 0;
   if (analysis.reviewItems.length > 0) {
     reviewItemsCreated = await createAndSaveReviewItems(
@@ -575,6 +575,8 @@ export async function runIngest(
     );
     addLog(`Saved ${reviewItemsCreated} review items`);
   }
+
+  reportProgress("导入完成", 5);
 
   return {
     pagesCreated: created.length,

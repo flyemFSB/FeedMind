@@ -99,12 +99,14 @@ export function WikiImportDialog({
 // ─── File Upload Tab ───────────────────────────────────────────
 
 const ACCEPTED_TYPES = [
+  "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
   "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
   "text/markdown",
   "text/plain",
   ".md",
+  ".pdf",
 ];
 
 function FileUploadTab({
@@ -205,14 +207,14 @@ function FileUploadTab({
             {uploading ? "上传中..." : "点击或拖拽文件到此处"}
           </p>
           <p className="mt-1 text-[11px] text-[#86868b]">
-            支持 .md .docx .xlsx .pptx 格式
+            支持 .md .pdf .docx .xlsx .pptx 格式
           </p>
         </div>
         <input
           ref={inputRef}
           type="file"
           multiple
-          accept=".md,.docx,.xlsx,.pptx,text/markdown,text/plain"
+          accept=".md,.pdf,.docx,.xlsx,.pptx,text/markdown,text/plain,application/pdf"
           className="hidden"
           onChange={handleChange}
         />

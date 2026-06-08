@@ -1,5 +1,6 @@
 "use client";
 
+import { Cpu } from "lucide-react";
 import {
   Claude,
   DeepSeek,
@@ -25,6 +26,7 @@ const providerIcons = {
   GLM: ZAI,
   DeepSeek: DeepSeek.Color,
   MiniMax: Minimax.Color,
+  自定义: Cpu,
 } as const;
 
 interface ProviderIconProps {

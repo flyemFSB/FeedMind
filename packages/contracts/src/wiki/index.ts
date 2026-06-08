@@ -300,6 +300,13 @@ export const ingestJobStatusSchema = z.enum([
 ]);
 export type IngestJobStatus = z.infer<typeof ingestJobStatusSchema>;
 
+export const ingestProgressSchema = z.object({
+  message: z.string(),
+  step: z.number().int().min(0),
+  totalSteps: z.number().int().min(1),
+});
+export type IngestProgress = z.infer<typeof ingestProgressSchema>;
+
 export const ingestJobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -307,6 +314,7 @@ export const ingestJobSchema = z.object({
   sourceTitle: z.string().default(""),
   folderContext: z.string().default(""),
   status: ingestJobStatusSchema.default("pending"),
+  progress: ingestProgressSchema.nullable().default(null),
   addedAt: z.number(),
   startedAt: z.number().nullable().default(null),
   completedAt: z.number().nullable().default(null),

@@ -1,183 +1,388 @@
 <div align="center">
-  <img src="./apps/web/public/FeedMind-logo-text.png" alt="FeedMind" width="320" />
-  <p><strong>本地优先的 AI 对话与知识管理平台，集成多平台内容抓取。</strong></p>
+  <img src="./apps/web/public/FeedMind-logo-text.png" alt="FeedMind" width="360" />
+  <p><strong>Local-first AI conversation & knowledge management platform with multi-platform content crawling.</strong></p>
   <p>
     <img src="https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen" alt="Node" />
     <img src="https://img.shields.io/badge/pnpm-%3E%3D11.0.0-orange" alt="pnpm" />
     <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   </p>
+  <p>
+    <a href="#features">Features</a> •
+    <a href="#architecture">Architecture</a> •
+    <a href="#getting-started">Getting Started</a> •
+    <a href="#project-structure">Structure</a> •
+    <a href="#api-overview">API</a>
+  </p>
 </div>
 
 ---
 
-## 简介
+## 👋 Overview
 
-FeedMind 是一个本地优先的 monorepo 应用，将 AI 对话、基于文件系统的 Wiki 知识库和多平台内容抓取整合到统一的工作流中。
+FeedMind is a **monorepo** application that brings together AI chat, a file-based Wiki knowledge base, and multi-platform content crawling into one unified workflow — all running locally on your machine.
 
-技术栈：**Next.js 16** + **React 19** + **Hono** + **LangChain/LangGraph**，全量严格 TypeScript。
+```
+Information Collection (Crawler) → AI Research (Chat) → Knowledge Base (Wiki)
+```
 
-## 功能特性
+The platform completes a closed-loop workflow: collect content from the web, discuss and analyze it with AI, and organize findings into a durable Wiki knowledge base.
 
-- **AI 对话** — 多模型 LLM 聊天，支持流式输出、工具调用和 LangGraph Agent 工作流
-- **Wiki 知识库** — Markdown + frontmatter 文件驱动，支持 `[[wikilink]]` 交叉引用、反向链接、多页面类型和来源管理
-- **知识图谱** — 可视化 Wiki 页面及其关联关系的知识图谱，支持社区发现
-- **内容抓取** — 可插拔的多平台爬虫引擎（小红书、抖音、B站、微博、知乎、快手、贴吧），基于 Playwright
-- **Lint 与 Review** — 内置 Wiki 链接检查和 AI 驱动的知识库质量审查
-- **文件存储** — Wiki 页面以纯 Markdown 文件存储，无供应商锁定
-- **本地优先** — 数据保存在本地机器，SQLite 存储，无需联网
+---
 
-## 快速开始
+## ✨ Features <a name="features"></a>
 
-### 环境要求
+<details open>
+<summary><strong>🤖 AI Chat</strong></summary>
 
-- **Node.js** >= 24
-- **pnpm** >= 11
+- **Multi-model support** — OpenAI, Anthropic, DeepSeek, Gemini, Grok, Qwen, and any OpenAI-compatible provider
+- **Streaming responses** — Real-time token streaming via LangGraph SDK
+- **Tool calling** — Built-in tools: web search, web fetch, Wiki search/read
+- **Thread management** — Persistent conversation history with branching and checkpoints
+- **Reasoning display** — Native rendering of thinking/reasoning tokens (DeepSeek, etc.)
+</details>
 
-### 安装
+<details open>
+<summary><strong>📚 Wiki Knowledge Base</strong></summary>
+
+- **File-based storage** — Pages are plain Markdown files with YAML frontmatter, stored on disk — no vendor lock-in, fully git-trackable
+- **Spaces** — Multiple independent knowledge bases organized as directories
+- **Cross-references** — `[[wikilink]]` syntax with automatic backlink resolution
+- **Knowledge graph** — Visual graph with Louvain community detection
+- **Search** — Keyword search with CJK bigram support
+- **Source management** — Attach URLs or upload files (PDF, DOCX, images) as page sources
+- **AI ingest pipeline** — Two-stage LLM pipeline: analyze source → generate structured pages
+- **Lint & Review** — Built-in link checker and AI-driven quality review (contradiction detection, duplicate finding, improvement suggestions)
+</details>
+
+<details open>
+<summary><strong>🔍 Content Crawler</strong></summary>
+
+- **Multi-platform** — 小红书, 抖音, B站, 微博, 知乎, 快手, 贴吧
+- **Pluggable architecture** — Template Method pattern; add new platforms via a single class
+- **Cookie-based auth** — Task-based crawling with progress tracking
+- **Rich results** — Structured content, creator info, engagement metrics persisted to SQLite
+</details>
+
+<details open>
+<summary><strong>🔐 Privacy & Security</strong></summary>
+
+- **Local-first** — All data stays on your machine (SQLite + filesystem)
+- **Encrypted API keys** — Fernet-compatible AES-128-CBC + HMAC-SHA256
+- **SSRF-safe proxy** — Proxy utilities prevent server-side request forgery
+- **No cloud dependency** — Fully offline-capable
+</details>
+
+---
+
+## 🏗️ Architecture <a name="architecture"></a>
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        BROWSER                                    │
+├──────────────────────────────────────────────────────────────────┤
+│  apps/web (TanStack Start + React 19 + Tailwind CSS 4)           │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │  Routes: /chat, /wiki, /                                   │   │
+│  │  Components: assistant-ui, shadcn/ui, Wiki components       │   │
+│  │  State: TanStack Query + Zustand + localStorage             │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│         │                                             │            │
+│         │ /api/v1/*                                    │ /api/agent/*│
+│         ▼                                             ▼            │
+├─────────┬──────────────────────────────┬──────────────────────────┤
+│  apps/api (Hono)   :8000               │  apps/agent (LangGraph)  │
+│  ┌──────────────────────────────┐      │  ┌─────────────────────┐│
+│  │  Routes:                     │      │  │  Tools:             ││
+│  │  ├─ /health                  │      │  │  ├─ web_search      ││
+│  │  ├─ /llms                    │      │  │  ├─ web_fetch       ││
+│  │  ├─ /chats                   │      │  │  ├─ wiki_search     ││
+│  │  ├─ /tools                   │      │  │  ├─ wiki_read       ││
+│  │  ├─ /runtime-configs         │      │  │  └─ ask_clarification││
+│  │  ├─ /wiki/*                  │      │  └─────────────────────┘│
+│  │  └─ /crawler/*               │      └──────────────────────────┘
+│  │                              │
+│  │  Modules:                    │
+│  │  Service → Repository        │
+│  └──────────────┬───────────────┘
+│                 │
+└─────────────────┼────────────────────────────────────────────────┘
+                  │
+     ┌────────────┴────────────┐                ┌──────────────────┐
+     │  SQLite (libSQL/Turso)  │                │  File System     │
+     │  ┌──────────────────┐   │                │  ┌─────────────┐ │
+     │  │ chat_sessions    │   │                │  │ data/wiki/  │ │
+     │  │ chat_messages    │   │                │  │ ├─ space1/  │ │
+     │  │ llm              │   │                │  │ │ ├─ index  │ │
+     │  │ runtime_config   │   │                │  │ │ ├─ *.md   │ │
+     │  │ tools            │   │                │  │ │ ├─ raw    │ │
+     │  │ crawler_tasks    │   │                │  │ └─ space2/ │ │
+     │  │ crawler_contents │   │                │  └─────────────┘ │
+     │  │ crawler_creators │   │                └──────────────────┘
+     │  └──────────────────┘   │
+     └─────────────────────────┘
+```
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Framework** | [TanStack Start](https://tanstack.com/start) (Vite) + [TanStack Router](https://tanstack.com/router) |
+| **UI** | React 19, Tailwind CSS 4, shadcn/ui (base-nova), assistant-ui |
+| **State** | TanStack Query, Zustand |
+| **Icons** | lucide-react, @lobehub/icons |
+| **Backend API** | Hono 4 |
+| **Agent Framework** | LangChain.js + LangGraph |
+| **ORM** | Drizzle ORM (SQLite) |
+| **Database** | libSQL/Turso (embedded SQLite) |
+| **Validation** | Zod (contract-first design) |
+| **Crawler** | Custom multi-platform engine (Playwright-based) |
+| **Search** | Tavily, Exa, AnySearch (cascading fallback) |
+| **Web Fetch** | Firecrawl, Mozilla Readability, JSDOM, Turndown |
+| **Graph** | graphology + louvain community detection |
+| **Encryption** | Fernet (AES-128-CBC + HMAC-SHA256) |
+| **Testing** | Vitest |
+| **Linting** | ESLint + Prettier |
+| **Monorepo** | pnpm workspaces |
+| **Runtime** | Node.js ≥ 24 |
+
+### Design Patterns
+
+- **Monorepo** — 3 apps + 5 shared packages, all strict TypeScript
+- **Contract-First** — All API schemas defined as Zod objects in `contracts`, shared across frontend and backend
+- **Proxy Pattern** — Frontend server routes proxy `/api/v1/*` and `/api/agent/*` to backend services (SSRF-safe)
+- **Template Method** — `AbstractCrawler` base class with lifecycle hooks for platform-specific implementations
+- **Factory Pattern** — `createCrawler()` factory resolves platform crawlers dynamically
+- **Strategy Pattern** — Web search cascade (Tavily → Exa → AnySearch) with graceful fallback
+- **Repository/Service Pattern** — API routes are thin; business logic lives in `modules/*/service.ts`
+- **Middleware Pattern** — LangGraph middleware for dynamic model runtime resolution
+- **Event-Driven** — CustomEvent-based preview panel and agent status broadcasting
+
+---
+
+## 🚀 Getting Started <a name="getting-started"></a>
+
+### Prerequisites
+
+- **Node.js** ≥ 24.0.0
+- **pnpm** ≥ 11.0.0
+
+### Installation
 
 ```bash
-# 克隆仓库
+# Clone the repository
 git clone https://github.com/your-org/feedmind.git
 cd feedmind
 
-# 配置环境变量
+# Copy environment variables
 cp .env.example .env
-# 编辑 .env — 设置 ENCRYPTION_KEY（用于加密模型 API Key）
+# Edit .env — ENCRYPTION_KEY is required for API key encryption
 
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 构建共享包
+# Build shared packages (contracts, db, shared, crawler-core, wiki-core)
 pnpm build:packages
 
-# 初始化数据库
+# Initialize SQLite database
 pnpm db:init
 ```
 
-### 启动开发服务
+### Development
 
 ```bash
-# 一键启动所有服务（前端 + API + Agent）
+# Start all three services in parallel
 pnpm dev
 ```
 
-| 服务 | 地址 |
-|------|------|
-| Web 前端 | http://localhost:3000 |
+| Service | URL |
+|---------|-----|
+| Web Frontend | http://localhost:3000 |
 | REST API | http://localhost:8000/api/v1/health |
-| Agent API | http://localhost:2024/docs |
+| LangGraph Agent | http://localhost:2024/docs |
 
-## 使用指南
+#### Windows
 
-### AI 对话
+Run `.\start-dev.ps1` — automates install, build packages, DB init, and opens 3 terminal windows.
 
-访问 `/chat` 开始对话。通过配置中心可管理多个 LLM 供应商和模型：
-
-- **供应商支持** — OpenAI、Anthropic、DeepSeek、Gemini、Grok、Qwen 等
-- **Agent 模式** — 基于 LangGraph 的 Agent 工作流，支持工具调用、联网搜索和内容提取
-- **会话管理** — 线程式对话历史
-
-### Wiki 知识库
-
-访问 `/wiki` 创建和管理你的知识库。
-
-```
-data/wiki/
-├── my-space/               # 每个空间对应一个目录
-│   ├── index.md            # 空间概览
-│   ├── concepts/
-│   │   └── 机器学习.md     # 页面文件带 YAML frontmatter
-│   └── entities/
-│       └── 爱因斯坦.md
-└── another-space/
-    └── ...
-```
-
-- **页面类型** — 实体、概念、来源、概览、对比、综合
-- **交叉引用** — 使用 `[[wikilink]]` 链接其他页面，反向链接自动解析
-- **来源管理** — 关联 URL 或上传文件作为页面来源，支持内容摄入
-- **知识图谱** — 图谱视图可视化页面之间的连接关系
-- **Lint** — 检查断链、缺失页面和结构问题
-- **Review** — AI 驱动的审查：矛盾检测、重复发现、改进建议
-
-### 内容抓取
-
-通过 REST API 触发抓取任务，爬虫基于 Playwright 和 Cookie 认证。
-
-```
-POST /api/v1/crawler/start
-{
-  "platform": "xhs",
-  "keywords": ["机器学习"],
-  "limit": 20
-}
-```
-
-## 项目架构
-
-```
-FeedMind/
-├── apps/
-│   ├── web/              # Next.js 16 前端（assistant-ui, shadcn/ui）
-│   ├── api/              # Hono REST API（Wiki、爬虫、模型管理）
-│   └── agent/            # LangChain.js + LangGraph Agent 服务
-├── packages/
-│   ├── contracts/        # Zod 契约 + 共享 TypeScript 类型
-│   ├── db/               # Drizzle ORM 定义 + SQLite 初始化
-│   ├── shared/           # 环境变量、加密、工具函数
-│   ├── crawler-core/     # 多平台内容抓取引擎
-│   └── wiki-core/        # Wiki 文件系统操作与解析
-├── data/                 # 运行时数据（Wiki 文件、配置）
-└── docs/                 # 设计文档
-```
-
-### 技术栈
-
-| 层 | 技术 |
-|------|-----------|
-| **前端** | Next.js 16, React 19, Tailwind CSS 4, shadcn/ui (base-nova), assistant-ui |
-| **API** | Hono, Drizzle ORM, libSQL/Turso |
-| **Agent** | LangChain.js, LangGraph, LangGraph CLI |
-| **爬虫** | Playwright, 各平台 API 客户端 |
-| **数据库** | SQLite（via libSQL）, Drizzle ORM |
-| **语言** | TypeScript（strict mode） |
-| **Monorepo** | pnpm workspaces |
-
-## 常用命令
+#### Manual startup
 
 ```bash
-pnpm install            # 安装所有依赖
-pnpm dev                # 启动所有开发服务
-pnpm build              # 构建所有包和应用
-pnpm build:packages     # 仅构建共享包
-pnpm typecheck          # TypeScript 类型检查
-pnpm lint               # ESLint 代码检查
-pnpm test               # 运行测试
-pnpm db:init            # 初始化 SQLite 数据库
-pnpm db:migrate         # 执行 Drizzle 迁移
-
-# 单独启动各服务
-pnpm web:dev            # 仅前端
-pnpm api:dev            # 仅 API
-pnpm agent:dev          # 仅 Agent
+pnpm web:dev     # TanStack Start dev server
+pnpm api:dev     # Hono API server
+pnpm agent:dev   # LangGraph agent server
 ```
 
-## 环境变量
+---
 
-| 变量 | 说明 | 必填 |
-|----------|-------------|------|
-| `ENCRYPTION_KEY` | 加密 LLM API Key 的密钥 | 是 |
-| `OPENAI_API_KEY` | OpenAI 兼容 API Key | Agent 模式需要 |
-| `ANTHROPIC_API_KEY` | Anthropic API Key | Claude 模型需要 |
-| `TAVILY_API_KEY` | Tavily 搜索 API Key | 联网搜索 Agent 需要 |
+## 📁 Project Structure <a name="project-structure"></a>
 
-将 `.env.example` 复制为 `.env` 后填入对应值。
+```
+feedmind/
+├── apps/
+│   ├── web/                      # TanStack Start frontend (React 19)
+│   │   ├── src/routes/           # Route definitions (/, /chat, /wiki, API proxies)
+│   │   ├── components/
+│   │   │   ├── app-shell/        # Layout: sidebar, topbar, error boundary
+│   │   │   ├── assistant-ui/     # Chat: thread, message, composer, thread-list
+│   │   │   ├── chat/             # Preview panel
+│   │   │   ├── settings/         # Model, tool, runtime config panels
+│   │   │   ├── ui/               # shadcn/ui components (24 primitives)
+│   │   │   └── wiki/             # Wiki pages, editor, graph, lint, review
+│   │   ├── lib/api/              # API client modules (chats, llms, wiki, tools, etc.)
+│   │   ├── lib/hooks/            # TanStack Query hooks
+│   │   └── lib/assistant-runtime/ # LangGraph integration provider
+│   │
+│   ├── api/                      # Hono REST API backend
+│   │   ├── src/routes/v1/        # Route groups: health, llms, chats, wiki, crawler, tools, runtime-config
+│   │   └── src/modules/          # Business logic services
+│   │       ├── wiki/             # Space registry, page store, source store, ingest pipeline, graph, search, lint, review
+│   │       ├── crawler/          # Task management, data queries
+│   │       ├── llms/             # Model CRUD with encryption
+│   │       ├── chats/            # Session persistence
+│   │       ├── models/           # Runtime config
+│   │       └── tools/            # Tool config CRUD
+│   │
+│   └── agent/                    # LangGraph AI Agent
+│       ├── src/agent.ts          # LangGraph graph definition
+│       ├── src/tools/            # Tool implementations (web-search, web-fetch, wiki-search, wiki-read, ask-clarification)
+│       ├── src/middlewares/      # Dynamic model runtime injection
+│       └── src/prompts/          # System prompt builder
+│
+├── packages/
+│   ├── contracts/                # Zod schemas shared across apps
+│   ├── db/                       # Drizzle schema + migrations + init
+│   ├── shared/                   # Env config, Fernet encryption, date utils
+│   ├── crawler-core/             # Abstract crawler, factory, platform implementations
+│   └── wiki-core/                # Wiki filesystem ops, frontmatter, wikilinks, graph, search, lint
+│
+├── data/
+│   ├── feedmind.db               # SQLite database
+│   └── wiki/                     # Wiki Markdown files organized by space
+│
+└── docs/                         # Design documentation & migration notes
+```
 
-## 项目状态
+---
 
-FeedMind 正在活跃开发中。核心 Chat 和 Wiki 功能已可用；爬虫模块和 Agent 工作流持续迭代中。
+## 🔌 API Overview <a name="api-overview"></a>
 
-## 许可证
+All REST endpoints are served at `/api/v1`.
+
+### Health
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/health` | Health check |
+
+### LLM Models
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/llms` | List all models |
+| `POST` | `/api/v1/llms` | Create a model |
+| `PUT` | `/api/v1/llms/selected` | Set selected model |
+| `GET` | `/api/v1/llms/selected` | Get selected model ID |
+| `PUT` | `/api/v1/llms/:id` | Update model |
+| `DELETE` | `/api/v1/llms/:id` | Delete model |
+
+### Chat Sessions
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/chats` | List sessions |
+| `GET` | `/api/v1/chats/:id` | Get session with messages |
+| `PUT` | `/api/v1/chats/:id` | Save session snapshot |
+| `DELETE` | `/api/v1/chats/:id` | Delete session |
+
+### Wiki
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` / `POST` | `/api/v1/wiki/spaces` | List / create spaces |
+| `GET` / `POST` | `/api/v1/wiki/spaces/:id/pages` | List / create pages |
+| `GET` / `PUT` / `DELETE` | `/api/v1/wiki/spaces/:id/pages/:pageId` | Read / update / delete |
+| `POST` | `/api/v1/wiki/spaces/:id/ingest` | Trigger AI ingest pipeline |
+| `POST` | `/api/v1/wiki/spaces/:id/search` | Full-text search |
+| `GET` | `/api/v1/wiki/spaces/:id/graph` | Knowledge graph data |
+| `POST` | `/api/v1/wiki/spaces/:id/lint` | Run link linter |
+
+### Crawler
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/crawler/platforms` | List supported platforms |
+| `POST` | `/api/v1/crawler/tasks` | Create crawl task |
+| `GET` | `/api/v1/crawler/tasks` | List tasks (paginated) |
+| `GET` | `/api/v1/crawler/contents` | List crawled content |
+| `GET` | `/api/v1/crawler/creators` | List crawled creators |
+
+### Tools & Runtime Config
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` / `PUT` | `/api/v1/tools` | List / update tool configs |
+| `GET` / `PUT` | `/api/v1/runtime-configs/:scenario` | Get / update runtime config |
+
+### Agent
+The LangGraph agent runs on port `2024` and provides:
+- Streaming chat completions via LangGraph SDK
+- 5 tools: `web_search`, `web_fetch`, `wiki_search`, `wiki_read`, `ask_clarification`
+- Dynamic model resolution at runtime (picks the user's selected model)
+
+---
+
+## 🧩 Packages
+
+| Package | Description |
+|---------|-------------|
+| `@feedmind/contracts` | Zod validation schemas and TypeScript types shared across all apps |
+| `@feedmind/db` | Drizzle ORM schema definitions, SQLite client, migrations, and seed data |
+| `@feedmind/shared` | Environment variable loader, date utilities, Fernet encryption |
+| `@feedmind/crawler-core` | Abstract crawler base class, factory, and platform-specific implementations |
+| `@feedmind/wiki-core` | Wiki filesystem operations, frontmatter parsing, wikilink resolution, graph construction, search, linting |
+
+---
+
+## 📋 Common Commands
+
+```bash
+pnpm install            # Install all dependencies
+pnpm dev                # Start all dev services (web + api + agent)
+pnpm build              # Build all apps and packages
+pnpm build:packages     # Build shared packages only
+pnpm typecheck          # TypeScript type checking
+pnpm lint               # ESLint code linting
+pnpm test               # Run tests (Vitest)
+pnpm db:init            # Initialize SQLite database
+pnpm db:migrate         # Run Drizzle migrations
+pnpm web:dev            # Start frontend only
+pnpm api:dev            # Start API server only
+pnpm agent:dev          # Start LangGraph agent only
+```
+
+---
+
+## 🔐 Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ENCRYPTION_KEY` | **Yes** | `feedmind` (dev) | Key for encrypting LLM API keys |
+| `OPENAI_API_KEY` | Agent mode | — | OpenAI-compatible API key |
+| `ANTHROPIC_API_KEY` | Claude models | — | Anthropic API key |
+| `TAVILY_API_KEY` | Web search | — | Tavily search API key |
+| `BACKEND_API_URL` | No | `http://localhost:8000` | Backend API URL |
+| `AGENT_API_URL` | No | `http://localhost:2024` | Agent service URL |
+| `DATABASE_PATH` | No | `./data/feedmind.db` | SQLite database path |
+| `APP_ENV` | No | `development` | Environment mode |
+| `DISABLE_INGEST_WORKER` | No | `0` | Disable background ingest worker |
+
+> **Important:** In production, set a strong `ENCRYPTION_KEY`. The dev default `"feedmind"` is insecure.
+
+---
+
+## 📄 License
 
 [MIT](./LICENSE)
+
+---
+
+<div align="center">
+  <p>
+    Built with React, TanStack, Hono, LangChain, and ❤️
+  </p>
+</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   FileText,
   Globe,
@@ -9,12 +9,13 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import type { WikiSourceListItem } from "@feedmind/contracts";
 import {
   deleteWikiSource,
-  listWikiSources,
   runIngest,
 } from "@/lib/api/wiki";
+import { useWikiSources } from "@/lib/hooks/use-wiki";
+import { useQueryClient } from "@tanstack/react-query";
+import { wikiKeys } from "@/lib/hooks/use-wiki";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,32 +25,21 @@ interface WikiSourcesViewProps {
 }
 
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
-  const [sources, setSources] = useState<WikiSourceListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadSources = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await listWikiSources(spaceId, { limit: 100 });
-      setSources(result.items);
-    } catch {
-      // handled by apiFetch toast
-    } finally {
-      setLoading(false);
-    }
-  }, [spaceId]);
-
-  useEffect(() => {
-    loadSources();
-  }, [loadSources]);
+  const queryClient = useQueryClient();
+  const { data, isLoading } = useWikiSources(spaceId);
+  const sources = data?.items ?? [];
 
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
 
+  const invalidateSources = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
+  }, [queryClient, spaceId]);
+
   const handleDelete = async (sourceId: string) => {
     try {
       await deleteWikiSource(spaceId, sourceId, "detach");
-      await loadSources();
+      invalidateSources();
     } catch {
       // handled by apiFetch toast
     }
@@ -63,7 +53,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
       setIngestResult(
         `✓ "${sourceTitle}": ${result.pagesCreated} 创建，${result.pagesUpdated} 更新`,
       );
-      await loadSources();
+      invalidateSources();
     } catch (err) {
       setIngestResult(
         `✗ "${sourceTitle}": ${err instanceof Error ? err.message : "未知错误"}`,
@@ -111,7 +101,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
       {/* Source list */}
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {isLoading ? (
           <div className="space-y-3 p-6">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-4">

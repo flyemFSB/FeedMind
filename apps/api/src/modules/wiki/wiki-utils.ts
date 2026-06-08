@@ -1,9 +1,14 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { normalizePath, safeJoin } from "@feedmind/wiki-core";
+import { fileURLToPath } from "node:url";
+import { normalizePath, safeJoin, parseFrontmatter } from "@feedmind/wiki-core";
 
 export { normalizePath, safeJoin };
+
+// 以当前文件位置推算项目根目录，不依赖 process.cwd()
+const _thisDir = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(_thisDir, "..", "..", "..", "..", "..");
 
 export function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
@@ -91,10 +96,22 @@ export function dateSortDesc(a: string, b: string): number {
 
 export function wikiRootDir(): string {
   return process.env.WIKI_DIR
-    ? path.resolve(process.env.WIKI_DIR)
-    : path.join(process.cwd(), "data", "wiki");
+    ? path.resolve(PROJECT_ROOT, process.env.WIKI_DIR)
+    : path.join(PROJECT_ROOT, "data", "wiki");
 }
 
 export function spaceDir(spaceId: string): string {
   return path.join(wikiRootDir(), spaceId);
+}
+
+/** 从 sources/<sourcePath> 文件中提取 frontmatter title 用于展示 */
+export function readSourceTitle(spaceId: string, sourcePath: string): string {
+  const sourceFilePath = path.join(spaceDir(spaceId), "raw", "sources", sourcePath);
+  try {
+    const raw = fs.readFileSync(sourceFilePath, "utf-8");
+    const { frontmatter } = parseFrontmatter(raw);
+    return (frontmatter.title as string) || "";
+  } catch {
+    return "";
+  }
 }

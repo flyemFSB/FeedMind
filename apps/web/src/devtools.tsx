@@ -1,17 +1,25 @@
-import { type ComponentType, lazy } from "react";
+import { type ComponentType, useEffect, useState } from "react";
 
-export const TanStackRouterDevtools: ComponentType = import.meta.env.PROD || import.meta.env.SSR
-  ? () => null
-  : lazy(() =>
-      import("@tanstack/react-router-devtools").then((res) => ({
-        default: res.TanStackRouterDevtools,
-      })),
+export function TanStackRouterDevtools() {
+  if (import.meta.env.PROD) return null;
+  const [Devtools, setDevtools] = useState<ComponentType | null>(null);
+  useEffect(() => {
+    import("@tanstack/react-router-devtools").then((res) =>
+      setDevtools(() => res.TanStackRouterDevtools),
     );
+  }, []);
+  if (!Devtools) return null;
+  return <Devtools />;
+}
 
-export const TanStackQueryDevtools: ComponentType = import.meta.env.PROD || import.meta.env.SSR
-  ? () => null
-  : lazy(() =>
-      import("@tanstack/react-query-devtools").then((res) => ({
-        default: res.ReactQueryDevtools,
-      })),
+export function TanStackQueryDevtools() {
+  if (import.meta.env.PROD) return null;
+  const [Devtools, setDevtools] = useState<ComponentType | null>(null);
+  useEffect(() => {
+    import("@tanstack/react-query-devtools").then((res) =>
+      setDevtools(() => res.ReactQueryDevtools),
     );
+  }, []);
+  if (!Devtools) return null;
+  return <Devtools />;
+}

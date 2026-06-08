@@ -16,6 +16,7 @@ export function createIngestJob(
     sourceTitle: sourceTitle ?? "",
     folderContext: folderContext ?? "",
     status: "pending",
+    progress: null,
     addedAt: Date.now(),
     startedAt: null,
     completedAt: null,

@@ -8,7 +8,8 @@ import {
   RefreshCw,
   XCircle,
   AlertCircle,
-  FileText,
+
+
   X,
 } from "lucide-react";
 import type { IngestJob } from "@feedmind/contracts";
@@ -17,7 +18,8 @@ import {
   cancelIngestJob,
   retryIngestJob,
 } from "@/lib/api/wiki";
-import { Button } from "@/components/ui/button";
+
+
 import {
   Dialog,
   DialogContent,
@@ -44,10 +46,11 @@ export function WikiImportHistory({
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
 
-  const loadJobs = useCallback(async () => {
+  const loadJobs = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const result = await listIngestJobs(spaceId);
+      const result = await listIngestJobs(spaceId, signal);
+
       setJobs(result);
     } catch {
       // handled by apiFetch toast
@@ -67,8 +70,16 @@ export function WikiImportHistory({
       (j) => j.status === "pending" || j.status === "processing",
     );
     if (!hasActive) return;
-    const interval = setInterval(loadJobs, 5000);
-    return () => clearInterval(interval);
+
+    const abortController = new AbortController();
+    const interval = setInterval(async () => {
+      await loadJobs(abortController.signal);
+    }, 5000);
+    return () => {
+      clearInterval(interval);
+      abortController.abort();
+    };
+
   }, [open, jobs, loadJobs]);
 
   const handleCancel = async (jobId: string) => {
@@ -107,7 +118,8 @@ export function WikiImportHistory({
           <DialogTitle className="text-[16px] font-semibold">导入历史</DialogTitle>
           <div className="flex items-center gap-2">
             <button
-              onClick={loadJobs}
+              onClick={() => loadJobs()}
+
               className="flex h-7 w-7 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f5f5f7]"
               title="刷新"
             >
@@ -191,32 +203,62 @@ function ActiveJobCard({
     ? formatDuration(Date.now() - job.startedAt)
     : formatDuration(Date.now() - job.addedAt);
 
+  const progress = job.progress;
+  const statusText = progress
+    ? `步骤 ${progress.step}/${progress.totalSteps}`
+    : job.status === "processing"
+      ? "处理中..."
+      : "等待中...";
+
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[#e8e8ed] bg-[#fafafc] px-4 py-3">
-      <Loader2 size={16} className="animate-spin text-[#0071e3] shrink-0" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-[#1d1d1f]">
-          {displayName}
-        </p>
-        <p className="text-[11px] text-[#86868b]">
-          {job.status === "processing" ? "处理中..." : "等待中..."}
-          {" · "}
-          {elapsed}
-        </p>
+    <div className="rounded-xl border border-[#e8e8ed] bg-[#fafafc] px-4 py-3">
+      <div className="flex items-center gap-3">
+        <Loader2 size={16} className="shrink-0 animate-spin text-[#0071e3]" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-medium text-[#1d1d1f]">
+            {displayName}
+          </p>
+          <p className="text-[11px] text-[#86868b]">
+            {statusText}
+            {" · "}
+            {elapsed}
+          </p>
+        </div>
+        {job.status === "pending" && (
+          <button
+            onClick={() => onCancel(job.id)}
+            disabled={cancelling}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f0f0f2] hover:text-[#ff3b30] disabled:opacity-50"
+            title="取消"
+          >
+            {cancelling ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <XCircle size={14} />
+            )}
+          </button>
+        )}
       </div>
-      {job.status === "pending" && (
-        <button
-          onClick={() => onCancel(job.id)}
-          disabled={cancelling}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f0f0f2] hover:text-[#ff3b30] disabled:opacity-50"
-          title="取消"
-        >
-          {cancelling ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <XCircle size={14} />
-          )}
-        </button>
+      {progress && (
+        <div className="mt-2.5 space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: progress.totalSteps }, (_, i) => {
+              const filled = i < progress.step;
+              return (
+                <div
+                  key={i}
+                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                    filled ? "bg-[#0071e3]" : "bg-[#e8e8ed]"
+                  }`}
+                />
+              );
+            })}
+          </div>
+          <p className="text-[10px] text-[#86868b]">
+            步骤 {progress.step}/{progress.totalSteps} · {progress.message}
+          </p>
+        </div>
+
       )}
     </div>
   );

@@ -181,8 +181,8 @@ export function runIngest(
 }
 
 // ─── Ingest Jobs ─────────────────────────────────────────────
-export function listIngestJobs(spaceId: string): Promise<IngestJob[]> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`));
+export function listIngestJobs(spaceId: string, signal?: AbortSignal): Promise<IngestJob[]> {
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`), { signal });
 }
 
 export function enqueueIngestJob(

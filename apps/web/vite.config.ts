@@ -10,6 +10,7 @@ export default defineConfig({
   },
   resolve: {
     tsconfigPaths: true,
+    dedupe: ["@assistant-ui/core"],
   },
   ssr: {
     noExternal: [/^@lobehub\//],

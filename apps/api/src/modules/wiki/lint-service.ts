@@ -3,13 +3,7 @@ import path from "node:path";
 import { runStructuralLint, parseFrontmatter, getFileStem, getRelativePath, normalizePath } from "@feedmind/wiki-core";
 import type { LintResult } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
-
-function spaceDir(spaceId: string): string {
-  const wikiRoot = process.env.WIKI_DIR
-    ? path.resolve(process.env.WIKI_DIR)
-    : path.join(process.cwd(), "data", "wiki");
-  return path.join(wikiRoot, spaceId);
-}
+import { spaceDir } from "./wiki-utils.js";
 
 function lintPath(spaceId: string): string {
   return path.join(spaceDir(spaceId), ".llm-wiki", "lint.json");

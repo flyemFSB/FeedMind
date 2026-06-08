@@ -5,7 +5,7 @@ import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WIKI_TYPE_COLORS } from "./constants";
+import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 
 interface WikiReaderProps {
   spaceId: string;
@@ -88,7 +88,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
               style={{ backgroundColor: typeColor }}
             >
-              {page.type}
+              {WIKI_TYPE_LABELS[page.type] || page.type}
             </span>
           </div>
           {page.path && (
@@ -143,7 +143,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               <div className="flex flex-wrap gap-x-6 gap-y-1">
                 {page.type && (
                   <span>
-                    <span className="font-medium text-[#1d1d1f]">类型：</span> {page.type}
+                    <span className="font-medium text-[#1d1d1f]">类型：</span> {WIKI_TYPE_LABELS[page.type] || page.type}
                   </span>
                 )}
                 {page.sources && page.sources.length > 0 && (

@@ -46,7 +46,7 @@ function truncateByChars(text: string, maxChars: number): string {
   return Array.from(text).slice(0, maxChars).join("");
 }
 
-// 直接从 URL 获取原始 HTML（不通过 Jina）
+// 直接从 URL 获取原始 HTML
 async function fetchHtmlDirectly(url: string, signal: AbortSignal): Promise<string> {
   const response = await fetch(url, {
     headers: {
@@ -75,35 +75,32 @@ async function fetchHtmlDirectly(url: string, signal: AbortSignal): Promise<stri
   return text;
 }
 
-// 通过 Jina API 获取 HTML；jinaApiKey 为空时走匿名模式
-async function fetchHtmlViaJina(
+// 通过 Firecrawl API 获取 Markdown 内容
+async function fetchViaFirecrawl(
   url: string,
   signal: AbortSignal,
-  jinaApiKey?: string,
+  apiKey?: string,
 ): Promise<string | null> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    // 服务端超时设短一点，给客户端 AbortSignal 留缓冲，避免网络开销吃掉 Jina 处理时间
-    "X-Return-Format": "html",
-    "X-Timeout": "8",
-  };
-  if (jinaApiKey) {
-    headers.Authorization = `Bearer ${jinaApiKey}`;
-  }
+  if (!apiKey) return null;
 
-  const response = await fetch("https://r.jina.ai/", {
+  const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
-    headers,
-    body: JSON.stringify({ url }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ url, formats: ["markdown"] }),
     signal,
   });
 
   if (!response.ok) {
-    return null; // 非 2xx 触发兜底
+    console.warn(`[web_fetch] Firecrawl returned ${response.status}`);
+    return null;
   }
 
-  const text = await response.text();
-  return text.trim() ? text : null;
+  const body = await response.json();
+  const markdown: string | undefined = body?.data?.markdown;
+  return markdown?.trim() ? markdown : null;
 }
 
 // 文章 → Markdown 格式化；htmlContent 为 null 时表示无内容
@@ -118,28 +115,29 @@ function formatAsMarkdown(title: string, htmlContent: string | null): string {
 export const webFetchTool = tool(
   async ({ url }) => {
     try {
-      // 从数据库加载工具配置（含 Jina API Key）
+      // 从数据库加载工具配置（含 Firecrawl API Key）
       await ToolConfigClient.instance.load();
       const toolConfig = ToolConfigClient.instance.getTool("web_fetch");
-      const jinaApiKey = toolConfig?.config?.jinaApiKey as string | undefined;
+      const firecrawlApiKey = toolConfig?.config?.firecrawlApiKey as string | undefined;
 
-      // 1) 优先通过 Jina 获取 HTML（附带频率限制，但有 JS 渲染能力）
-      //    内层 try/catch：Jina 网络异常时仍可降级到直接 fetch
-      const jinaSignal = AbortSignal.timeout(10_000);
-      let html: string | null = null;
+      // 1) 优先通过 Firecrawl 获取 Markdown（附带 API Key 检查）
+      const firecrawlSignal = AbortSignal.timeout(15_000);
+      let markdown: string | null = null;
 
       try {
-        html = await fetchHtmlViaJina(url, jinaSignal, jinaApiKey);
+        markdown = await fetchViaFirecrawl(url, firecrawlSignal, firecrawlApiKey);
       } catch (err) {
-        // Jina 异常（超时、DNS 失败等）→ 降级到直接 fetch
-        console.warn("[web_fetch] Jina fetch failed, falling back to direct fetch:", err instanceof Error ? err.message : err);
+        console.warn("[web_fetch] Firecrawl fetch failed, falling back to direct fetch:", err instanceof Error ? err.message : err);
       }
 
-      if (!html) {
-        // 2) Jina 兜底方案：直接 HTTP 请求原始 HTML + Readability
-        const directSignal = AbortSignal.timeout(8_000); // 兜底超时缩短，避免 18s+
-        html = await fetchHtmlDirectly(url, directSignal);
+      if (markdown) {
+        // Firecrawl 直接返回 Markdown，无需额外处理
+        return truncateByChars(markdown, MAX_OUTPUT_CHARS);
       }
+
+      // 2) 兜底方案：直接 HTTP 请求原始 HTML + Readability + Turndown
+      const directSignal = AbortSignal.timeout(8_000);
+      let html = await fetchHtmlDirectly(url, directSignal);
 
       // 防止超大 HTML 导致 JSDOM OOM
       if (html.length > MAX_HTML_SIZE) {
@@ -149,7 +147,6 @@ export const webFetchTool = tool(
       // 3) 用 Readability 提取正文
       const article = extractWithReadability(html, url);
 
-      let markdown: string;
       if (article) {
         markdown = formatAsMarkdown(article.title, article.content);
       } else {

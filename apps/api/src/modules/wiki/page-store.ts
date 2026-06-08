@@ -39,7 +39,7 @@ function findPageFile(spaceId: string, slug: string): string | null {
   return getSlugCache(spaceId).get(slug) ?? null;
 }
 
-function invalidatePageFileCache(spaceId: string): void {
+export function invalidatePageFileCache(spaceId: string): void {
   pageFileCache.delete(spaceId);
 }
 

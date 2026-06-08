@@ -22,6 +22,7 @@ export const toolReadSchema = z.object({
   icon: z.string().nullable(),
   config_fields: z.array(configFieldSchema),
   config: z.record(z.string(), z.unknown()),
+  password_set: z.record(z.string(), z.boolean()).default({}),
   is_enabled: z.boolean(),
   sort_order: z.number(),
 });

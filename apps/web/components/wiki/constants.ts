@@ -5,3 +5,11 @@ export const WIKI_TYPE_COLORS: Record<string, string> = {
   overview: "#1d1d1f",
   index: "#5856d6",
 };
+
+export const WIKI_TYPE_LABELS: Record<string, string> = {
+  concept: "概念",
+  entity: "实体",
+  source: "来源",
+  overview: "概览",
+  index: "索引",
+};

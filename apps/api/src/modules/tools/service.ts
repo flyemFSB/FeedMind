@@ -4,12 +4,16 @@ import { db, tools, type ToolRow } from "@feedmind/db";
 import { encryptValue, decryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-// password 类型的字段：空表示未配置，非空返回占位符表示已配置（不泄露真实值）
+// password 类型的字段：不泄露真实值，用 passwordSet 标记是否已配置
 function maskSensitiveFields(row: ToolRow): ToolRead {
   const fields = JSON.parse(row.configFields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
+  const passwordSet: Record<string, boolean> = {};
   for (const f of fields) {
-    if (f.type === "password") config[f.key] = config[f.key] ? "__SET__" : "";
+    if (f.type === "password") {
+      passwordSet[f.key] = !!config[f.key];
+      config[f.key] = "";
+    }
   }
   return {
     name: row.name,
@@ -19,6 +23,7 @@ function maskSensitiveFields(row: ToolRow): ToolRead {
     icon: row.icon,
     config_fields: fields,
     config,
+    password_set: passwordSet,
     is_enabled: row.isEnabled,
     sort_order: row.sortOrder,
   };
@@ -29,15 +34,17 @@ export async function listTools(): Promise<ToolRead[]> {
   return rows.map(maskSensitiveFields);
 }
 
-/** Agent 内部使用的运行时端点：返回解密后的配置（password 字段不解密只有空字符串） */
+/** Agent 内部使用的运行时端点：返回解密后的配置 */
 export async function listToolsRuntime(): Promise<ToolRead[]> {
   const rows = await db.select().from(tools).orderBy(tools.sortOrder);
   return rows.map((row) => {
     const fields = JSON.parse(row.configFields) as ConfigField[];
     const config: Record<string, unknown> = JSON.parse(row.config);
+    const passwordSet: Record<string, boolean> = {};
     for (const f of fields) {
       if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
         config[f.key] = decryptValue(config[f.key] as string);
+        passwordSet[f.key] = true;
       }
     }
     return {
@@ -48,6 +55,7 @@ export async function listToolsRuntime(): Promise<ToolRead[]> {
       icon: row.icon,
       config_fields: fields,
       config,
+      password_set: passwordSet,
       is_enabled: row.isEnabled,
       sort_order: row.sortOrder,
     };
@@ -68,11 +76,10 @@ export async function updateToolConfig(name: string, payload: ToolConfigUpdate):
   const currentConfig = JSON.parse(row.config) as Record<string, unknown>;
 
   // 对 password 类型字段加密，非 password 字段直接覆盖
-  // "__SET__" 是前端占位符跳过不覆盖，空字符串表示清除
+  // payload 中不存在的字段保持原值，空字符串表示清除
   const passwordKeys = new Set(fields.filter((f) => f.type === "password").map((f) => f.key));
   for (const [key, value] of Object.entries(payload.config)) {
     if (passwordKeys.has(key)) {
-      if (value === "__SET__") continue;
       currentConfig[key] = typeof value === "string" && value.length > 0 ? encryptValue(value) : "";
     } else {
       currentConfig[key] = value;

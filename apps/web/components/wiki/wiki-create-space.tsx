@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface CreateWikiSpaceDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreated: (spaceId: string) => void;
+  onCreated: (spaceId: string, spaceName: string) => void;
 }
 
 export function CreateWikiSpaceDialog({
@@ -46,7 +46,7 @@ export function CreateWikiSpaceDialog({
         },
       };
       const space = await createWikiSpace(payload);
-      onCreated(space.id);
+      onCreated(space.id, space.name);
       setName("");
       setPurpose("");
     } catch {
