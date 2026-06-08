@@ -4,6 +4,7 @@ import {
   BookOpen,
   ChevronDown,
   ClipboardCheck,
+  Clock,
   Database,
   FileText,
   Import,
@@ -14,6 +15,7 @@ import {
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
+import { WikiImportHistory } from "@/components/wiki/wiki-import-history";
 import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
@@ -50,6 +52,7 @@ function MyWikiPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showImportHistory, setShowImportHistory] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const prevIsEditing = useRef(isEditing);
 
@@ -237,6 +240,11 @@ function MyWikiPage() {
           />
           <div className="mt-auto flex flex-col items-center gap-1 pt-4">
             <WikiNavButton
+              icon={Clock}
+              label="导入历史"
+              onClick={() => setShowImportHistory(true)}
+            />
+            <WikiNavButton
               icon={ClipboardCheck}
               label="审核"
               active={activeView === "review"}
@@ -292,6 +300,14 @@ function MyWikiPage() {
           spaceId={spaceId}
           onClose={() => setShowImport(false)}
           onImported={handleImportSuccess}
+        />
+      )}
+
+      {spaceId && (
+        <WikiImportHistory
+          open={showImportHistory}
+          spaceId={spaceId}
+          onClose={() => setShowImportHistory(false)}
         />
       )}
 

@@ -304,6 +304,7 @@ export const ingestJobSchema = z.object({
   id: z.string(),
   projectId: z.string(),
   sourcePath: z.string(),
+  sourceTitle: z.string().default(""),
   folderContext: z.string().default(""),
   status: ingestJobStatusSchema.default("pending"),
   addedAt: z.number(),
@@ -312,6 +313,8 @@ export const ingestJobSchema = z.object({
   error: z.string().nullable().default(null),
   retryCount: z.number().int().default(0),
   writtenFiles: z.array(z.string()).default([]),
+  pagesCreated: z.number().int().default(0),
+  pagesUpdated: z.number().int().default(0),
 });
 export type IngestJob = z.infer<typeof ingestJobSchema>;
 
