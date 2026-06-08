@@ -7,11 +7,13 @@ export function createIngestJob(
   projectId: string,
   sourcePath: string,
   folderContext?: string,
+  sourceTitle?: string,
 ): IngestJob {
   return {
     id: `ingest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     projectId,
     sourcePath,
+    sourceTitle: sourceTitle ?? "",
     folderContext: folderContext ?? "",
     status: "pending",
     addedAt: Date.now(),
@@ -20,6 +22,8 @@ export function createIngestJob(
     error: null,
     retryCount: 0,
     writtenFiles: [],
+    pagesCreated: 0,
+    pagesUpdated: 0,
   };
 }
 

@@ -9,8 +9,9 @@ export async function enqueueIngest(
   spaceId: string,
   sourcePath: string,
   folderContext?: string,
+  sourceTitle?: string,
 ): Promise<IngestJob> {
-  return getQueueStore().enqueue(spaceId, sourcePath, folderContext);
+  return getQueueStore().enqueue(spaceId, sourcePath, folderContext, sourceTitle);
 }
 
 export async function cancelIngestJob(spaceId: string, jobId: string): Promise<void> {
@@ -28,8 +29,14 @@ export async function processNextIngest(spaceId: string): Promise<IngestJob | nu
   return job;
 }
 
-export async function completeIngestJob(spaceId: string, jobId: string, writtenFiles: string[]): Promise<void> {
-  getQueueStore().updateStatus(spaceId, jobId, "done", { writtenFiles });
+export async function completeIngestJob(
+  spaceId: string,
+  jobId: string,
+  writtenFiles: string[],
+  pagesCreated?: number,
+  pagesUpdated?: number,
+): Promise<void> {
+  getQueueStore().updateStatus(spaceId, jobId, "done", { writtenFiles, pagesCreated, pagesUpdated });
 }
 
 export async function failIngestJob(spaceId: string, jobId: string, error: string): Promise<void> {

@@ -45,8 +45,12 @@ export function startIngestWorker(): void {
         try {
           const result = await runIngest(spaceId, job.sourcePath);
 
-          // Remove completed job from queue
-          store.remove(spaceId, job.id);
+          // Mark job as done instead of removing — keeps import history
+          store.updateStatus(spaceId, job.id, "done", {
+            writtenFiles: [],
+            pagesCreated: result.pagesCreated,
+            pagesUpdated: result.pagesUpdated,
+          });
 
           // Mark source as ingested
           try {

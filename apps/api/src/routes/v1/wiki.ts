@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { formatFrontmatter } from "@feedmind/wiki-core";
+import { extractDocument, formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
 import { Hono } from "hono";
 import {
   wikiPageCreateSchema,
@@ -45,6 +45,8 @@ import {
   enqueueIngest,
   cancelIngestJob,
   retryIngestJob,
+  completeIngestJob,
+  failIngestJob,
 } from "../../modules/wiki/job-service.js";
 import {
   runIngest,
@@ -171,6 +173,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const now = new Date().toISOString();
   const textExts = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
   const binaryExts = new Set(["pdf", "doc", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
+  const imageExts = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
   if (textExts.has(ext)) {
     const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -190,17 +193,63 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   }
 
   if (binaryExts.has(ext)) {
-    fs.writeFileSync(path.join(sourcesDir, safeName), Buffer.from(byteArray));
-    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: `application/${ext === "pdf" ? "pdf" : "octet-stream"}`, size_bytes: byteArray.length, status: "new", created: now, updated: now, import_ext: ext };
-    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n\n(Binary file — run ingest to extract content)", "utf-8");
+    // 保存临时文件 → 提取文本 → 仅保留 .md
+    const binPath = path.join(sourcesDir, safeName);
+    fs.writeFileSync(binPath, Buffer.from(byteArray));
+
+    let extractedText = "";
+    let docMime = `application/${ext}`;
+    let warnings: string[] = [];
+    try {
+      const doc = await extractDocument(binPath, safeName);
+      extractedText = doc.text;
+      docMime = doc.mimeType;
+      warnings = doc.warnings;
+    } catch (err) {
+      extractedText = `[Extraction failed: ${err instanceof Error ? err.message : String(err)}]`;
+    }
+
+    fs.unlinkSync(binPath); // 删除原始二进制
+
+    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: docMime, size_bytes: byteArray.length, status: "ready", created: now, updated: now, import_ext: ext };
+    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + extractedText, "utf-8");
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(c, {
       id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
       kind: "file", original_name: safeName, original_uri: safeName,
       storage_path: `raw/sources/${sourceFileName}`,
-      mime_type: `application/${ext === "pdf" ? "pdf" : "octet-stream"}`,
-      size_bytes: byteArray.length, content_hash: "",
-      status: "new", metadata: { import_ext: ext }, page_count: 0,
-      created_at: now, updated_at: now,
+      mime_type: docMime,
+      size_bytes: stat.size, content_hash: sha256(extractedText),
+      status: "ready", metadata: { import_ext: ext, extract_warnings: warnings },
+      page_count: 0, created_at: now, updated_at: now,
+    }, 201);
+  }
+
+  if (imageExts.has(ext)) {
+    // 图片保存到 raw/assets/，同时在 sources 创建引用 .md
+    const assetsDir = path.join(wikiRoot, spaceId, "raw", "assets");
+    fs.mkdirSync(assetsDir, { recursive: true });
+    const assetPath = path.join(assetsDir, safeName);
+    fs.writeFileSync(assetPath, Buffer.from(byteArray));
+
+    const imageMimeMap: Record<string, string> = {
+      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+      gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    };
+    const imageMime = imageMimeMap[ext] ?? "application/octet-stream";
+
+    const imageMarkdown = `![${safeName}](../assets/${safeName})`;
+    const fm = { title: safeName, kind: "image", original_name: safeName, original_uri: safeName, mime_type: imageMime, size_bytes: byteArray.length, status: "ready", created: now, updated: now, import_ext: ext };
+    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + imageMarkdown, "utf-8");
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
+    return jsonOk(c, {
+      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
+      kind: "image", original_name: safeName, original_uri: safeName,
+      storage_path: `raw/sources/${sourceFileName}`,
+      mime_type: imageMime,
+      size_bytes: stat.size, content_hash: sha256(imageMarkdown),
+      status: "ready", metadata: { import_ext: ext, asset_path: `raw/assets/${safeName}` },
+      page_count: 0, created_at: now, updated_at: now,
     }, 201);
   }
 
@@ -223,7 +272,30 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const sourcePath = body.sourcePath as string;
   if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
-  return jsonOk(c, await runIngest(spaceId, sourcePath));
+
+  // Extract source title from file for import history display
+  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
+  const sourceFilePath = path.join(wikiRoot, spaceId, "raw", "sources", sourcePath);
+  let sourceTitle = "";
+  try {
+    const srcRaw = fs.readFileSync(sourceFilePath, "utf-8");
+    const { frontmatter } = parseFrontmatter(srcRaw);
+    sourceTitle = (frontmatter.title as string) || "";
+  } catch { /* non-critical */ }
+
+  // Record a job entry for import history
+  const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);
+
+  try {
+    const result = await runIngest(spaceId, sourcePath);
+    // Update job with completion status
+    await completeIngestJob(spaceId, job.id, [], result.pagesCreated, result.pagesUpdated);
+    return jsonOk(c, result);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await failIngestJob(spaceId, job.id, msg);
+    throw err;
+  }
 });
 
 // ─── Search ────────────────────────────────────────────────────
@@ -253,7 +325,18 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const sourcePath = body.sourcePath as string;
   const folderContext = body.folderContext as string | undefined;
   if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
-  return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext));
+
+  // Extract source title for import history display
+  const wikiRoot = (process.env.WIKI_DIR ? path.resolve(process.env.WIKI_DIR) : path.join(process.cwd(), "data", "wiki"));
+  const sourceFilePath = path.join(wikiRoot, spaceId, "raw", "sources", sourcePath);
+  let sourceTitle = "";
+  try {
+    const srcRaw = fs.readFileSync(sourceFilePath, "utf-8");
+    const { frontmatter } = parseFrontmatter(srcRaw);
+    sourceTitle = (frontmatter.title as string) || "";
+  } catch { /* non-critical */ }
+
+  return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
   await cancelIngestJob(c.req.param("spaceId"), c.req.param("jobId"));

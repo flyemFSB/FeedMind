@@ -6,7 +6,7 @@ import { spaceDir } from "./wiki-utils.js";
 
 export interface QueueStore {
   list(spaceId: string): IngestJob[];
-  enqueue(spaceId: string, sourcePath: string, folderContext?: string): IngestJob;
+  enqueue(spaceId: string, sourcePath: string, folderContext?: string, sourceTitle?: string): IngestJob;
   nextPending(spaceId: string): IngestJob | null;
   updateStatus(spaceId: string, jobId: string, status: IngestJobStatus, updates?: Partial<IngestJob>): void;
   retry(spaceId: string, jobId: string): void;
@@ -36,9 +36,9 @@ export class JsonQueueStore implements QueueStore {
     return this.readQueue(spaceId);
   }
 
-  enqueue(spaceId: string, sourcePath: string, folderContext?: string): IngestJob {
+  enqueue(spaceId: string, sourcePath: string, folderContext?: string, sourceTitle?: string): IngestJob {
     const queue = this.readQueue(spaceId);
-    const job = createIngestJob(spaceId, sourcePath, folderContext);
+    const job = createIngestJob(spaceId, sourcePath, folderContext, sourceTitle);
     const updated = upsertJob(queue, job);
     this.writeQueue(spaceId, updated);
     return job;
