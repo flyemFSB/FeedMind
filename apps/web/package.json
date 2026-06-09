@@ -13,10 +13,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@assistant-ui/core": "0.2.7",
-    "@assistant-ui/react": "^0.14.5",
-    "@assistant-ui/react-langgraph": "^0.14.0",
-    "@assistant-ui/react-streamdown": "^0.3.0",
+    "@assistant-ui/core": "0.2.10",
+    "@assistant-ui/react": "^0.14.14",
+    "@assistant-ui/react-langgraph": "^0.14.6",
+    "@assistant-ui/react-streamdown": "^0.3.1",
     "@base-ui/react": "^1.4.1",
     "@feedmind/contracts": "workspace:*",
     "@langchain/langgraph-sdk": "^1.8.0",
