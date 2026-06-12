@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
+import { useTranslation } from "react-i18next";
 
 interface WikiGraphViewProps {
   spaceId: string;
@@ -25,6 +26,7 @@ function nodeColor(type: string): string {
 }
 
 export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
+  const { t } = useTranslation();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [communities, setCommunities] = useState<CommunityInfo[]>([]);
@@ -45,7 +47,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
       setEdges(graph.edges);
       setCommunities(graph.communities);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "图谱加载失败");
+      setError(err instanceof Error ? err.message : t("wiki.graphLoadFailed"));
     } finally {
       setLoading(false);
     }
@@ -92,28 +94,28 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-[#86868b]">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Loader2 className="h-8 w-8 animate-spin opacity-50" />
-        <p className="text-sm">正在构建知识图谱...</p>
+        <p className="text-sm">{t("wiki.graphLoading")}</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-[#86868b]">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
         <p className="text-sm text-red-500">{error}</p>
-        <Button variant="outline" size="sm" onClick={loadGraph}>重试</Button>
+        <Button variant="outline" size="sm" onClick={loadGraph}>{t("common.retry")}</Button>
       </div>
     );
   }
 
   if (nodes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-[#86868b]">
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
-        <p className="text-sm">暂无页面。使用 [[维基链接]] 创建页面来构建知识图谱。</p>
+        <p className="text-sm">{t("wiki.graphEmpty")}</p>
       </div>
     );
   }
@@ -123,25 +125,25 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
   return (
     <div className="relative flex h-full flex-col bg-white">
       {/* Toolbar */}
-      <div className="flex items-center gap-3 border-b border-[#e8e8ed] px-6 py-3">
-        <span className="text-[15px] font-semibold text-[#1d1d1f]">知识图谱</span>
+      <div className="flex items-center gap-3 border-b border-editorial-surface-strong px-6 py-3">
+        <span className="text-[15px] font-semibold text-editorial-ink">{t("wiki.graph")}</span>
         <div className="relative">
-          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#86868b]" />
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted" />
           <Input
-            className="h-8 w-[180px] rounded-lg border-[#e8e8ed] pl-8 text-[12px]"
-            placeholder="搜索节点..."
+            className="h-8 w-[180px] rounded-lg border-editorial-surface-strong pl-8 text-[12px]"
+            placeholder={t("wiki.searchNodes")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          <span className="text-[11px] text-[#86868b]">{filteredNodes.length} 个节点，{filteredEdges.length} 条连线</span>
+          <span className="text-[11px] text-editorial-ink-muted">{t("wiki.nodeEdgeCount", { nodes: filteredNodes.length, edges: filteredEdges.length })}</span>
           <ToggleGroup value={[colorMode]} onValueChange={(v) => { if (v.length > 0) setColorMode(v[0] as ColorMode); }} size="sm" className="h-8">
-            <ToggleGroupItem value="type" className="gap-1 px-2 text-[11px]" aria-label="按类型着色">
-              <Type size={13} /> 类型
+            <ToggleGroupItem value="type" className="gap-1 px-2 text-[11px]" aria-label={t("wiki.colorByType")}>
+              <Type size={13} /> {t("wiki.type")}
             </ToggleGroupItem>
-            <ToggleGroupItem value="community" className="gap-1 px-2 text-[11px]" aria-label="按社区着色">
-              <Layers size={13} /> 社区
+            <ToggleGroupItem value="community" className="gap-1 px-2 text-[11px]" aria-label={t("wiki.colorByCommunity")}>
+              <Layers size={13} /> {t("wiki.community")}
             </ToggleGroupItem>
           </ToggleGroup>
           <Button
@@ -150,7 +152,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
             onClick={() => { loadGraph(); loadInsights(); setShowInsights(!showInsights); }}
             className="h-8 gap-1 rounded-lg px-2 text-[11px]"
           >
-            <Lightbulb size={13} /> 洞察
+            <Lightbulb size={13} /> {t("wiki.insights")}
           </Button>
           <Button variant="ghost" size="sm" onClick={loadGraph} className="h-8 px-2">
             <RefreshCw size={13} />
@@ -160,7 +162,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
 
       <div className="flex flex-1 min-h-0">
         {/* Graph SVG */}
-        <div className="relative flex-1 overflow-hidden bg-[#fafafc]">
+        <div className="relative flex-1 overflow-hidden bg-editorial-canvas-soft">
           <svg width="100%" height="100%" viewBox="0 0 600 600" className="absolute inset-0">
             {/* Edges */}
             {filteredEdges.slice(0, 200).map((edge, i) => {
@@ -171,7 +173,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
                 <line
                   key={`edge-${i}`}
                   x1={sp.x} y1={sp.y} x2={tp.x} y2={tp.y}
-                  stroke="#d2d2d7"
+                  stroke="var(--color-editorial-hairline)"
                   strokeWidth={0.5 + edge.weight * 2}
                   opacity={0.6}
                 />
@@ -188,7 +190,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
               return (
                 <g key={node.id} onClick={() => handleNodeClick(node)} className="cursor-pointer" style={{ cursor: "pointer" }}>
                   <circle cx={pos.x} cy={pos.y} r={size} fill={color} opacity={0.9} stroke="#fff" strokeWidth={1.5} />
-                  <text x={pos.x} y={pos.y + size + 12} textAnchor="middle" fill="#6e6e73" fontSize="10" className="pointer-events-none">
+                  <text x={pos.x} y={pos.y + size + 12} textAnchor="middle" fill="var(--color-editorial-ink-soft)" fontSize="10" className="pointer-events-none">
                     {node.label.length > 15 ? node.label.slice(0, 15) + "…" : node.label}
                   </text>
                 </g>
@@ -203,7 +205,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
                 {Object.entries(WIKI_TYPE_COLORS).map(([type, color]) => (
                   <div key={type} className="flex items-center gap-2">
                     <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-                    <span className="text-[11px] text-[#6e6e73]">{WIKI_TYPE_LABELS[type] || type}</span>
+                    <span className="text-[11px] text-editorial-ink-soft">{WIKI_TYPE_LABELS[type] || type}</span>
                   </div>
                 ))}
               </div>
@@ -212,7 +214,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
                 {communities.slice(0, 6).map((c) => (
                   <div key={c.id} className="flex items-center gap-2">
                     <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: COMMUNITY_COLORS[c.id % COMMUNITY_COLORS.length] }} />
-                    <span className="text-[11px] text-[#6e6e73]">{c.topNodes[0] ?? `社区 ${c.id}`} ({c.nodeCount})</span>
+                    <span className="text-[11px] text-editorial-ink-soft">{c.topNodes[0] ?? `${t("wiki.community")} ${c.id}`} ({c.nodeCount})</span>
                   </div>
                 ))}
               </div>
@@ -224,20 +226,20 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
         {showInsights && insights && (
           <div className="w-80 shrink-0 border-l bg-white overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[13px] font-semibold text-[#1d1d1f]">知识洞察</span>
+              <span className="text-[13px] font-semibold text-editorial-ink">{t("wiki.insightsTitle")}</span>
               <button onClick={() => setShowInsights(false)}><X size={14} /></button>
             </div>
 
             {insights.surprising?.length > 0 && (
               <div className="mb-4">
                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                  <Link2 size={14} className="text-blue-500" /> 意外关联
+                  <Link2 size={14} className="text-blue-500" /> {t("wiki.unexpectedLinks")}
                 </div>
                 {insights.surprising.map((conn: any, i: number) => (
-                  <div key={i} className="rounded-lg border p-3 mb-2 text-sm hover:bg-[#fafafc] cursor-pointer"
+                  <div key={i} className="rounded-lg border p-3 mb-2 text-sm hover:bg-editorial-canvas-soft cursor-pointer"
                     onClick={() => { onPageSelect(conn.source.id); }}>
                     <div className="font-medium text-xs mb-1">{conn.source.label} ↔ {conn.target.label}</div>
-                    <p className="text-[11px] text-[#86868b]">{conn.reasons.join(", ")}</p>
+                    <p className="text-[11px] text-editorial-ink-muted">{conn.reasons.join(", ")}</p>
                   </div>
                 ))}
               </div>
@@ -246,13 +248,13 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
             {insights.gaps?.length > 0 && (
               <div>
                 <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                  <AlertTriangle size={14} className="text-amber-500" /> 知识缺口
+                  <AlertTriangle size={14} className="text-amber-500" /> {t("wiki.knowledgeGaps")}
                 </div>
                 {insights.gaps.map((gap: any, i: number) => (
                   <div key={i} className="rounded-lg border p-3 mb-2">
                     <div className="font-medium text-xs mb-1">{gap.title}</div>
-                    <p className="text-[11px] text-[#86868b] mb-1">{gap.description}</p>
-                    <p className="text-[11px] italic text-[#86868b]">{gap.suggestion}</p>
+                    <p className="text-[11px] text-editorial-ink-muted mb-1">{gap.description}</p>
+                    <p className="text-[11px] italic text-editorial-ink-muted">{gap.suggestion}</p>
                   </div>
                 ))}
               </div>

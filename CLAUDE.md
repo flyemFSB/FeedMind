@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
 
 ## Commands
 
 ```bash
 pnpm install               # Install all dependencies
-pnpm dev                   # Start all dev services (web + API + agent)
+pnpm dev                   # Start all dev services (web + API)
 pnpm build                 # Build all packages and apps
 pnpm build:packages        # Build shared packages only (contracts, shared, db, crawler-core, wiki-core)
 pnpm typecheck             # TypeScript type check across all packages
@@ -16,8 +16,7 @@ pnpm db:init               # Initialize SQLite database (create tables + seed to
 pnpm db:generate           # Generate Drizzle migrations
 pnpm db:migrate            # Apply Drizzle migrations
 pnpm web:dev               # Web frontend only (http://localhost:3000)
-pnpm api:dev               # REST API only (http://localhost:8000)
-pnpm agent:dev             # LangGraph agent only (http://localhost:2024)
+pnpm api:dev               # API + Mastra Agent (http://localhost:8000)
 
 # Run a specific package's command
 pnpm --filter @feedmind/web dev
@@ -26,13 +25,12 @@ pnpm --filter @feedmind/api build
 
 ## Architecture
 
-Monorepo (pnpm workspaces). Three apps, five shared packages.
+Monorepo (pnpm workspaces). Two apps, five shared packages. Mastra Agent is embedded in the API app.
 
 ```
 apps/
-  web/        Next.js 16 + React 19 + Tailwind CSS 4 + shadcn/ui + assistant-ui
-  api/        Hono REST API (Wiki, crawler, model management)
-  agent/      LangChain.js + LangGraph Agent service (LangGraph CLI)
+  web/        TanStack Start + React 19 + Tailwind CSS 4 + ai-elements + shadcn/ui
+  api/        Hono REST API + Mastra Agent (Wiki, crawler, model management, chat)
 packages/
   contracts/  Zod schemas + shared TypeScript types (single source of truth for API shapes)
   db/         Drizzle ORM schema definitions + SQLite init
@@ -46,10 +44,11 @@ data/
 ## Key Architecture Decisions
 
 - **File-based Wiki**: Wiki pages are stored as plain Markdown files on disk, not in the database. Each Wiki "space" is a directory under `data/wiki/`. Pages use YAML frontmatter for metadata. The db only stores chat/crawler data.
-- **Language**: All user-facing UI text and wiki content is in Chinese.
+- **Language**: All user-facing UI text and wiki content is in Chinese. English supported via react-i18next.
+- **Mastra Agent**: The AI agent runs inside the API process (apps/api/src/mastra/), using @mastra/core. It exposes a chat route via @mastra/ai-sdk's chatRoute() which outputs AI SDK v6 compatible streaming format.
+- **Dynamic Model Resolution**: The agent resolves the LLM model at runtime from the `llm` table, reading the user's selected model via request headers.
 - **Wiki import pipeline** (`ingest-pipeline.ts`): Two-stage LLM pipeline — stage 1 analyzes source content into structured data (entities, concepts, arguments), stage 2 generates wiki page FILE blocks. The LLM client is resolved from `runtime_config` table at runtime.
-- **Runtime Config** (`runtime_config` table): Stores per-scenario LLM config (temperature, max_tokens, system_prompt, etc.) for "session" (chat) and "wiki" (ingest) scenarios. Session scenario always syncs with the selected model from the `llm` table; wiki scenario has its own model selection.
-- **Agent thread**: LangGraph SDK powers the chat agent. Messages are persisted to SQLite via the API (not LangGraph's native persistence).
+- **Runtime Config** (`runtime_config` table): Stores per-scenario LLM config (temperature, max_tokens, system_prompt, etc.) for "session" (chat) and "wiki" (ingest) scenarios.
 - **Crawler**: Playwright-based, uses cookie authentication, stores results in SQLite.
 
 ## API Routes (Hono)
@@ -63,6 +62,8 @@ All routes under `/api/v1`:
 - `wiki/*` — wiki spaces, pages, sources, ingest, graph, review, lint
 - `crawler/*` — crawl tasks and results
 
+Agent chat route at `/api/agent/chat/:agentId` (proxied from web via Vite dev proxy).
+
 Pattern: Each route file defines a Hono router; routes are mounted in `routes/v1/index.ts`. Services live in `modules/<name>/`. Zod schemas from `@feedmind/contracts` validate request bodies.
 
 ## Model Config Pattern
@@ -75,6 +76,6 @@ When adding a new scenario that needs LLM access, add a row to `runtime_config` 
 
 - Uses TanStack Start (Vite-based), NOT the pages router. Routes in `src/routes/`.
 - Uses TanStack Query for server state management. Hooks in `lib/hooks/`, API clients in `lib/api/`.
-- Components in `components/` with subdirectories by domain (chat, wiki, settings, etc.).
-- The chat page model selector persists to both localStorage and the server (`llm.is_selected`).
-- `ProviderIcon` renders LLM provider logos via `@lobehub/icons`.
+- Components in `components/` with subdirectories by domain (chat, wiki, settings, ai-elements, ui).
+- Chat UI uses ai-elements components (Conversation, Message, PromptInput) powered by @ai-sdk/react's useChat.
+- i18n via react-i18next (Chinese + English), theme via next-themes (light/dark/system).

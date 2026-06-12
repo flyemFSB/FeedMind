@@ -185,14 +185,6 @@ export function listIngestJobs(spaceId: string, signal?: AbortSignal): Promise<I
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`), { signal });
 }
 
-export function enqueueIngestJob(
-  spaceId: string,
-  sourcePath: string,
-  folderContext?: string,
-): Promise<IngestJob> {
-  return apiPost(`/wiki/spaces/${spaceId}/jobs/ingest`, { sourcePath, folderContext });
-}
-
 export function cancelIngestJob(spaceId: string, jobId: string): Promise<void> {
   return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/cancel`, {});
 }

@@ -11,7 +11,7 @@ import {
   wikiSpaceCreateSchema,
   wikiSpaceUpdateSchema,
 } from "@feedmind/contracts";
-import { jsonOk, parseJson } from "../../lib/http.js";
+import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 import {
   listWikiSpaces,
   getWikiSpace,
@@ -153,20 +153,20 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const contentType = c.req.header("Content-Type") ?? "";
 
   if (!contentType.includes("multipart/form-data")) {
-    return jsonOk(c, { error: "Content-Type must be multipart/form-data" }, 400);
+    return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type must be multipart/form-data");
   }
 
   const formData = await c.req.parseBody();
   const file = formData["file"];
   if (!file || !(file instanceof File)) {
-    return jsonOk(c, { error: "File field is required" }, 400);
+    return jsonError(c, 400, "VALIDATION_ERROR", "File field is required");
   }
 
   const byteArray = new Uint8Array(await file.arrayBuffer());
   const safeName = sanitizeFileName(file.name);
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
   if (byteArray.length > MAX_FILE_SIZE) {
-    return jsonOk(c, { error: `文件大小超过 10MB 限制: ${safeName}` }, 413);
+    return jsonError(c, 413, "HTTP_ERROR", `文件大小超过 10MB 限制: ${safeName}`);
   }
   const ext = safeName.includes(".") ? safeName.split(".").pop()?.toLowerCase() ?? "" : "";
   const slug = slugFromName(safeName);
@@ -204,7 +204,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     fs.writeFileSync(binPath, Buffer.from(byteArray));
 
     let extractedText: string;
-    let docMime: string;
+    let docMime = "application/octet-stream";
 
     let warnings: string[] = [];
     try {
@@ -261,7 +261,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     }, 201);
   }
 
-  return jsonOk(c, { error: `Unsupported file type: .${ext}` }, 400);
+  return jsonError(c, 400, "HTTP_ERROR", `Unsupported file type: .${ext}`);
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId", async (c) =>
   jsonOk(c, await getWikiSource(c.req.param("spaceId"), c.req.param("sourceId"))),
@@ -279,7 +279,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await c.req.json().catch(() => ({}));
   const sourcePath = body.sourcePath as string;
-  if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
+  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
 
   // Extract source title from file for import history display
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
@@ -326,7 +326,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const sourcePath = body.sourcePath as string;
   const folderContext = body.folderContext as string | undefined;
-  if (!sourcePath) return jsonOk(c, { error: "sourcePath is required" }, 400);
+  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
 
   // Extract source title for import history display
   const sourceTitle = readSourceTitle(spaceId, sourcePath);

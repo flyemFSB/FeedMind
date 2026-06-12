@@ -12,21 +12,33 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.69",
     "@feedmind/contracts": "workspace:*",
     "@feedmind/crawler-core": "workspace:*",
     "@feedmind/db": "workspace:*",
     "@feedmind/shared": "workspace:*",
     "@feedmind/wiki-core": "workspace:*",
     "@hono/node-server": "^2.0.4",
+    "@mastra/ai-sdk": "^1.4.0",
+    "@mastra/core": "^1.4.0",
+    "@mastra/hono": "^1.4.0",
+    "@mozilla/readability": "^0.6.0",
+    "@tavily/core": "^0.7.3",
+    "ai": "^6.0.200",
     "drizzle-orm": "^0.45.2",
+    "exa-js": "^2.13.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "hono": "^4.12.23",
+    "jsdom": "^29.1.1",
+    "turndown": "^7.2.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/jsdom": "^28.0.3",
+    "@types/turndown": "^5.0.6",
     "tsx": "^4.20.6",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "vitest": "^4.1.0"
   }
 }

@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 type WikiView = "pages" | "graph" | "review" | "lint" | "sources";
 
@@ -44,9 +45,10 @@ export const Route = createFileRoute("/wiki")({
 });
 
 function MyWikiPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [spaceId, setSpaceId] = useState<string | null>(null);
-  const [spaceName, setSpaceName] = useState("我的 WIKI");
+  const [spaceName, setSpaceName] = useState(t("wiki.title"));
   const [activeView, setActiveView] = useState<WikiView>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -124,7 +126,7 @@ function MyWikiPage() {
 
   if (isLoading) {
     return (
-      <LayoutWrapper title="我的 WIKI">
+      <LayoutWrapper title={t("wiki.title")}>
         <div className="flex h-full items-center justify-center">
           <Skeleton className="h-4 w-24" />
         </div>
@@ -134,17 +136,17 @@ function MyWikiPage() {
 
   if (!spaceId) {
     return (
-      <LayoutWrapper title="我的 WIKI">
+      <LayoutWrapper title={t("wiki.title")}>
         <div className="flex h-full items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
-              <BookOpen size={20} className="text-[#6e6e73]" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+              <BookOpen size={20} className="text-editorial-ink-soft" />
             </div>
-            <p className="text-sm text-[#6e6e73]">
-              尚未创建 Wiki 空间
+            <p className="text-sm text-editorial-ink-soft">
+              {t("wiki.noSpace")}
             </p>
-            <p className="mt-1 text-xs text-[#86868b]">
-              创建一个新空间来开始整理你的知识
+            <p className="mt-1 text-xs text-editorial-ink-muted">
+              {t("wiki.noSpaceDesc")}
             </p>
             <Button
               variant="default"
@@ -153,7 +155,7 @@ function MyWikiPage() {
               onClick={() => setShowCreateSpace(true)}
             >
               <Plus size={14} />
-              创建空间
+              {t("wiki.newSpace")}
             </Button>
           </div>
         </div>
@@ -174,11 +176,11 @@ function MyWikiPage() {
   const spaceTitle = spaceId ? (
     <DropdownMenu open={showSpaceMenu} onOpenChange={setShowSpaceMenu}>
       <DropdownMenuTrigger
-        className="flex items-center gap-1.5 text-[17px] font-semibold text-[#1d1d1f] transition-colors hover:text-[#0071e3] cursor-pointer"
-        aria-label="切换空间"
+        className="flex items-center gap-1.5 text-[17px] font-semibold text-editorial-ink transition-colors hover:text-editorial-primary cursor-pointer"
+        aria-label={t("wiki.switchSpace")}
       >
         <span>{spaceName}</span>
-        <ChevronDown size={14} className="text-[#86868b]" />
+        <ChevronDown size={14} className="text-editorial-ink-muted" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[200px] rounded-xl p-1.5">
         {spaces.map((s) => (
@@ -193,10 +195,10 @@ function MyWikiPage() {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleCreateSpace}
-          className="flex items-center gap-2 rounded-lg text-[13px] text-[#0071e3]"
+          className="flex items-center gap-2 rounded-lg text-[13px] text-editorial-primary"
         >
           <Plus size={14} />
-          创建新空间
+          {t("wiki.createNewSpace")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -212,48 +214,48 @@ function MyWikiPage() {
       onClick={() => setShowImport(true)}
     >
       <Import size={16} />
-      导入内容
+      {t("wiki.importTitle")}
     </Button>
   ) : undefined;
 
   return (
     <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
       <div className="flex h-full">
-        <nav className="flex w-12 shrink-0 flex-col items-center border-r border-[#e8e8ed] bg-[#fafafc] py-2">
+        <nav className="flex w-12 shrink-0 flex-col items-center border-r border-editorial-surface-strong bg-editorial-canvas-soft py-2">
           <WikiNavButton
             icon={FileText}
-            label="页面"
+            label={t("wiki.tabPages")}
             active={activeView === "pages"}
             onClick={() => setActiveView("pages")}
           />
           <WikiNavButton
             icon={Network}
-            label="图谱"
+            label={t("wiki.tabGraph")}
             active={activeView === "graph"}
             onClick={() => setActiveView("graph")}
           />
-          <div className="mt-2 mb-2 w-6 border-t border-[#e8e8ed]" />
+          <div className="mt-2 mb-2 w-6 border-t border-editorial-surface-strong" />
           <WikiNavButton
             icon={Database}
-            label="来源"
+            label={t("wiki.tabSources")}
             active={activeView === "sources"}
             onClick={() => setActiveView("sources")}
           />
           <div className="mt-auto flex flex-col items-center gap-1 pt-4">
             <WikiNavButton
               icon={Clock}
-              label="导入历史"
+              label={t("wiki.tabImportHistory")}
               onClick={() => setShowImportHistory(true)}
             />
             <WikiNavButton
               icon={ClipboardCheck}
-              label="审核"
+              label={t("wiki.tabReview")}
               active={activeView === "review"}
               onClick={() => setActiveView("review")}
             />
             <WikiNavButton
               icon={ShieldCheck}
-              label="检查"
+              label={t("wiki.tabLint")}
               active={activeView === "lint"}
               onClick={() => setActiveView("lint")}
             />
@@ -343,8 +345,8 @@ function WikiNavButton({
       aria-label={label}
       className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
         active
-          ? "bg-[#0071e3] text-white shadow-sm"
-          : "text-[#86868b] hover:bg-[#e8e8ed] hover:text-[#1d1d1f]"
+          ? "bg-editorial-primary text-white shadow-sm"
+          : "text-editorial-ink-muted hover:bg-editorial-surface-strong hover:text-editorial-ink"
       }`}
     >
       <Icon size={18} strokeWidth={active ? 2.2 : 1.6} />
@@ -371,7 +373,7 @@ function DualPaneLayout({
 }) {
   return (
     <div className="flex min-w-0 flex-1">
-      <aside className="flex w-[260px] shrink-0 flex-col border-r border-[#e8e8ed] bg-white">
+      <aside className="flex w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-white">
         <WikiPageList
           spaceId={spaceId}
           activePageId={activePageId}
@@ -407,17 +409,18 @@ function DualPaneLayout({
 }
 
 function WikiEmptyState() {
+  const { t } = useTranslation();
   return (
     <div className="flex h-full flex-1 items-center justify-center">
       <div className="mx-auto max-w-[280px] text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
-          <BookOpen size={20} className="text-[#6e6e73]" />
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+          <BookOpen size={20} className="text-editorial-ink-soft" />
         </div>
-        <h3 className="mb-1 text-[15px] font-semibold text-[#1d1d1f]">
-          选择一个页面
+        <h3 className="mb-1 text-[15px] font-semibold text-editorial-ink">
+          {t("wiki.selectPage")}
         </h3>
-        <p className="text-xs leading-relaxed text-[#6e6e73]">
-          从左侧列表选择一个页面，或导入文档自动生成知识
+        <p className="text-xs leading-relaxed text-editorial-ink-soft">
+          {t("wiki.selectPageDesc")}
         </p>
       </div>
     </div>

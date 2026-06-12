@@ -6,7 +6,7 @@ import {
   proxyErrorResponse,
 } from "@/lib/api/proxy-utils";
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://localhost:8000";
+const BACKEND_API_URL = process.env.BACKEND_API_URL ?? "http://127.0.0.1:8000";
 
 export const Route = createFileRoute("/api/v1/$")({
   server: {

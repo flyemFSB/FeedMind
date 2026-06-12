@@ -12,20 +12,19 @@ import {
   OpenAI,
   Qwen,
   ZAI,
-} from "@lobehub/icons";
+} from "@/components/icons/provider-icons";
 
-// @lobehub/icons 为各 LLM 供应商提供品牌图标；未映射的供应商回退为首字母缩写
 const providerIcons = {
   ChatGPT: OpenAI,
-  Gemini: Gemini.Color,
-  Claude: Claude.Color,
+  Gemini,
+  Claude,
   Grok,
-  Qwen: Qwen.Color,
-  Doubao: Doubao.Color,
+  Qwen,
+  Doubao,
   Kimi,
   GLM: ZAI,
-  DeepSeek: DeepSeek.Color,
-  MiniMax: Minimax.Color,
+  DeepSeek,
+  MiniMax: Minimax,
   自定义: Cpu,
 } as const;
 
@@ -54,7 +53,7 @@ export function ProviderIcon({ provider, size = 24 }: ProviderIconProps) {
 
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-md bg-[#f5f5f7] text-[10px] font-semibold leading-none text-[#1d1d1f]"
+      className="grid shrink-0 place-items-center rounded-md bg-editorial-surface-soft text-[10px] font-semibold leading-none text-editorial-ink"
       style={{ height: size, width: size }}
       aria-hidden="true"
     >

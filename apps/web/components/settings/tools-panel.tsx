@@ -6,8 +6,10 @@ import type { ToolRead } from "@feedmind/contracts";
 import { updateAllToolConfigs } from "@/lib/api/tools";
 import { Button } from "@/components/ui/button";
 import { DynamicField } from "./dynamic-field";
+import { useTranslation } from "react-i18next";
 
 export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
+  const { t } = useTranslation();
   const [activeTool, setActiveTool] = useState(initialTools[0]?.name ?? "");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>(() => {
     const init: Record<string, Record<string, unknown>> = {};
@@ -51,14 +53,14 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
       }
       await updateAllToolConfigs(payload);
       setTouched(new Set());
-      toast.success("工具配置已保存");
+      toast.success(t("settings.toolSaved"));
     } catch {
-      toast.error("保存失败");
+      toast.error(t("settings.saveFailed"));
     }
   }
 
   if (!initialTools.length) {
-    return <div className="text-[13px] text-[#86868b] px-5 py-4">暂无可用工具</div>;
+    return <div className="text-[13px] text-editorial-ink-muted px-5 py-4">{t("settings.noTools")}</div>;
   }
 
   const currentTool = initialTools.find((t) => t.name === activeTool) ?? initialTools[0];
@@ -68,26 +70,26 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 px-5">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">工具配置</h3>
-          <p className="mt-0.5 text-[12px] text-[#86868b]">
-            配置各工具的 API Key 等参数。
+          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.tools")}</h3>
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+            {t("settings.toolsDescription")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={save} className="h-8 rounded-xl bg-[#0071e3] text-[12px] text-white hover:bg-[#0066cc]">保存</Button>
+          <Button size="sm" onClick={save} className="h-8 rounded-xl bg-editorial-primary text-[12px] text-white hover:bg-editorial-primary">{t("common.save")}</Button>
         </div>
       </div>
 
       {/* Tool tabs */}
-      <div className="flex gap-1 border-b border-[#d2d2d7] px-5">
+      <div className="flex gap-1 border-b border-editorial-hairline px-5">
         {initialTools.map((tool) => (
           <button
             key={tool.name}
             onClick={() => handleToolSwitch(tool.name)}
             className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
               activeTool === tool.name
-                ? "border-[#0071e3] text-[#1d1d1f]"
-                : "border-transparent text-[#86868b] hover:text-[#1d1d1f]"
+                ? "border-editorial-primary text-editorial-ink"
+                : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
             }`}
           >
             {tool.display_name}
@@ -99,22 +101,22 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
       {/* Active tool pane */}
       <div className="px-5 space-y-4">
         {currentTool.description && (
-          <p className="text-[12px] text-[#86868b]">{currentTool.description}</p>
+          <p className="text-[12px] text-editorial-ink-muted">{currentTool.description}</p>
         )}
         {(currentTool.config_fields ?? []).length === 0 ? (
-          <p className="text-[12px] text-[#86868b]">该工具无可配置项</p>
+          <p className="text-[12px] text-editorial-ink-muted">{t("settings.noConfigFields")}</p>
         ) : (
           currentTool.config_fields.map((field) => (
             <div key={field.key}>
-              <label className="mb-1 block text-[12px] font-medium text-[#1d1d1f]">
+              <label className="mb-1 block text-[12px] font-medium text-editorial-ink">
                 {field.label}
                 {field.required && <span className="ml-0.5 text-[#ff3b30]">*</span>}
               </label>
               {field.description && (
-                <p className="mb-1.5 text-[11px] text-[#86868b]">
+                <p className="mb-1.5 text-[11px] text-editorial-ink-muted">
                   {field.description}
                   {field.link && (
-                    <> <a href={field.link} target="_blank" rel="noopener noreferrer" className="text-[#0071e3] underline underline-offset-2">获取</a></>
+                    <> <a href={field.link} target="_blank" rel="noopener noreferrer" className="text-editorial-primary underline underline-offset-2">{t("settings.getLink")}</a></>
                   )}
                 </p>
               )}

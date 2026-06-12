@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ConfigField } from "@feedmind/contracts";
+import { useTranslation } from "react-i18next";
 
 interface DynamicFieldProps {
   field: ConfigField;
@@ -27,6 +28,7 @@ interface DynamicFieldProps {
 }
 
 export function DynamicField({ field, value, toolName, passwordSet, onChange }: DynamicFieldProps) {
+  const { t } = useTranslation();
   if (field.type === "password") {
     return <PasswordField field={field} value={value} toolName={toolName} passwordSet={passwordSet} onChange={onChange} />;
   }
@@ -38,7 +40,7 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
         value={strValue}
         onChange={(e) => onChange(field.key, e.target.value)}
         placeholder={field.placeholder}
-        className="h-9 rounded-xl border-[#d2d2d7] text-[12px]"
+        className="h-9 rounded-xl border-editorial-hairline text-[12px]"
       />
     );
   }
@@ -51,7 +53,7 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
         value={numValue}
         onChange={(e) => onChange(field.key, Number(e.target.value))}
         placeholder={field.placeholder}
-        className="h-9 w-32 rounded-xl border-[#d2d2d7] text-[12px]"
+        className="h-9 w-32 rounded-xl border-editorial-hairline text-[12px]"
       />
     );
   }
@@ -71,8 +73,8 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
     const options = field.options ?? [];
     return (
       <Select value={strValue} onValueChange={(v) => onChange(field.key, v)}>
-        <SelectTrigger className="h-9 rounded-xl border-[#d2d2d7] text-[12px]">
-          <SelectValue placeholder={field.placeholder ?? "选择..."} />
+        <SelectTrigger className="h-9 rounded-xl border-editorial-hairline text-[12px]">
+          <SelectValue placeholder={field.placeholder ?? t("settings.selectOption")} />
         </SelectTrigger>
         <SelectContent>
           {options.map((opt) => (
@@ -89,18 +91,19 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
 }
 
 function PasswordField({ field, value, toolName, passwordSet, onChange }: DynamicFieldProps) {
+  const { t } = useTranslation();
   const isSet = passwordSet?.[field.key] ?? false;
   const [editValue, setEditValue] = useState("");
 
   return (
-    <InputGroup className="h-9 rounded-xl border-[#d2d2d7]">
+    <InputGroup className="h-9 rounded-xl border-editorial-hairline">
       <InputGroupInput
         value={editValue}
         onChange={(e) => {
           setEditValue(e.target.value);
           onChange(field.key, e.target.value);
         }}
-        placeholder={isSet ? "已配置，输入新值以替换" : (field.placeholder ?? "留空则不使用")}
+        placeholder={isSet ? t("settings.passwordReplace") : (field.placeholder ?? t("settings.passwordLeaveEmpty"))}
         type="password"
         className="text-[12px]"
       />

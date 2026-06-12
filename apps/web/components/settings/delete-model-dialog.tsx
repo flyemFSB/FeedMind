@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 interface DeleteModelDialogProps {
   model: LLMModel | null;
@@ -20,6 +21,7 @@ interface DeleteModelDialogProps {
 }
 
 export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDialogProps) {
+  const { t } = useTranslation();
   const deleteMutation = useDeleteLLMModel();
 
   function handleDelete() {
@@ -27,9 +29,9 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
     deleteMutation.mutate(model.id, {
       onSuccess: () => {
         onDeleted();
-        toast.success("模型已删除");
+        toast.success(t("settings.modelDeleted"));
       },
-      onError: () => toast.error("删除失败"),
+      onError: () => toast.error(t("settings.modelDeleteFailed")),
     });
   }
 
@@ -40,26 +42,26 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
         if (!value) onClose();
       }}
     >
-      <DialogContent className="max-w-[420px] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f]">
-        <DialogHeader className="border-b border-[#d2d2d7] px-5 py-4">
-          <DialogTitle className="text-[15px] font-semibold">删除模型</DialogTitle>
-          <DialogDescription className="text-[12px] text-[#86868b]">
-            删除后该模型将从配置列表中移除。
+      <DialogContent className="max-w-[420px] gap-0 rounded-2xl bg-white p-0 text-editorial-ink">
+        <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
+          <DialogTitle className="text-[15px] font-semibold">{t("settings.deleteModel")}</DialogTitle>
+          <DialogDescription className="text-[12px] text-editorial-ink-muted">
+            {t("settings.deleteModelDesc")}
           </DialogDescription>
         </DialogHeader>
-        <div className="px-5 py-5 text-[13px] text-[#1d1d1f]">
-          确认删除模型 {model?.modelName} 吗？
+        <div className="px-5 py-5 text-[13px] text-editorial-ink">
+          {t("settings.confirmDeleteModel", { modelName: model?.modelName })}
         </div>
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-[#d2d2d7] bg-[#fbfbfd] px-5 py-4">
+        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
           <Button onClick={onClose} variant="ghost" className="rounded-xl px-4 text-[13px]">
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
             className="rounded-xl bg-red-500 px-4 text-[13px] text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            确认删除
+            {t("settings.confirmDelete")}
           </Button>
         </DialogFooter>
       </DialogContent>

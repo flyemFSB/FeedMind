@@ -18,17 +18,17 @@ import { ToolsPanel } from "./tools-panel";
 import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
+import { useTranslation } from "react-i18next";
 
 interface Tab {
   id: TabId;
-  label: string;
   icon: React.ElementType;
 }
 
 const TABS: Tab[] = [
-  { id: "models", label: "模型配置", icon: Cpu },
-  { id: "runtime", label: "运行配置", icon: MessageSquare },
-  { id: "tools", label: "工具配置", icon: Wrench },
+  { id: "models", icon: Cpu },
+  { id: "runtime", icon: MessageSquare },
+  { id: "tools", icon: Wrench },
 ];
 
 interface SettingsModalProps {
@@ -37,6 +37,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onClose }: SettingsModalProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabId>("models");
   const [showModelForm, setShowModelForm] = useState(false);
   const [editingModel, setEditingModel] = useState<LLMModel | null>(null);
@@ -59,12 +60,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-[1180px]"
+        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-[1180px]"
       >
         {/* Custom horizontal header bar with DialogTitle for a11y */}
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-[#d2d2d7] px-6">
+        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-editorial-hairline px-6">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-[#0071e3] to-[#2997ff] flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-editorial-primary to-editorial-primary flex items-center justify-center">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                 <path
                   d="M12 2L2 7L12 12L22 7L12 2Z"
@@ -90,17 +91,17 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               </svg>
             </div>
             <div>
-              <DialogTitle className="text-[16px] font-semibold text-[#1d1d1f]">配置中心</DialogTitle>
-              <p className="text-[11px] text-[#86868b]">管理模型、工具与当前会话参数</p>
+              <DialogTitle className="text-[16px] font-semibold text-editorial-ink">{t("settings.title")}</DialogTitle>
+              <p className="text-[11px] text-editorial-ink-muted">{t("settings.description")}</p>
             </div>
           </div>
           <Button
             onClick={onClose}
             variant="ghost"
             size="icon"
-            className="rounded-lg hover:bg-[#f5f5f7]"
+            className="rounded-lg hover:bg-editorial-surface-soft"
           >
-            <X size={18} className="text-[#86868b]" />
+            <X size={18} className="text-editorial-ink-muted" />
           </Button>
         </div>
 
@@ -112,7 +113,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           }}
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <aside className="w-[220px] shrink-0 overflow-y-auto bg-[#f5f5f7] p-3">
+          <aside className="w-[220px] shrink-0 overflow-y-auto bg-editorial-surface-soft p-3">
             <TabsList className="w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0">
               {TABS.map((tab) => (
                 <TabsTrigger
@@ -121,12 +122,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   className={
                     "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors text-left " +
                     (activeTab === tab.id
-                      ? "bg-white text-[#1d1d1f] shadow-sm"
-                      : "text-[#6e6e73] hover:bg-white/50")
+                      ? "bg-white text-editorial-ink shadow-sm"
+                      : "text-editorial-ink-soft hover:bg-white/50")
                   }
                 >
                   <tab.icon size={16} strokeWidth={1.5} />
-                  <span>{tab.label}</span>
+                  <span>{tab.id === "models" ? t("settings.models") : tab.id === "runtime" ? t("settings.runtime") : t("settings.tools")}</span>
                 </TabsTrigger>
               ))}
             </TabsList>

@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BookOpen, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
-import { ThreadListPrimitive } from "@assistant-ui/react";
-import { AssistantThreadList } from "@/components/assistant-ui/thread-list";
+import { motion } from "motion/react";
+import { AssistantThreadList } from "@/components/chat/thread-list";
+import { writeActiveFeedMindThreadId } from "@/lib/api/chats";
+import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -16,6 +18,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
     select: (state) => state.location.pathname,
   });
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -26,17 +29,21 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed));
   }, [collapsed]);
-  const asideClassName = `flex h-full flex-col border-r border-[#d2d2d7] bg-white transition-all duration-200 ${
+  const asideClassName = `flex h-full flex-col border-r border-editorial-hairline bg-editorial-canvas transition-all duration-200 ${
     collapsed ? "w-[60px] min-w-[60px]" : "w-[260px] min-w-[260px]"
   } ${mobile ? "" : "max-md:hidden"}`;
 
   return (
-    <aside className={asideClassName}>
+    <motion.aside
+      className={asideClassName}
+      animate={{ width: collapsed ? 60 : 260 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+    >
       <div className="px-5 pt-5 pb-4">
         <Link to="/chat" className="flex items-center gap-2.5">
           {collapsed ? (
             <img
-              src="/FeedMind-logo.png"
+              src="/FeedMind-logo.svg"
               alt="FeedMind"
               width={28}
               height={28}
@@ -45,7 +52,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
             />
           ) : (
             <img
-              src="/FeedMind-logo-text.png"
+              src="/FeedMind-logo-text.svg"
               alt="FeedMind"
               width={139}
               height={36}
@@ -58,38 +65,39 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
       </div>
 
       <nav className="px-3 pb-2">
-        <ThreadListPrimitive.New
-          className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[#0071e3] px-3 text-[14px] font-semibold text-white shadow-sm shadow-[#0071e3]/20 transition-all hover:bg-[#0066cc] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30 active:translate-y-px data-[active]:bg-[#0066cc]"
+        <button
           onClick={() => {
+            writeActiveFeedMindThreadId("");
             if (pathname !== "/chat") navigate({ to: "/chat" });
           }}
+          className="flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-editorial-primary px-3 text-[14px] font-semibold text-editorial-ink-on-primary transition-all hover:bg-editorial-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-ink/30 active:translate-y-px"
         >
           <Plus size={16} strokeWidth={2} />
-          {!collapsed && <span>新会话</span>}
-        </ThreadListPrimitive.New>
+          {!collapsed && <span>{t("common.newChat")}</span>}
+        </button>
       </nav>
 
       <div className="px-3 pb-1">
         <Link
           to="/wiki"
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors hover:bg-[#f5f5f7] ${
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors hover:bg-editorial-surface-soft ${
             collapsed ? "justify-center" : ""
           } ${
             pathname === "/wiki"
-              ? "text-[#0071e3] bg-[#0071e3]/5"
-              : "text-[#1d1d1f]"
+              ? "text-editorial-primary bg-editorial-primary/5"
+              : "text-editorial-ink"
           }`}
         >
           <BookOpen size={16} strokeWidth={1.5} />
-          {!collapsed && <span>我的WIKI</span>}
+          {!collapsed && <span>{t("common.myWiki")}</span>}
         </Link>
       </div>
 
       {!collapsed ? (
         <div className="flex-1 overflow-y-auto px-3">
           <div className="px-3 pb-2 pt-1">
-            <span className="text-[11px] font-medium text-[#86868b] uppercase tracking-wide">
-              最近会话
+            <span className="text-[11px] font-medium text-editorial-ink-muted uppercase tracking-wide">
+              {t("common.recentChats")}
             </span>
           </div>
           <AssistantThreadList />
@@ -98,18 +106,18 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         <div className="flex-1" />
       )}
 
-      <div className="flex items-center p-3 border-t border-[#d2d2d7]">
+      <div className="flex items-center p-3 border-t border-editorial-hairline">
         <button
           onClick={onSettingsClick}
-          className="flex items-center gap-3 rounded-lg px-2 py-2 text-[14px] font-medium text-[#1d1d1f] transition-colors hover:bg-[#f5f5f7] flex-1"
+          className="flex items-center gap-3 rounded-lg px-2 py-2 text-[14px] font-medium text-editorial-ink transition-colors hover:bg-editorial-surface-soft flex-1"
         >
           <Settings size={16} strokeWidth={1.5} />
-          {!collapsed && <span>配置中心</span>}
+          {!collapsed && <span>{t("common.settings")}</span>}
         </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f5f5f7]"
-          title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
+          title={collapsed ? t("common.expandSidebar") : t("common.collapseSidebar")}
         >
           {collapsed ? (
             <ChevronRight size={16} strokeWidth={1.5} />
@@ -118,6 +126,6 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
           )}
         </button>
       </div>
-    </aside>
+    </motion.aside>
   );
 }

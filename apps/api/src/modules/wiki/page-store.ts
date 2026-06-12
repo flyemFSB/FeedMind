@@ -46,13 +46,18 @@ export function invalidatePageFileCache(spaceId: string): void {
 // ─── Path helpers ─────────────────────────────────────────────
 
 function normalizePagePath(p: string): string {
-  const withExt = p.endsWith(".md") ? p : `${p}.md`;
-  const normalized = withExt.startsWith("wiki/") ? withExt : `wiki/${withExt}`;
-  const parts = normalized.split("/");
-  if (parts.some((part) => part === ".." || part === ".")) {
-    throw new HttpError(400, "HTTP_ERROR", "Path must not contain .. or .");
+  // 统一反斜杠为正斜杠（Windows 路径穿越防护）
+  const normalized = p.replace(/\\/g, "/");
+  const withExt = normalized.endsWith(".md") ? normalized : `${normalized}.md`;
+  const prefixed = withExt.startsWith("wiki/") ? withExt : `wiki/${withExt}`;
+  const parts = prefixed.split("/");
+  // 拒绝 .. 和 . 以及绝对路径
+  for (const part of parts) {
+    if (part === ".." || part === "." || part.startsWith("/") || part.startsWith("\\")) {
+      throw new HttpError(400, "HTTP_ERROR", "Path must not contain .. or . or be absolute");
+    }
   }
-  return normalized;
+  return prefixed;
 }
 
 function slugFromPath(p: string): string {

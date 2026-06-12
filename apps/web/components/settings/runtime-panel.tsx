@@ -20,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ProviderIcon } from "./provider-icon";
 import { ModelSelector } from "./model-selector";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 type InnerTab = "session" | "wiki";
 
@@ -42,6 +43,7 @@ const defaultFields: ConfigFormFields = {
 };
 
 export function RuntimePanel() {
+  const { t } = useTranslation();
   const [innerTab, setInnerTab] = useState<InnerTab>("session");
   const { data: configs = [], isLoading } = useRuntimeConfigs({ enabled: true });
   const updateConfig = useUpdateRuntimeConfig();
@@ -109,16 +111,16 @@ export function RuntimePanel() {
     if (touched.has(`${innerTab}:system_prompt`)) payload.system_prompt = fields.system_prompt;
 
     if (Object.keys(payload).length === 0) {
-      toast.success("没有需要保存的更改");
+      toast.success(t("settings.noChanges"));
       return;
     }
 
     try {
       await updateConfig.mutateAsync({ scenario: innerTab, ...payload });
       setTouched(new Set());
-      toast.success(innerTab === "session" ? "会话模型配置已保存" : "WIKI 模型配置已保存");
+      toast.success(innerTab === "session" ? t("settings.saveSuccess") : t("settings.wikiSaveSuccess"));
     } catch {
-      toast.error("保存失败");
+      toast.error(t("settings.saveFailed"));
     }
   }
 
@@ -126,7 +128,7 @@ export function RuntimePanel() {
     if (!modelId) return;
     setWikiFields((prev) => ({ ...prev, llm_id: modelId }));
     await updateConfig.mutateAsync({ scenario: "wiki", llm_id: Number(modelId) });
-    toast.success("WIKI 模型已更新");
+    toast.success(t("settings.wikiModelUpdated"));
   }
 
   if (isLoading) {
@@ -146,43 +148,43 @@ export function RuntimePanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">运行配置</h3>
-          <p className="mt-0.5 text-[12px] text-[#86868b]">
-            管理会话模型与 WIKI 导入模型的参数配置。
+          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.runtime")}</h3>
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+            {t("settings.runtimeDescription")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button
             size="sm"
             onClick={handleSave}
-            className="h-8 rounded-xl bg-[#0071e3] text-[12px] text-white hover:bg-[#0066cc]"
+            className="h-8 rounded-xl bg-editorial-primary text-[12px] text-white hover:bg-editorial-primary"
           >
-            保存
+            {t("common.save")}
           </Button>
         </div>
       </div>
 
       {/* Inner tabs: 会话模型 | WIKI 模型 */}
-      <div className="flex gap-1 border-b border-[#d2d2d7]">
+      <div className="flex gap-1 border-b border-editorial-hairline">
         <button
           onClick={() => setInnerTab("session")}
           className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
             innerTab === "session"
-              ? "border-[#0071e3] text-[#1d1d1f]"
-              : "border-transparent text-[#86868b] hover:text-[#1d1d1f]"
+              ? "border-editorial-primary text-editorial-ink"
+              : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
           }`}
         >
-          会话模型
+          {t("settings.sessionModelTab")}
         </button>
         <button
           onClick={() => setInnerTab("wiki")}
           className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
             innerTab === "wiki"
-              ? "border-[#0071e3] text-[#1d1d1f]"
-              : "border-transparent text-[#86868b] hover:text-[#1d1d1f]"
+              ? "border-editorial-primary text-editorial-ink"
+              : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
           }`}
         >
-          WIKI 模型
+          {t("settings.wikiModelTab")}
         </button>
       </div>
 
@@ -202,7 +204,7 @@ export function RuntimePanel() {
       {/* Config fields */}
       <div className="grid min-w-0 grid-cols-3 gap-4">
         <div>
-          <label className="text-[12px] text-[#86868b] mb-1.5 block">温度 (Temperature)</label>
+          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.temperature")}</label>
           <div className="flex items-center gap-2">
             <Slider
               min={0}
@@ -219,13 +221,13 @@ export function RuntimePanel() {
               }}
               className="flex-1"
             />
-            <span className="text-[12px] text-[#1d1d1f] w-8 text-right">
+            <span className="text-[12px] text-editorial-ink w-8 text-right">
               {currentFields.temperature.toFixed(1)}
             </span>
           </div>
         </div>
         <div>
-          <label className="text-[12px] text-[#86868b] mb-1.5 block">Max Tokens</label>
+          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.maxTokens")}</label>
           <Input
             type="number"
             value={currentFields.max_tokens}
@@ -237,11 +239,11 @@ export function RuntimePanel() {
                 handleWikiFieldChange("max_tokens", v);
               }
             }}
-            className="h-10 rounded-xl border-[#d2d2d7] text-[13px]"
+            className="h-10 rounded-xl border-editorial-hairline text-[13px]"
           />
         </div>
         <div>
-          <label className="text-[12px] text-[#86868b] mb-1.5 block">上下文长度</label>
+          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.contextLength")}</label>
           <Select
             value={currentFields.context_length}
             onValueChange={(v: string | null) => {
@@ -254,12 +256,12 @@ export function RuntimePanel() {
             }}
           >
             <SelectTrigger
-              aria-label="选择上下文长度"
-              className="h-10 w-full rounded-xl border-[#d2d2d7] bg-white px-4 text-[13px]"
+              aria-label={t("settings.selectContextLength")}
+              className="h-10 w-full rounded-xl border-editorial-hairline bg-white px-4 text-[13px]"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-[#d2d2d7]">
+            <SelectContent className="rounded-xl border-editorial-hairline">
               <SelectGroup>
                 {CONTEXT_LENGTHS.map((len) => (
                   <SelectItem key={len} value={len}>
@@ -274,7 +276,7 @@ export function RuntimePanel() {
 
       {/* System prompt */}
       <div>
-        <label className="text-[12px] text-[#86868b] mb-1.5 block">系统提示词模板</label>
+        <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.systemPrompt")}</label>
         <Textarea
           value={currentFields.system_prompt}
           onChange={(e) => {
@@ -285,7 +287,7 @@ export function RuntimePanel() {
             }
           }}
           rows={4}
-          className="w-full px-4 py-3 rounded-xl border border-[#d2d2d7] text-[13px] text-[#1d1d1f] resize-none focus:outline-none focus:border-[#0071e3]"
+          className="w-full px-4 py-3 rounded-xl border border-editorial-hairline text-[13px] text-editorial-ink resize-none focus:outline-none focus:border-editorial-primary"
         />
       </div>
     </div>
@@ -295,12 +297,13 @@ export function RuntimePanel() {
 // ─── Session Model Selector ─────────────────────────────────────────
 
 function SessionModelSelectorSection() {
+  const { t } = useTranslation();
   return (
     <div>
-      <label className="text-[12px] text-[#86868b] mb-1.5 block">会话模型</label>
+      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.sessionModel")}</label>
       <ModelSelector />
-      <p className="mt-1 text-[11px] text-[#86868b]">
-        选择用于聊天的模型。更改会同步到聊天页面。
+      <p className="mt-1 text-[11px] text-editorial-ink-muted">
+        {t("settings.sessionModelDesc")}
       </p>
     </div>
   );
@@ -317,20 +320,21 @@ function WikiModelSelectorSection({
   selectedId: string;
   onSelect: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   const hasModels = models.length > 0;
 
   return (
     <div>
-      <label className="text-[12px] text-[#86868b] mb-1.5 block">WIKI 导入模型</label>
+      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.wikiModel")}</label>
       <Select value={hasModels ? selectedId : ""} onValueChange={(v: string | null) => { if (v) onSelect(v); }}>
         <SelectTrigger
-          aria-label="选择 WIKI 模型"
-          className="h-10 w-[260px] rounded-xl border-[#d2d2d7] bg-white px-4 text-[13px] text-[#1d1d1f] hover:bg-[#f5f5f7]"
+          aria-label={t("settings.selectWikiModel")}
+          className="h-10 w-[260px] rounded-xl border-editorial-hairline bg-white px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
           disabled={!hasModels}
         >
-          <SelectValue placeholder={hasModels ? "暂无可选项" : "未配置模型"} />
+          <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")} />
         </SelectTrigger>
-        <SelectContent align="end" className="rounded-xl border-[#d2d2d7]">
+        <SelectContent align="end" className="rounded-xl border-editorial-hairline">
           <SelectGroup>
             {models.map((model) => (
               <SelectItem key={model.id} value={model.id}>
@@ -343,8 +347,8 @@ function WikiModelSelectorSection({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[11px] text-[#86868b]">
-        选择用于 WIKI 导入分析的模型，模型可在「模型配置」中添加。
+      <p className="mt-1 text-[11px] text-editorial-ink-muted">
+        {t("settings.wikiModelDesc")}
       </p>
     </div>
   );

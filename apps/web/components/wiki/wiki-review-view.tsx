@@ -5,6 +5,7 @@ import type { ReviewItem } from "@feedmind/contracts";
 import { listReviewItems, resolveReviewItem, dismissReviewItem, sweepReviewItems } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
 
 interface WikiReviewViewProps {
   spaceId: string;
@@ -18,13 +19,14 @@ const REVIEW_ICONS: Record<string, React.ElementType> = {
 };
 
 const REVIEW_COLORS: Record<string, string> = {
-  "missing-page": "#0071e3",
+  "missing-page": "var(--color-editorial-primary)",
   duplicate: "#ff9500",
   contradiction: "#ff3b30",
   suggestion: "#34c759",
 };
 
 export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [sweeping, setSweeping] = useState(false);
@@ -50,7 +52,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
     } catch { /* handled by apiFetch toast */ }
   };
 
-  const handle忽略 = async (itemId: string) => {
+  const handleDismiss = async (itemId: string) => {
     try {
       await dismissReviewItem(spaceId, itemId);
       setItems((prev) => prev.filter((r) => r.id !== itemId));
@@ -71,11 +73,11 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
 
   return (
     <div className="flex h-full flex-col bg-white">
-      <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
+      <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">审核</h2>
-          <p className="mt-0.5 text-[11px] text-[#86868b]">
-            待处理 {unresolved.length} 项 / 共 {items.length} 项
+          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.reviewTitle")}</h2>
+          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
+            {t("wiki.reviewSummary", { unresolved: unresolved.length, total: items.length })}
           </p>
         </div>
         <Button
@@ -86,7 +88,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
           className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
         >
           <RefreshCw size={13} className={sweeping ? "animate-spin" : ""} />
-          一键清理
+          {t("wiki.sweep")}
         </Button>
       </div>
 
@@ -103,19 +105,19 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
             <CheckCircle2 size={32} className="mb-3 text-[#34c759]" />
-            <p className="text-[13px] font-medium text-[#1d1d1f]">全部通过</p>
-            <p className="mt-1 text-[11px] text-[#86868b]">暂无待审核项</p>
+            <p className="text-[13px] font-medium text-editorial-ink">{t("wiki.allPassed")}</p>
+            <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.noReviewItems")}</p>
           </div>
         ) : (
           <div className="space-y-3 p-6">
             {items.map((item) => {
               const Icon = REVIEW_ICONS[item.type] ?? Lightbulb;
-              const color = REVIEW_COLORS[item.type] ?? "#86868b";
+              const color = REVIEW_COLORS[item.type] ?? "var(--color-editorial-ink-muted)";
               return (
                 <div
                   key={item.id}
                   className={`rounded-xl border p-4 transition-colors ${
-                    item.resolved ? "border-[#e8e8ed] bg-[#fafafc] opacity-60" : "border-[#e8e8ed] bg-white"
+                    item.resolved ? "border-editorial-surface-strong bg-editorial-canvas-soft opacity-60" : "border-editorial-surface-strong bg-white"
                   }`}
                 >
                   <div className="mb-2 flex items-center gap-2">
@@ -127,8 +129,8 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                       {item.type}
                     </span>
                   </div>
-                  <h3 className="mb-1 text-[13px] font-semibold text-[#1d1d1f]">{item.title}</h3>
-                  <p className="mb-3 text-[11px] leading-relaxed text-[#86868b]">{item.description}</p>
+                  <h3 className="mb-1 text-[13px] font-semibold text-editorial-ink">{item.title}</h3>
+                  <p className="mb-3 text-[11px] leading-relaxed text-editorial-ink-muted">{item.description}</p>
                   {!item.resolved && (
                     <div className="flex gap-2">
                       <Button
@@ -138,16 +140,16 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                         className="h-7 rounded-lg px-2.5 text-[11px] text-[#34c759] hover:bg-[#f0faf0]"
                       >
                         <CheckCircle2 size={12} className="mr-1" />
-                        批准
+                        {t("wiki.approve")}
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handle忽略(item.id)}
-                        className="h-7 rounded-lg px-2.5 text-[11px] text-[#86868b] hover:bg-[#f5f5f7]"
+                        onClick={() => handleDismiss(item.id)}
+                        className="h-7 rounded-lg px-2.5 text-[11px] text-editorial-ink-muted hover:bg-editorial-surface-soft"
                       >
                         <XCircle size={12} className="mr-1" />
-                        忽略
+                        {t("wiki.ignore")}
                       </Button>
                     </div>
                   )}

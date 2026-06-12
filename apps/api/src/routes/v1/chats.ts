@@ -1,7 +1,9 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { chatSessionSnapshotSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
+  createChatSession,
   deleteChatSession,
   getChatSession,
   listChatSessions,
@@ -9,6 +11,17 @@ import {
 } from "../../modules/chats/service.js";
 
 export const chatRoutes = new Hono();
+
+// 创建新会话
+const createSessionSchema = z.object({
+  agent_thread_id: z.string().optional(),
+  title: z.string().nullable().optional(),
+});
+
+chatRoutes.post("/chats", async (c) => {
+  const payload = await parseJson(c, createSessionSchema);
+  return jsonOk(c, await createChatSession(payload.agent_thread_id, payload.title), 201);
+});
 
 chatRoutes.get("/chats", async (c) => jsonOk(c, await listChatSessions()));
 chatRoutes.get("/chats/:sessionId", async (c) => jsonOk(c, await getChatSession(c.req.param("sessionId"))));

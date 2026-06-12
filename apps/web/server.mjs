@@ -10,13 +10,18 @@
 
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, isAbsolute, join, relative } from "node:path";
 import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "127.0.0.1";
 
-const CLIENT_DIR = new URL("./dist/client/", import.meta.url);
+if (!process.env.BACKEND_API_URL && process.env.ALLOW_LOCAL_UPSTREAM === undefined) {
+  process.env.ALLOW_LOCAL_UPSTREAM = "true";
+}
+
+const CLIENT_DIR = fileURLToPath(new URL("./dist/client/", import.meta.url));
 const SERVER_ENTRY = "./dist/server/server.js";
 
 const MIME_TYPES = {
@@ -44,8 +49,13 @@ createServer(async (req, res) => {
     );
 
     // --- Static assets from dist/client/ ---
-    const filePath = join(CLIENT_DIR.pathname, url.pathname);
-    if (existsSync(filePath)) {
+    const requestPath = decodeURIComponent(url.pathname).replace(/^\/+/, "");
+    const filePath = join(CLIENT_DIR, requestPath);
+    const relativePath = relative(CLIENT_DIR, filePath);
+    const isInsideClientDir =
+      relativePath && !relativePath.startsWith("..") && !isAbsolute(relativePath);
+
+    if (isInsideClientDir && existsSync(filePath)) {
       const ext = extname(filePath);
       const content = await readFile(filePath);
       res.writeHead(200, {

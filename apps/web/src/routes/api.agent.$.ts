@@ -6,7 +6,7 @@ import {
   proxyErrorResponse,
 } from "@/lib/api/proxy-utils";
 
-const AGENT_API_URL = process.env.AGENT_API_URL ?? "http://localhost:2024";
+const AGENT_API_URL = process.env.AGENT_API_URL ?? "http://127.0.0.1:8000";
 
 export const Route = createFileRoute("/api/agent/$")({
   server: {

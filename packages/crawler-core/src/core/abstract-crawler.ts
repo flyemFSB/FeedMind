@@ -53,17 +53,19 @@ export abstract class AbstractCrawler {
   }
 
   /**
-   * Fetch with safe abort propagation.
+   * Fetch with safe abort propagation and default timeout（15s）.
    * Creates an inner AbortController linked to this.abortSignal
-   * so the request is cancelled when the task is cancelled.
+   * so the request is cancelled when the task is cancelled or times out.
    */
   protected async fetchWithAbort(
     url: string,
     init?: RequestInit,
   ): Promise<Response> {
     const controller = new AbortController();
+    const timeout = AbortSignal.timeout(15_000);
     const onAbort = () => controller.abort();
     this.abortSignal?.addEventListener("abort", onAbort, { once: true });
+    timeout.addEventListener("abort", () => controller.abort(), { once: true });
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } finally {

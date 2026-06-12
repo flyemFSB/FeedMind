@@ -5,6 +5,7 @@ import type { LintResult } from "@feedmind/contracts";
 import { runLint, getLintItems } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
 
 interface WikiLintViewProps {
   spaceId: string;
@@ -18,10 +19,11 @@ const LINT_ICONS: Record<string, React.ElementType> = {
 
 const LINT_COLORS: Record<string, string> = {
   warning: "#ff9500",
-  info: "#0071e3",
+  info: "var(--color-editorial-primary)",
 };
 
 export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
+  const { t } = useTranslation();
   const [items, setItems] = useState<LintResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -56,21 +58,21 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
 
   return (
     <div className="flex h-full flex-col bg-white">
-      <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
+      <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">检查</h2>
-          <p className="mt-0.5 text-[11px] text-[#86868b]">
-            {items.length} 个问题（{warnings.length} 个警告，{infos.length} 条提示）
+          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.lintTitle")}</h2>
+          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
+            {t("wiki.lintSummary", { total: items.length, warnings: warnings.length, infos: infos.length })}
           </p>
         </div>
         <Button
           size="sm"
           onClick={handleRunLint}
           disabled={running}
-          className="h-8 gap-1.5 rounded-lg bg-[#0071e3] px-3 text-[12px] text-white hover:bg-[#0066cc]"
+          className="h-8 gap-1.5 rounded-lg bg-editorial-primary px-3 text-[12px] text-white hover:bg-editorial-primary"
         >
           {running ? <RefreshCw size={13} className="animate-spin" /> : <Play size={13} />}
-          运行
+          {t("wiki.runLint")}
         </Button>
       </div>
 
@@ -87,32 +89,32 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
             <Info size={32} className="mb-3 text-[#34c759]" />
-            <p className="text-[13px] font-medium text-[#1d1d1f]">未发现问题</p>
-            <p className="mt-1 text-[11px] text-[#86868b]">运行检查以查找潜在问题</p>
+            <p className="text-[13px] font-medium text-editorial-ink">{t("wiki.noLintIssues")}</p>
+            <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.runLintHint")}</p>
           </div>
         ) : (
           <div className="space-y-2 p-6">
             {items.map((item, i) => {
               const Icon = LINT_ICONS[item.severity] ?? Info;
-              const color = LINT_COLORS[item.severity] ?? "#86868b";
+              const color = LINT_COLORS[item.severity] ?? "var(--color-editorial-ink-muted)";
               const pageSlug = item.page.replace(/wiki\//, "").replace(/\.md$/, "");
               return (
                 <div
                   key={i}
-                  className="flex items-start gap-3 rounded-xl border border-[#e8e8ed] p-3 transition-colors hover:bg-[#fafafc]"
+                  className="flex items-start gap-3 rounded-xl border border-editorial-surface-strong p-3 transition-colors hover:bg-editorial-canvas-soft"
                 >
                   <Icon size={14} style={{ color }} className="mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       {onPageSelect ? (
                         <button
-                          className="text-[12px] font-medium text-[#0071e3] hover:underline"
+                          className="text-[12px] font-medium text-editorial-primary hover:underline"
                           onClick={() => onPageSelect(pageSlug)}
                         >
                           {item.page}
                         </button>
                       ) : (
-                        <span className="text-[12px] font-medium text-[#1d1d1f]">{item.page}</span>
+                        <span className="text-[12px] font-medium text-editorial-ink">{item.page}</span>
                       )}
                       <span
                         className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-medium text-white"
@@ -121,7 +123,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
                         {item.type}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-[#86868b]">{item.detail}</p>
+                    <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{item.detail}</p>
                   </div>
                 </div>
               );

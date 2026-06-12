@@ -14,6 +14,7 @@ import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiHealthRouteImport } from './routes/api.health'
 import { Route as ApiV1SplatRouteImport } from './routes/api.v1.$'
+import { Route as ApiChatSplatRouteImport } from './routes/api.chat.$'
 import { Route as ApiAgentSplatRouteImport } from './routes/api.agent.$'
 
 const WikiRoute = WikiRouteImport.update({
@@ -41,6 +42,11 @@ const ApiV1SplatRoute = ApiV1SplatRouteImport.update({
   path: '/api/v1/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatSplatRoute = ApiChatSplatRouteImport.update({
+  id: '/api/chat/$',
+  path: '/api/chat/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAgentSplatRoute = ApiAgentSplatRouteImport.update({
   id: '/api/agent/$',
   path: '/api/agent/$',
@@ -53,6 +59,7 @@ export interface FileRoutesByFullPath {
   '/wiki': typeof WikiRoute
   '/api/health': typeof ApiHealthRoute
   '/api/agent/$': typeof ApiAgentSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRoutesByTo {
@@ -61,6 +68,7 @@ export interface FileRoutesByTo {
   '/wiki': typeof WikiRoute
   '/api/health': typeof ApiHealthRoute
   '/api/agent/$': typeof ApiAgentSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRoutesById {
@@ -70,6 +78,7 @@ export interface FileRoutesById {
   '/wiki': typeof WikiRoute
   '/api/health': typeof ApiHealthRoute
   '/api/agent/$': typeof ApiAgentSplatRoute
+  '/api/chat/$': typeof ApiChatSplatRoute
   '/api/v1/$': typeof ApiV1SplatRoute
 }
 export interface FileRouteTypes {
@@ -80,9 +89,17 @@ export interface FileRouteTypes {
     | '/wiki'
     | '/api/health'
     | '/api/agent/$'
+    | '/api/chat/$'
     | '/api/v1/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/wiki' | '/api/health' | '/api/agent/$' | '/api/v1/$'
+  to:
+    | '/'
+    | '/chat'
+    | '/wiki'
+    | '/api/health'
+    | '/api/agent/$'
+    | '/api/chat/$'
+    | '/api/v1/$'
   id:
     | '__root__'
     | '/'
@@ -90,6 +107,7 @@ export interface FileRouteTypes {
     | '/wiki'
     | '/api/health'
     | '/api/agent/$'
+    | '/api/chat/$'
     | '/api/v1/$'
   fileRoutesById: FileRoutesById
 }
@@ -99,6 +117,7 @@ export interface RootRouteChildren {
   WikiRoute: typeof WikiRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiAgentSplatRoute: typeof ApiAgentSplatRoute
+  ApiChatSplatRoute: typeof ApiChatSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
 }
 
@@ -139,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/chat/$': {
+      id: '/api/chat/$'
+      path: '/api/chat/$'
+      fullPath: '/api/chat/$'
+      preLoaderRoute: typeof ApiChatSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/agent/$': {
       id: '/api/agent/$'
       path: '/api/agent/$'
@@ -155,6 +181,7 @@ const rootRouteChildren: RootRouteChildren = {
   WikiRoute: WikiRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiAgentSplatRoute: ApiAgentSplatRoute,
+  ApiChatSplatRoute: ApiChatSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,
 }
 export const routeTree = rootRouteImport

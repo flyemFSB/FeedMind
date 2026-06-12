@@ -18,8 +18,10 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProviderIcon } from "@/components/settings/provider-icon";
+import { useTranslation } from "react-i18next";
 
 export function ModelSelector() {
+  const { t } = useTranslation();
   // Use TanStack Query for data fetching — auto-refreshes on cache invalidation
   const { data: models = [], isLoading, isError } = useLLMModels();
   const { data: selectedModelId = "" } = useSelectedLLMModel();
@@ -60,7 +62,7 @@ export function ModelSelector() {
   }
 
   const options = loadError && selectedModel
-    ? [{ label: "模型加载失败", value: selectedModel, provider: "" }]
+    ? [{ label: t("settings.modelLoadFailed"), value: selectedModel, provider: "" }]
     : models.map((model) => ({
         label: model.modelName,
         value: model.id,
@@ -72,11 +74,11 @@ export function ModelSelector() {
   return (
     <Select value={hasModels ? selectedModel : ""} onValueChange={handleChange}>
       <SelectTrigger
-        aria-label="选择会话模型"
-        className="h-10 w-[260px] rounded-xl border-[#d2d2d7] bg-white px-4 text-[13px] text-[#1d1d1f] hover:bg-[#f5f5f7]"
+        aria-label={t("settings.selectSessionModel")}
+        className="h-10 w-[260px] rounded-xl border-editorial-hairline bg-white px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
         disabled={!hasModels || options.length === 0}
       >
-        <SelectValue placeholder={hasModels ? "暂无可选项" : "未配置模型"}>
+        <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")}>
           {(value: string | null) => {
             const opt = hasModels && value ? optionMap.get(value) : null;
             return opt ? (
@@ -85,12 +87,12 @@ export function ModelSelector() {
                 <span className="truncate">{opt.label}</span>
               </span>
             ) : (
-              "未配置模型"
+              t("settings.noModels")
             );
           }}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="end" className="rounded-xl border-[#d2d2d7]">
+      <SelectContent align="end" className="rounded-xl border-editorial-hairline">
         <SelectGroup>
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>

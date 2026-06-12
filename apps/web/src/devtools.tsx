@@ -1,25 +1,54 @@
 import { type ComponentType, useEffect, useState } from "react";
 
-export function TanStackRouterDevtools() {
-  if (import.meta.env.PROD) return null;
+const devtoolsEnabled =
+  import.meta.env.DEV && import.meta.env.VITE_ENABLE_TANSTACK_DEVTOOLS === "true";
+
+const loadRouterDevtools = () =>
+  import("@tanstack/react-router-devtools").then((res) => res.TanStackRouterDevtools);
+
+const loadQueryDevtools = () =>
+  import("@tanstack/react-query-devtools").then((res) => res.ReactQueryDevtools);
+
+function useIdleDevtools(load: () => Promise<ComponentType>) {
   const [Devtools, setDevtools] = useState<ComponentType | null>(null);
+
   useEffect(() => {
-    import("@tanstack/react-router-devtools").then((res) =>
-      setDevtools(() => res.TanStackRouterDevtools),
-    );
-  }, []);
+    let cancelled = false;
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
+
+    const loadDevtools = () => {
+      load().then((component) => {
+        if (!cancelled) setDevtools(() => component);
+      });
+    };
+
+    if ("requestIdleCallback" in window) {
+      idleId = window.requestIdleCallback(loadDevtools, { timeout: 3000 });
+    } else {
+      timeoutId = globalThis.setTimeout(loadDevtools, 2500);
+    }
+
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined) window.cancelIdleCallback(idleId);
+      if (timeoutId !== undefined) globalThis.clearTimeout(timeoutId);
+    };
+  }, [load]);
+
+  return Devtools;
+}
+
+export function TanStackRouterDevtools() {
+  if (!devtoolsEnabled) return null;
+  const Devtools = useIdleDevtools(loadRouterDevtools);
   if (!Devtools) return null;
   return <Devtools />;
 }
 
 export function TanStackQueryDevtools() {
-  if (import.meta.env.PROD) return null;
-  const [Devtools, setDevtools] = useState<ComponentType | null>(null);
-  useEffect(() => {
-    import("@tanstack/react-query-devtools").then((res) =>
-      setDevtools(() => res.ReactQueryDevtools),
-    );
-  }, []);
+  if (!devtoolsEnabled) return null;
+  const Devtools = useIdleDevtools(loadQueryDevtools);
   if (!Devtools) return null;
   return <Devtools />;
 }

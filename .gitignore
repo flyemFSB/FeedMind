@@ -49,6 +49,12 @@ package-lock.json
 data/
 logs/
 
+# Mastra build output
+.mastra/
+
+# Impeccable design system sidecar
+.impeccable/
+
 # OS / editor
 .DS_Store
 Thumbs.db

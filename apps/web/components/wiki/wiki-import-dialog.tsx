@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -36,50 +37,51 @@ export function WikiImportDialog({
   onClose,
   onImported,
 }: WikiImportDialogProps) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<ImportTab>("file");
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f] sm:max-w-lg">
+      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-lg">
         {/* Header row — no border, kept clean */}
         <div className="flex items-center justify-between px-6 pt-4">
-          <DialogTitle className="text-[16px] font-semibold">导入内容</DialogTitle>
+          <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#86868b] transition-colors hover:bg-[#f5f5f7]"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Tab bar — plain buttons, full control over styling */}
-        <div className="mx-6 mt-3 flex gap-5 border-b border-[#e8e8ed]">
+        <div className="mx-6 mt-3 flex gap-5 border-b border-editorial-surface-strong">
           <button
             onClick={() => setTab("file")}
             className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
               tab === "file"
-                ? "text-[#0071e3]"
-                : "text-[#86868b] hover:text-[#1d1d1f]"
+                ? "text-editorial-primary"
+                : "text-editorial-ink-muted hover:text-editorial-ink"
             }`}
           >
             <FileText size={15} strokeWidth={1.6} />
-            上传文件
+            {t("wiki.uploadFile")}
             {tab === "file" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0071e3] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-full" />
             )}
           </button>
           <button
             onClick={() => setTab("url")}
             className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
               tab === "url"
-                ? "text-[#0071e3]"
-                : "text-[#86868b] hover:text-[#1d1d1f]"
+                ? "text-editorial-primary"
+                : "text-editorial-ink-muted hover:text-editorial-ink"
             }`}
           >
             <Globe size={15} strokeWidth={1.6} />
-            粘贴链接
+            {t("wiki.pasteLink")}
             {tab === "url" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0071e3] rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-full" />
             )}
           </button>
         </div>
@@ -116,6 +118,7 @@ function FileUploadTab({
   spaceId: string;
   onImported: () => void;
 }) {
+  const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState<
@@ -146,7 +149,7 @@ function FileUploadTab({
           newResults.push({
             name: file.name,
             status: "error",
-            message: err instanceof Error ? err.message : "上传失败",
+            message: err instanceof Error ? err.message : t("wiki.uploadFailed"),
           });
         }
       }
@@ -193,21 +196,21 @@ function FileUploadTab({
         onClick={() => inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors ${
           dragOver
-            ? "border-[#0071e3] bg-[#e8f0fe]"
-            : "border-[#d2d2d7] bg-[#fafafc] hover:border-[#86868b]"
+            ? "border-editorial-primary bg-editorial-primary/10"
+            : "border-editorial-hairline bg-editorial-canvas-soft hover:border-editorial-ink-muted"
         }`}
       >
         {uploading ? (
-          <Loader2 size={28} className="animate-spin text-[#0071e3]" />
+          <Loader2 size={28} className="animate-spin text-editorial-primary" />
         ) : (
-          <Upload size={28} className="text-[#86868b]" strokeWidth={1.5} />
+          <Upload size={28} className="text-editorial-ink-muted" strokeWidth={1.5} />
         )}
         <div className="text-center">
-          <p className="text-[13px] font-medium text-[#1d1d1f]">
-            {uploading ? "上传中..." : "点击或拖拽文件到此处"}
+          <p className="text-[13px] font-medium text-editorial-ink">
+            {uploading ? t("wiki.uploading") : t("wiki.dropFiles")}
           </p>
-          <p className="mt-1 text-[11px] text-[#86868b]">
-            支持 .md .pdf .docx .xlsx .pptx 格式
+          <p className="mt-1 text-[11px] text-editorial-ink-muted">
+            {t("wiki.supportedFormats")}
           </p>
         </div>
         <input
@@ -228,7 +231,7 @@ function FileUploadTab({
               key={i}
               className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
                 r.status === "success"
-                  ? "bg-[#f0faf0] text-[#1d1d1f]"
+                  ? "bg-[#f0faf0] text-editorial-ink"
                   : "bg-[#fff5f5] text-[#ff3b30]"
               }`}
             >
@@ -239,7 +242,7 @@ function FileUploadTab({
               )}
               <span className="truncate font-medium">{r.name}</span>
               {r.message && (
-                <span className="ml-auto shrink-0 text-[10px] text-[#86868b]">
+                <span className="ml-auto shrink-0 text-[10px] text-editorial-ink-muted">
                   {r.message}
                 </span>
               )}
@@ -260,6 +263,7 @@ function UrlPasteTab({
   spaceId: string;
   onImported: () => void;
 }) {
+  const { t } = useTranslation();
   const [urls, setUrls] = useState("");
   const [processing, setProcessing] = useState(false);
   const [results, setResults] = useState<
@@ -296,7 +300,7 @@ function UrlPasteTab({
         newResults.push({
           url,
           status: "error",
-          message: err instanceof Error ? err.message : "处理失败",
+          message: err instanceof Error ? err.message : t("wiki.processFailed"),
         });
       }
     }
@@ -327,48 +331,48 @@ function UrlPasteTab({
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-[#1d1d1f]">
-          输入 URL 链接
+        <label className="mb-1.5 block text-[13px] font-medium text-editorial-ink">
+          {t("wiki.urlLabel")}
         </label>
         <textarea
-          className="min-h-[100px] w-full resize-none rounded-xl border border-[#d2d2d7] bg-white p-3 text-[13px] text-[#1d1d1f] placeholder:text-[#86868b] outline-none transition-colors focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3]"
-          placeholder={"粘贴链接，每行一个...\n例如：\nhttps://example.com/article"}
+          className="min-h-[100px] w-full resize-none rounded-xl border border-editorial-hairline bg-white p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
+          placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
         />
         {hasError && (
           <p className="mt-1 text-[11px] text-[#ff3b30]">
-            部分链接格式不正确，将被跳过
+            {t("wiki.invalidUrls")}
           </p>
         )}
         {urlList.length > 0 && (
-          <p className="mt-1 text-[11px] text-[#86868b]">
-            共 {urlList.length} 个链接，{validUrls.length} 个有效
+          <p className="mt-1 text-[11px] text-editorial-ink-muted">
+            {t("wiki.urlCount", { count: urlList.length, valid: validUrls.length })}
           </p>
         )}
       </div>
 
       <div className="flex items-center justify-end gap-3">
         {urlList.length > 0 && (
-          <span className="text-[11px] text-[#86868b]">
-            将创建 {validUrls.length} 个来源
+          <span className="text-[11px] text-editorial-ink-muted">
+            {t("wiki.willCreate", { count: validUrls.length })}
           </span>
         )}
         <Button
           size="sm"
           onClick={handleSubmit}
           disabled={processing || validUrls.length === 0}
-          className="h-9 gap-2 rounded-lg bg-[#0071e3] px-4 text-[12px] text-white hover:bg-[#0066cc]"
+          className="h-9 gap-2 rounded-lg bg-editorial-primary px-4 text-[12px] text-white hover:bg-editorial-primary"
         >
           {processing ? (
             <>
               <Loader2 size={14} className="animate-spin" />
-              导入中...
+              {t("wiki.importing")}
             </>
           ) : (
             <>
               <Globe size={14} />
-              开始导入
+              {t("wiki.startImport")}
             </>
           )}
         </Button>
@@ -382,7 +386,7 @@ function UrlPasteTab({
               key={i}
               className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
                 r.status === "success"
-                  ? "bg-[#f0faf0] text-[#1d1d1f]"
+                  ? "bg-[#f0faf0] text-editorial-ink"
                   : "bg-[#fff5f5] text-[#ff3b30]"
               }`}
             >

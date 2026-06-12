@@ -25,27 +25,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/settings/provider-icon";
+import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
-  "flex h-6 w-6 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-colors hover:bg-white hover:text-[#1d1d1f] focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
+  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-colors hover:bg-white hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
 const menuItemClass =
-  "flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[#1d1d1f] outline-none hover:bg-[#f5f5f7] data-highlighted:bg-[#f5f5f7]";
+  "flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-editorial-ink outline-none hover:bg-editorial-surface-soft data-highlighted:bg-editorial-surface-soft";
 
 function VisibilityIcon({ visible, size }: { visible: boolean; size: number }) {
   const Icon = visible ? EyeOff : Eye;
   return <Icon size={size} strokeWidth={1.7} />;
 }
 
-function getApiKeyDisplay(model: LLMModel, visible: boolean, apiKey?: string): string {
-  if (!model.hasApiKey) return "未配置";
+function getApiKeyDisplay(model: LLMModel, visible: boolean, t: (key: string) => string, apiKey?: string): string {
+  if (!model.hasApiKey) return t("settings.noApiKey");
   if (!visible) return "********";
-  return apiKey ?? "加载中...";
+  return apiKey ?? t("common.loading");
 }
 
-function getApiKeyTooltip(model: LLMModel, visible: boolean, apiKey?: string): string {
-  if (!model.hasApiKey) return "未配置";
-  if (!visible) return "密钥已隐藏";
-  return apiKey ?? "密钥加载中...";
+function getApiKeyTooltip(model: LLMModel, visible: boolean, t: (key: string) => string, apiKey?: string): string {
+  if (!model.hasApiKey) return t("settings.noApiKey");
+  if (!visible) return t("settings.keyHidden");
+  return apiKey ?? t("settings.loadingKey");
 }
 
 interface ModelsPanelProps {
@@ -56,20 +57,22 @@ interface ModelsPanelProps {
 }
 
 export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: ModelsPanelProps) {
-  const [providerFilter, setProviderFilter] = useState("全部");
+  const { t } = useTranslation();
+  const ALL_FILTER = "__all__";
+  const [providerFilter, setProviderFilter] = useState(ALL_FILTER);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [apiKeyCache, setApiKeyCache] = useState<Record<string, string>>({});
 
   const visibleModels = useMemo(
     () =>
-      providerFilter === "全部"
+      providerFilter === ALL_FILTER
         ? models
         : models.filter((model) => model.provider === providerFilter),
     [models, providerFilter],
   );
 
   const providerFilters = useMemo(
-    () => ["全部", ...Array.from(new Set(models.map((model) => model.provider)))],
+    () => [ALL_FILTER, ...Array.from(new Set(models.map((model) => model.provider)))],
     [models],
   );
 
@@ -96,7 +99,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
     if (!next || !model.hasApiKey) return;
     loadApiKey(model).catch((err: Error) => {
       setVisibleKeys((prev) => ({ ...prev, [model.id]: false }));
-      toast.error(err.message || "读取密钥失败");
+      toast.error(err.message || t("settings.readKeyFailed"));
     });
   }
 
@@ -105,9 +108,9 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
     try {
       const key = await loadApiKey(model);
       await navigator.clipboard.writeText(key);
-      toast.success("密钥已复制");
+      toast.success(t("settings.keyCopied"));
     } catch {
-      toast.error("复制失败");
+      toast.error(t("settings.copyFailed"));
     }
   }
 
@@ -115,17 +118,17 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-[#1d1d1f]">模型配置</h3>
-          <p className="mt-0.5 text-[12px] text-[#86868b]">
-            手动添加模型供应商、模型名称、Base URL 与 API KEY。
+          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.models")}</h3>
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+            {t("settings.modelsDescription")}
           </p>
         </div>
         <Button
           onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0071e3] text-white text-[13px] font-medium hover:bg-[#0066cc] transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-editorial-primary text-white text-[13px] font-medium hover:bg-editorial-primary transition-colors"
         >
           <Plus size={14} />
-          <span>添加模型</span>
+          <span>{t("settings.addModel")}</span>
         </Button>
       </div>
 
@@ -138,34 +141,34 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
             size="sm"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
               providerFilter === p
-                ? "bg-[#1d1d1f] text-white"
-                : "bg-[#f5f5f7] text-[#6e6e73] hover:bg-[#e8e8ed]"
+                ? "bg-editorial-ink text-white"
+                : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
             }`}
           >
-            {p !== "全部" && <ProviderIcon provider={p} size={16} />}
-            {p}
+            {p !== ALL_FILTER && <ProviderIcon provider={p} size={16} />}
+            {p === ALL_FILTER ? t("common.all") : p}
           </Button>
         ))}
       </div>
 
-      <div className="max-w-full overflow-hidden rounded-xl border border-[#d2d2d7]">
+      <div className="max-w-full overflow-hidden rounded-xl border border-editorial-hairline">
         <Table className="w-full table-fixed">
           <TableHeader>
-            <TableRow className="border-b border-[#d2d2d7] bg-[#f5f5f7]">
-              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-[#86868b]">
-                提供商
+            <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft">
+              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                {t("settings.tableProvider")}
               </TableHead>
-              <TableHead className="w-[20%] px-4 py-3 text-[11px] uppercase tracking-wide text-[#86868b]">
-                模型名称
+              <TableHead className="w-[20%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                {t("settings.tableModel")}
               </TableHead>
-              <TableHead className="w-[28%] px-4 py-3 text-[11px] uppercase tracking-wide text-[#86868b]">
-                端点 (Base URL)
+              <TableHead className="w-[28%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                {t("settings.tableEndpoint")}
               </TableHead>
-              <TableHead className="w-[24%] px-4 py-3 text-[11px] uppercase tracking-wide text-[#86868b]">
-                密钥（API KEY）
+              <TableHead className="w-[24%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                {t("settings.tableApiKey")}
               </TableHead>
-              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-[#86868b]">
-                操作
+              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                {t("settings.tableActions")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -173,62 +176,64 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
             {visibleModels.map((model) => (
               <TableRow
                 key={model.id}
-                className="group/model-row border-b border-[#f5f5f7] last:border-0 hover:bg-[#f5f5f7]"
+                className="group/model-row border-b border-editorial-surface-soft last:border-0 hover:bg-editorial-surface-soft"
               >
                 <TableCell className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <ProviderIcon provider={model.provider} />
-                    <span className="truncate text-[13px] text-[#1d1d1f]" title={model.provider}>
+                    <span className="truncate text-[13px] text-editorial-ink" title={model.provider}>
                       {model.provider}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[13px] text-[#1d1d1f]">
+                <TableCell className="px-4 py-3 text-[13px] text-editorial-ink">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
                     <span className="truncate" title={model.modelName}>
                       {model.modelName}
                     </span>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(model.modelName, "模型名称已复制")}
+                      onClick={() => copyToClipboard(model.modelName, t("settings.modelNameCopied"))}
                       className={iconButtonClass}
-                      aria-label="复制模型名称"
-                      title="复制模型名称"
+                      aria-label={t("settings.copyModelName")}
+                      title={t("settings.copyModelName")}
                     >
                       <Copy size={14} strokeWidth={1.7} />
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[12px] text-[#6e6e73]">
+                <TableCell className="px-4 py-3 text-[12px] text-editorial-ink-soft">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
-                    <span className="truncate font-mono" title={model.baseUrl || "未配置"}>
+                    <span className="truncate font-mono" title={model.baseUrl || t("settings.noApiKey")}>
                       {model.baseUrl || "—"}
                     </span>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(model.baseUrl, "端点已复制")}
+                      onClick={() => copyToClipboard(model.baseUrl, t("settings.endpointCopied"))}
                       disabled={!model.baseUrl}
                       className={iconButtonClass}
-                      aria-label="复制端点"
-                      title="复制端点"
+                      aria-label={t("settings.copyEndpoint")}
+                      title={t("settings.copyEndpoint")}
                     >
                       <Copy size={14} strokeWidth={1.7} />
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[12px] text-[#6e6e73]">
+                <TableCell className="px-4 py-3 text-[12px] text-editorial-ink-soft">
                   <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-2">
                     <span
                       className="truncate font-mono"
                       title={getApiKeyTooltip(
                         model,
                         Boolean(visibleKeys[model.id]),
+                        t,
                         apiKeyCache[model.id],
                       )}
                     >
                       {getApiKeyDisplay(
                         model,
                         Boolean(visibleKeys[model.id]),
+                        t,
                         apiKeyCache[model.id],
                       )}
                     </span>
@@ -238,8 +243,8 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                         onClick={() => toggleKeyVisibility(model)}
                         disabled={!model.hasApiKey}
                         className={iconButtonClass}
-                        aria-label={visibleKeys[model.id] ? "隐藏密钥" : "显示密钥"}
-                        title={visibleKeys[model.id] ? "隐藏密钥" : "显示密钥"}
+                        aria-label={visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")}
+                        title={visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")}
                       >
                         <VisibilityIcon visible={Boolean(visibleKeys[model.id])} size={14} />
                       </button>
@@ -248,8 +253,8 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                         onClick={() => void copyApiKey(model)}
                         disabled={!model.hasApiKey}
                         className={iconButtonClass}
-                        aria-label="复制密钥"
-                        title="复制密钥"
+                        aria-label={t("settings.copyApiKey")}
+                        title={t("settings.copyApiKey")}
                       >
                         <Copy size={14} strokeWidth={1.7} />
                       </button>
@@ -259,28 +264,28 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 <TableCell className="px-4 py-3 text-left">
                   <Menu.Root>
                     <Menu.Trigger
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] transition-colors hover:bg-white hover:text-[#1d1d1f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30"
-                      title="更多操作"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-white hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                      title={t("settings.moreActions")}
                     >
                       <MoreHorizontal size={15} strokeWidth={1.8} />
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-[60]">
-                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-xl border border-[#d2d2d7] bg-white p-1 text-[12px] shadow-lg outline-none">
+                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-xl border border-editorial-hairline bg-white p-1 text-[12px] shadow-lg outline-none">
                           <Menu.Item className={menuItemClass}>
                             <FlaskConical size={14} strokeWidth={1.6} />
-                            <span>测试</span>
+                            <span>{t("settings.testModel")}</span>
                           </Menu.Item>
                           <Menu.Item onClick={() => onEditModel(model)} className={menuItemClass}>
                             <Wrench size={14} strokeWidth={1.6} />
-                            <span>修改</span>
+                            <span>{t("common.edit")}</span>
                           </Menu.Item>
                           <Menu.Item
                             onClick={() => onDeleteModel(model)}
                             className="flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-red-500 outline-none hover:bg-red-50 data-highlighted:bg-red-50"
                           >
                             <Trash2 size={14} strokeWidth={1.6} />
-                            <span>删除</span>
+                            <span>{t("common.delete")}</span>
                           </Menu.Item>
                         </Menu.Popup>
                       </Menu.Positioner>

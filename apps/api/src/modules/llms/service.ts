@@ -10,6 +10,7 @@ import type {
 import { db, llm, type LLMRow } from "@feedmind/db";
 import { decryptValue, encryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
+import { clearModelClientCache } from "../../mastra/agents/model-cache.js";
 
 function toModelRead(row: LLMRow): LLMModelRead {
   return {
@@ -47,6 +48,7 @@ export async function createModel(payload: LLMModelCreate): Promise<LLMModelRead
         encryptedApiKey: payload.api_key ? encryptValue(payload.api_key) : "",
       })
       .returning();
+    clearModelClientCache();
     return toModelRead(row);
   } catch (error) {
     if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model_name already exists");
@@ -66,6 +68,7 @@ export async function updateModel(modelId: number, payload: LLMModelUpdate): Pro
   try {
     const [row] = await db.update(llm).set(values).where(eq(llm.id, modelId)).returning();
     if (!row) throw new HttpError(404, "HTTP_ERROR", "model not found");
+    clearModelClientCache();
     return toModelRead(row);
   } catch (error) {
     if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model_name already exists");
@@ -76,6 +79,7 @@ export async function updateModel(modelId: number, payload: LLMModelUpdate): Pro
 export async function deleteModel(modelId: number): Promise<{ deleted: boolean }> {
   const [row] = await db.delete(llm).where(eq(llm.id, modelId)).returning({ id: llm.id });
   if (!row) throw new HttpError(404, "HTTP_ERROR", "model not found");
+  clearModelClientCache();
   return { deleted: true };
 }
 

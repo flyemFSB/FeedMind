@@ -7,30 +7,18 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 3000,
+    proxy: {},
   },
   resolve: {
     tsconfigPaths: true,
-    dedupe: ["@assistant-ui/core"],
-  },
-  ssr: {
-    noExternal: [/^@lobehub\//],
   },
   plugins: [tanstackStart(), tailwindcss(), viteReact()],
   build: {
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes("@assistant-ui/react") || id.includes("@assistant-ui/react-langgraph") || id.includes("@assistant-ui/react-streamdown")) {
-            return "assistant";
-          }
           if (id.includes("react-markdown") || id.includes("rehype-highlight") || id.includes("rehype-raw") || id.includes("remark-gfm")) {
             return "markdown";
-          }
-          if (id.includes("mermaid")) {
-            return "mermaid";
-          }
-          if (id.includes("@langchain/langgraph-sdk")) {
-            return "langgraph";
           }
         },
       },

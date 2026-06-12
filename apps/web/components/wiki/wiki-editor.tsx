@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface WikiEditorProps {
   spaceId: string;
@@ -21,6 +22,7 @@ export function WikiEditor({
   onSave,
   onCancel,
 }: WikiEditorProps) {
+  const { t } = useTranslation();
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -67,7 +69,7 @@ export function WikiEditor({
   if (loading) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
+        <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
           <Skeleton className="h-5 w-48" />
           <div className="flex gap-2">
             <Skeleton className="h-7 w-14 rounded-lg" />
@@ -84,7 +86,7 @@ export function WikiEditor({
   if (!page) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-[13px] text-[#86868b]">页面不存在</p>
+        <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
       </div>
     );
   }
@@ -92,16 +94,16 @@ export function WikiEditor({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-[#e8e8ed] px-6 py-3">
+      <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Input
-            className="h-7 border-0 bg-transparent px-0 text-[17px] font-semibold text-[#1d1d1f] shadow-none placeholder:text-[#86868b] focus-visible:ring-0"
+            className="h-7 border-0 bg-transparent px-0 text-[17px] font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-0"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="页面标题"
+            placeholder={t("wiki.pageTitlePlaceholder")}
           />
           <Input
-            className="h-5 border-0 bg-transparent px-0 text-[11px] text-[#86868b] shadow-none placeholder:text-[#d2d2d7] focus-visible:ring-0"
+            className="h-5 border-0 bg-transparent px-0 text-[11px] text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-0"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="wiki/path/to/page.md"
@@ -112,18 +114,18 @@ export function WikiEditor({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            className="h-8 rounded-lg px-3 text-[12px] text-[#86868b] hover:bg-[#f5f5f7]"
+            className="h-8 rounded-lg px-3 text-[12px] text-editorial-ink-muted hover:bg-editorial-surface-soft"
           >
             <X size={14} className="mr-1" />
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-8 rounded-lg bg-[#0071e3] px-4 text-[12px] text-white hover:bg-[#0066cc]"
+            className="h-8 rounded-lg bg-editorial-primary px-4 text-[12px] text-white hover:bg-editorial-primary"
           >
-            {saving ? "保存中..." : "保存"}
+            {saving ? t("wiki.saving") : t("common.save")}
           </Button>
         </div>
       </div>
@@ -131,10 +133,10 @@ export function WikiEditor({
       {/* Editor textarea */}
       <div className="flex-1 overflow-hidden">
         <textarea
-          className="flex h-full w-full resize-none border-0 bg-white p-6 font-mono text-[12px] leading-relaxed text-[#1d1d1f] placeholder:text-[#d2d2d7] outline-none focus-visible:ring-0"
+          className="flex h-full w-full resize-none border-0 bg-white p-6 font-mono text-[12px] leading-relaxed text-editorial-ink placeholder:text-editorial-hairline outline-none focus-visible:ring-0"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={"使用 Markdown 编写页面内容...\n[[wikilink]] 支持交叉引用"}
+          placeholder={t("wiki.editorPlaceholder") + "\n" + t("wiki.wikilinkHint")}
         />
       </div>
     </div>

@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ProviderIcon } from "@/components/settings/provider-icon";
+import { useTranslation } from "react-i18next";
 
 const PROVIDERS = [
   "ChatGPT",
@@ -53,6 +54,7 @@ export function ModelFormDialog({
   onSubmit,
   onOpenChange,
 }: ModelFormDialogProps) {
+  const { t } = useTranslation();
   const isEditing = initialModel != null;
   const [form, setForm] = useState(
     initialModel
@@ -76,19 +78,19 @@ export function ModelFormDialog({
         { id: initialModel!.id, ...form },
         {
           onSuccess: () => {
-            toast.success("模型修改成功");
+            toast.success(t("settings.modelUpdated"));
             onSubmit();
           },
-          onError: () => toast.error("修改失败"),
+          onError: () => toast.error(t("settings.modelUpdateFailed")),
         },
       );
     } else {
       createMutation.mutate(form, {
         onSuccess: () => {
-          toast.success("模型添加成功");
+          toast.success(t("settings.modelAdded"));
           onSubmit();
         },
-        onError: () => toast.error("添加失败"),
+        onError: () => toast.error(t("settings.modelAddFailed")),
       });
     }
   }
@@ -106,20 +108,20 @@ export function ModelFormDialog({
         if (!value) handleClose();
       }}
     >
-      <DialogContent className="max-w-[520px] gap-0 rounded-2xl bg-white p-0 text-[#1d1d1f]">
-        <DialogHeader className="border-b border-[#d2d2d7] px-5 py-4">
+      <DialogContent className="max-w-[520px] gap-0 rounded-2xl bg-white p-0 text-editorial-ink">
+        <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
           <DialogTitle className="text-[15px] font-semibold">
-            {isEditing ? "修改模型" : "添加模型"}
+            {isEditing ? t("settings.editModel") : t("settings.addModel")}
           </DialogTitle>
-          <DialogDescription className="text-[12px] text-[#86868b]">
-            配置供应商、模型名称、端点和密钥。
+          <DialogDescription className="text-[12px] text-editorial-ink-muted">
+            {t("settings.formDescription")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 px-5 py-5">
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-[#6e6e73]">供应商</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.provider")}</label>
             <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
-              <div className="grid h-10 w-10 place-items-center rounded-xl border border-[#d2d2d7] bg-[#fbfbfd]">
+              <div className="grid h-10 w-10 place-items-center rounded-xl border border-editorial-hairline bg-editorial-canvas-soft">
                 <ProviderIcon provider={form.provider} size={24} />
               </div>
               <Select
@@ -129,12 +131,12 @@ export function ModelFormDialog({
                 }}
               >
                 <SelectTrigger
-                  aria-label="选择供应商"
-                  className="h-10 min-h-10 w-full rounded-xl border-[#d2d2d7] bg-white px-3 py-0 text-[13px]"
+                  aria-label={t("settings.selectProvider")}
+                  className="h-10 min-h-10 w-full rounded-xl border-editorial-hairline bg-white px-3 py-0 text-[13px]"
                 >
-                  <SelectValue placeholder="选择供应商" />
+                  <SelectValue placeholder={t("settings.selectProvider")} />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-[#d2d2d7]">
+                <SelectContent className="rounded-xl border-editorial-hairline">
                   <SelectGroup>
                     {PROVIDERS.map((provider) => (
                       <SelectItem key={provider} value={provider}>
@@ -150,32 +152,32 @@ export function ModelFormDialog({
             </div>
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-[#6e6e73]">模型名称</label>
+            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.modelName")}</label>
             <Input
               value={form.modelName}
               onChange={(event) =>
                 setForm((current) => ({ ...current, modelName: event.target.value }))
               }
-              placeholder="例如 deepseek-ai/deepseek-v4-flash"
-              className="h-10 rounded-xl border-[#d2d2d7] text-[13px]"
+              placeholder={t("settings.modelNamePlaceholder")}
+              className="h-10 rounded-xl border-editorial-hairline text-[13px]"
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-[#6e6e73]">
-              端点（BASE URL）
+            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+              {t("settings.endpointLabel")}
             </label>
             <Input
               value={form.baseUrl}
               onChange={(event) =>
                 setForm((current) => ({ ...current, baseUrl: event.target.value }))
               }
-              placeholder="例如 https://api.deepseek.com"
-              className="h-10 rounded-xl border-[#d2d2d7] text-[13px]"
+              placeholder={t("settings.endpointPlaceholder")}
+              className="h-10 rounded-xl border-editorial-hairline text-[13px]"
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-[#6e6e73]">
-              密钥（API KEY）
+            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+              {t("settings.apiKeyLabel")}
             </label>
             <div className="relative">
               <Input
@@ -183,16 +185,16 @@ export function ModelFormDialog({
                 onChange={(event) =>
                   setForm((current) => ({ ...current, apiKey: event.target.value }))
                 }
-                placeholder={isEditing ? "留空则保留当前密钥" : "例如 sk-..."}
+                placeholder={isEditing ? t("settings.apiKeyPlaceholderEdit") : t("settings.apiKeyPlaceholderNew")}
                 type={showKey ? "text" : "password"}
-                className="h-10 rounded-xl border-[#d2d2d7] pr-10 text-[13px]"
+                className="h-10 rounded-xl border-editorial-hairline pr-10 text-[13px]"
               />
               <button
                 type="button"
                 onClick={() => setShowKey((value) => !value)}
-                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#86868b] transition-colors hover:bg-[#f5f5f7] hover:text-[#1d1d1f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3]/30"
-                aria-label={showKey ? "隐藏密钥" : "显示密钥"}
-                title={showKey ? "隐藏密钥" : "显示密钥"}
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                title={showKey ? t("settings.hideKey") : t("settings.showKey")}
               >
                 {showKey ? (
                   <EyeOff size={15} strokeWidth={1.7} />
@@ -203,16 +205,16 @@ export function ModelFormDialog({
             </div>
           </div>
         </div>
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-[#d2d2d7] bg-[#fbfbfd] px-5 py-4">
+        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
           <Button onClick={handleClose} variant="ghost" className="rounded-xl px-4 text-[13px]">
-            取消
+            {t("common.cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!form.modelName || isPending}
-            className="rounded-xl bg-[#0071e3] px-4 text-[13px] text-white hover:bg-[#0066cc] disabled:cursor-not-allowed disabled:bg-[#d2d2d7]"
+            className="rounded-xl bg-editorial-primary px-4 text-[13px] text-white hover:bg-editorial-primary disabled:cursor-not-allowed disabled:bg-editorial-hairline"
           >
-            {isEditing ? "保存修改" : "添加模型"}
+            {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>
         </DialogFooter>
       </DialogContent>

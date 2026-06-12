@@ -1,247 +1,475 @@
-# Design System Inspired by Apple
+---
+name: FeedMind
+description: 任务驱动的趋势研究 Agent 系统
+colors:
+  canvas: "#f5f5f0"
+  canvas-soft: "#fafaf7"
+  canvas-deep: "#292524"
+  surface-card: "#ffffff"
+  surface-soft: "#f0efec"
+  surface-strong: "#e7e5e2"
+  surface-dark: "#292524"
+  surface-dark-elevated: "#1c1917"
+  ink: "#292524"
+  ink-soft: "#57534e"
+  ink-muted: "#a8a29e"
+  ink-on-dark: "#ffffff"
+  ink-on-dark-soft: "#a8a29e"
+  ink-on-primary: "#ffffff"
+  primary: "#292524"
+  primary-active: "#1c1917"
+  hairline: "#e7e5e2"
+  hairline-soft: "#f0efec"
+  hairline-strong: "#d6d3d0"
+  gradient-mint: "#a7e5d3"
+  gradient-peach: "#f4c5a8"
+  gradient-lavender: "#c8b8e0"
+  gradient-sky: "#a8c8e8"
+  gradient-rose: "#e8b8c4"
+  gradient-warm: "#f5d0c0"
+  semantic-success: "#16a34a"
+  semantic-error: "#dc2626"
+  semantic-warning: "#d97706"
+  semantic-info: "#2563eb"
+  scrollbar-thumb: "#d6d3d0"
 
-## 1. Visual Theme & Atmosphere
+typography:
+  display-mega:
+    fontFamily: "SF Pro Display, system-ui, sans-serif"
+    fontSize: "clamp(2rem, 5vw, 3.5rem)"
+    fontWeight: 400
+    lineHeight: 1.08
+    letterSpacing: -0.02em
+  display-xl:
+    fontFamily: "SF Pro Display, system-ui, sans-serif"
+    fontSize: "clamp(1.75rem, 4vw, 2.75rem)"
+    fontWeight: 400
+    lineHeight: 1.1
+    letterSpacing: -0.01em
+  display-lg:
+    fontFamily: "SF Pro Display, system-ui, sans-serif"
+    fontSize: "clamp(1.5rem, 3vw, 2.25rem)"
+    fontWeight: 400
+    lineHeight: 1.15
+    letterSpacing: -0.005em
+  display-md:
+    fontFamily: "SF Pro Display, system-ui, sans-serif"
+    fontSize: "clamp(1.25rem, 2.5vw, 1.75rem)"
+    fontWeight: 400
+    lineHeight: 1.2
+    letterSpacing: 0
+  display-sm:
+    fontFamily: "SF Pro Display, system-ui, sans-serif"
+    fontSize: "clamp(1.125rem, 2vw, 1.5rem)"
+    fontWeight: 400
+    lineHeight: 1.25
+    letterSpacing: 0
+  title-lg:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(1rem, 1.5vw, 1.25rem)"
+    fontWeight: 500
+    lineHeight: 1.3
+    letterSpacing: 0
+  title-md:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.9375rem, 1.25vw, 1.0625rem)"
+    fontWeight: 500
+    lineHeight: 1.35
+    letterSpacing: 0
+  title-sm:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.875rem, 1vw, 0.9375rem)"
+    fontWeight: 500
+    lineHeight: 1.4
+    letterSpacing: 0.01em
+  body-lg:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.9375rem, 1.25vw, 1.0625rem)"
+    fontWeight: 400
+    lineHeight: 1.6
+    letterSpacing: 0.01em
+  body-md:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.875rem, 1vw, 0.9375rem)"
+    fontWeight: 400
+    lineHeight: 1.55
+    letterSpacing: 0.01em
+  body-sm:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0.01em
+  caption:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.75rem, 0.8vw, 0.8125rem)"
+    fontWeight: 400
+    lineHeight: 1.4
+    letterSpacing: 0.02em
+  caption-uppercase:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.6875rem, 0.7vw, 0.75rem)"
+    fontWeight: 500
+    lineHeight: 1.3
+    letterSpacing: 0.08em
+    textTransform: uppercase
+  button:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
+    fontWeight: 500
+    lineHeight: 1
+    letterSpacing: 0.01em
+  nav:
+    fontFamily: "system-ui, -apple-system, sans-serif"
+    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
+    fontWeight: 450
+    lineHeight: 1.4
+    letterSpacing: 0.01em
+  mono:
+    fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace"
+    fontSize: "clamp(0.75rem, 0.8vw, 0.8125rem)"
+    fontWeight: 400
+    lineHeight: 1.5
+    letterSpacing: 0
 
-Apple's web language is a precision editorial system that alternates between gallery-like calm and retail-density information blocks. The visual tone stays restrained: broad neutral canvases, quiet chrome, and product imagery given almost all of the expressive weight. The interface is engineered to disappear so hardware, materials, and finish options become the narrative foreground.
+rounded:
+  none: 0px
+  xs: 4px
+  sm: 6px
+  md: 8px
+  lg: 12px
+  xl: 16px
+  xxl: 20px
+  pill: 9999px
 
-Across the five analyzed pages, the rhythm is consistent but not monolithic. Marketing surfaces (homepage and Environment) use cinematic black-and-light chaptering, while commerce surfaces (Store and Shop flows) introduce tighter spacing, more utility controls, and denser card stacks without breaking the core brand grammar. The result is one system with two gears: showcase mode and transaction mode.
+spacing:
+  xxs: 4px
+  xs: 8px
+  sm: 12px
+  base: 16px
+  md: 20px
+  lg: 24px
+  xl: 32px
+  xxl: 48px
+  section: 80px
 
-Typography is the stabilizer. SF Pro Display carries hero and merchandising hierarchy with compact line heights and controlled tracking, while SF Pro Text handles product metadata, navigation, filters, and dense selection UI. The typography stays understated, but the scale range is wide enough to support both billboard hero messaging and micro utility labels.
+components:
+  sidebar:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.nav}"
+    width: 260px
+  sidebar-collapsed:
+    backgroundColor: "{colors.canvas}"
+    width: 60px
+  topbar:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.ink}"
+    typography: "{typography.title-sm}"
+    height: 56px
+    border: 1px "{colors.hairline}"
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.ink-on-primary}"
+    typography: "{typography.button}"
+    rounded: "{rounded.pill}"
+    padding: "10px 20px"
+    height: 38px
+  button-primary-hover:
+    backgroundColor: "{colors.primary-active}"
+  button-outline:
+    backgroundColor: transparent
+    textColor: "{colors.ink}"
+    typography: "{typography.button}"
+    rounded: "{rounded.pill}"
+    padding: "9px 19px"
+    height: 38px
+    border: 1px "{colors.hairline-strong}"
+  button-ghost:
+    backgroundColor: transparent
+    textColor: "{colors.ink-soft}"
+    typography: "{typography.button}"
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+    height: 36px
+  card:
+    backgroundColor: "{colors.surface-card}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.lg}"
+    padding: "20px"
+  card-elevated:
+    backgroundColor: "{colors.surface-card}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.lg}"
+    padding: "24px"
+  text-input:
+    backgroundColor: "{colors.surface-card}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.md}"
+    padding: "10px 14px"
+    height: 40px
+    border: 1px "{colors.hairline-strong}"
+  message-user:
+    backgroundColor: "{colors.surface-soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.body-md}"
+    rounded: "{rounded.lg}"
+    padding: "12px 16px"
+  message-assistant:
+    backgroundColor: transparent
+    textColor: "{colors.ink}"
+    typography: "{typography.body-md}"
+  composer:
+    backgroundColor: "{colors.surface-card}"
+    rounded: "{rounded.xl}"
+    padding: "12px 16px"
+    border: 1px "{colors.hairline}"
+  badge:
+    backgroundColor: "{colors.surface-strong}"
+    textColor: "{colors.ink-soft}"
+    typography: "{typography.caption-uppercase}"
+    rounded: "{rounded.pill}"
+    padding: "3px 10px"
+  tag:
+    backgroundColor: "{colors.surface-soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.caption}"
+    rounded: "{rounded.pill}"
+    padding: "4px 10px"
+  dialog:
+    backgroundColor: "{colors.surface-card}"
+    textColor: "{colors.ink}"
+    rounded: "{rounded.xl}"
+    padding: "24px"
+  tooltip:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ink-on-dark}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.sm}"
+    padding: "6px 10px"
+  nav-item:
+    backgroundColor: transparent
+    textColor: "{colors.ink-soft}"
+    typography: "{typography.nav}"
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+  nav-item-active:
+    backgroundColor: "{colors.surface-soft}"
+    textColor: "{colors.ink}"
+    typography: "{typography.nav}"
+    rounded: "{rounded.md}"
+    padding: "8px 12px"
+---
+
+# Design System: FeedMind
+
+## 1. Overview
+
+**Creative North Star: "The Quiet Research Studio"**
+
+FeedMind 的设计语言从 ElevenLabs 的编辑式品牌美学出发，将其克制、温暖、印刷杂志般的视觉气质，适配到一个以对话和知识管理为核心功能的产品中。这里没有 SaaS 产品的常见套路——没有霓虹色的 CTA、没有花哨的渐变按钮、没有开发者工具的暗色终端风格。取而代之的是一本安静的工作笔记本：暖米色的纸面画布、深棕墨色的文字、衬线字体书写的标题、以及偶尔出现的柔和渐变光晕——像是翻页时瞥见的一抹书签色彩。
+
+这是一个**为长时间阅读和思考而设计**的系统。聊天记录的每一段文字、Wiki 页面的每一条笔记，都应该像印在纸上一样舒适。UI 框架退到幕后——边框细如发丝、阴影近乎不可见、色彩饱和度被刻意压低。功能性的操作元素（按钮、输入框、导航）保持清晰但不抢眼，用墨色填充的 pill 形状作为主要操作入口。
 
 **Key Characteristics:**
-- Binary section rhythm: deep black scenes (`#000000`) alternating with pale neutral fields (`#f5f5f7`)
-- Single blue accent family for action and link semantics (`#0071e3`, `#0066cc`, `#2997ff`)
-- Dual operating modes in one system: cinematic showcase modules and dense commerce configurators
-- Heavy reliance on imagery and material finishes; UI chrome remains visually thin
-- Tight headline metrics (SF Pro Display, semibold) paired with compact body/link typography (SF Pro Text)
-- Pill and capsule geometry as signature action language (`18px` to `980px` and circular controls)
-- Depth used sparingly; contrast and surface separation do most of the layering work
-- Multi-page color-block rhythm: black hero chapters -> pale neutral merchandising fields -> utility white retail surfaces -> dark micro-surfaces for controls
+- 暖米色画布（`#f5f5f0`），深棕墨色（`#292524`）文字。没有纯白、没有纯黑。
+- 系统无衬线字体（-apple-system）作为统一字族。不再使用衬线显示字体，避免额外字体加载开销。
+- Inter 承载正文、导航、标签——清晰、现代、不喧宾夺主。
+- 主要操作为墨色 pill 按钮。仅此一种 CTA 颜色。
+- 柔和渐变光晕（薄荷、桃色、薰衣草、天空、玫瑰、暖杏）作为纯装饰性氛围元素。
+- 细发丝边框（`#e7e5e2`）代替厚重阴影。卡片几乎不浮起。
+- 16px（`rounded.lg`）作为卡片和容器的默认圆角，pill 形状用于按钮和标签。
 
-## 2. Color Palette & Roles
+## 2. Colors: The Warm Editorial Palette
 
-> **Source Pages:** `https://www.apple.com/`, `https://www.apple.com/environment/`, `https://www.apple.com/store`, `https://www.apple.com/shop/buy-iphone/iphone-17-pro`, `https://www.apple.com/shop/accessories/all`
+整个色彩系统围绕「暖米色 + 深棕色」的核心对比展开，饱和度被刻意压低。没有蓝色品牌色、没有霓虹点缀。
 
 ### Primary
-- **Absolute Black** (`#000000`): Immersive hero canvases, high-drama product chapters, deep UI anchors.
-- **Pale Apple Gray** (`#f5f5f7`): Main light surface for feature bands, comparison blocks, and editorial transitions.
-- **Near-Black Ink** (`#1d1d1f`): Primary text and dark-fill control color on light canvases.
+- **Ink** (`#292524` / `oklch(27% 0.015 50)`): 唯一的主要操作色。用于主要按钮填充、重要文字、深色画布背景。使用量控制在 10% 以下。
+- **Ink Active** (`#1c1917` / `oklch(20% 0.015 50)`): Ink 的按下状态。
 
-### Secondary & Accent
-- **Apple Action Blue** (`#0071e3`): Primary action fill and focus-signaling brand accent.
-- **Body Link Blue** (`#0066cc`): Inline link color optimized for long-form readability.
-- **High-Luminance Link Blue** (`#2997ff`): Bright link treatment on darker scenes where stronger contrast is required.
+### Neutral
+- **Canvas** (`#f5f5f0` / `oklch(96.5% 0.005 70)`): 页面底色。暖米色——不是纯白，不是 SaaS 灰色。所有页面、侧边栏、顶栏都以此为基础。
+- **Canvas Soft** (`#fafaf7` / `oklch(98% 0.004 70)`): 更浅的画布变体，用于次要区域或交替分段。
+- **Canvas Deep** (`#292524`): 同 Ink——用于深色面板、对话框背景。
+- **Surface Card** (`#ffffff`): 纯白卡片——在暖米色画布上，纯白已经足够区分。
+- **Surface Soft** (`#f0efec` / `oklch(94% 0.004 70)`): 次要表面——消息气泡背景、hover 状态。
+- **Surface Strong** (`#e7e5e2` / `oklch(91% 0.005 70)`): 标签底色、分隔线区域。
 
-### Surface & Background
-- **Pure White Canvas** (`#ffffff`): Retail/product-list backgrounds and dense transactional sections.
-- **Graphite Surface A** (`#272729`): Dark card and media-control context layer.
-- **Graphite Surface B** (`#262629`): Slightly deeper dark utility layer for control groupings.
-- **Graphite Surface C** (`#28282b`): Elevated dark supporting surfaces.
-- **Graphite Surface D** (`#2a2a2c`): Darkest elevated step used for separation in richer dark scenes.
+### Text
+- **Ink** (`#292524`): 标题、主要文字。
+- **Ink Soft** (`#57534e` / `oklch(45% 0.015 50)`): 正文。在中性米色背景上保持 ≥8:1 对比度。
+- **Ink Muted** (`#a8a29e` / `oklch(72% 0.015 50)`): 次级说明文字、禁用状态。
+- **Ink On Dark** (`#ffffff`): 深色画布上的文字。
+- **Ink On Primary** (`#ffffff`): Ink 按钮上的白色文字。
 
-### Neutrals & Text
-- **Secondary Neutral Gray** (`#6e6e73`): Body secondary copy, helper descriptions, tertiary metadata.
-- **Soft Border Gray** (`#d2d2d7`): Dividers, subtle outlines, and muted utility containment.
-- **Mid Border Gray** (`#86868b`): Stronger field outlines in product-configuration and filter contexts.
-- **Utility Dark Gray** (`#424245`): Dark-neutral text/surface crossover in store contexts.
+### Hairlines
+- **Hairline** (`#e7e5e2`): 默认分割线、卡片描边。
+- **Hairline Soft** (`#f0efec`): 更浅的分割线——侧边栏项之间。
+- **Hairline Strong** (`#d6d3d0`): 输入框边框、强调分割线。
 
-### Semantic & Accent
-- **Selection/Focus Signal** (`#0071e3`): Shared focus and selected-state signal across marketing and commerce contexts.
-- **Error/Warning/Success**: No distinct semantic palette was consistently visible in the extracted surface set.
+### Atmospheric Gradient (Signature)
+- **Gradient Mint** (`#a7e5d3`): 薄荷绿光晕。
+- **Gradient Peach** (`#f4c5a8`): 蜜桃色光晕。
+- **Gradient Lavender** (`#c8b8e0`): 薰衣草紫光晕。
+- **Gradient Sky** (`#a8c8e8`): 天空蓝光晕。
+- **Gradient Rose** (`#e8b8c4`): 玫瑰粉光晕。
+- **Gradient Warm** (`#f5d0c0`): 暖杏色光晕。
 
-### Gradient System
-- The extracted pages are overwhelmingly solid-surface driven. Visual richness comes from photography and finish rendering rather than persistent UI gradients.
+> *这些渐变仅作为 `radial-gradient` 氛围光晕出现在空状态、欢迎页和品牌区域。永不作为按钮填充、文字颜色或组件背景。*
 
-## 3. Typography Rules
+### Semantic
+- **Success** (`#16a34a`): 成功确认。
+- **Error** (`#dc2626`): 错误提示。
+- **Warning** (`#d97706`): 警告信息。
+- **Info** (`#2563eb`): 信息提示。
 
-### Font Family
-- **Display Family:** `SF Pro Display`, fallbacks `SF Pro Icons, Helvetica Neue, Helvetica, Arial, sans-serif`
-- **Text Family:** `SF Pro Text`, fallbacks `SF Pro Icons, Helvetica Neue, Helvetica, Arial, sans-serif`
-- **Usage Split:** Display family handles hero/product headlines and merchandising headings; Text family handles navigation, controls, labels, and dense commerce copy.
+### Named Rules
+
+**The Ink Voice Rule.** Ink（`#292524`）是系统唯一的声音色。按钮、链接、活动状态——所有需要「操作感」的地方都用同一种深棕色。不引入蓝色品牌色、不添加第二个动作色。Ink 的稀缺性是其力量。
+
+**The No-Neon Rule.** 禁止任何饱和的荧光色（霓虹绿、电光蓝、亮橙）。渐变光晕是系统中饱和度最高的元素，但它们从不作为操作指示。
+
+## 3. Typography
+
+**Display Font:** system-ui（回退 `'Times New Roman', serif`）— 400 字重。
+**Body Font:** Inter（回退 `'SF Pro Display', 'Helvetica Neue', sans-serif`）— 400/500 字重。
+**Mono Font:** JetBrains Mono（回退 `'SF Mono', 'Fira Code', monospace`）— 用于代码块、工具调用参数。
+
+**Character:** 统一使用系统无衬线字体，减少首屏加载的额外字体请求——比 ElevenLabs 原版 Waldenburg 更有人文气息，适合中文语境下的长文阅读。Inter 作为正文字体，保证信息密度的清晰和 UI 元素的可扫描性。两者的组合是「古典标题 + 现代正文」——既不像传统杂志那样繁复，也不像通用 SaaS 那样乏味。
 
 ### Hierarchy
-| Role | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|--------|-------------|----------------|-------|
-| Hero Display XL | 80px | 600 | 1.00-1.05 | -1.2px | Environment/store hero scale |
-| Hero Display L | 56px | 600 | 1.07 | -0.28px | Homepage hero moments |
-| Section Display | 48px | 500-600 | 1.08 | -0.144px | Major chapter headings |
-| Product Heading | 40px | 600 | 1.10 | normal | Product and campaign section titles |
-| Feature Display | 38px | 600 | 1.21 | 0.152px | Device and merchandising callouts |
-| Promo Display | 32px | 300-600 | 1.09-1.13 | 0.128px to 0.352px | Module-level sub-heroes |
-| Card/Product Title | 28px | 600 | 1.14 | 0.196px | Tile-level naming and key copy |
-| Utility Heading | 24px | 600 | 1.17 | 0.216px / -0.2px | Configurator and grouped content headers |
-| Link/Action Heading | 21px | 600 | 1.14-1.38 | 0.231px | Larger promotional links |
-| Subhead | 19px | 600 | 1.21 | 0.228px | Compact section intros |
-| Body Primary | 17px | 400 | 1.47 | -0.374px | Standard body and retail descriptions |
-| Body Emphasis | 17px | 600 | 1.24 | -0.374px | Emphasized labels and key values |
-| Control Label | 14px | 400-600 | 1.29-1.47 | -0.224px | Buttons, helper labels, compact nav text |
-| Micro UI | 12px | 400-600 | 1.00-1.33 | -0.12px | Fine print, micro labels |
-| Legal/Meta | 10px | 400 | 1.30-1.47 | -0.08px | Dense metadata and legal support text |
+- **Display Mega** (400, clamp(2rem, 5vw, 3.5rem), 1.08, -0.02em): 欢迎页主标题、品牌展示区域。最大 56px。
+- **Display XL** (400, clamp(1.75rem, 4vw, 2.75rem), 1.1, -0.01em): 页面级标题、Wiki 页面标题。
+- **Display LG** (400, clamp(1.5rem, 3vw, 2.25rem), 1.15): 区域标题、对话框标题。
+- **Display MD** (400, clamp(1.25rem, 2.5vw, 1.75rem), 1.2): 卡片标题、面板标题。
+- **Title LG** (500, clamp(1rem, 1.5vw, 1.25rem), 1.3): 会话列表中对话标题、侧边栏分组标题。
+- **Title MD** (500, clamp(0.9375rem, 1.25vw, 1.0625rem), 1.35): 导航项文字、设置项标签。
+- **Body MD** (400, clamp(0.875rem, 1vw, 0.9375rem), 1.55, +0.01em): 默认正文、聊天气泡文字。最长行宽限制 70ch。
+- **Body SM** (400, clamp(0.8125rem, 0.9vw, 0.875rem), 1.5): 次要说明文字、时间戳。
+- **Caption** (400, clamp(0.75rem, 0.8vw, 0.8125rem), 1.4): 标签内文字、提示文字。
+- **Caption Uppercase** (500, 0.75rem, 1.3, +0.08em): 分类标签、徽章。
+- **Button** (500, 0.875rem, 1, +0.01em): 所有按钮文字。
+- **Mono** (400, 0.8125rem, 1.5): 代码块、工具调用参数、JSON 预览。
 
-### Principles
-- **Continuity across page types:** The same typographic DNA spans cinematic launches and product-purchase flows, preventing a brand split between marketing and commerce.
-- **Compression at scale:** Display tiers use tight leading and controlled tracking to feel machined and product-first.
-- **Readable density at retail depth:** SF Pro Text balances compactness with enough vertical rhythm for long product lists and option matrices.
-- **Measured weight ladder:** 600 is the dominant emphasis weight; 700 appears selectively; 300 is used sparingly for contrast in larger lines.
+### Named Rules
 
-### Note on Font Substitutes
-- Closest freely available substitutes: `Inter` for text-heavy implementation and `SF Pro Display-like` metrics approximated with `Inter Tight` for headings.
-- When substituting, increase line-height slightly (+0.02 to +0.06) on body sizes and reduce negative tracking intensity to preserve readability.
+**The Weight Rule.** 显示字重不超过 500（系统字体的常规字重）。标题用衬线体的默认粗细即可——不用 bold、不用 light。正文 Inter 保持在 400/500，不用 300。
 
-## 4. Component Stylings
+**The Line Length Rule.** 正文最长 70 字符（`max-width: 70ch`）。聊天消息、Wiki 正文、设置说明——所有可读内容块都遵守此限制。让用户在舒适的行宽内阅读，不需要左右摆头。
+
+## 4. Elevation
+
+系统采用**近乎扁平**的层次策略。深度不通过阴影表达，而是通过色彩和发丝边框来建立视觉层次。
+
+- 页面画布（Canvas）是最底层。所有组件都直接放在画布上。
+- 卡片（Card）使用纯白表面 + 1px 发丝边框（`hairline`），与画布区分。
+- 交互元素（悬浮、聚焦）不发散阴影，而是通过背景色调变化（从 `surface-card` 变为 `surface-soft`）来表达。
+- 唯一例外：浮动 composer 输入框使用单层软阴影（`0 8px 30px rgba(41,37,36,0.08)`），表明它是键盘交互的焦点。
+- 对话框/弹出层使用 `canvas-deep` 背景 + 发丝边框 + 极淡阴影（`0 12px 40px rgba(41,37,36,0.12)`）。
+
+| 层级 | 处理方式 | 使用场景 |
+|------|---------|---------|
+| 画布 | Canvas 底色 | 页面、侧边栏、顶栏 |
+| 表面 | 纯白 + 1px 发丝边框 | 卡片、面板、对话框 |
+| 交互 | 背景色加深（surface-soft） | Hover、选中状态 |
+| 浮动 | 软阴影（8px blur） | 浮动输入框 |
+| 模态 | 深色背景 + 发丝边框 + 阴影（12px blur） | 对话框、下拉菜单 |
+
+## 5. Components
+
+### Sidebar
+- **宽度:** 260px（展开）/ 60px（收起）
+- **底色:** Canvas（`#f5f5f0`），无边框（右侧以顶栏的 hairline 为界）
+- **导航项:** 14px Inter 450，padding 8px 12px，hover 时变 Surface Soft 背景
+- **活跃项:** Surface Soft 背景 + Ink 文字
+- **「新会话」按钮:** Ink pill，38px 高，圆角 pill，白色文字
+
+### Top Bar
+- **高度:** 56px
+- **底色:** Canvas，底部 1px Hairline 分割
+- **布局:** 左侧标题 + 中间（可选） + 右侧模型选择器
 
 ### Buttons
-- **Primary Fill Action:** `#0071e3` background, `#ffffff` text, 8px radius, compact horizontal padding (commonly 8px 15px). Used for decisive purchase/progression actions.
-- **Dark Fill Action:** `#1d1d1f` background, `#ffffff` text, 8px radius. Used when light surfaces need a restrained high-contrast primary.
-- **Pill/Capsule Action Family:** large capsule actions at `18px`-`56px` radii and extreme pill links at `980px`. Establishes Apple’s soft but precise call-to-action silhouette.
-- **Utility Filter/Button Shells:** light shells (`#fafafc` or translucent white) with subtle gray borders (`#d2d2d7` / `#86868b`) for dense configuration contexts.
-- **Pressed Behavior:** active controls commonly reduce scale or shift fill slightly to indicate physical press confirmation.
+- **Primary (Ink Pill):** Ink 填充（`#292524`），白色文字，38px 高，pill 圆角。Hover 变 `primary-active`（`#1c1917`）。不用阴影、不用边框。
+- **Outline:** 透明背景，1px `hairline-strong` 边框，Ink 文字。Hover 时背景变 `surface-soft`。
+- **Ghost:** 透明，Ink Muted 文字。Hover 时 Ink 文字 + `surface-soft` 背景。
+- **Icon (Square):** 36×36px，ghost 风格，rounded md（8px）。
 
-### Cards & Containers
-- **Editorial/Product Cards:** light cards on `#f5f5f7` or white fields with minimal framing and image-first composition.
-- **Dark Utility Cards:** graphite steps (`#272729` to `#2a2a2c`) used for overlays, media controls, and dark-context modules.
-- **Configurator Panels:** rounded containers (often 12px-18px) with clear but restrained border definition.
-- **Carousel/Spotlight Modules:** larger rounded shells (`28px`-`36px`) for featured content lanes.
+### Cards
+- **样式:** 纯白背景，1px hairline 边框，12px（`rounded.lg`）圆角。无阴影。
+- **内边距:** 20px（`spacing.base`）。
+- **Hover:** 边框加深至 `hairline-strong`。
 
-### Inputs & Forms
-- **Retail Input Fields:** translucent or white backgrounds, dark text (`#1d1d1f`), border-led containment (`#86868b`).
-- **Selection Controls:** circular/toggle-like control geometry appears frequently in product selection interfaces.
-- **Density Strategy:** form fields remain visually quiet to keep device imagery and pricing hierarchy dominant.
+### Text Inputs / Textareas
+- **样式:** 纯白背景，1px `hairline-strong` 边框，8px（`rounded.md`）圆角，40px 高。
+- **内边距:** 10px 14px。
+- **Focus:** 边框变为 2px Ink（`#292524`）。无 glow、无 ring。
+- **Disabled:** 背景变为 `surface-soft`，文字变为 `ink-muted`。
+- **Placeholder:** `ink-muted` 颜色。
 
-### Navigation
-- **Global Marketing Nav:** compact dark translucent bar with small-type links and restrained iconography.
-- **Store/Sub-shop Nav Layers:** additional utility bars, chips, and segmented controls for category and product narrowing.
-- **Link Hierarchy:** link blues remain the primary interactive signal while neutral text supports dense navigation sets.
+### Messages (Chat)
+- **用户消息:** Surface Soft（`#f0efec`）背景气泡，12px 圆角，12px 16px 内边距。靠右对齐。
+- **助理消息:** 透明背景，无气泡——IM 风格纯文字，靠左对齐。头像使用 FeedMind logo（28x28px）。
+- **时间戳:** Caption 字号，Ink Muted 色。
+- **思考/推理:** 可折叠面板。1px hairline 边框，12px 圆角。标题「思考过程」，展开/折叠图标。
 
-### Image Treatment
-- **Object-First Photography:** hardware and accessories are foregrounded on controlled solid surfaces.
-- **High-fidelity finish rendering:** reflective/material details are central to visual persuasion.
-- **Mixed framing:** full-bleed hero scenes coexist with rounded retail cards and tightly cropped merchandising thumbnails.
+### Composer (Chat Input)
+- **容器:** 纯白背景，1px hairline 边框，16px（`rounded.xl`）圆角，12px 16px 内边距。
+- **阴影:** `0 8px 30px rgba(41,37,36,0.08)`。
+- **输入区:** 无边框 textarea，15px Inter 400，自适应高度（最小 2 行，最大 8 行）。
+- **操作区:** 左侧附件按钮（ghost icon），右侧发送/停止按钮（Ink pill）。
 
-### Other Distinctive Components
-- **Product Configurator Matrix:** option stacks and selectors combining chips, radio-style controls, and contextual pricing/summary blocks.
-- **Carousel Control Dots/Arrows:** circular control vocabulary in muted overlays for gallery progression.
-- **Environment Story Panels:** narrative chapters that blend editorial typography with cinematic product/environment visuals.
+### Thread List
+- **项:** 无背景/边框，10px 圆角。Hover 变 `surface-soft`。
+- **活跃项:** `surface-soft` 背景。
+- **标题:** Title MD（17px Inter 500），单行截断。
+- **操作菜单:** 点击 `MoreHorizontal` 图标弹出菜单——重命名、固定、删除。
 
-## 5. Layout Principles
+### Dialog / Modal
+- **容器:** 纯白，20px（`rounded.xxl`）圆角，24px 内边距。
+- **阴影:** `0 12px 40px rgba(41,37,36,0.12)`。
+- **遮罩层:** Ink 色 40% 透明度。
+- **标题:** Display MD（1.25rem）。
+- **关闭按钮:** Icon ghost。
 
-### Spacing System
-- Base unit is effectively `8px`, but the system supports dense micro-steps for precision alignment.
-- Frequently reused spacing values across pages: `2`, `4`, `6`, `7`, `8`, `9`, `10`, `12`, `14`, `17`, `20` px.
-- Universal rhythm constants visible across both marketing and retail flows: `8px` unit scaffolding with `14-20px` utility intervals for component padding and list spacing.
+### Tabs
+- **样式:** 底部 1px hairline 分割线。活跃标签使用 2px Ink 下划线 + Ink 文字。
+- **非活跃:** `ink-muted` 文字，hover 变 `ink-soft`。
 
-### Grid & Container
-- **Showcase pages:** large central columns with broad horizontal breathing room and full-width color chapters.
-- **Commerce pages:** tighter multi-column product and control grids with frequent modular stacking.
-- **Container behavior:** constrained readable core with generous outer margins at desktop widths.
+### Badges / Tags
+- **Badge:** Surface Strong 背景，Caption Uppercase 文字，pill 圆角，3px 10px 内边距。
+- **Tag:** Surface Soft 背景，Caption 文字，pill 圆角，4px 10px 内边距。
 
-### Whitespace Philosophy
-- **Scene pacing:** major visual chapters use broad top/bottom breathing room.
-- **Information compaction where needed:** retail pages deliberately compress spacing to expose more actionable information per viewport.
-- **Contrast-led separation:** section transitions rely more on surface changes than decorative separators.
+### Scrollbar
+- **宽度:** 8px
+- **轨道:** 透明
+- **滑块:** `scrollbar-thumb`（`#d6d3d0`），4px 圆角。Hover 加深至 `#c0bcb8`。
 
-### Border Radius Scale
-- **5px:** tiny utility links/tags and minor small shells.
-- **8px-12px:** standard controls and compact fields.
-- **16px-18px:** cards, module frames, and commerce panels.
-- **28px-36px:** larger module and spotlight containers.
-- **56px / 100px / 980px:** capsules, large pills, and signature elongated CTA forms.
-- **50%:** circular media and selection controls.
+## 6. Do's and Don'ts
 
-## 6. Depth & Elevation
+### Do:
+- **Do** 使用 Ink（`#292524`）作为唯一的主要操作色。所有主要按钮、链接、活动指示器使用同一种深棕色。
+- **Do** 使用 系统字体作为正文和标题的统一字族。避免加载第三方字体加重首屏负担。
+- **Do** 使用 Inter 作为正文，保持 +0.01em 字间距——略带宽松的编辑感。
+- **Do** 使用暖米色画布（`#f5f5f0`）作为页面底色。所有页面以此为基准。
+- **Do** 使用 pill 形状（`rounded.pill`）作为按钮和标签的统一形状。
+- **Do** 使用发丝级边框（`hairline` / `hairline-soft`）代替阴影来表达层次。
+- **Do** 使用柔和渐变光晕（mint/peach/lavender/sky/rose/warm）作为纯装饰氛围，仅限空状态和品牌区域。
+- **Do** 保持正文行宽 ≤70ch，让长文本易于阅读。
+- **Do** 使用 `text-wrap: balance` 优化标题换行。
 
-| Level | Treatment | Use |
-|------|-----------|-----|
-| Level 0 | Flat neutral surfaces (`#ffffff`, `#f5f5f7`, `#000000`) | Main narrative and product stages |
-| Level 1 | Subtle border containment (`#d2d2d7`, `#86868b`) | Filters, input fields, utility cards |
-| Level 2 | Soft shadow (`rgba(0,0,0,0.08)` to `rgba(0,0,0,0.22)` where present) | Highlighted cards and elevated merchandise modules |
-| Level 3 | Dark-surface stepping (`#272729` -> `#2a2a2c`) | Overlays, media controls, dark utility clusters |
-| Accessibility | Blue focus signal (`#0071e3`) | Keyboard and selection emphasis |
-
-Depth is intentionally restrained. Apple favors tonal contrast, surface stepping, and compositional hierarchy over heavy shadow stacks.
-
-### Decorative Depth
-- Decorative depth is primarily created by photographic realism and material rendering, not synthetic UI effects.
-- Translucent overlays and glass-like utility bars provide mild atmospheric layering in navigation and controls.
-
-## 7. Do's and Don'ts
-
-### Do
-- Use the neutral triad (`#000000`, `#f5f5f7`, `#ffffff`) as the structural foundation.
-- Reserve blue accents for genuine action and navigation semantics.
-- Keep typography tight and deliberate, especially at display scales.
-- Maintain the capsule/circle geometry language for controls and key actions.
-- Let product imagery carry visual drama; keep chrome understated.
-- Use border-led containment in dense retail contexts instead of heavy card ornamentation.
-- Preserve clear separation between showcase modules and transactional modules while keeping core tokens shared.
-
-### Don't
-- Don’t introduce broad secondary accent palettes that compete with Apple blue.
-- Don’t overuse shadows, glow effects, or decorative gradients in core UI chrome.
-- Don’t mix unrelated font families or loosen tracking indiscriminately.
-- Don’t flatten all corners to a single radius; Apple uses purposeful radius tiers.
-- Don’t overload commerce modules with thick borders or loud visual effects.
-- Don’t remove neutral contrast cadence between dark and light chapters.
-- Don’t treat marketing and purchase flows as separate design systems.
-
-## 8. Responsive Behavior
-
-### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Small Mobile | 374px and below | Tightened retail controls, single-column product stacks |
-| Mobile | 375px-640px | One-column modules, compact action rows, condensed selectors |
-| Tablet | 641px-833px | Expanded cards and mixed 1-2 column transitions |
-| Tablet Wide | 834px-1023px | More stable multi-column merchandising, larger text blocks |
-| Desktop | 1024px-1240px | Full retail layouts and product comparison structures |
-| Desktop Wide | 1241px-1440px | Marketing hero expansion and broader section spacing |
-| Large Desktop | 1441px+ | Maximum chapter breathing room and wide editorial composition |
-
-### Touch Targets
-- Primary and secondary actions are generally presented in tap-friendly pill/button geometries.
-- Circular media and selection controls align with minimum touchable intent in mobile contexts.
-- Dense commerce UI uses compact labels but maintains clear hit regions via surrounding shape padding.
-
-### Collapsing Strategy
-- Marketing hero typography scales down in discrete tiers while preserving hierarchy contrast.
-- Product and commerce grids collapse from multi-column to stacked cards with persistent selector visibility.
-- Utility navigation compresses into simpler link/control groupings while preserving key actions.
-- Option/configuration clusters become vertically sequenced to keep purchase flow linear on small screens.
-
-### Image Behavior
-- Product imagery preserves aspect and centrality through breakpoints.
-- Hero visuals remain dominant on mobile, with text repositioned around media priority.
-- Retail thumbnails stay legible via tighter crop logic and denser card stacking.
-- Image-led modules continue to anchor the rhythm as layout density increases.
-
-## 9. Agent Prompt Guide
-
-### Quick Color Reference
-- Primary action blue: **Apple Action Blue** (`#0071e3`)
-- Inline link blue: **Body Link Blue** (`#0066cc`)
-- Dark chapter canvas: **Absolute Black** (`#000000`)
-- Light chapter canvas: **Pale Apple Gray** (`#f5f5f7`)
-- Primary text on light: **Near-Black Ink** (`#1d1d1f`)
-- Secondary text: **Secondary Neutral Gray** (`#6e6e73`)
-- Retail border soft: **Soft Border Gray** (`#d2d2d7`)
-- Retail border strong: **Mid Border Gray** (`#86868b`)
-
-### Example Component Prompts
-- "Design an Apple-style product hero on a black canvas (`#000000`) with SF Pro Display semibold headline (48-56px), concise supporting copy, and two capsule CTAs using `#0071e3` and `#1d1d1f`."
-- "Create a commerce configuration panel on white (`#ffffff`) with 18px rounded cards, `#86868b` border fields, SF Pro Text 17px body copy, and compact option selectors."
-- "Build a merchandising card grid alternating `#f5f5f7` and white surfaces, with image-first cards, restrained shadows, and 14-17px SF Pro Text metadata."
-- "Generate a carousel control cluster using circular buttons (50% radius), muted gray overlays, and clear active feedback for gallery navigation."
-- "Compose a mixed marketing + retail page rhythm: dark showcase chapter -> light feature chapter -> dense product list module while keeping blue accents only for actions and links."
-
-### Iteration Guide
-1. Lock the neutral foundation first (`#000000`, `#f5f5f7`, `#ffffff`) before tuning accents.
-2. Keep blue accents scarce and purposeful; if everything is blue, hierarchy collapses.
-3. Tune typography in this order: display scale, body readability, then micro labels.
-4. Match radius by component class (field, card, capsule, circle) rather than one-size-fits-all rounding.
-5. Increase density gradually when moving from showcase sections to commerce sections.
-6. Validate that product imagery remains the strongest visual layer after each revision.
-
-### Known Gaps
-- Distinct semantic status colors (error/warning/success) were not consistently visible in the extracted page set.
-- Some interaction micro-states vary by module and are not represented as universal system tokens.
-- A few retail modules expose context-specific typography overrides that do not appear across all five pages.
+### Don't:
+- **Don't** 引入蓝色（`#0071e3`）或其他饱和品牌色作为操作色。Ink 是唯一的 CTA 颜色。
+- **Don't** 使用渐变作为按钮填充、文字颜色或组件背景。渐变仅限于氛围光晕。
+- **Don't** 使用厚重阴影（`box-shadow` blur > 12px）。卡片不发散阴影。
+- **Don't** 使用暗色终端风格、霓虹色、玻璃拟态。不要像开发者工具。
+- **Don't** 显示字重超过 600。标题保持 400-500 字重。
+- **Don't** 使用小于 8px 的圆角作为卡片和容器的默认值。
+- **Don't** 使用纯白（`#ffffff`）作为页面底色——Canvas（`#f5f5f0`）才是基准。
+- **Don't** 使用 `border-left` / `border-right` 大于 1px 的彩色条纹作为装饰。
+- **Don't** 使用全大写或 wide tracking 作为正文样式。
+- **Don't** 在 SaaS/产品功能区使用「英雄指标」布局（大数字 + 小标签）。

@@ -1,0 +1,76 @@
+/**
+ * AnySearch 搜索引擎 —— 无需 API Key 即可使用（匿名模式受速率和日配额限制）。
+ * 匿名模式限制：X-Ratelimit-Limit: 10（每次时间窗口 10 次请求），超出后返回 402。
+ */
+export async function anysearchSearch(
+  query: string,
+  maxResults: number,
+  apiKey?: string,
+  signal?: AbortSignal,
+): Promise<{ title: string; url: string; content: string }[]> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
+  const response = await fetch("https://api.anysearch.com/v1/search", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query, max_results: maxResults }),
+    signal: signal ?? AbortSignal.timeout(10_000),
+  });
+
+  // 402 表示免费额度耗尽，但响应体中包含可用的临时凭证
+  if (response.status === 402) {
+    const body = (await response.json()) as {
+      data?: { api_key?: string; username?: string; password?: string };
+    };
+    if (body?.data?.api_key) {
+      const retryResponse = await fetch("https://api.anysearch.com/v1/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${body.data.api_key}`,
+        },
+        body: JSON.stringify({ query, max_results: maxResults }),
+        signal: signal ?? AbortSignal.timeout(10_000),
+      });
+      if (!retryResponse.ok) {
+        throw new Error(
+          `AnySearch search failed: ${retryResponse.status} — ${await retryResponse.text().catch(() => "(unreadable)")}`,
+        );
+      }
+      const retryData = (await retryResponse.json()) as {
+        data?: { results?: Array<{ title: string; url: string; description?: string; content?: string }> };
+      };
+      return normalizeResults(retryData);
+    }
+    throw new Error("AnySearch daily free quota exhausted");
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "(unreadable)");
+    throw new Error(`AnySearch search failed: ${response.status} — ${body.slice(0, 200)}`);
+  }
+
+  const data = (await response.json()) as {
+    data?: { results?: Array<{ title: string; url: string; description?: string; content?: string }> };
+  };
+
+  return normalizeResults(data);
+}
+
+function normalizeResults(
+  data: {
+    data?: { results?: Array<{ title: string; url: string; description?: string; content?: string }> };
+  },
+): { title: string; url: string; content: string }[] {
+  return (data?.data?.results ?? []).map((r) => ({
+    title: r.title ?? "",
+    url: r.url ?? "",
+    content: r.content ?? r.description ?? "",
+  }));
+}

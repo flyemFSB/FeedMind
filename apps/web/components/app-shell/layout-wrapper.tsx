@@ -29,11 +29,11 @@ export function LayoutWrapper({
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-white">
+    <div className="flex h-screen w-full overflow-hidden">
       <Sidebar onSettingsClick={() => setSettingsOpen(true)} />
 
       <Sheet>
-        <SheetTrigger className="fixed left-3 top-3 z-50 inline-flex items-center justify-center rounded-lg p-2 text-[#86868b] hover:bg-[#f5f5f7] md:hidden">
+        <SheetTrigger className="fixed left-3 top-3 z-50 inline-flex items-center justify-center rounded-lg p-2 text-editorial-ink-muted hover:bg-editorial-surface-soft md:hidden">
           <Menu size={18} />
         </SheetTrigger>
         <SheetContent side="left" className="w-[260px] p-0">
@@ -41,7 +41,7 @@ export function LayoutWrapper({
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col bg-white">
         <Topbar
           title={title}
           subtitle={subtitle}
@@ -56,7 +56,9 @@ export function LayoutWrapper({
         </div>
       </div>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {settingsOpen && (
+        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
     </div>
   );
 }

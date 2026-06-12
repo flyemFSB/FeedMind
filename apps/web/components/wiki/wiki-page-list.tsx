@@ -8,6 +8,7 @@ import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
+import { useTranslation } from "react-i18next";
 
 const TYPE_COLORS = WIKI_TYPE_COLORS;
 
@@ -22,6 +23,7 @@ export function WikiPageList({
   activePageId,
   onPageSelect,
 }: WikiPageListProps) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -52,16 +54,16 @@ export function WikiPageList({
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-3">
-        <span className="text-[13px] font-semibold text-[#1d1d1f]">页面</span>
+        <span className="text-[13px] font-semibold text-editorial-ink">{t("wiki.page")}</span>
       </div>
 
       <div className="px-3 pb-2">
         <div className="relative">
-          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[#86868b]" />
+          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted" />
           <Input
             ref={searchInputRef}
-            className="h-8 rounded-lg border-[#e8e8ed] pl-8 text-[12px] placeholder:text-[#86868b] focus:border-[#0071e3]"
-            placeholder="搜索页面..."
+            className="h-8 rounded-lg border-editorial-surface-strong pl-8 text-[12px] placeholder:text-editorial-ink-muted focus:border-editorial-primary"
+            placeholder={t("wiki.searchPages")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -70,7 +72,7 @@ export function WikiPageList({
       </div>
 
       <div className="flex gap-1 overflow-x-auto px-3 pb-2">
-        <FilterChip label="全部" active={typeFilter === ""} onClick={() => setTypeFilter("")} />
+        <FilterChip label={t("common.all")} active={typeFilter === ""} onClick={() => setTypeFilter("")} />
         {filterTypes().map((t) => (
           <FilterChip key={t} label={WIKI_TYPE_LABELS[t] || t} color={TYPE_COLORS[t]} active={typeFilter === t} onClick={() => setTypeFilter(t)} />
         ))}
@@ -91,14 +93,14 @@ export function WikiPageList({
           </div>
         ) : filteredPages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[#f5f5f7]">
-              <FileText size={16} className="text-[#86868b]" />
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-editorial-surface-soft">
+              <FileText size={16} className="text-editorial-ink-muted" />
             </div>
-            <p className="text-[13px] font-medium text-[#1d1d1f]">
-              {search || typeFilter ? "没有匹配的页面" : "暂无页面"}
+            <p className="text-[13px] font-medium text-editorial-ink">
+              {search || typeFilter ? t("wiki.noMatch") : t("wiki.noPageTitle")}
             </p>
-            <p className="mt-1 text-[11px] text-[#86868b]">
-              {search || typeFilter ? "尝试其他关键词或清除筛选" : "导入文档由 LLM 自动生成"}
+            <p className="mt-1 text-[11px] text-editorial-ink-muted">
+              {search || typeFilter ? t("wiki.noMatchHint") : t("wiki.autoGenerateHint")}
             </p>
           </div>
         ) : (
@@ -141,9 +143,9 @@ function CategorizedPageList({ pages, activePageId, onPageSelect }: {
       {sortedTypes.map((type) => (
         <div key={type} className="mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
-            <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WIKI_TYPE_COLORS[type] || "#86868b" }} />
-            <span className="text-[11px] font-medium text-[#86868b]">{typeLabels[type] || type}</span>
-            <span className="text-[10px] text-[#d2d2d7]">{grouped[type].length}</span>
+            <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WIKI_TYPE_COLORS[type] || "var(--color-editorial-ink-muted)" }} />
+            <span className="text-[11px] font-medium text-editorial-ink-muted">{typeLabels[type] || type}</span>
+            <span className="text-[10px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
           {grouped[type].map((page) => (
             <PageListItem key={page.id} page={page} active={activePageId === page.id} onClick={() => onPageSelect(page.id)} />
@@ -170,8 +172,8 @@ function FilterChip({
       onClick={onClick}
       className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
         active
-          ? "bg-[#1d1d1f] text-white"
-          : "bg-[#f0f0f2] text-[#6e6e73] hover:bg-[#e5e5e8]"
+          ? "bg-editorial-ink text-white"
+          : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
       }`}
     >
       {label}
@@ -188,22 +190,22 @@ function PageListItem({
   active: boolean;
   onClick: () => void;
 }) {
-  const color = TYPE_COLORS[page.type] || "#86868b";
+  const color = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
 
   return (
     <button
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
         active
-          ? "bg-[#e8f0fe]"
-          : "hover:bg-[#f5f5f7]"
+          ? "bg-editorial-primary/10"
+          : "hover:bg-editorial-surface-soft"
       }`}
     >
-      <FileText size={14} className="shrink-0 text-[#86868b]" strokeWidth={1.5} />
+      <FileText size={14} className="shrink-0 text-editorial-ink-muted" strokeWidth={1.5} />
       <div className="min-w-0 flex-1">
         <span
           className={`block truncate text-[13px] ${
-            active ? "font-medium text-[#0071e3]" : "text-[#1d1d1f]"
+            active ? "font-medium text-editorial-primary" : "text-editorial-ink"
           }`}
         >
           {page.title}

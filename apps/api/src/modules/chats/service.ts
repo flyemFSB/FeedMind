@@ -9,6 +9,22 @@ import { chatMessages, chatSessions, db, type ChatMessageRow, type ChatSessionRo
 import { toIsoString } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
+/** 创建新会话；未指定 threadId 时自动生成 UUID */
+export async function createChatSession(
+  agentThreadId?: string,
+  title?: string | null,
+): Promise<ChatSessionRead> {
+  const id = agentThreadId || crypto.randomUUID();
+  const [row] = await db
+    .insert(chatSessions)
+    .values({
+      agentThreadId: id,
+      title: title?.trim() || "新会话",
+    })
+    .returning();
+  return toRead(row);
+}
+
 // 取首条用户消息前 30 字符作为默认会话标题
 function defaultTitle(payload: ChatSessionSnapshot): string {
   return payload.messages.find((message) => message.role === "user")?.content.trim().slice(0, 30) || "新会话";

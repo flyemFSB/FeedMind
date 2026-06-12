@@ -19,12 +19,14 @@ import { wikiKeys } from "@/lib/hooks/use-wiki";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "react-i18next";
 
 interface WikiSourcesViewProps {
   spaceId: string;
 }
 
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { data, isLoading } = useWikiSources(spaceId);
   const sources = data?.items ?? [];
@@ -51,12 +53,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     try {
       const result = await runIngest(spaceId, sourceIdentity);
       setIngestResult(
-        `✓ "${sourceTitle}": ${result.pagesCreated} 创建，${result.pagesUpdated} 更新`,
+        `✓ "${sourceTitle}": ${result.pagesCreated} ${t("wiki.pagesCreated")}，${result.pagesUpdated} ${t("wiki.pagesUpdated")}`,
       );
       invalidateSources();
     } catch (err) {
       setIngestResult(
-        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : "未知错误"}`,
+        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : t("wiki.uploadFailed")}`,
       );
     } finally {
       setIngestingId(null);
@@ -77,11 +79,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const statusBadge = (status: string) => {
     switch (status) {
       case "ready":
-        return <Badge variant="default" className="text-[10px] bg-[#34c759]">已就绪</Badge>;
+        return <Badge variant="default" className="text-[10px] bg-[#34c759]">{t("wiki.sourceReady")}</Badge>;
       case "failed":
-        return <Badge variant="destructive" className="text-[10px]">失败</Badge>;
+        return <Badge variant="destructive" className="text-[10px]">{t("wiki.sourceFailed")}</Badge>;
       case "ingesting":
-        return <Badge variant="secondary" className="text-[10px] bg-[#ff9500] text-white">摄取中</Badge>;
+        return <Badge variant="secondary" className="text-[10px] bg-[#ff9500] text-white">{t("wiki.sourceIngesting")}</Badge>;
       default:
         return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
     }
@@ -90,11 +92,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#e8e8ed] px-6 py-3">
+      <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-[#1d1d1f]">来源管理</h2>
-          <p className="mt-0.5 text-[11px] text-[#86868b]">
-            上传文档后自动创建来源
+          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.sourceManagement")}</h2>
+          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
+            {t("wiki.sourceDescription")}
           </p>
         </div>
       </div>
@@ -116,39 +118,39 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
           </div>
         ) : sources.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f5f5f7]">
-              <FileText size={20} className="text-[#86868b]" />
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+              <FileText size={20} className="text-editorial-ink-muted" />
             </div>
-            <p className="text-[15px] font-medium text-[#1d1d1f]">暂无来源</p>
-            <p className="mt-1 text-[12px] text-[#86868b]">在侧边栏点击"导入"上传文档自动创建</p>
+            <p className="text-[15px] font-medium text-editorial-ink">{t("wiki.noSources")}</p>
+            <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
           </div>
         ) : (
-          <div className="divide-y divide-[#f0f0f2]">
+          <div className="divide-y divide-editorial-surface-soft">
             {sources.map((source) => (
               <div
                 key={source.id}
-                className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[#fafafc] group"
+                className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-editorial-canvas-soft group"
               >
-                <div className="text-[#86868b] shrink-0">{kindIcon(source.kind)}</div>
+                <div className="text-editorial-ink-muted shrink-0">{kindIcon(source.kind)}</div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-[#1d1d1f]">
+                  <p className="truncate text-[13px] font-medium text-editorial-ink">
                     {source.title}
                   </p>
-                  <p className="text-[11px] text-[#86868b]">
+                  <p className="text-[11px] text-editorial-ink-muted">
                     {source.original_name ?? source.identity}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {statusBadge(source.status)}
                   {source.page_count > 0 && (
-                    <span className="text-[11px] text-[#86868b]">{source.page_count} 页</span>
+                    <span className="text-[11px] text-editorial-ink-muted">{t("wiki.pageCount", { count: source.page_count })}</span>
                   )}
                 </div>
                 <button
                   onClick={() => handleIngest(source.identity, source.title)}
                   disabled={ingestingId === source.identity}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#0071e3] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1 disabled:opacity-50"
-                  title={ingestingId === source.identity ? "摄取中..." : "运行摄取"}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                  title={ingestingId === source.identity ? t("wiki.ingestingTitle") : t("wiki.runIngest")}
                 >
                   {ingestingId === source.identity ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -158,8 +160,8 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 </button>
                 <button
                   onClick={() => handleDelete(source.id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#86868b] opacity-0 transition-opacity hover:bg-[#f0f0f2] hover:text-[#ff3b30] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0071e3] focus-visible:ring-offset-1"
-                  title="删除来源"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-[#ff3b30] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
+                  title={t("wiki.deleteSource")}
                 >
                   <Trash2 size={13} />
                 </button>
@@ -170,10 +172,10 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
         {/* Ingest result toast */}
         {ingestResult && (
-          <div className="mx-4 mb-3 mt-2 rounded-lg border border-[#e8e8ed] bg-[#fafafc] px-4 py-2.5 text-[12px] leading-relaxed text-[#1d1d1f] shadow-sm">
+          <div className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-[12px] leading-relaxed text-editorial-ink shadow-sm">
             {ingestResult}
             <button
-              className="ml-2 text-[#86868b] hover:text-[#1d1d1f]"
+              className="ml-2 text-editorial-ink-muted hover:text-editorial-ink"
               onClick={() => setIngestResult(null)}
             >
               ✕

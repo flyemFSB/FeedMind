@@ -1,12 +1,17 @@
 import { sql } from "drizzle-orm";
-import { closeDb, db } from "./client.js";
+import { client, closeDb, db } from "./client.js";
 
-await db.run(sql`
-  drop table if exists chat_messages;
-  drop table if exists chat_sessions;
-  drop table if exists tools;
-  drop table if exists llm;
-`);
+await client.execute("pragma foreign_keys = off");
 
-closeDb();
-console.log("FeedMind SQLite tables have been reset.");
+try {
+  const tables = await client.execute("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'");
+
+  for (const row of tables.rows) {
+    await db.run(sql`drop table if exists ${sql.identifier(String(row.name))}`);
+  }
+} finally {
+  await client.execute("pragma foreign_keys = on");
+  closeDb();
+}
+
+console.log("FeedMind SQLite database has been reset.");
