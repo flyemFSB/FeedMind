@@ -9,7 +9,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { uploadWikiFile } from "@/lib/api/wiki";
+import { uploadWikiFile, createWikiSource } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -280,7 +280,6 @@ function UrlPasteTab({
     setProcessing(true);
     setResults([]);
 
-    const { createWikiSource } = await import("@/lib/api/wiki");
     const newResults: Array<{
       url: string;
       status: "success" | "error";

@@ -89,7 +89,7 @@ export function Reasoning({
     <ReasoningContext.Provider value={{ isStreaming, isOpen, setIsOpen }}>
       <div
         className={cn(
-          "overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card",
+          "w-full overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card",
           className,
         )}
         {...props}

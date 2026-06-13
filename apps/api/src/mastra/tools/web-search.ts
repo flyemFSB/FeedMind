@@ -11,7 +11,7 @@ export const webSearchTool = createTool({
     "Search the web for current information, news, articles, and facts from the internet.",
   inputSchema: z.object({
     query: z.string().min(1).describe("Search keywords. Be specific for better results."),
-    max_results: z.number().int().min(1).max(10).default(5),
+    max_results: z.coerce.number().int().min(1).max(10).default(5),
   }),
   execute: async ({ query, max_results }) => {
     await ToolConfigClient.instance.load();

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { X, Cpu, MessageSquare, Wrench } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
 import { useLLMModels } from "@/lib/hooks/use-llms";
-import { useTools } from "@/lib/hooks/use-tools";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,7 +44,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
   // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
   const { data: models = [] } = useLLMModels({ enabled: open });
-  const { data: tools = [] } = useTools({ enabled: open });
 
   function handleModelSaved() {
     setShowModelForm(false);
@@ -148,7 +146,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 onDeleteModel={setDeletingModel}
               />
             )}
-            {activeTab === "tools" && <ToolsPanel tools={tools} />}
+            {activeTab === "tools" && <ToolsPanel />}
             {activeTab === "runtime" && <RuntimePanel />}
           </div>
         </Tabs>

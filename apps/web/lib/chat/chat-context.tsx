@@ -27,7 +27,8 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 /**
  * ChatProvider — 提供 useChat 上下文给所有子组件
  * - 使用 DefaultChatTransport 直连 Mastra 后端
- * - 每次请求在 body 中注入 requestContext.feedmindModelId，供 Mastra 动态解析模型
+ * - 通过自定义 header 传递模型 ID，避免 body 中携带 requestContext 导致 Mastra
+ *   "Multiple requestContext sources" 警告
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
   const transport = useMemo(
@@ -38,11 +39,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         prepareSendMessagesRequest({ messages }) {
           const feedmindModelId = getSelectedFeedMindModel();
           return {
-            body: {
-              messages,
-              ...(feedmindModelId ? { requestContext: { feedmindModelId } } : {}),
-            },
-            headers: {},
+            body: { messages },
+            headers: feedmindModelId ? { "x-feedmind-model-id": feedmindModelId } : {},
           };
         },
       }),

@@ -4,19 +4,26 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { ToolRead } from "@feedmind/contracts";
 import { updateAllToolConfigs } from "@/lib/api/tools";
+import { useTools } from "@/lib/hooks/use-tools";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DynamicField } from "./dynamic-field";
 import { useTranslation } from "react-i18next";
 
-export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
+export function ToolsPanel() {
   const { t } = useTranslation();
-  const [activeTool, setActiveTool] = useState(initialTools[0]?.name ?? "");
-  const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>(() => {
-    const init: Record<string, Record<string, unknown>> = {};
-    for (const t of initialTools) init[t.name] = { ...t.config };
-    return init;
-  });
+  const { data: initialTools = [], isLoading } = useTools();
+  const [activeTool, setActiveTool] = useState("");
+  const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
+  const [initialized, setInitialized] = useState(false);
   const [touched, setTouched] = useState<Set<string>>(new Set());
+
+  // Init local state when data arrives
+  if (initialTools.length > 0 && !initialized) {
+    setActiveTool(initialTools[0].name);
+    setConfigs(Object.fromEntries(initialTools.map((t) => [t.name, { ...t.config }])));
+    setInitialized(true);
+  }
 
   function handleChange(toolName: string, key: string, value: unknown) {
     setTouched((prev) => new Set(prev).add(`${toolName}:${key}`));
@@ -57,6 +64,16 @@ export function ToolsPanel({ tools: initialTools }: { tools: ToolRead[] }) {
     } catch {
       toast.error(t("settings.saveFailed"));
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="px-5 space-y-4">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
   }
 
   if (!initialTools.length) {

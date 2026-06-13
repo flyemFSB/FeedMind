@@ -1,18 +1,28 @@
 import { defineConfig } from "vite";
-import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import viteReact from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { TanStackRouterVite } from "@tanstack/router-vite-plugin";
 
 export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 3000,
-    proxy: {},
+    proxy: {
+      "/api/chat": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/chat/, "/v1/agent/chat"),
+      },
+      "/api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     tsconfigPaths: true,
   },
-  plugins: [tanstackStart(), tailwindcss(), viteReact()],
+  plugins: [TanStackRouterVite({ autoCodeSplitting: true }), tailwindcss(), react()],
   build: {
     rollupOptions: {
       output: {

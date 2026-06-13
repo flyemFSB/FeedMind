@@ -26,6 +26,18 @@ async function main(): Promise<void> {
   const mastraServer = new MastraServer({ app, mastra });
   await mastraServer.init();
 
+  // 从自定义 header 读取模型 ID，注入 requestContext（避免 body 中携带 requestContext 导致重复）
+  app.use("*", async (c, next) => {
+    const modelId = c.req.header("x-feedmind-model-id");
+    if (modelId) {
+      const rc = c.get("requestContext");
+      if (rc) {
+        rc.set("feedmindModelId", modelId);
+      }
+    }
+    await next();
+  });
+
   serve(
     {
       fetch: app.fetch,

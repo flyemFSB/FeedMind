@@ -147,7 +147,7 @@ function ThinkingProcess({
   }, [isStreaming]);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card">
+    <div className="w-full overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card">
       {/* Toggle bar */}
       <button
         type="button"
