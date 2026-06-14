@@ -1,0 +1,10 @@
+# Bun 配置
+# 参见 https://bun.sh/docs/configuration
+
+[install]
+# 锁定文件格式（bun 特有文本格式，可读可 diff）
+# lockfile = "bun.lock"
+
+[install.trusted]
+# 需要运行 postinstall 脚本的包
+# esbuild = true

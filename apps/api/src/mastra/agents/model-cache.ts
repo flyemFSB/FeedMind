@@ -16,7 +16,7 @@ export async function resolveModelClient(modelId: number): Promise<{ client: Ret
   const openai = createOpenAI({
     apiKey: config.api_key,
     baseURL: config.base_url || undefined,
-    fetch: createSanitizedFetch(config.base_url || undefined),
+    fetch: createSanitizedFetch(config.base_url || undefined) as any,
   });
   const cleanName = config.model_name.includes(":")
     ? config.model_name.split(":").slice(1).join(":")

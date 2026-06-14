@@ -1,4 +1,3 @@
-import { serve } from "@hono/node-server";
 import { MastraServer } from "@mastra/hono";
 import { createApp } from "./app.js";
 import { apiEnv } from "./env.js";
@@ -38,16 +37,12 @@ async function main(): Promise<void> {
     await next();
   });
 
-  serve(
-    {
-      fetch: app.fetch,
-      hostname: apiEnv.API_HOST,
-      port: apiEnv.API_PORT,
-    },
-    (info) => {
-      console.log(`FeedMind API + Agent listening on http://${info.address}:${info.port}`);
-    },
-  );
+  Bun.serve({
+    fetch: app.fetch,
+    hostname: apiEnv.API_HOST,
+    port: apiEnv.API_PORT,
+  });
+  console.log(`FeedMind API + Agent listening on http://${apiEnv.API_HOST}:${apiEnv.API_PORT}`);
 }
 
 main().catch((err: unknown) => {

@@ -3,8 +3,8 @@
  * "type":"" 和 "id":"" 而非 "type":"function" 和有效 ID。
  * @ai-sdk/openai 的流式解析器拒绝空字符串，因此需在 fetch 层修复。
  */
-export function createSanitizedFetch(_baseUrl?: string): typeof fetch {
-  return async (input, init) => {
+export function createSanitizedFetch(_baseUrl?: string) {
+  return async (input: URL | RequestInfo, init?: RequestInit) => {
     const response = await globalThis.fetch(input, init);
 
     const contentType = response.headers.get("content-type") || "";
