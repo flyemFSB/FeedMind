@@ -5,7 +5,7 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { BookOpen, ChevronLeft, ChevronRight, Plus, Settings } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { AssistantThreadList } from "@/components/chat/thread-list";
-import { writeActiveFeedMindThreadId } from "@/lib/api/chats";
+import { useChatContext } from "@/lib/chat/chat-context";
 import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
@@ -22,6 +22,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
   });
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { createNewSession } = useChatContext();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("sidebar-collapsed") === "true";
@@ -58,10 +59,10 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3 pb-2"}`}>
           <button
             onClick={() => {
-              writeActiveFeedMindThreadId("");
+              createNewSession();
               if (pathname !== "/chat") navigate({ to: "/chat" });
             }}
-            className={`flex cursor-pointer items-center justify-center gap-2 rounded-full bg-editorial-primary text-[14px] font-semibold text-editorial-ink-on-primary transition-all hover:bg-editorial-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-ink/30 active:translate-y-px ${collapsed ? "h-9 w-9" : "h-9 w-full px-3"}`}
+            className={`flex cursor-pointer items-center justify-center gap-2 rounded-full bg-editorial-primary text-[14px] font-semibold text-editorial-ink-on-primary transition-colors duration-150 ease-out hover:bg-editorial-primary-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-ink/30 active:translate-y-px ${collapsed ? "h-9 w-9" : "h-9 w-full px-3"}`}
           >
             <Plus size={16} strokeWidth={2} className="shrink-0" />
             {!collapsed && <span>{t("common.newChat")}</span>}
@@ -72,7 +73,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3 pb-1"}`}>
           <Link
             to="/wiki"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors hover:bg-editorial-surface-soft ${collapsed ? "justify-center w-9" : "w-full"} ${pathname === "/wiki" ? "text-editorial-primary bg-editorial-primary/5" : "text-editorial-ink"}`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center w-9" : "w-full"} ${pathname === "/wiki" ? "text-editorial-ink bg-editorial-surface-strong" : "text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"} active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
           >
             <BookOpen size={16} strokeWidth={1.5} className="shrink-0" />
             {!collapsed && <span>{t("common.myWiki")}</span>}
@@ -99,7 +100,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         <div className={`flex shrink-0 items-center border-t border-editorial-hairline ${collapsed ? "justify-center p-1" : "p-3"}`}>
           <button
             onClick={onSettingsClick}
-            className={`flex cursor-pointer items-center rounded-lg text-[14px] font-medium text-editorial-ink transition-colors hover:bg-editorial-surface-soft ${collapsed ? "justify-center h-8 w-7" : "flex-1 gap-3 px-2 py-2"}`}
+            className={`flex cursor-pointer items-center rounded-lg text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center h-8 w-7" : "flex-1 gap-3 px-2 py-2"} text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
             title={t("common.settings")}
           >
             <Settings size={16} strokeWidth={1.5} className="shrink-0" />
