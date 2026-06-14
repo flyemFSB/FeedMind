@@ -5,22 +5,19 @@ This file provides guidance to Claude Code when working with code in this reposi
 ## Commands
 
 ```bash
-pnpm install               # Install all dependencies
-pnpm dev                   # Start all dev services (web + API)
-pnpm build                 # Build all packages and apps
-pnpm build:packages        # Build shared packages only (contracts, shared, db, crawler-core, wiki-core)
-pnpm typecheck             # TypeScript type check across all packages
-pnpm lint                  # ESLint
-pnpm test                  # Run all tests (vitest)
-pnpm db:init               # Initialize SQLite database (create tables + seed tools)
-pnpm db:generate           # Generate Drizzle migrations
-pnpm db:migrate            # Apply Drizzle migrations
-pnpm web:dev               # Web frontend only (http://localhost:3000)
-pnpm api:dev               # API + Mastra Agent (http://localhost:8000)
-
-# Run a specific package's command
-pnpm --filter @feedmind/web dev
-pnpm --filter @feedmind/api build
+bun install               # Install all dependencies
+bun run dev               # Start all dev services (web + API, parallel via concurrently)
+bun run build             # Build all packages and apps
+bun run build:packages    # Build shared packages only (contracts, shared, db, crawler-core, wiki-core)
+bun run typecheck         # TypeScript type check across all packages
+bun run lint              # ESLint
+bun run test              # Run all tests (vitest)
+bun run db:init           # Initialize SQLite database (create tables + seed tools)
+bun run db:generate       # Generate Drizzle migrations
+bun run db:migrate        # Apply Drizzle migrations
+bun run web:dev           # Web frontend only (http://localhost:3000)
+bun run api:dev           # API + Mastra Agent (http://localhost:8000)
+bun run --bun vite dev    # Force Vite to run on Bun runtime
 ```
 
 ## Architecture

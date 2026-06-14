@@ -3,30 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.6.0",
+  "workspaces": ["apps/*", "packages/*"],
+  "trustedDependencies": ["esbuild"],
   "engines": {
-    "node": ">=24.0.0"
+    "bun": ">=1.2.0"
   },
   "scripts": {
-    "dev": "pnpm build:packages && pnpm --parallel --filter @feedmind/api --filter @feedmind/web dev",
-    "build": "pnpm -r build",
-    "build:packages": "pnpm --filter @feedmind/contracts --filter @feedmind/shared --filter @feedmind/db --filter @feedmind/crawler-core --filter @feedmind/wiki-core build",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck",
-    "db:init": "pnpm --filter @feedmind/db db:init",
-    "db:generate": "pnpm --filter @feedmind/db db:generate",
-    "db:migrate": "pnpm --filter @feedmind/db db:migrate",
-    "db:reset": "pnpm --filter @feedmind/db db:reset",
-    "web:dev": "pnpm --filter @feedmind/web dev",
-    "api:dev": "pnpm --filter @feedmind/api dev"
+    "dev": "bun run build:packages && concurrently -n api,web -c cyan,green \"bun run api:dev\" \"bun run web:dev\"",
+    "build": "bun --filter '*' build",
+    "build:packages": "bun --filter @feedmind/contracts build && bun --filter @feedmind/shared build && bun --filter @feedmind/db build && bun --filter @feedmind/crawler-core build && bun --filter @feedmind/wiki-core build",
+    "lint": "bun --filter '*' lint",
+    "test": "bun test",
+    "typecheck": "bun --filter '*' typecheck",
+    "db:init": "bun --filter @feedmind/db db:init",
+    "db:generate": "bun --filter @feedmind/db db:generate",
+    "db:migrate": "bun --filter @feedmind/db db:migrate",
+    "db:reset": "bun --filter @feedmind/db db:reset",
+    "web:dev": "bun --filter @feedmind/web dev",
+    "api:dev": "bun --filter @feedmind/api dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.9.3",
+    "concurrently": "^10.0.3",
     "eslint": "^10.4.1",
     "prettier": "^3.6.2",
-    "tsx": "^4.20.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.47.0",
     "vitest": "^4.1.0"

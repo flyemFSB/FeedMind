@@ -1,10 +1,12 @@
 # Bun 配置
 # 参见 https://bun.sh/docs/configuration
+# FeedMind 使用 Bun 作为运行时和包管理器
 
 [install]
-# 锁定文件格式（bun 特有文本格式，可读可 diff）
+# 锁定文件：bun 的文本格式锁文件，可读可 diff
 # lockfile = "bun.lock"
 
 [install.trusted]
-# 需要运行 postinstall 脚本的包
-# esbuild = true
+# 需要运行 postinstall 脚本的包（Bun 默认禁止生命周期脚本以确保安全）
+# esbuild 等包需要显式信任
+esbuild = true
