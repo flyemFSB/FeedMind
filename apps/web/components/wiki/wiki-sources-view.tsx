@@ -79,18 +79,18 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const statusBadge = (status: string) => {
     switch (status) {
       case "ready":
-        return <Badge variant="default" className="text-[10px] bg-[#34c759]">{t("wiki.sourceReady")}</Badge>;
+        return <Badge variant="default" className="text-[10px] bg-editorial-semantic-success">{t("wiki.sourceReady")}</Badge>;
       case "failed":
         return <Badge variant="destructive" className="text-[10px]">{t("wiki.sourceFailed")}</Badge>;
       case "ingesting":
-        return <Badge variant="secondary" className="text-[10px] bg-[#ff9500] text-white">{t("wiki.sourceIngesting")}</Badge>;
+        return <Badge variant="secondary" className="text-[10px] bg-editorial-semantic-warning text-white">{t("wiki.sourceIngesting")}</Badge>;
       default:
         return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
     }
   };
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-editorial-surface-card">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
@@ -160,7 +160,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 </button>
                 <button
                   onClick={() => handleDelete(source.id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-[#ff3b30] group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
                   title={t("wiki.deleteSource")}
                 >
                   <Trash2 size={13} />

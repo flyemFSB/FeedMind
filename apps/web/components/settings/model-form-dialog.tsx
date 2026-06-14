@@ -108,7 +108,7 @@ export function ModelFormDialog({
         if (!value) handleClose();
       }}
     >
-      <DialogContent className="max-w-[520px] gap-0 rounded-2xl bg-white p-0 text-editorial-ink">
+      <DialogContent className="max-w-[520px] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
           <DialogTitle className="text-[15px] font-semibold">
             {isEditing ? t("settings.editModel") : t("settings.addModel")}
@@ -119,7 +119,7 @@ export function ModelFormDialog({
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 px-5 py-5">
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.provider")}</label>
+            <label htmlFor="model-provider-select" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.provider")}</label>
             <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
               <div className="grid h-10 w-10 place-items-center rounded-xl border border-editorial-hairline bg-editorial-canvas-soft">
                 <ProviderIcon provider={form.provider} size={24} />
@@ -131,8 +131,9 @@ export function ModelFormDialog({
                 }}
               >
                 <SelectTrigger
+                  id="model-provider-select"
                   aria-label={t("settings.selectProvider")}
-                  className="h-10 min-h-10 w-full rounded-xl border-editorial-hairline bg-white px-3 py-0 text-[13px]"
+                  className="h-10 min-h-10 w-full rounded-xl border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
                 >
                   <SelectValue placeholder={t("settings.selectProvider")} />
                 </SelectTrigger>
@@ -152,8 +153,9 @@ export function ModelFormDialog({
             </div>
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.modelName")}</label>
+            <label htmlFor="model-name-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">{t("settings.modelName")}</label>
             <Input
+              id="model-name-input"
               value={form.modelName}
               onChange={(event) =>
                 setForm((current) => ({ ...current, modelName: event.target.value }))
@@ -163,10 +165,11 @@ export function ModelFormDialog({
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+            <label htmlFor="model-endpoint-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
               {t("settings.endpointLabel")}
             </label>
             <Input
+              id="model-endpoint-input"
               value={form.baseUrl}
               onChange={(event) =>
                 setForm((current) => ({ ...current, baseUrl: event.target.value }))
@@ -176,11 +179,12 @@ export function ModelFormDialog({
             />
           </div>
           <div className="col-span-2">
-            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+            <label htmlFor="model-api-key-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
               {t("settings.apiKeyLabel")}
             </label>
             <div className="relative">
               <Input
+                id="model-api-key-input"
                 value={form.apiKey}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, apiKey: event.target.value }))
@@ -212,7 +216,7 @@ export function ModelFormDialog({
           <Button
             onClick={handleSubmit}
             disabled={!form.modelName || isPending}
-            className="rounded-xl bg-editorial-primary px-4 text-[13px] text-white hover:bg-editorial-primary disabled:cursor-not-allowed disabled:bg-editorial-hairline"
+            className="rounded-xl bg-editorial-primary px-4 text-[13px] text-editorial-ink-on-primary hover:bg-editorial-primary disabled:cursor-not-allowed disabled:bg-editorial-hairline"
           >
             {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>

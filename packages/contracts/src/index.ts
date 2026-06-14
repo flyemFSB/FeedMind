@@ -6,3 +6,4 @@ export * from "./runtime-config/index.js";
 export * from "./tools/index.js";
 export * from "./wiki/index.js";
 export * from "./crawler/index.js";
+export * from "./skill/index.js";

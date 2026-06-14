@@ -130,8 +130,8 @@ URLs must include the schema (https://example.com, not example.com).`,
     await checkSSRF(url);
 
     // 从数据库加载工具配置（含 Firecrawl API Key）
-    await ToolConfigClient.instance.load(abortSignal);
-    const toolConfig = ToolConfigClient.instance.getTool("web_fetch");
+    await ToolConfigClient.getInstance().load(abortSignal);
+    const toolConfig = ToolConfigClient.getInstance().getTool("web_fetch");
     const firecrawlApiKey = toolConfig?.config?.firecrawlApiKey as string | undefined;
 
     // 1) 优先通过 Firecrawl 获取 Markdown

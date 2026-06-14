@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Menu } from "lucide-react";
+import { motion } from "motion/react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { SettingsModal } from "@/components/settings/settings-modal";
@@ -41,7 +42,7 @@ export function LayoutWrapper({
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-white">
+      <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
         <Topbar
           title={title}
           subtitle={subtitle}
@@ -50,15 +51,18 @@ export function LayoutWrapper({
         />
 
         <div className="flex min-h-0 flex-1">
-          <main className="min-w-0 flex-1 overflow-y-auto">
+          <motion.main
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="min-w-0 flex-1 overflow-y-auto h-full"
+          >
             {children}
-          </main>
+          </motion.main>
         </div>
       </div>
 
-      {settingsOpen && (
-        <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      )}
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

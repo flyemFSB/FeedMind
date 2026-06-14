@@ -53,8 +53,8 @@ export async function initDatabase(): Promise<void> {
   // 确保默认场景配置行存在
   for (const scenario of ["session", "wiki"]) {
     await client.execute({
-      sql: `insert or ignore into runtime_config (scenario, temperature, max_tokens, context_length, system_prompt) values (?, ?, ?, ?, ?)`,
-      args: [scenario, 0.2, 8192, "128k", ""],
+      sql: `insert or ignore into runtime_config (scenario, temperature, max_output_tokens, top_p, context_length, system_prompt) values (?, ?, ?, ?, ?, ?)`,
+      args: [scenario, 0.2, 8192, 1, "128k", ""],
     });
   }
 

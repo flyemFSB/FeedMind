@@ -42,7 +42,7 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
         if (!value) onClose();
       }}
     >
-      <DialogContent className="max-w-[420px] gap-0 rounded-2xl bg-white p-0 text-editorial-ink">
+      <DialogContent className="max-w-[420px] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
           <DialogTitle className="text-[15px] font-semibold">{t("settings.deleteModel")}</DialogTitle>
           <DialogDescription className="text-[12px] text-editorial-ink-muted">
@@ -59,7 +59,7 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
           <Button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
-            className="rounded-xl bg-red-500 px-4 text-[13px] text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-destructive px-4 text-[13px] text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("settings.confirmDelete")}
           </Button>

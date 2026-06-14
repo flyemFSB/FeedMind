@@ -6,6 +6,7 @@ import { runtimeConfigRoutes } from "./runtime-config.js";
 import { toolsRoutes } from "./tools.js";
 import { wikiRoutes } from "./wiki.js";
 import { crawlerRoutes } from "./crawler.js";
+import { skillsRoutes } from "./skills.js";
 
 export const v1Router = new Hono();
 
@@ -16,3 +17,4 @@ v1Router.route("/", runtimeConfigRoutes);
 v1Router.route("/", toolsRoutes);
 v1Router.route("/", wikiRoutes);
 v1Router.route("/", crawlerRoutes);
+v1Router.route("/", skillsRoutes);

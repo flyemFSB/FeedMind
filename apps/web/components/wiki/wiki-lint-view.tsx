@@ -18,8 +18,8 @@ const LINT_ICONS: Record<string, React.ElementType> = {
 };
 
 const LINT_COLORS: Record<string, string> = {
-  warning: "#ff9500",
-  info: "var(--color-editorial-primary)",
+  warning: "var(--editorial-semantic-warning)",
+  info: "var(--editorial-primary)",
 };
 
 export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
@@ -57,7 +57,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
   const infos = bySeverity("info");
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-editorial-surface-card">
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
           <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.lintTitle")}</h2>
@@ -69,7 +69,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
           size="sm"
           onClick={handleRunLint}
           disabled={running}
-          className="h-8 gap-1.5 rounded-lg bg-editorial-primary px-3 text-[12px] text-white hover:bg-editorial-primary"
+          className="h-8 gap-1.5 rounded-lg bg-editorial-primary px-3 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
         >
           {running ? <RefreshCw size={13} className="animate-spin" /> : <Play size={13} />}
           {t("wiki.runLint")}
@@ -88,7 +88,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
           </div>
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
-            <Info size={32} className="mb-3 text-[#34c759]" />
+            <Info size={32} className="mb-3 text-editorial-semantic-success" />
             <p className="text-[13px] font-medium text-editorial-ink">{t("wiki.noLintIssues")}</p>
             <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.runLintHint")}</p>
           </div>

@@ -345,7 +345,7 @@ function WikiNavButton({
       aria-label={label}
       className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
         active
-          ? "bg-editorial-primary text-white shadow-sm"
+          ? "bg-editorial-primary text-editorial-ink-on-primary shadow-sm"
           : "text-editorial-ink-muted hover:bg-editorial-surface-strong hover:text-editorial-ink"
       }`}
     >
@@ -373,7 +373,7 @@ function DualPaneLayout({
 }) {
   return (
     <div className="flex min-w-0 flex-1">
-      <aside className="flex w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-white">
+      <aside className="flex w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-editorial-surface-card">
         <WikiPageList
           spaceId={spaceId}
           activePageId={activePageId}
@@ -381,7 +381,7 @@ function DualPaneLayout({
         />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-white">
+      <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
         {activePageId ? (
           isEditing ? (
             <WikiEditor

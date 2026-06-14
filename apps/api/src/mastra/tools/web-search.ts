@@ -14,14 +14,14 @@ export const webSearchTool = createTool({
     max_results: z.coerce.number().int().min(1).max(10).default(5),
   }),
   execute: async ({ query, max_results }) => {
-    await ToolConfigClient.instance.load();
-    const webSearch = ToolConfigClient.instance.getTool("web_search");
+    await ToolConfigClient.getInstance().load();
+    const webSearch = ToolConfigClient.getInstance().getTool("web_search");
 
     if (!webSearch?.is_enabled) {
       return JSON.stringify({ error: "WEB_SEARCH_DISABLED", query, message: "Web search is disabled" });
     }
 
-    const limit = max_results ?? 5;
+    const limit = Number(max_results ?? 5);
 
     // 按优先级顺序尝试：Tavily → Exa → AnySearch（兜底）
     const engines: Array<{

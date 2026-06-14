@@ -327,6 +327,45 @@ FeedMind 的设计语言从 ElevenLabs 的编辑式品牌美学出发，将其�
 - **Warning** (`#d97706`): 警告信息。
 - **Info** (`#2563eb`): 信息提示。
 
+### Dark Mode (Apple HIG 设计系统适配)
+
+深色模式基于 Apple Human Interface Guidelines (HIG) 色彩系统构建。这不是简单的亮度反转——HIG 定义了一套独立的光学层级（luminance hierarchy），确保暗色背景上的可读性和视觉秩序。
+
+#### Background 层级 (颜色深度递减)
+
+| Token | Value | HIG 对应 | 使用场景 |
+|-------|-------|----------|----------|
+| `canvas` | `#000000` | `systemBackground` | 页面底色、最底层 |
+| `canvas-soft` / `surface-card` / `surface-dark` | `#1C1C1E` | `secondarySystemBackground` | 卡片、侧边栏、表面容器 |
+| `surface-soft` | `#2C2C2E` | `tertiarySystemBackground` | 次级表面、hover 状态、分组内层 |
+| `surface-strong` | `#3A3A3C` | `systemGray4` | 强调表面、标签底色 |
+
+**Elevation 规则**: 浮起层级越高，背景越亮。popover、modal 等前景元素自动使用比当前层级更亮的表面色（e.g.，在 canvas 上的 modal 使用 `#1C1C1E`）。
+
+#### Text 层级 (对比度递减)
+
+| Token | Value | HIG 对应 | Alpha | 对比度 (vs `#000000`) |
+|-------|-------|----------|-------|----------------------|
+| `ink` (primary) | `#FFFFFF` | `label` | 100% | 21:1 (AAA) |
+| `ink-soft` (secondary) | `#A6A6A8` | `secondaryLabel` 偏亮 | ~65%等效 | ~13:1 (AAA) |
+| `ink-muted` (tertiary) | `#6B6B6D` | `tertiaryLabel` 偏亮 | ~42%等效 | ~6:1 (AA) |
+
+所有 label 颜色以 `#EBEBF5` 为基色，层级通过 alpha 通道控制。CSS 变量预计算了在黑色背景上的混合结果，以 OKLCH 色空间存储。
+
+#### Separator / Fill 参考
+
+| Token | Value | HIG 对应 |
+|-------|-------|----------|
+| `hairline` | `#3A3A3C` | 接近 `separator` (rgba(84,84,88,0.6)) |
+| `scrollbar-thumb` | `#3A3A3C` | 系统滚动条滑块 |
+
+#### 设计原则
+
+1. **避免纯白疲劳**: 纯黑画布 (`#000000`) 配合 OLED 省电，同时让白色文字有最高对比度。
+2. **文本层级必须清晰**: 从纯白到中灰到深灰的三级阶梯，取代扁平的单色文字。
+3. **表面不要纯黑**: 卡片和容器永远比画布亮一级，通过 `#1C1C1E` / `#2C2C2E` 建立视觉分层。
+4. **色相偏移**: 暗色模式整体向冷色偏移（hue 290），与暖色 (hue 50~70) 的亮色模式形成昼夜对比。
+
 ### Named Rules
 
 **The Ink Voice Rule.** Ink（`#292524`）是系统唯一的声音色。按钮、链接、活动状态——所有需要「操作感」的地方都用同一种深棕色。不引入蓝色品牌色、不添加第二个动作色。Ink 的稀缺性是其力量。
@@ -473,3 +512,4 @@ FeedMind 的设计语言从 ElevenLabs 的编辑式品牌美学出发，将其�
 - **Don't** 使用 `border-left` / `border-right` 大于 1px 的彩色条纹作为装饰。
 - **Don't** 使用全大写或 wide tracking 作为正文样式。
 - **Don't** 在 SaaS/产品功能区使用「英雄指标」布局（大数字 + 小标签）。
+

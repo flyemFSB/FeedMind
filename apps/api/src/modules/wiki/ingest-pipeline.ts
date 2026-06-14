@@ -13,7 +13,7 @@ const MAX_SOURCE_CHARS = 80_000;
 // ─── LLM Client ──────────────────────────────────────────────────
 
 import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
-import { getScenarioRuntime } from "../models/config-service.js";
+import { getRuntimeConfig } from "../models/config-service.js";
 
 // ─── Space Directory Helpers ─────────────────────────────────────
 // spaceDir 从 wiki-utils.ts 导入（固定以项目根目录为基准）
@@ -470,7 +470,7 @@ export async function runIngest(
   }
 
   // Resolve wiki runtime config & create LLM client
-  const runtime = await getScenarioRuntime("wiki");
+  const runtime = await getRuntimeConfig("wiki");
   const llmClient: LlmClient = new OpenAiLlmClient({
     apiKey: runtime.api_key,
     baseUrl: runtime.base_url,

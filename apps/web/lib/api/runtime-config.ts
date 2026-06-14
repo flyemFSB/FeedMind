@@ -6,7 +6,8 @@ export interface RuntimeConfig {
   model_name?: string;
   provider?: string;
   temperature: number;
-  max_tokens: number;
+  max_output_tokens: number;
+  top_p: number;
   context_length: string;
   system_prompt: string;
 }
@@ -14,7 +15,8 @@ export interface RuntimeConfig {
 export interface RuntimeConfigUpdate {
   llm_id?: number | null;
   temperature?: number;
-  max_tokens?: number;
+  max_output_tokens?: number;
+  top_p?: number;
   context_length?: string;
   system_prompt?: string;
 }

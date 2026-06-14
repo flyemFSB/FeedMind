@@ -172,7 +172,7 @@ function FilterChip({
       onClick={onClick}
       className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
         active
-          ? "bg-editorial-ink text-white"
+          ? "bg-editorial-ink text-editorial-ink-on-primary"
           : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
       }`}
     >

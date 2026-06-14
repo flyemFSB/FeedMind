@@ -24,7 +24,7 @@ export function Thread() {
   const isStreaming = status === "streaming";
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-white">
+    <div className="relative flex h-full min-h-0 flex-col bg-editorial-surface-card">
       <Conversation>
         <ConversationContent className="max-w-4xl w-full mx-auto px-6 pt-6 pb-[220px]">
           {messages.length === 0 ? (
@@ -82,7 +82,7 @@ export function Thread() {
       </Conversation>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-6 pb-6 pt-16">
-        <div className="absolute inset-y-0 left-6 right-6 z-0 mx-auto max-w-3xl bg-gradient-to-t from-white via-white/95 to-transparent" />
+        <div className="absolute inset-y-0 left-6 right-6 z-0 mx-auto max-w-3xl bg-gradient-to-t from-editorial-surface-card via-editorial-surface-card/95 to-transparent" />
         <div className="relative z-10 pointer-events-auto max-w-3xl mx-auto w-full">
           <Composer />
         </div>

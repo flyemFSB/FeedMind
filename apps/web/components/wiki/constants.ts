@@ -1,9 +1,9 @@
 export const WIKI_TYPE_COLORS: Record<string, string> = {
   concept: "var(--color-editorial-primary)",
-  entity: "#34c759",
-  source: "#ff9500",
-  overview: "var(--color-editorial-ink)",
-  index: "#5856d6",
+  entity: "var(--editorial-semantic-success)",
+  source: "var(--editorial-semantic-warning)",
+  overview: "var(--editorial-ink)",
+  index: "var(--editorial-semantic-info)",
 };
 
 export const WIKI_TYPE_LABELS: Record<string, string> = {

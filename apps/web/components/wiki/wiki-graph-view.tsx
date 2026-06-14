@@ -123,7 +123,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
   const maxLinks = Math.max(...nodes.map((n) => n.linkCount), 1);
 
   return (
-    <div className="relative flex h-full flex-col bg-white">
+    <div className="relative flex h-full flex-col bg-editorial-surface-card">
       {/* Toolbar */}
       <div className="flex items-center gap-3 border-b border-editorial-surface-strong px-6 py-3">
         <span className="text-[15px] font-semibold text-editorial-ink">{t("wiki.graph")}</span>
@@ -199,7 +199,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
           </svg>
 
           {/* Legend */}
-          <div className="absolute bottom-3 left-3 rounded-lg border bg-white/90 px-3 py-2 text-xs shadow-sm">
+          <div className="absolute bottom-3 left-3 rounded-lg border bg-editorial-surface-card/90 px-3 py-2 text-xs shadow-sm">
             {colorMode === "type" ? (
               <div className="flex flex-col gap-1">
                 {Object.entries(WIKI_TYPE_COLORS).map(([type, color]) => (
@@ -224,7 +224,7 @@ export function WikiGraphView({ spaceId, onPageSelect }: WikiGraphViewProps) {
 
         {/* Insights Panel */}
         {showInsights && insights && (
-          <div className="w-80 shrink-0 border-l bg-white overflow-y-auto p-4">
+          <div className="w-80 shrink-0 border-l bg-editorial-surface-card overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[13px] font-semibold text-editorial-ink">{t("wiki.insightsTitle")}</span>
               <button onClick={() => setShowInsights(false)}><X size={14} /></button>

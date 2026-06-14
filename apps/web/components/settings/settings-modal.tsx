@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Cpu, MessageSquare, Wrench } from "lucide-react";
+import { X, Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
 import { useLLMModels } from "@/lib/hooks/use-llms";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TabId } from "./settings-types";
 import { ModelsPanel } from "./models-panel";
 import { ToolsPanel } from "./tools-panel";
+import { SkillsPanel } from "./skills-panel";
+import { SystemPanel } from "./system-panel";
 import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
@@ -22,12 +24,15 @@ import { useTranslation } from "react-i18next";
 interface Tab {
   id: TabId;
   icon: React.ElementType;
+  labelKey: string;
 }
 
 const TABS: Tab[] = [
-  { id: "models", icon: Cpu },
-  { id: "runtime", icon: MessageSquare },
-  { id: "tools", icon: Wrench },
+  { id: "models", icon: Cpu, labelKey: "settings.models" },
+  { id: "runtime", icon: MessageSquare, labelKey: "settings.runtime" },
+  { id: "tools", icon: Wrench, labelKey: "settings.tools" },
+  { id: "skills", icon: Package, labelKey: "settings.skills" },
+  { id: "system", icon: Monitor, labelKey: "settings.system" },
 ];
 
 interface SettingsModalProps {
@@ -58,36 +63,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-[1180px]"
+        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-[1180px]"
       >
         {/* Custom horizontal header bar with DialogTitle for a11y */}
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-editorial-hairline px-6">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-editorial-primary to-editorial-primary flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 2L2 7L12 12L22 7L12 2Z"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M2 17L12 22L22 17"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M2 12L12 17L22 12"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
             <div>
               <DialogTitle className="text-[16px] font-semibold text-editorial-ink">{t("settings.title")}</DialogTitle>
               <p className="text-[11px] text-editorial-ink-muted">{t("settings.description")}</p>
@@ -120,12 +100,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   className={
                     "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors text-left " +
                     (activeTab === tab.id
-                      ? "bg-white text-editorial-ink shadow-sm"
-                      : "text-editorial-ink-soft hover:bg-white/50")
+                      ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
+                      : "text-editorial-ink-soft hover:bg-editorial-surface-card/50")
                   }
                 >
                   <tab.icon size={16} strokeWidth={1.5} />
-                  <span>{tab.id === "models" ? t("settings.models") : tab.id === "runtime" ? t("settings.runtime") : t("settings.tools")}</span>
+                  <span>{t(tab.labelKey)}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -147,7 +127,9 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               />
             )}
             {activeTab === "tools" && <ToolsPanel />}
+            {activeTab === "skills" && <SkillsPanel />}
             {activeTab === "runtime" && <RuntimePanel />}
+            {activeTab === "system" && <SystemPanel />}
           </div>
         </Tabs>
 

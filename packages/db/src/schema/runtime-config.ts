@@ -6,7 +6,8 @@ export const runtimeConfig = sqliteTable("runtime_config", {
   scenario: text("scenario").notNull().unique(), // "session" | "wiki"
   llmId: integer("llm_id").references(() => llm.id, { onDelete: "set null" }),
   temperature: real("temperature").notNull().default(0.2),
-  maxTokens: integer("max_tokens").notNull().default(8192),
+  maxOutputTokens: integer("max_output_tokens").notNull().default(8192),
+  topP: real("top_p").notNull().default(1),
   contextLength: text("context_length").notNull().default("128k"),
   systemPrompt: text("system_prompt").notNull().default(""),
   updatedAt: text("updated_at")

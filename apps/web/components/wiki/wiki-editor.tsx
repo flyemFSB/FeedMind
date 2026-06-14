@@ -92,7 +92,7 @@ export function WikiEditor({
   }
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-editorial-surface-card">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
         <div className="min-w-0 flex-1 space-y-1">
@@ -123,7 +123,7 @@ export function WikiEditor({
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-8 rounded-lg bg-editorial-primary px-4 text-[12px] text-white hover:bg-editorial-primary"
+            className="h-8 rounded-lg bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
           >
             {saving ? t("wiki.saving") : t("common.save")}
           </Button>
@@ -133,7 +133,7 @@ export function WikiEditor({
       {/* Editor textarea */}
       <div className="flex-1 overflow-hidden">
         <textarea
-          className="flex h-full w-full resize-none border-0 bg-white p-6 font-mono text-[12px] leading-relaxed text-editorial-ink placeholder:text-editorial-hairline outline-none focus-visible:ring-0"
+          className="flex h-full w-full resize-none border-0 bg-editorial-surface-card p-6 font-mono text-[12px] leading-relaxed text-editorial-ink placeholder:text-editorial-hairline outline-none focus-visible:ring-0"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={t("wiki.editorPlaceholder") + "\n" + t("wiki.wikilinkHint")}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { ToolRead } from "@feedmind/contracts";
 import { updateAllToolConfigs } from "@/lib/api/tools";
@@ -19,11 +19,13 @@ export function ToolsPanel() {
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
   // Init local state when data arrives
-  if (initialTools.length > 0 && !initialized) {
-    setActiveTool(initialTools[0].name);
-    setConfigs(Object.fromEntries(initialTools.map((t) => [t.name, { ...t.config }])));
-    setInitialized(true);
-  }
+  useEffect(() => {
+    if (initialTools.length > 0 && !initialized) {
+      setActiveTool(initialTools[0].name);
+      setConfigs(Object.fromEntries(initialTools.map((t) => [t.name, { ...t.config }])));
+      setInitialized(true);
+    }
+  }, [initialTools, initialized]);
 
   function handleChange(toolName: string, key: string, value: unknown) {
     setTouched((prev) => new Set(prev).add(`${toolName}:${key}`));
@@ -93,7 +95,7 @@ export function ToolsPanel() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={save} className="h-8 rounded-xl bg-editorial-primary text-[12px] text-white hover:bg-editorial-primary">{t("common.save")}</Button>
+          <Button size="sm" onClick={save} className="h-8 rounded-xl bg-editorial-primary text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary">{t("common.save")}</Button>
         </div>
       </div>
 
@@ -110,7 +112,7 @@ export function ToolsPanel() {
             }`}
           >
             {tool.display_name}
-            {tool.is_enabled && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-[#30d158]" />}
+            {tool.is_enabled && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-editorial-semantic-success" />}
           </button>
         ))}
       </div>
@@ -127,7 +129,7 @@ export function ToolsPanel() {
             <div key={field.key}>
               <label className="mb-1 block text-[12px] font-medium text-editorial-ink">
                 {field.label}
-                {field.required && <span className="ml-0.5 text-[#ff3b30]">*</span>}
+                {field.required && <span className="ml-0.5 text-editorial-semantic-error">*</span>}
               </label>
               {field.description && (
                 <p className="mb-1.5 text-[11px] text-editorial-ink-muted">

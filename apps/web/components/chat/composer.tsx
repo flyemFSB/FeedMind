@@ -31,7 +31,7 @@ export function Composer() {
   };
 
   return (
-    <div className="rounded-[28px] border border-editorial-hairline bg-editorial-surface-card p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)]">
+    <div className="rounded-[28px] border border-editorial-hairline bg-editorial-surface-card p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]">
       <PromptInput
         onSubmit={(message) => handleSubmit(message.text)}
         className="space-y-3"

@@ -28,7 +28,7 @@ import { ProviderIcon } from "@/components/settings/provider-icon";
 import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
-  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-colors hover:bg-white hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
+  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
 const menuItemClass =
   "flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-editorial-ink outline-none hover:bg-editorial-surface-soft data-highlighted:bg-editorial-surface-soft";
 
@@ -125,7 +125,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
         </div>
         <Button
           onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-editorial-primary text-white text-[13px] font-medium hover:bg-editorial-primary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-editorial-primary text-editorial-ink-on-primary text-[13px] font-medium hover:bg-editorial-primary transition-colors"
         >
           <Plus size={14} />
           <span>{t("settings.addModel")}</span>
@@ -141,7 +141,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
             size="sm"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
               providerFilter === p
-                ? "bg-editorial-ink text-white"
+                ? "bg-editorial-ink text-editorial-ink-on-primary"
                 : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
             }`}
           >
@@ -264,14 +264,14 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 <TableCell className="px-4 py-3 text-left">
                   <Menu.Root>
                     <Menu.Trigger
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-white hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
                       title={t("settings.moreActions")}
                     >
                       <MoreHorizontal size={15} strokeWidth={1.8} />
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-[60]">
-                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-xl border border-editorial-hairline bg-white p-1 text-[12px] shadow-lg outline-none">
+                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-xl border border-editorial-hairline bg-editorial-surface-card p-1 text-[12px] shadow-lg outline-none">
                           <Menu.Item className={menuItemClass}>
                             <FlaskConical size={14} strokeWidth={1.6} />
                             <span>{t("settings.testModel")}</span>
@@ -282,7 +282,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                           </Menu.Item>
                           <Menu.Item
                             onClick={() => onDeleteModel(model)}
-                            className="flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-red-500 outline-none hover:bg-red-50 data-highlighted:bg-red-50"
+                            className="flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-destructive outline-none hover:bg-destructive/10 data-highlighted:bg-destructive/10"
                           >
                             <Trash2 size={14} strokeWidth={1.6} />
                             <span>{t("common.delete")}</span>

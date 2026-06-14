@@ -10,8 +10,8 @@ function ErrorFallbackContent({ error, onRetry }: { error: Error | null; onRetry
   return (
     <div className="flex min-h-screen items-center justify-center bg-editorial-canvas p-8">
       <div className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
-          <AlertTriangle size={28} className="text-red-400" />
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
+          <AlertTriangle size={28} className="text-destructive" />
         </div>
         <h2 className="mb-2 text-[17px] font-semibold text-editorial-ink">
           {t("error.title")}

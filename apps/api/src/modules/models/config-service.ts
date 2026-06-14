@@ -11,7 +11,8 @@ function toConfigRead(row: RuntimeConfigRow, modelName?: string, provider?: stri
     model_name: modelName,
     provider,
     temperature: row.temperature,
-    max_tokens: row.maxTokens,
+    max_output_tokens: row.maxOutputTokens,
+    top_p: row.topP,
     context_length: row.contextLength,
     system_prompt: row.systemPrompt,
   };
@@ -67,7 +68,8 @@ export async function updateConfig(scenario: string, payload: RuntimeConfigUpdat
   // session 场景不存储自己的 llm_id，忽略该字段
   if (payload.llm_id !== undefined && scenario !== "session") values.llmId = payload.llm_id;
   if (payload.temperature !== undefined) values.temperature = payload.temperature;
-  if (payload.max_tokens !== undefined) values.maxTokens = payload.max_tokens;
+  if (payload.max_output_tokens !== undefined) values.maxOutputTokens = payload.max_output_tokens;
+  if (payload.top_p !== undefined) values.topP = payload.top_p;
   if (payload.context_length !== undefined) values.contextLength = payload.context_length;
   if (payload.system_prompt !== undefined) values.systemPrompt = payload.system_prompt;
 
@@ -83,12 +85,13 @@ export async function updateConfig(scenario: string, payload: RuntimeConfigUpdat
 }
 
 /** 内部使用：返回场景的完整运行时凭据（解密后的 API key） */
-export async function getScenarioRuntime(scenario: string): Promise<{
+export async function getRuntimeConfig(scenario: string): Promise<{
   model_name: string;
   base_url: string;
   api_key: string;
   temperature: number;
-  max_tokens: number;
+  max_output_tokens: number;
+  top_p: number;
   context_length: string;
   system_prompt: string;
 }> {
@@ -117,14 +120,10 @@ export async function getScenarioRuntime(scenario: string): Promise<{
   }
 
   // fallback to env vars when no llm is linked
-  if (!modelName) {
-    if (scenario === "session") {
-      modelName = process.env.FEEDMIND_MODEL || "claude-3.7-sonnet";
-    } else if (scenario === "wiki") {
-      modelName = process.env.WIKI_LLM_MODEL || "gpt-4o";
-      baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-      apiKey = process.env.OPENAI_API_KEY || "";
-    }
+  if (!modelName && scenario === "wiki") {
+    modelName = process.env.WIKI_LLM_MODEL || "gpt-4o";
+    baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+    apiKey = process.env.OPENAI_API_KEY || "";
   }
 
   // 有模型名但没有 API key → 凭据缺失，提前报错
@@ -140,7 +139,8 @@ export async function getScenarioRuntime(scenario: string): Promise<{
     base_url: baseUrl,
     api_key: apiKey,
     temperature: cfg.temperature,
-    max_tokens: cfg.maxTokens,
+    max_output_tokens: cfg.maxOutputTokens,
+    top_p: cfg.topP,
     context_length: cfg.contextLength,
     system_prompt: cfg.systemPrompt,
   };

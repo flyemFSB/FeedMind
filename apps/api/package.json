@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @feedmind/contracts --filter @feedmind/shared --filter @feedmind/db build && tsx watch src/server.ts",
-    "build": "tsc -b",
+    "build": "tsc -b && cp -r src/mastra/skills dist/mastra/skills",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run --passWithNoTests",

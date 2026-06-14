@@ -11,7 +11,7 @@ interface TopbarProps {
 
 export function Topbar({ title, subtitle, showModelSelector = false, rightContent }: TopbarProps) {
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-editorial-hairline bg-white px-6 max-sm:px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-editorial-hairline bg-editorial-surface-card px-6 max-sm:px-4">
       <div className="min-w-0 flex items-center gap-3">
         <h1 className="text-[17px] font-semibold text-editorial-ink tracking-[-0.2px]">
           {title}

@@ -40,7 +40,7 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
     <Sheet open={!!preview} onOpenChange={(open) => { if (!open) closePreview(); }}>
       <SheetContent
         side="right"
-        className="flex w-[min(620px,42vw)] min-w-[420px] flex-col border-l border-editorial-hairline bg-white p-0 max-lg:w-[min(520px,78vw)] max-sm:left-6 max-sm:w-auto max-sm:min-w-0"
+        className="flex w-[min(620px,42vw)] min-w-[420px] flex-col border-l border-editorial-hairline bg-editorial-surface-card p-0 max-lg:w-[min(520px,78vw)] max-sm:left-6 max-sm:w-auto max-sm:min-w-0"
         showCloseButton={false}
       >
         <SheetHeader className="flex min-h-14 flex-row items-center gap-3 border-b border-editorial-hairline px-4">
@@ -78,7 +78,7 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
             />
           ) : (
             <div className="h-full overflow-auto p-5">
-              <pre className="whitespace-pre-wrap rounded-xl bg-white p-4 text-[12px] leading-6 text-editorial-ink">
+              <pre className="whitespace-pre-wrap rounded-xl bg-editorial-surface-card p-4 text-[12px] leading-6 text-editorial-ink">
                 {preview?.content || t("preview.noContent")}
               </pre>
             </div>

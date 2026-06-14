@@ -60,7 +60,7 @@ export function CreateWikiSpaceDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-md gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-md">
+      <DialogContent showCloseButton={false} className="max-w-md gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-md">
         <DialogHeader className="flex h-[72px] shrink-0 flex-row items-center justify-between border-b border-editorial-hairline px-6">
           <DialogTitle className="text-[17px] font-semibold">{t("wiki.createWikiSpace")}</DialogTitle>
         </DialogHeader>
@@ -93,7 +93,7 @@ export function CreateWikiSpaceDialog({
           </div>
         </div>
 
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-white px-6 py-4">
+        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-editorial-surface-card px-6 py-4">
           <Button variant="outline" size="sm" onClick={onClose}>
             {t("common.cancel")}
           </Button>

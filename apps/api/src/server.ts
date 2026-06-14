@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   }
 
   // 初始化工具配置客户端
-  initToolConfig(`http://${apiEnv.API_HOST}:${apiEnv.API_PORT}`);
+  initToolConfig();
 
   // 创建 Mastra 实例
   const mastra = createMastra();

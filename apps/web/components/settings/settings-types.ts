@@ -1,1 +1,1 @@
-export type TabId = "models" | "runtime" | "tools";
+export type TabId = "models" | "runtime" | "tools" | "skills" | "system";

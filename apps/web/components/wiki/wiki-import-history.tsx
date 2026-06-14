@@ -114,7 +114,7 @@ export function WikiImportHistory({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-lg">
+      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importHistory")}</DialogTitle>
@@ -231,7 +231,7 @@ function ActiveJobCard({
           <button
             onClick={() => onCancel(job.id)}
             disabled={cancelling}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-strong hover:text-[#ff3b30] disabled:opacity-50"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-strong hover:text-editorial-semantic-error disabled:opacity-50"
             title={t("wiki.cancel")}
           >
             {cancelling ? (
@@ -281,9 +281,9 @@ function HistoryJobCard({
 
   const icon =
     job.status === "done" ? (
-      <CheckCircle2 size={16} className="text-[#34c759] shrink-0" />
+      <CheckCircle2 size={16} className="text-editorial-semantic-success shrink-0" />
     ) : job.status === "failed" ? (
-      <AlertCircle size={16} className="text-[#ff3b30] shrink-0" />
+      <AlertCircle size={16} className="text-editorial-semantic-error shrink-0" />
     ) : (
       <XCircle size={16} className="text-editorial-ink-muted shrink-0" />
     );
@@ -319,7 +319,7 @@ function HistoryJobCard({
           )}
         </p>
         {job.status === "failed" && job.error && (
-          <p className="mt-0.5 truncate text-[10px] text-[#ff3b30]">{job.error}</p>
+          <p className="mt-0.5 truncate text-[10px] text-editorial-semantic-error">{job.error}</p>
         )}
       </div>
       {job.status === "failed" && (

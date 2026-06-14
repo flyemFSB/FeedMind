@@ -1,7 +1,9 @@
 /**
- * 工具配置客户端 — 从后端 API 加载工具配置。
- * 使用 /api/v1/tools/runtime 端点，password 字段自动解密返回真实值。
+ * 工具配置客户端 — 通过 service 层直接从数据库加载工具配置（同进程内直接调用，不走 HTTP）。
+ * password 字段由 listToolsRuntime() 自动解密返回真实值。
  */
+import { listToolsRuntime } from "../../../modules/tools/service.js";
+
 export interface ToolConfig {
   [key: string]: unknown;
 }
@@ -18,28 +20,28 @@ export class ToolConfigClient {
   private readonly ttl: number = 60_000; // 缓存有效期 60 秒
   static instance: ToolConfigClient;
 
-  constructor(private backendApiUrl: string) {
+  constructor() {
     ToolConfigClient.instance = this;
+  }
+
+  /** 获取或懒初始化单例 */
+  static getInstance(): ToolConfigClient {
+    if (!ToolConfigClient.instance) {
+      new ToolConfigClient();
+    }
+    return ToolConfigClient.instance;
   }
 
   async load(signal?: AbortSignal): Promise<ToolEntry[]> {
     if (this.tools && Date.now() - this.lastLoaded < this.ttl) {
       return this.tools;
     }
-    const url = `${this.backendApiUrl.replace(/\/$/, "")}/api/v1/tools/runtime`;
-    const response = await fetch(url, { signal });
-
-    if (response.status === 404) {
-      this.tools = [];
-      this.lastLoaded = Date.now();
-      return this.tools;
-    }
-    if (!response.ok) {
-      throw new Error(`Failed to load tools runtime config: ${response.status}`);
-    }
-
-    const payload = (await response.json()) as { data?: ToolEntry[] };
-    this.tools = payload.data ?? [];
+    const entries = await listToolsRuntime();
+    this.tools = entries.map((t) => ({
+      name: t.name,
+      config: t.config as ToolConfig,
+      is_enabled: t.is_enabled,
+    }));
     this.lastLoaded = Date.now();
     return this.tools;
   }

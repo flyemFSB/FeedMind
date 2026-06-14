@@ -42,7 +42,7 @@ export function WikiImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-white p-0 text-editorial-ink sm:max-w-lg">
+      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg">
         {/* Header row — no border, kept clean */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
@@ -231,14 +231,14 @@ function FileUploadTab({
               key={i}
               className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
                 r.status === "success"
-                  ? "bg-[#f0faf0] text-editorial-ink"
-                  : "bg-[#fff5f5] text-[#ff3b30]"
+                  ? "bg-editorial-semantic-success/10 text-editorial-ink"
+                  : "bg-editorial-semantic-error/10 text-editorial-semantic-error"
               }`}
             >
               {r.status === "success" ? (
-                <CheckCircle2 size={14} className="shrink-0 text-[#34c759]" />
+                <CheckCircle2 size={14} className="shrink-0 text-editorial-semantic-success" />
               ) : (
-                <X size={14} className="shrink-0 text-[#ff3b30]" />
+                <X size={14} className="shrink-0 text-editorial-semantic-error" />
               )}
               <span className="truncate font-medium">{r.name}</span>
               {r.message && (
@@ -334,13 +334,13 @@ function UrlPasteTab({
           {t("wiki.urlLabel")}
         </label>
         <textarea
-          className="min-h-[100px] w-full resize-none rounded-xl border border-editorial-hairline bg-white p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
+          className="min-h-[100px] w-full resize-none rounded-xl border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
         />
         {hasError && (
-          <p className="mt-1 text-[11px] text-[#ff3b30]">
+          <p className="mt-1 text-[11px] text-editorial-semantic-error">
             {t("wiki.invalidUrls")}
           </p>
         )}
@@ -361,7 +361,7 @@ function UrlPasteTab({
           size="sm"
           onClick={handleSubmit}
           disabled={processing || validUrls.length === 0}
-          className="h-9 gap-2 rounded-lg bg-editorial-primary px-4 text-[12px] text-white hover:bg-editorial-primary"
+          className="h-9 gap-2 rounded-lg bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
         >
           {processing ? (
             <>
@@ -385,14 +385,14 @@ function UrlPasteTab({
               key={i}
               className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
                 r.status === "success"
-                  ? "bg-[#f0faf0] text-editorial-ink"
-                  : "bg-[#fff5f5] text-[#ff3b30]"
+                  ? "bg-editorial-semantic-success/10 text-editorial-ink"
+                  : "bg-editorial-semantic-error/10 text-editorial-semantic-error"
               }`}
             >
               {r.status === "success" ? (
-                <CheckCircle2 size={14} className="shrink-0 text-[#34c759]" />
+                <CheckCircle2 size={14} className="shrink-0 text-editorial-semantic-success" />
               ) : (
-                <X size={14} className="shrink-0 text-[#ff3b30]" />
+                <X size={14} className="shrink-0 text-editorial-semantic-error" />
               )}
               <span className="truncate">{r.url}</span>
             </div>

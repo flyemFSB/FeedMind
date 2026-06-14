@@ -3,20 +3,32 @@ import type { RequestContext } from "@mastra/core/request-context";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "./model-cache.js";
 import { getSelectedModel } from "../../modules/llms/service.js";
+import { getConfig } from "../../modules/models/config-service.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
 import { wikiReadTool } from "../tools/wiki-read.js";
 import { wikiSearchTool } from "../tools/wiki-search.js";
+import { createFeedMindWorkspace } from "../workspace.js";
+
+const feedmindWorkspace = createFeedMindWorkspace();
+
+// 简单 TTL 缓存，减少每次消息重复查 DB
+const cache = new Map<string, { value: unknown; expiry: number }>();
+const CACHE_TTL = 30_000; // 30 秒
+
+async function cachedGet<T>(key: string, fetch: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const entry = cache.get(key);
+  if (entry && entry.expiry > now) return entry.value as T;
+  const value = await fetch();
+  cache.set(key, { value, expiry: now + CACHE_TTL });
+  return value;
+}
 
 /**
- * FeedMind Agent — 通过 Mastra RequestContext 动态解析模型。
- *
- * 模型解析流程：
- * 1. 前端发送 POST 请求（通过自定义 header 传递模型 ID）
- * 2. server.ts 中间件读取 x-feedmind-model-id header → 注入 RequestContext
- * 3. Agent 的 model 函数读取 feedmindModelId，从缓存或 DB 获取模型配置，创建 AI SDK 模型实例
- * 4. 无请求级模型 ID 时，回退到已选模型
+ * FeedMind Agent — 通过 Mastra RequestContext 动态解析模型，
+ * 从 runtime_config 表读取统一参数注入 AI SDK v6 标准化字段。
  */
 export const feedmindAgent = new Agent({
   id: "feedmind",
@@ -29,13 +41,14 @@ export const feedmindAgent = new Agent({
       try {
         const { client, modelName } = await resolveModelClient(Number(modelId));
         return client.chat(modelName);
-      } catch {
+      } catch (err) {
+        console.error("[feedmind] resolveModelClient from header failed:", err);
         // fall through to fallback
       }
     }
 
-    // 2. 回退：查询已选模型
-    const selected = await getSelectedModel();
+    // 2. 回退：查询已选模型（带缓存）
+    const selected = await cachedGet("getSelectedModel", () => getSelectedModel());
     if (!selected.id) {
       throw new Error(
         "No model configured. Please add an LLM model in Settings, then try again.",
@@ -45,6 +58,21 @@ export const feedmindAgent = new Agent({
     const { client, modelName } = await resolveModelClient(selected.id);
     return client.chat(modelName);
   },
+  defaultOptions: async () => {
+    try {
+      const cfg = await cachedGet("getConfig:session", () => getConfig("session"));
+      return {
+        modelSettings: {
+          temperature: cfg.temperature,
+          maxOutputTokens: cfg.max_output_tokens,
+          topP: cfg.top_p,
+        },
+      };
+    } catch (err) {
+      console.error("[feedmind] getConfig(session) failed:", err);
+      return {};
+    }
+  },
   tools: {
     askClarificationTool,
     webFetchTool,
@@ -52,4 +80,10 @@ export const feedmindAgent = new Agent({
     wikiReadTool,
     wikiSearchTool,
   },
+  workspace: feedmindWorkspace,
 });
+
+/** 供外部调用以在模型选择变更时清理缓存 */
+export function clearConfigCache(): void {
+  cache.clear();
+}

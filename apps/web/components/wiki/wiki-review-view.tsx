@@ -20,9 +20,9 @@ const REVIEW_ICONS: Record<string, React.ElementType> = {
 
 const REVIEW_COLORS: Record<string, string> = {
   "missing-page": "var(--color-editorial-primary)",
-  duplicate: "#ff9500",
-  contradiction: "#ff3b30",
-  suggestion: "#34c759",
+  duplicate: "var(--editorial-semantic-warning)",
+  contradiction: "var(--editorial-semantic-error)",
+  suggestion: "var(--editorial-semantic-success)",
 };
 
 export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
@@ -72,7 +72,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
   const unresolved = items.filter((r) => !r.resolved);
 
   return (
-    <div className="flex h-full flex-col bg-white">
+    <div className="flex h-full flex-col bg-editorial-surface-card">
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
           <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.reviewTitle")}</h2>
@@ -104,7 +104,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
           </div>
         ) : items.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
-            <CheckCircle2 size={32} className="mb-3 text-[#34c759]" />
+            <CheckCircle2 size={32} className="mb-3 text-editorial-semantic-success" />
             <p className="text-[13px] font-medium text-editorial-ink">{t("wiki.allPassed")}</p>
             <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.noReviewItems")}</p>
           </div>
@@ -117,7 +117,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                 <div
                   key={item.id}
                   className={`rounded-xl border p-4 transition-colors ${
-                    item.resolved ? "border-editorial-surface-strong bg-editorial-canvas-soft opacity-60" : "border-editorial-surface-strong bg-white"
+                    item.resolved ? "border-editorial-surface-strong bg-editorial-canvas-soft opacity-60" : "border-editorial-surface-strong bg-editorial-surface-card"
                   }`}
                 >
                   <div className="mb-2 flex items-center gap-2">
@@ -137,7 +137,7 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                         size="sm"
                         variant="ghost"
                         onClick={() => handleResolve(item.id)}
-                        className="h-7 rounded-lg px-2.5 text-[11px] text-[#34c759] hover:bg-[#f0faf0]"
+                        className="h-7 rounded-lg px-2.5 text-[11px] text-editorial-semantic-success hover:bg-editorial-semantic-success/10"
                       >
                         <CheckCircle2 size={12} className="mr-1" />
                         {t("wiki.approve")}
