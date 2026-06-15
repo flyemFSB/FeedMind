@@ -1,23 +1,19 @@
 import { z } from "zod";
 
 export const runtimeConfigReadSchema = z.object({
-  scenario: z.string(),
+  runtime: z.string(),
   llm_id: z.number().int().positive().nullable(),
   model_name: z.string().optional(),
   provider: z.string().optional(),
   temperature: z.number(),
-  max_output_tokens: z.number().int(),
   top_p: z.number(),
-  context_length: z.string(),
   system_prompt: z.string(),
 });
 
 export const runtimeConfigUpdateSchema = z.object({
   llm_id: z.number().int().positive().nullable().optional(),
   temperature: z.number().optional(),
-  max_output_tokens: z.number().int().optional(),
   top_p: z.number().optional(),
-  context_length: z.string().optional(),
   system_prompt: z.string().optional(),
 });
 

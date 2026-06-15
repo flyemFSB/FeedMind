@@ -16,8 +16,8 @@ export function useRuntimeConfigs(options?: { enabled?: boolean }) {
 export function useUpdateRuntimeConfig() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ scenario, ...payload }: { scenario: string } & RuntimeConfigUpdate) =>
-      updateRuntimeConfig(scenario, payload),
+    mutationFn: ({ runtime, ...payload }: { runtime: string } & RuntimeConfigUpdate) =>
+      updateRuntimeConfig(runtime, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: runtimeConfigKeys.all });
     },

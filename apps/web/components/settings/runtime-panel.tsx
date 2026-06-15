@@ -1,12 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
 import { useLLMModels } from "@/lib/hooks/use-llms";
-import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -24,25 +22,27 @@ import { useTranslation } from "react-i18next";
 
 type InnerTab = "session" | "wiki";
 
-const CONTEXT_LENGTHS = ["4k", "8k", "16k", "32k", "64k", "128k", "200k"];
-
 interface ConfigFormFields {
   temperature: number;
-  max_output_tokens: number;
   top_p: number;
-  context_length: string;
   system_prompt: string;
   llm_id: string; // string ID from web layer
 }
 
 const defaultFields: ConfigFormFields = {
   temperature: 0.2,
-  max_output_tokens: 8192,
   top_p: 1,
-  context_length: "128k",
   system_prompt: "",
   llm_id: "",
 };
+
+function useDebounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  return (...args: T) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => fn(...args), delay);
+  };
+}
 
 export function RuntimePanel() {
   const { t } = useTranslation();
@@ -51,22 +51,19 @@ export function RuntimePanel() {
   const updateConfig = useUpdateRuntimeConfig();
   const { data: models = [] } = useLLMModels();
 
-  const sessionConfig = configs.find((c) => c.scenario === "session");
-  const wikiConfig = configs.find((c) => c.scenario === "wiki");
+  const sessionConfig = configs.find((c) => c.runtime === "session");
+  const wikiConfig = configs.find((c) => c.runtime === "wiki");
 
   // Local form state
   const [sessionFields, setSessionFields] = useState<ConfigFormFields>(defaultFields);
   const [wikiFields, setWikiFields] = useState<ConfigFormFields>(defaultFields);
-  const [touched, setTouched] = useState<Set<string>>(new Set());
 
   // Sync from API when configs load
   useEffect(() => {
     if (sessionConfig) {
       setSessionFields({
         temperature: sessionConfig.temperature,
-        max_output_tokens: sessionConfig.max_output_tokens,
         top_p: sessionConfig.top_p,
-        context_length: sessionConfig.context_length,
         system_prompt: sessionConfig.system_prompt,
         llm_id: sessionConfig.llm_id ? String(sessionConfig.llm_id) : "",
       });
@@ -77,62 +74,51 @@ export function RuntimePanel() {
     if (wikiConfig) {
       setWikiFields({
         temperature: wikiConfig.temperature,
-        max_output_tokens: wikiConfig.max_output_tokens,
         top_p: wikiConfig.top_p,
-        context_length: wikiConfig.context_length,
         system_prompt: wikiConfig.system_prompt,
         llm_id: wikiConfig.llm_id ? String(wikiConfig.llm_id) : "",
       });
     }
   }, [wikiConfig]);
 
-  function markTouched(field: string) {
-    setTouched((prev) => new Set(prev).add(`${innerTab}:${field}`));
+  function persistField(key: "temperature" | "top_p" | "system_prompt", value: number | string) {
+    const payload: RuntimeConfigUpdate = { [key]: value };
+    updateConfig.mutate({ runtime: innerTab, ...payload });
   }
+
+  const debouncedPersistField = useDebounce(
+    (key: "temperature" | "top_p" | "system_prompt", value: number | string) => persistField(key, value),
+    600,
+  );
 
   function handleSessionFieldChange<K extends keyof ConfigFormFields>(
     key: K,
     value: ConfigFormFields[K],
   ) {
-    markTouched(key);
     setSessionFields((prev) => ({ ...prev, [key]: value }));
+    if (key === "system_prompt") {
+      debouncedPersistField(key as "system_prompt", value);
+    } else {
+      persistField(key as "temperature" | "top_p", value);
+    }
   }
 
   function handleWikiFieldChange<K extends keyof ConfigFormFields>(
     key: K,
     value: ConfigFormFields[K],
   ) {
-    markTouched(key);
     setWikiFields((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSave() {
-    const fields = innerTab === "session" ? sessionFields : wikiFields;
-    const payload: RuntimeConfigUpdate = {};
-    if (touched.has(`${innerTab}:temperature`)) payload.temperature = fields.temperature;
-    if (touched.has(`${innerTab}:max_output_tokens`)) payload.max_output_tokens = fields.max_output_tokens;
-    if (touched.has(`${innerTab}:top_p`)) payload.top_p = fields.top_p;
-    if (touched.has(`${innerTab}:context_length`)) payload.context_length = fields.context_length;
-    if (touched.has(`${innerTab}:system_prompt`)) payload.system_prompt = fields.system_prompt;
-
-    if (Object.keys(payload).length === 0) {
-      toast.success(t("settings.noChanges"));
-      return;
-    }
-
-    try {
-      await updateConfig.mutateAsync({ scenario: innerTab, ...payload });
-      setTouched(new Set());
-      toast.success(innerTab === "session" ? t("settings.saveSuccess") : t("settings.wikiSaveSuccess"));
-    } catch {
-      toast.error(t("settings.saveFailed"));
+    if (key === "system_prompt") {
+      debouncedPersistField(key as "system_prompt", value);
+    } else {
+      persistField(key as "temperature" | "top_p", value);
     }
   }
 
   async function handleWikiModelSelect(modelId: string) {
     if (!modelId) return;
     setWikiFields((prev) => ({ ...prev, llm_id: modelId }));
-    await updateConfig.mutateAsync({ scenario: "wiki", llm_id: Number(modelId) });
+    await updateConfig.mutateAsync({ runtime: "wiki", llm_id: Number(modelId) });
     toast.success(t("settings.wikiModelUpdated"));
   }
 
@@ -157,15 +143,6 @@ export function RuntimePanel() {
           <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("settings.runtimeDescription")}
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            size="sm"
-            onClick={handleSave}
-            className="h-8 rounded-xl bg-editorial-primary text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
-          >
-            {t("common.save")}
-          </Button>
         </div>
       </div>
 
@@ -207,7 +184,7 @@ export function RuntimePanel() {
       </div>
 
       {/* Config fields */}
-      <div className="grid min-w-0 grid-cols-3 gap-4">
+      <div className="grid min-w-0 grid-cols-2 gap-4">
         <div>
           <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.temperature")}</label>
           <div className="flex items-center gap-2">
@@ -255,54 +232,6 @@ export function RuntimePanel() {
               {currentFields.top_p.toFixed(2)}
             </span>
           </div>
-        </div>
-        <div>
-          <label htmlFor="max-tokens-input" className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.maxTokens")}</label>
-          <Input
-            id="max-tokens-input"
-            type="number"
-            value={currentFields.max_output_tokens}
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              if (innerTab === "session") {
-                handleSessionFieldChange("max_output_tokens", v);
-              } else {
-                handleWikiFieldChange("max_output_tokens", v);
-              }
-            }}
-            className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-          />
-        </div>
-        <div>
-          <label htmlFor="context-length-select" className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.contextLength")}</label>
-          <Select
-            value={currentFields.context_length}
-            onValueChange={(v: string | null) => {
-              if (!v) return;
-              if (innerTab === "session") {
-                handleSessionFieldChange("context_length", v);
-              } else {
-                handleWikiFieldChange("context_length", v);
-              }
-            }}
-          >
-            <SelectTrigger
-              id="context-length-select"
-              aria-label={t("settings.selectContextLength")}
-              className="h-10 w-full rounded-xl border-editorial-hairline bg-editorial-surface-card px-4 text-[13px]"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl border-editorial-hairline">
-              <SelectGroup>
-                {CONTEXT_LENGTHS.map((len) => (
-                  <SelectItem key={len} value={len}>
-                    {len}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 

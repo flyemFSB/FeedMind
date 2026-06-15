@@ -7,7 +7,7 @@ import type {
   SelectedModelRead,
   SelectedModelUpdate,
 } from "@feedmind/contracts";
-import { db, llm, type LLMRow } from "@feedmind/db";
+import { db, llm, type LLMRow, type LLMInsert } from "@feedmind/db";
 import { decryptValue, encryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 import { clearModelClientCache } from "../../mastra/agents/model-cache.js";
@@ -17,9 +17,12 @@ function toModelRead(row: LLMRow): LLMModelRead {
     id: row.id,
     provider: row.provider,
     model_name: row.modelName,
+    model_id: row.modelId,
     base_url: row.baseUrl,
     has_api_key: Boolean(row.encryptedApiKey),
     is_selected: row.isSelected,
+    context_window: row.contextWindow ?? null,
+    max_output: row.maxOutput ?? null,
   };
 }
 
@@ -44,24 +47,30 @@ export async function createModel(payload: LLMModelCreate): Promise<LLMModelRead
       .values({
         provider: payload.provider,
         modelName: payload.model_name,
+        modelId: payload.model_id,
         baseUrl: payload.base_url,
         encryptedApiKey: payload.api_key ? encryptValue(payload.api_key) : "",
+        contextWindow: payload.context_window ?? null,
+        maxOutput: payload.max_output ?? null,
       })
       .returning();
     clearModelClientCache();
     return toModelRead(row);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model_name already exists");
+    if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model with the same model ID, endpoint, and API key already exists");
     throw error;
   }
 }
 
 export async function updateModel(modelId: number, payload: LLMModelUpdate): Promise<LLMModelRead> {
-  const values = {
+  const values: Partial<LLMInsert> = {
     provider: payload.provider,
     modelName: payload.model_name,
+    modelId: payload.model_id,
     baseUrl: payload.base_url,
     updatedAt: new Date().toISOString(),
+    contextWindow: payload.context_window ?? null,
+    maxOutput: payload.max_output ?? null,
     ...(payload.api_key ? { encryptedApiKey: encryptValue(payload.api_key) } : {}),
   };
 
@@ -71,7 +80,7 @@ export async function updateModel(modelId: number, payload: LLMModelUpdate): Pro
     clearModelClientCache();
     return toModelRead(row);
   } catch (error) {
-    if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model_name already exists");
+    if (isUniqueViolation(error)) throw new HttpError(409, "HTTP_ERROR", "model with the same model ID, endpoint, and API key already exists");
     throw error;
   }
 }
@@ -108,7 +117,10 @@ export async function getModelRuntime(modelId: number): Promise<LLMModelRuntimeR
 
   return {
     model_name: row.modelName,
+    model_id: row.modelId,
     base_url: row.baseUrl,
     api_key: row.encryptedApiKey ? decryptValue(row.encryptedApiKey) : "",
+    context_window: row.contextWindow ?? null,
+    max_output: row.maxOutput ?? null,
   };
 }

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { toolConfigUpdateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import { listTools, updateToolConfig } from "../../modules/tools/service.js";
+import { ToolConfigClient } from "../../mastra/tools/search/config.js";
 
 export const toolsRoutes = new Hono();
 
@@ -18,5 +19,7 @@ toolsRoutes.put("/tools", async (c) => {
   const results = await Promise.all(
     Object.entries(body).map(([name, payload]) => updateToolConfig(name, payload)),
   );
+  // 清除工具配置缓存，确保下次 Agent 调用能拿到最新配置
+  ToolConfigClient.getInstance().clearCache();
   return jsonOk(c, results);
 });

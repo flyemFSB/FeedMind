@@ -12,15 +12,12 @@
   "scripts": {
     "build": "tsc -b",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run --passWithNoTests",
+    "test": "bun test --pass-with-no-tests",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "dotenv": "^17.2.3",
-    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.0"
+    "typescript": "^6.0.3"
   }
 }

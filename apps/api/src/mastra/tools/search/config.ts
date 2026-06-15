@@ -49,4 +49,10 @@ export class ToolConfigClient {
   getTool(name: string): ToolEntry | undefined {
     return (this.tools ?? []).find((t) => t.name === name);
   }
+
+  /** 清除缓存，下次 load() 会重新从数据库加载 */
+  clearCache(): void {
+    this.tools = null;
+    this.lastLoaded = 0;
+  }
 }

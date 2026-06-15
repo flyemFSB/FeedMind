@@ -1,8 +1,7 @@
-import { db } from "@feedmind/db";
-import { crawlerContents, crawlerCreators, crawlerTasks } from "@feedmind/db";
+import { db, crawlerContents, crawlerCreators, crawlerTasks } from "@feedmind/db";
 import { eq, sql } from "drizzle-orm";
-import type { CrawlerStore } from "../core/abstract-crawler.js";
-import type { ContentModel, CreatorModel } from "../core/types.js";
+import type { CrawlerStore } from "@feedmind/crawler-core";
+import type { ContentModel, CreatorModel } from "@feedmind/crawler-core";
 
 export class DbStore implements CrawlerStore {
   async saveContents(

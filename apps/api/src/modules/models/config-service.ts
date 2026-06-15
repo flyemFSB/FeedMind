@@ -6,14 +6,12 @@ import { HttpError } from "../../lib/http.js";
 
 function toConfigRead(row: RuntimeConfigRow, modelName?: string, provider?: string): RuntimeConfigRead {
   return {
-    scenario: row.scenario,
+    runtime: row.runtime,
     llm_id: row.llmId,
     model_name: modelName,
     provider,
     temperature: row.temperature,
-    max_output_tokens: row.maxOutputTokens,
     top_p: row.topP,
-    context_length: row.contextLength,
     system_prompt: row.systemPrompt,
   };
 }
@@ -43,18 +41,18 @@ export async function getAllConfigs(): Promise<RuntimeConfigRead[]> {
   const selected = await resolveSelectedModel();
 
   return rows.map(({ config, modelName, provider }) => {
-    if (config.scenario === "session") {
+    if (config.runtime === "session") {
       return toConfigRead(config, selected.modelName, selected.provider);
     }
     return toConfigRead(config, modelName ?? undefined, provider ?? undefined);
   });
 }
 
-export async function getConfig(scenario: string): Promise<RuntimeConfigRead> {
-  const [row] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.scenario, scenario)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", `scenario "${scenario}" not found`);
+export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
+  const [row] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.runtime, runtime)).limit(1);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
 
-  if (scenario === "session") {
+  if (runtime === "session") {
     const selected = await resolveSelectedModel();
     return toConfigRead(row, selected.modelName, selected.provider);
   }
@@ -63,47 +61,43 @@ export async function getConfig(scenario: string): Promise<RuntimeConfigRead> {
   return toConfigRead(row, resolved.modelName, resolved.provider);
 }
 
-export async function updateConfig(scenario: string, payload: RuntimeConfigUpdate): Promise<RuntimeConfigRead> {
+export async function updateConfig(runtime: string, payload: RuntimeConfigUpdate): Promise<RuntimeConfigRead> {
   const values: Partial<typeof runtimeConfig.$inferInsert> = { updatedAt: new Date().toISOString() };
-  // session 场景不存储自己的 llm_id，忽略该字段
-  if (payload.llm_id !== undefined && scenario !== "session") values.llmId = payload.llm_id;
+  // session 运行配置不存储自己的 llm_id，忽略该字段
+  if (payload.llm_id !== undefined && runtime !== "session") values.llmId = payload.llm_id;
   if (payload.temperature !== undefined) values.temperature = payload.temperature;
-  if (payload.max_output_tokens !== undefined) values.maxOutputTokens = payload.max_output_tokens;
   if (payload.top_p !== undefined) values.topP = payload.top_p;
-  if (payload.context_length !== undefined) values.contextLength = payload.context_length;
   if (payload.system_prompt !== undefined) values.systemPrompt = payload.system_prompt;
 
   const [row] = await db
     .update(runtimeConfig)
     .set(values)
-    .where(eq(runtimeConfig.scenario, scenario))
+    .where(eq(runtimeConfig.runtime, runtime))
     .returning();
 
-  if (!row) throw new HttpError(404, "HTTP_ERROR", `scenario "${scenario}" not found`);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
   const resolved = await resolveModelName(row.llmId);
   return toConfigRead(row, resolved.modelName, resolved.provider);
 }
 
-/** 内部使用：返回场景的完整运行时凭据（解密后的 API key） */
-export async function getRuntimeConfig(scenario: string): Promise<{
+/** 内部使用：返回运行配置的完整运行时凭据（解密后的 API key） */
+export async function getRuntimeConfig(runtime: string): Promise<{
   model_name: string;
   base_url: string;
   api_key: string;
   temperature: number;
-  max_output_tokens: number;
   top_p: number;
-  context_length: string;
   system_prompt: string;
 }> {
-  const [cfg] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.scenario, scenario)).limit(1);
-  if (!cfg) throw new HttpError(404, "HTTP_ERROR", `scenario "${scenario}" not found`);
+  const [cfg] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.runtime, runtime)).limit(1);
+  if (!cfg) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
 
   let modelName = "";
   let baseUrl = "";
   let apiKey = "";
 
-  if (scenario === "session") {
-    // session 场景跟随聊天页选中模型
+  if (runtime === "session") {
+    // session 运行配置跟随聊天页选中模型
     const [sel] = await db.select().from(llm).where(eq(llm.isSelected, true)).limit(1);
     if (sel) {
       modelName = sel.modelName;
@@ -120,16 +114,16 @@ export async function getRuntimeConfig(scenario: string): Promise<{
   }
 
   // fallback to env vars when no llm is linked
-  if (!modelName && scenario === "wiki") {
-    modelName = process.env.WIKI_LLM_MODEL || "gpt-4o";
-    baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    apiKey = process.env.OPENAI_API_KEY || "";
+  if (!modelName && runtime === "wiki") {
+    modelName = Bun.env.WIKI_LLM_MODEL || "gpt-4o";
+    baseUrl = Bun.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+    apiKey = Bun.env.OPENAI_API_KEY || "";
   }
 
   // 有模型名但没有 API key → 凭据缺失，提前报错
   if (modelName && !apiKey && !baseUrl) {
     throw new Error(
-      `[config] Scenario "${scenario}": model "${modelName}" is configured but has no valid API key or base URL. ` +
+      `[config] Runtime "${runtime}": model "${modelName}" is configured but has no valid API key or base URL. ` +
       "Please add a model with credentials in Settings → Model Config.",
     );
   }
@@ -139,9 +133,7 @@ export async function getRuntimeConfig(scenario: string): Promise<{
     base_url: baseUrl,
     api_key: apiKey,
     temperature: cfg.temperature,
-    max_output_tokens: cfg.maxOutputTokens,
     top_p: cfg.topP,
-    context_length: cfg.contextLength,
     system_prompt: cfg.systemPrompt,
   };
 }

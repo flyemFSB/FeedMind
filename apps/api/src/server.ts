@@ -8,7 +8,7 @@ import { createMastra, initToolConfig } from "./mastra/index.js";
 async function main(): Promise<void> {
   await initDatabase();
 
-  if (process.env.DISABLE_INGEST_WORKER !== "1") {
+  if (Bun.env.DISABLE_INGEST_WORKER !== "1") {
     startIngestWorker();
   }
 

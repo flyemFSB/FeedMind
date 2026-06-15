@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-  FeedMind 本地开发环境一键启动脚本
+  FeedMind 本地开发环境一键启动
 .DESCRIPTION
-  自动完成：环境变量检查 → 依赖安装 → 共享包构建 → 数据库初始化 → 启动服务
+  自动完成：.env 检查 → 依赖安装 → 数据库初始化 → 启动 API + Web（同一终端）
 .PARAMETER SkipInstall
-  跳过 pnpm install
+  跳过 bun install
 .PARAMETER SkipDb
   跳过数据库初始化
 #>
@@ -12,51 +12,26 @@ param([switch]$SkipInstall, [switch]$SkipDb)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# ── 1. 确保 .env 存在 ──────────────────────────────────────────────
+# ── 1. .env ──────────────────────────────────────────────
 $envFile = Join-Path $root ".env"
 $envExample = Join-Path $root ".env.example"
 if (-not (Test-Path $envFile) -and (Test-Path $envExample)) {
     Copy-Item $envExample $envFile
-    Write-Host "已从 .env.example 创建 .env"
 }
 
-# ── 2. 确保 data 目录和 DATABASE_PATH ─────────────────────────────
-$dataDir = Join-Path $root "data"
-New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-$env:DATABASE_PATH = Join-Path $dataDir "feedmind.db"
+# ── 2. data ──────────────────────────────────────────────
+New-Item -ItemType Directory -Path (Join-Path $root "data") -Force | Out-Null
 
-if (-not $SkipDb) {
-    Write-Host "数据库路径：$env:DATABASE_PATH"
-}
-
-# ── 3. 安装依赖 + 构建共享包 + 初始化数据库 ──────────────────────
+# ── 3. install + db ──────────────────────────────────────
 Push-Location $root
 try {
-    if (-not $SkipInstall) {
-        Write-Host "▶ 安装依赖..."
-        pnpm install
-    }
+    if (-not $SkipInstall) { bun install }
+    if (-not $SkipDb) { bun run db:init }
 
-    Write-Host "▶ 构建共享包..."
-    pnpm build:packages
-
-    if (-not $SkipDb) {
-        Write-Host "▶ 初始化数据库..."
-        pnpm --filter @feedmind/db db:init
-    }
-
-    # ── 4. 启动服务 ────────────────────────────────────────────────
-    Write-Host "▶ 启动服务..."
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "chcp 65001 > `$null; Set-Location '$root'; pnpm api:dev"
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "chcp 65001 > `$null; Set-Location '$root'; pnpm web:dev"
-}
-finally {
+    # ── 4. 启动 API + Web（同一终端，bun run --parallel 加前缀区分）───
+    bun run dev
+} finally {
     Pop-Location
 }
-
-Write-Host "`nFeedMind 本地服务启动中："
-Write-Host "  Web 前端：http://localhost:3000"
-Write-Host "  API 服务：http://localhost:8000/api/v1/health"

@@ -56,7 +56,7 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         </div>
 
         {/* New Chat button */}
-        <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3 pb-2"}`}>
+        <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3"} pb-2`}>
           <button
             onClick={() => {
               createNewSession();
@@ -70,10 +70,10 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         </div>
 
         {/* Wiki link */}
-        <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3 pb-1"}`}>
+        <div className={`flex shrink-0 items-center ${collapsed ? "justify-center px-0" : "px-3"} pb-1`}>
           <Link
             to="/wiki"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center w-9" : "w-full"} ${pathname === "/wiki" ? "text-editorial-ink bg-editorial-surface-strong" : "text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"} active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center h-9 w-9" : "w-full"} ${pathname === "/wiki" ? "text-editorial-ink bg-editorial-surface-strong" : "text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"} active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
           >
             <BookOpen size={16} strokeWidth={1.5} className="shrink-0" />
             {!collapsed && <span>{t("common.myWiki")}</span>}
@@ -97,10 +97,10 @@ export function Sidebar({ onSettingsClick, mobile = false }: SidebarProps) {
         </div>
 
         {/* Settings */}
-        <div className={`flex shrink-0 items-center border-t border-editorial-hairline ${collapsed ? "justify-center p-1" : "p-3"}`}>
+        <div className={`flex shrink-0 items-center border-t border-editorial-hairline ${collapsed ? "justify-center" : ""} p-3`}>
           <button
             onClick={onSettingsClick}
-            className={`flex cursor-pointer items-center rounded-lg text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center h-8 w-7" : "flex-1 gap-3 px-2 py-2"} text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
+            className={`flex cursor-pointer items-center rounded-lg text-[14px] font-medium transition-colors duration-150 ease-out ${collapsed ? "justify-center h-9 w-9" : "flex-1 gap-3 px-2 py-2"} text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong`}
             title={t("common.settings")}
           >
             <Settings size={16} strokeWidth={1.5} className="shrink-0" />

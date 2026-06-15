@@ -10,9 +10,6 @@ export type {
 } from "./core/types.js";
 export { PLATFORM_CRAWLER_TYPES } from "./core/types.js";
 
-// ─── Store ────────────────────────────────────────────────────────
-export { DbStore } from "./store/db-store.js";
-
 // ─── Platforms ────────────────────────────────────────────────────
 export { TiebaCrawler } from "./platforms/tieba/crawler.js";
 export { XhsCrawler } from "./platforms/xhs/crawler.js";

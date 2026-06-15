@@ -5,14 +5,20 @@ type LLMModelResponse = {
   id: number;
   provider: string;
   model_name: string;
+  model_id: string;
   base_url: string;
   has_api_key: boolean;
+  context_window: string | null;
+  max_output: string | null;
 };
 
 type LLMModelRuntimeResponse = {
   model_name: string;
+  model_id: string | null;
   base_url: string;
   api_key: string;
+  context_window: string | null;
+  max_output: string | null;
 };
 
 function toLLMModel(model: LLMModelResponse): LLMModel {
@@ -20,8 +26,11 @@ function toLLMModel(model: LLMModelResponse): LLMModel {
     id: String(model.id),
     provider: model.provider,
     modelName: model.model_name,
+    modelId: model.model_id,
     baseUrl: model.base_url,
     hasApiKey: model.has_api_key,
+    contextWindow: model.context_window,
+    maxOutput: model.max_output,
   };
 }
 
@@ -39,8 +48,11 @@ export async function createLLMModel(
     body: JSON.stringify({
       provider: payload.provider,
       model_name: payload.modelName,
+      model_id: payload.modelId ?? "",
       base_url: payload.baseUrl,
       api_key: payload.apiKey,
+      context_window: payload.contextWindow ?? null,
+      max_output: payload.maxOutput ?? null,
     }),
   });
   return toLLMModel(data);
@@ -56,8 +68,11 @@ export async function updateLLMModel(
     body: JSON.stringify({
       provider: payload.provider,
       model_name: payload.modelName,
+      model_id: payload.modelId ?? "",
       base_url: payload.baseUrl,
       api_key: payload.apiKey,
+      context_window: payload.contextWindow ?? null,
+      max_output: payload.maxOutput ?? null,
     }),
   });
   return toLLMModel(data);

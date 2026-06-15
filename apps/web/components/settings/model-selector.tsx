@@ -7,6 +7,7 @@ import {
   onSelectedFeedMindModelChange,
   persistSelectedFeedMindModel,
   setSelectedFeedMindModel,
+  setSelectedFeedMindModelId,
 } from "@/lib/api/agent";
 import {
   Select,
@@ -55,6 +56,12 @@ export function ModelSelector() {
     setSelectedModel(modelId);
     await setSelectedMutation.mutateAsync(modelId);
     await persistSelectedFeedMindModel(modelId);
+
+    // 同步存储 API 模型 ID（如 "deepseek-v4-flash"），供消息快照等场景使用
+    const model = models.find(m => m.id === modelId);
+    if (model?.modelId) {
+      setSelectedFeedMindModelId(model.modelId);
+    }
   };
 
   if (isLoading) {

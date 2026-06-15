@@ -3,7 +3,7 @@
   <p><strong>Local-first AI research agent with knowledge management.</strong></p>
   <p>
     <img src="https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen" alt="Node" />
-    <img src="https://img.shields.io/badge/pnpm-%3E%3D11.0.0-orange" alt="pnpm" />
+    <img src="https://img.shields.io/badge/Bun-%3E%3D1.2.0-f9f9f9?logo=bun&logoColor=white" alt="Bun" />
     <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   </p>
@@ -162,8 +162,8 @@ FeedMind 是一个**本地优先**的任务驱动趋势研究 Agent 系统。它
 | **加密** | Fernet (AES-128-CBC + HMAC-SHA256) |
 | **测试** | Vitest |
 | **代码检查** | ESLint + Prettier |
-| **Monorepo** | pnpm workspaces |
-| **运行环境** | Node.js ≥ 24 |
+| **Monorepo** | Bun workspaces |
+| **运行环境** | Bun ≥ 1.2 |
 
 ---
 
@@ -172,7 +172,7 @@ FeedMind 是一个**本地优先**的任务驱动趋势研究 Agent 系统。它
 ### 前置要求
 
 - **Node.js** ≥ 24.0.0
-- **pnpm** ≥ 11.0.0
+- **Bun** ≥ 1.2.0
 
 ### 安装
 
@@ -186,20 +186,20 @@ cp .env.example .env
 # 编辑 .env — ENCRYPTION_KEY 是必需的（用于 API 密钥加密）
 
 # 安装依赖
-pnpm install
+bun install
 
 # 构建共享包
-pnpm build:packages
+bun run build:packages
 
 # 初始化 SQLite 数据库
-pnpm db:init
+bun run db:init
 ```
 
 ### 开发
 
 ```bash
 # 启动所有服务（API + Web）
-pnpm dev
+bun run dev
 ```
 
 | 服务 | 地址 |
@@ -210,8 +210,8 @@ pnpm dev
 #### 单独启动
 
 ```bash
-pnpm web:dev     # TanStack Start 开发服务器（端口 3000）
-pnpm api:dev     # Hono API + Mastra Agent 服务器（端口 8000）
+bun run web:dev     # TanStack Start 开发服务器（端口 3000）
+bun run api:dev     # Hono API + Mastra Agent 服务器（端口 8000）
 ```
 
 ---
@@ -348,17 +348,17 @@ Mastra Agent 通过 `POST /api/agent/chat/feedmind` 提供流式聊天补全。�
 
 | 命令 | 说明 |
 |------|------|
-| `pnpm install` | 安装所有依赖 |
-| `pnpm dev` | 启动所有开发服务（API + Web） |
-| `pnpm build` | 构建所有应用和包 |
-| `pnpm build:packages` | 仅构建共享包 |
-| `pnpm typecheck` | TypeScript 类型检查 |
-| `pnpm lint` | ESLint 代码检查 |
-| `pnpm test` | 运行测试（Vitest） |
-| `pnpm db:init` | 初始化 SQLite 数据库 |
-| `pnpm db:migrate` | 运行 Drizzle 迁移 |
-| `pnpm web:dev` | 仅启动前端 |
-| `pnpm api:dev` | 仅启动 API 服务器 |
+| `bun install` | 安装所有依赖 |
+| `bun run dev` | 启动所有开发服务（API + Web） |
+| `bun run build` | 构建所有应用和包 |
+| `bun run build:packages` | 仅构建共享包 |
+| `bun run typecheck` | TypeScript 类型检查 |
+| `bun run lint` | ESLint 代码检查 |
+| `bun run test` | 运行测试（Vitest） |
+| `bun run db:init` | 初始化 SQLite 数据库 |
+| `bun run db:migrate` | 运行 Drizzle 迁移 |
+| `bun run web:dev` | 仅启动前端 |
+| `bun run api:dev` | 仅启动 API 服务器 |
 
 ---
 

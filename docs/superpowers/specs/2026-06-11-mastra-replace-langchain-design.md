@@ -515,8 +515,8 @@ append 一条消息节点，并更新 `head_id`。
 - 重新生成 assistant 后生成兄弟分支
 - `BranchPicker` 正常切换
 - 模型切换仍使用现有设置中心
-- `pnpm typecheck`
-- `pnpm test`
+- `bun run typecheck`
+- `bun run test`
 - 手工完整走一遍聊天链路
 
 ## 14. code review 清单

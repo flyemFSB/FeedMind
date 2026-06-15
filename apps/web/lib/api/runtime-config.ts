@@ -1,23 +1,19 @@
 import { apiFetch, backendApiPath, apiPut } from "./client";
 
 export interface RuntimeConfig {
-  scenario: string;
+  runtime: string;
   llm_id: number | null;
   model_name?: string;
   provider?: string;
   temperature: number;
-  max_output_tokens: number;
   top_p: number;
-  context_length: string;
   system_prompt: string;
 }
 
 export interface RuntimeConfigUpdate {
   llm_id?: number | null;
   temperature?: number;
-  max_output_tokens?: number;
   top_p?: number;
-  context_length?: string;
   system_prompt?: string;
 }
 
@@ -26,8 +22,8 @@ export async function listRuntimeConfigs(signal?: AbortSignal): Promise<RuntimeC
 }
 
 export async function updateRuntimeConfig(
-  scenario: string,
+  runtime: string,
   payload: RuntimeConfigUpdate,
 ): Promise<RuntimeConfig> {
-  return apiPut<RuntimeConfig>(`/runtime-configs/${scenario}`, payload);
+  return apiPut<RuntimeConfig>(`/runtime-configs/${runtime}`, payload);
 }

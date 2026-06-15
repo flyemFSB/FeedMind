@@ -2,7 +2,7 @@ import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "./model-cache.js";
-import { getSelectedModel } from "../../modules/llms/service.js";
+import { getSelectedModel, getModelRuntime } from "../../modules/llms/service.js";
 import { getConfig } from "../../modules/models/config-service.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
@@ -24,6 +24,20 @@ async function cachedGet<T>(key: string, fetch: () => Promise<T>): Promise<T> {
   const value = await fetch();
   cache.set(key, { value, expiry: now + CACHE_TTL });
   return value;
+}
+
+/** 解析 "128K" → 128000, "1M" → 1000000, null → undefined */
+function parseTokenCount(value: string | null | undefined): number | undefined {
+  if (!value) return undefined;
+  const upper = value.toUpperCase().trim();
+  const match = upper.match(/^([\d.]+)\s*(K|M)?$/);
+  if (!match) return undefined;
+  const num = parseFloat(match[1]);
+  if (Number.isNaN(num)) return undefined;
+  const unit = match[2];
+  if (unit === "M") return Math.round(num * 1_000_000);
+  if (unit === "K") return Math.round(num * 1_000);
+  return Math.round(num);
 }
 
 /**
@@ -60,16 +74,26 @@ export const feedmindAgent = new Agent({
   },
   defaultOptions: async () => {
     try {
-      const cfg = await cachedGet("getConfig:session", () => getConfig("session"));
+      const [cfg, selected] = await Promise.all([
+        cachedGet("getConfig:session", () => getConfig("session")),
+        cachedGet("getSelectedModel", () => getSelectedModel()),
+      ]);
+
+      let maxTokens: number | undefined;
+      if (selected.id) {
+        const runtime = await getModelRuntime(selected.id);
+        maxTokens = parseTokenCount(runtime.max_output);
+      }
+
       return {
         modelSettings: {
           temperature: cfg.temperature,
-          maxOutputTokens: cfg.max_output_tokens,
           topP: cfg.top_p,
+          ...(maxTokens ? { maxOutputTokens: maxTokens } : {}),
         },
       };
     } catch (err) {
-      console.error("[feedmind] getConfig(session) failed:", err);
+      console.error("[feedmind] getConfig(\"session\") failed:", err);
       return {};
     }
   },

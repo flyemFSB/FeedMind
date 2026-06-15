@@ -63,7 +63,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-[1180px]"
+        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-[1180px] overflow-hidden"
       >
         {/* Custom horizontal header bar with DialogTitle for a11y */}
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-editorial-hairline px-6">

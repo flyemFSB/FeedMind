@@ -24,7 +24,7 @@ dist/
 # LangGraph runtime
 .langgraph_api/
 
-# Node / pnpm / Next.js
+# Node / Bun / Next.js
 node_modules/
 .pnpm-store/
 .next/
@@ -51,6 +51,9 @@ logs/
 
 # Mastra build output
 .mastra/
+
+# Auto-generated Drizzle migrations
+packages/db/drizzle/
 
 # Impeccable design system sidecar
 .impeccable/

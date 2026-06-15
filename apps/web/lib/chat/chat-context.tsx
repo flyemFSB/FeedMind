@@ -23,7 +23,11 @@ import {
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
-import { getSelectedFeedMindModel } from "@/lib/api/agent";
+import {
+  getSelectedFeedMindModel,
+  getSelectedFeedMindModelId,
+  onSelectedFeedMindModelChange,
+} from "@/lib/api/agent";
 import {
   getChatSessionMessages,
   saveChatSession,
@@ -88,20 +92,20 @@ function readToUIMessage(msg: ChatMessageRead): UIMessage {
 }
 
 /** 将 UIMessage 转为持久化快照 */
-function uiMessageToSnapshot(msg: UIMessage): ChatMessageSnapshot {
+function uiMessageToSnapshot(msg: UIMessage, modelId: string): ChatMessageSnapshot {
   return {
     agent_message_id: msg.id,
     role: msg.role === "assistant" ? "assistant" : msg.role === "user" ? "user" : "system",
     content: extractTextContent(msg),
     status: "completed",
-    model: "",
+    model: modelId,
     metadata: {},
   };
 }
 
 /** 构建完整会话快照 */
-function buildSnapshot(messages: UIMessage[]): { messages: ChatMessageSnapshot[] } {
-  return { messages: messages.map(uiMessageToSnapshot) };
+function buildSnapshot(messages: UIMessage[], modelId: string): { messages: ChatMessageSnapshot[] } {
+  return { messages: messages.map(msg => uiMessageToSnapshot(msg, modelId)) };
 }
 
 /**
@@ -129,6 +133,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
   const messagesRef = useRef<UIMessage[]>([]);
   useEffect(() => { activeThreadIdRef.current = activeThreadId; }, [activeThreadId]);
+
+  // ── 当前选中模型的 modelId（API 模型标识符，如 "deepseek-v4-flash"）──
+  const modelIdRef = useRef(getSelectedFeedMindModelId());
+  useEffect(() => {
+    const unsubscribe = onSelectedFeedMindModelChange(() => {
+      modelIdRef.current = getSelectedFeedMindModelId();
+    });
+    return unsubscribe;
+  }, []);
 
   // ── Transport 配置 ──
   const transport = useMemo(
@@ -182,7 +195,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (currentMessages.length === 0 || isSaving) return;
       setIsSaving(true);
       try {
-        const snapshot = buildSnapshot(currentMessages);
+        const snapshot = buildSnapshot(currentMessages, modelIdRef.current);
         await saveChatSession(threadId, snapshot);
         // 刷新侧边栏列表
         queryClient.invalidateQueries({ queryKey: chatKeys.list() });

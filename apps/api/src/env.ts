@@ -1,7 +1,6 @@
-import { baseEnvSchema, isProduction, loadFeedMindEnv } from "@feedmind/shared";
+import { baseEnvSchema } from "@feedmind/contracts";
+import { isProduction } from "@feedmind/shared";
 import { z } from "zod";
-
-loadFeedMindEnv();
 
 const apiEnvSchema = baseEnvSchema.extend({
   APP_NAME: z.string().default("FeedMind API"),
@@ -10,7 +9,7 @@ const apiEnvSchema = baseEnvSchema.extend({
   API_PORT: z.coerce.number().int().positive().default(8000),
 });
 
-export const apiEnv = apiEnvSchema.parse(process.env);
+export const apiEnv = apiEnvSchema.parse(Bun.env);
 
 // 生产环境强制校验加密密钥，防止 API Key 明文存储
 export function validateApiRuntime(): void {

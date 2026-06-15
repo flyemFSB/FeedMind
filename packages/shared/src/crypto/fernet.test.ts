@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { decryptValue, encryptValue } from "./fernet.js";
 
 describe("Fernet-compatible encryption", () => {

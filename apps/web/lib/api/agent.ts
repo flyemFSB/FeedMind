@@ -1,6 +1,7 @@
 import { getSelectedLLMModel, setSelectedLLMModel } from "@/lib/api/llms";
 
 const selectedModelStorageKey = "feedmind:selected-model";
+const selectedModelIdStorageKey = "feedmind:selected-model-id";
 const selectedModelChangeEvent = "feedmind:selected-model-change";
 
 export function getSelectedFeedMindModel(): string {
@@ -21,6 +22,25 @@ export function setSelectedFeedMindModel(model: string): void {
     window.dispatchEvent(
       new CustomEvent(selectedModelChangeEvent, { detail: model }),
     );
+  }
+}
+
+/** 获取选中模型的 API 模型 ID（如 "deepseek-v4-flash"） */
+export function getSelectedFeedMindModelId(): string {
+  if (typeof window !== "undefined") {
+    return window.localStorage.getItem(selectedModelIdStorageKey) ?? "";
+  }
+  return "";
+}
+
+/** 存储选中模型的 API 模型 ID */
+export function setSelectedFeedMindModelId(modelId: string): void {
+  if (typeof window !== "undefined") {
+    if (modelId) {
+      window.localStorage.setItem(selectedModelIdStorageKey, modelId);
+    } else {
+      window.localStorage.removeItem(selectedModelIdStorageKey);
+    }
   }
 }
 

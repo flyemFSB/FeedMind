@@ -95,8 +95,8 @@ export function dateSortDesc(a: string, b: string): number {
 }
 
 export function wikiRootDir(): string {
-  return process.env.WIKI_DIR
-    ? path.resolve(PROJECT_ROOT, process.env.WIKI_DIR)
+  return Bun.env.WIKI_DIR
+    ? path.resolve(PROJECT_ROOT, Bun.env.WIKI_DIR)
     : path.join(PROJECT_ROOT, "data", "wiki");
 }
 

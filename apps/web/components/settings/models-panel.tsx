@@ -25,6 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/settings/provider-icon";
+import { lookupModelInfo } from "@/lib/constants/provider-models";
 import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
@@ -158,13 +159,13 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
               <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableProvider")}
               </TableHead>
-              <TableHead className="w-[20%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[28%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableModel")}
               </TableHead>
-              <TableHead className="w-[28%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[22%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableEndpoint")}
               </TableHead>
-              <TableHead className="w-[24%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[22%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableApiKey")}
               </TableHead>
               <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
@@ -188,9 +189,24 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 </TableCell>
                 <TableCell className="px-4 py-3 text-[13px] text-editorial-ink">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
-                    <span className="truncate" title={model.modelName}>
-                      {model.modelName}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="truncate" title={model.modelName}>
+                        {model.modelName}
+                      </span>
+                      {(() => {
+                        const info = lookupModelInfo(model.provider, model.modelName);
+                        return info ? (
+                          <span className="flex shrink-0 items-center gap-1">
+                            <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                              {info.context}
+                            </span>
+                            <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                              {info.maxOutput}
+                            </span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(model.modelName, t("settings.modelNameCopied"))}

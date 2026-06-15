@@ -11,8 +11,9 @@ import type {
 } from "@feedmind/contracts";
 import { db } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
-import { createCrawler, DbStore } from "@feedmind/crawler-core";
+import { createCrawler } from "@feedmind/crawler-core";
 import type { CrawlerContext } from "@feedmind/crawler-core";
+import { DbStore } from "./db-store.js";
 
 // ─── Helpers ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {

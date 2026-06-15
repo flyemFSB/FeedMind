@@ -6,12 +6,12 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ```bash
 bun install               # Install all dependencies
-bun run dev               # Start all dev services (web + API, parallel via concurrently)
+bun run dev               # Start all dev services (web + API, parallel via bun run --parallel)
 bun run build             # Build all packages and apps
 bun run build:packages    # Build shared packages only (contracts, shared, db, crawler-core, wiki-core)
 bun run typecheck         # TypeScript type check across all packages
 bun run lint              # ESLint
-bun run test              # Run all tests (vitest)
+bun run test              # Run all tests (bun test)
 bun run db:init           # Initialize SQLite database (create tables + seed tools)
 bun run db:generate       # Generate Drizzle migrations
 bun run db:migrate        # Apply Drizzle migrations
@@ -22,7 +22,7 @@ bun run --bun vite dev    # Force Vite to run on Bun runtime
 
 ## Architecture
 
-Monorepo (pnpm workspaces). Two apps, five shared packages. Mastra Agent is embedded in the API app.
+Monorepo (Bun workspaces). Two apps, five shared packages. Mastra Agent is embedded in the API app.
 
 ```
 apps/
@@ -45,7 +45,7 @@ data/
 - **Mastra Agent**: The AI agent runs inside the API process (apps/api/src/mastra/), using @mastra/core. It exposes a chat route via @mastra/ai-sdk's chatRoute() which outputs AI SDK v6 compatible streaming format.
 - **Dynamic Model Resolution**: The agent resolves the LLM model at runtime from the `llm` table, reading the user's selected model via request headers.
 - **Wiki import pipeline** (`ingest-pipeline.ts`): Two-stage LLM pipeline — stage 1 analyzes source content into structured data (entities, concepts, arguments), stage 2 generates wiki page FILE blocks. The LLM client is resolved from `runtime_config` table at runtime.
-- **Runtime Config** (`runtime_config` table): Stores per-scenario LLM config (temperature, max_tokens, system_prompt, etc.) for "session" (chat) and "wiki" (ingest) scenarios.
+- **Runtime Config** (`runtime_config` table): Stores per-runtime LLM config (temperature, max_tokens, system_prompt, etc.) for "session" (chat) and "wiki" (ingest) runtimes.
 - **Crawler**: Playwright-based, uses cookie authentication, stores results in SQLite.
 
 ## API Routes (Hono)
@@ -53,7 +53,7 @@ data/
 All routes under `/api/v1`:
 - `health` — health check
 - `llms` — CRUD + select LLM models
-- `runtime-configs` — read/update per-scenario runtime config
+- `runtime-configs` — read/update per-runtime config
 - `chats` — chat session CRUD
 - `tools` — tool config CRUD (web search, web fetch)
 - `wiki/*` — wiki spaces, pages, sources, ingest, graph, review, lint
@@ -65,9 +65,9 @@ Pattern: Each route file defines a Hono router; routes are mounted in `routes/v1
 
 ## Model Config Pattern
 
-LLM providers are stored in the `llm` table (supports any OpenAI-compatible API). Users add models via the settings modal. One model can be "selected" (`is_selected = true`) for chat usage. The wiki ingest model is stored separately via `runtime_config` with `scenario = 'wiki'`.
+LLM providers are stored in the `llm` table (supports any OpenAI-compatible API). Users add models via the settings modal. One model can be "selected" (`is_selected = true`) for chat usage. The wiki ingest model is stored separately via `runtime_config` with `runtime = 'wiki'`.
 
-When adding a new scenario that needs LLM access, add a row to `runtime_config` and use `getScenarioRuntime(scenario)` from `config-service.ts` to resolve credentials.
+When adding a new runtime that needs LLM access, add a row to `runtime_config` and use `getRuntimeConfig(runtime)` from `config-service.ts` to resolve credentials.
 
 ## Web App Notes
 

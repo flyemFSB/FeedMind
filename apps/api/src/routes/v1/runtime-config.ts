@@ -7,11 +7,11 @@ export const runtimeConfigRoutes = new Hono();
 
 runtimeConfigRoutes.get("/runtime-configs", async (c) => jsonOk(c, await getAllConfigs()));
 
-runtimeConfigRoutes.put("/runtime-configs/:scenario", async (c) => {
-  const scenario = c.req.param("scenario");
-  if (scenario !== "session" && scenario !== "wiki") {
-    throw new HttpError(422, "VALIDATION_ERROR", "scenario must be 'session' or 'wiki'");
+runtimeConfigRoutes.put("/runtime-configs/:runtime", async (c) => {
+  const runtime = c.req.param("runtime");
+  if (runtime !== "session" && runtime !== "wiki") {
+    throw new HttpError(422, "VALIDATION_ERROR", "runtime must be 'session' or 'wiki'");
   }
   const payload = await parseJson(c, runtimeConfigUpdateSchema);
-  return jsonOk(c, await updateConfig(scenario, payload));
+  return jsonOk(c, await updateConfig(runtime, payload));
 });

@@ -2,13 +2,20 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { getModelRuntime } from "../../modules/llms/service.js";
 import { createSanitizedFetch } from "./sanitized-fetch.js";
 
-const modelClientCache = new Map<number, { client: ReturnType<typeof createOpenAI>; modelName: string }>();
+export interface ResolvedModel {
+  client: ReturnType<typeof createOpenAI>;
+  modelName: string;
+  contextWindow: string | null;
+  maxOutput: string | null;
+}
+
+const modelClientCache = new Map<number, ResolvedModel>();
 
 export function clearModelClientCache(): void {
   modelClientCache.clear();
 }
 
-export async function resolveModelClient(modelId: number): Promise<{ client: ReturnType<typeof createOpenAI>; modelName: string }> {
+export async function resolveModelClient(modelId: number): Promise<ResolvedModel> {
   const cached = modelClientCache.get(modelId);
   if (cached) return cached;
 
@@ -18,10 +25,13 @@ export async function resolveModelClient(modelId: number): Promise<{ client: Ret
     baseURL: config.base_url || undefined,
     fetch: createSanitizedFetch(config.base_url || undefined) as any,
   });
-  const cleanName = config.model_name.includes(":")
-    ? config.model_name.split(":").slice(1).join(":")
-    : config.model_name;
-  const entry = { client: openai, modelName: cleanName };
+  const cleanName = config.model_id?.trim() || "";
+  const entry: ResolvedModel = {
+    client: openai,
+    modelName: cleanName,
+    contextWindow: config.context_window,
+    maxOutput: config.max_output,
+  };
   modelClientCache.set(modelId, entry);
   return entry;
 }
