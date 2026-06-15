@@ -9,6 +9,7 @@
     "bun": ">=1.2.0"
   },
   "scripts": {
+    "start": "bun run build:packages && concurrently -n api,web -c cyan,green \"bun run api:dev\" \"bun run web:dev\"",
     "dev": "bun run build:packages && concurrently -n api,web -c cyan,green \"bun run api:dev\" \"bun run web:dev\"",
     "build": "bun --filter '*' build",
     "build:packages": "bun --filter @feedmind/contracts build && bun --filter @feedmind/shared build && bun --filter @feedmind/db build && bun --filter @feedmind/crawler-core build && bun --filter @feedmind/wiki-core build",
@@ -20,7 +21,7 @@
     "db:migrate": "bun --filter @feedmind/db db:migrate",
     "db:reset": "bun --filter @feedmind/db db:reset",
     "web:dev": "bun --filter @feedmind/web dev",
-    "api:dev": "bun --filter @feedmind/api dev"
+    "api:dev": "bun --watch apps/api/src/server.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

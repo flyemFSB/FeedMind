@@ -13,6 +13,8 @@ param([switch]$SkipInstall, [switch]$SkipDb)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # ── 1. 确保 .env 存在 ──────────────────────────────────────────────
 $envFile = Join-Path $root ".env"
 $envExample = Join-Path $root ".env.example"
@@ -48,8 +50,8 @@ try {
 
     # ── 4. 启动服务 ────────────────────────────────────────────────
     Write-Host "▶ 启动服务..."
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$root'; pnpm api:dev"
-    Start-Process powershell -ArgumentList "-NoExit", "-Command", "Set-Location '$root'; pnpm web:dev"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "chcp 65001 > `$null; Set-Location '$root'; pnpm api:dev"
+    Start-Process powershell -ArgumentList "-NoExit", "-Command", "chcp 65001 > `$null; Set-Location '$root'; pnpm web:dev"
 }
 finally {
     Pop-Location

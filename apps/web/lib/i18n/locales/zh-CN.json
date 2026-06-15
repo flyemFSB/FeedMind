@@ -55,6 +55,7 @@
     "thinkProcess": "思考过程",
     "newSession": "新会话",
     "sessionTitleDefault": "新会话",
+    "loadingHistory": "正在加载历史记录…",
     "scrollToBottom": "滚动到底部",
     "editMessage": "修改",
     "submitEdit": "提交",

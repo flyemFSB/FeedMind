@@ -1,5 +1,6 @@
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import type {
+  ChatMessageRead,
   ChatMessageSnapshot,
   ChatSessionListItem,
   ChatSessionRead,
@@ -171,6 +172,45 @@ export async function saveChatSession(
 
     return toRead(finalSession);
   });
+}
+
+function toMessageRead(row: ChatMessageRow): ChatMessageRead {
+  const metadata = (() => {
+    try { return JSON.parse(row.metadata); } catch { return {}; }
+  })();
+  return {
+    id: row.id,
+    session_id: row.sessionId,
+    agent_message_id: row.agentMessageId,
+    role: row.role as ChatMessageRead["role"],
+    content: row.content,
+    status: row.status as ChatMessageRead["status"],
+    model: row.model,
+    metadata,
+    created_at: row.createdAt,
+    updated_at: row.updatedAt,
+  };
+}
+
+/** 读取会话的所有活跃消息（按创建时间正序） */
+export async function getChatSessionMessages(agentThreadId: string): Promise<ChatMessageRead[]> {
+  const [session] = await db
+    .select()
+    .from(chatSessions)
+    .where(eq(chatSessions.agentThreadId, agentThreadId))
+    .limit(1);
+  if (!session) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
+
+  const rows = await db
+    .select()
+    .from(chatMessages)
+    .where(and(
+      eq(chatMessages.sessionId, session.id),
+      ne(chatMessages.status, "failed"),
+    ))
+    .orderBy(chatMessages.createdAt);
+
+  return rows.map(toMessageRead);
 }
 
 export async function deleteChatSession(agentThreadId: string): Promise<ChatSessionRead> {

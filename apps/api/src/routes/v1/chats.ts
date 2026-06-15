@@ -6,6 +6,7 @@ import {
   createChatSession,
   deleteChatSession,
   getChatSession,
+  getChatSessionMessages,
   listChatSessions,
   saveChatSession,
 } from "../../modules/chats/service.js";
@@ -25,6 +26,7 @@ chatRoutes.post("/chats", async (c) => {
 
 chatRoutes.get("/chats", async (c) => jsonOk(c, await listChatSessions()));
 chatRoutes.get("/chats/:sessionId", async (c) => jsonOk(c, await getChatSession(c.req.param("sessionId"))));
+chatRoutes.get("/chats/:sessionId/messages", async (c) => jsonOk(c, await getChatSessionMessages(c.req.param("sessionId"))));
 chatRoutes.put("/chats/:sessionId", async (c) => {
   const payload = await parseJson(c, chatSessionSnapshotSchema);
   return jsonOk(c, await saveChatSession(c.req.param("sessionId"), payload));

@@ -12,6 +12,14 @@ export const chatMessageSnapshotSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
+/** 完整消息记录（含持久化字段），用于读取历史会话 */
+export const chatMessageReadSchema = chatMessageSnapshotSchema.extend({
+  id: z.string(),
+  session_id: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 export const chatSessionSnapshotSchema = z.object({
   title: z.string().nullable().optional(),
   messages: z.array(chatMessageSnapshotSchema).default([]),
@@ -33,6 +41,7 @@ export const chatSessionListItemSchema = chatSessionReadSchema.extend({
 export type ChatMessageRole = z.infer<typeof chatMessageRoleSchema>;
 export type ChatMessageStatus = z.infer<typeof chatMessageStatusSchema>;
 export type ChatMessageSnapshot = z.infer<typeof chatMessageSnapshotSchema>;
+export type ChatMessageRead = z.infer<typeof chatMessageReadSchema>;
 export type ChatSessionSnapshot = z.infer<typeof chatSessionSnapshotSchema>;
 export type ChatSessionRead = z.infer<typeof chatSessionReadSchema>;
 export type ChatSessionListItem = z.infer<typeof chatSessionListItemSchema>;

@@ -54,7 +54,7 @@ export async function initDatabase(): Promise<void> {
   for (const scenario of ["session", "wiki"]) {
     await client.execute({
       sql: `insert or ignore into runtime_config (scenario, temperature, max_output_tokens, top_p, context_length, system_prompt) values (?, ?, ?, ?, ?, ?)`,
-      args: [scenario, 0.2, 8192, 1, "128k", ""],
+      args: [scenario, 0.2, 16384, 1, "128k", ""],
     });
   }
 

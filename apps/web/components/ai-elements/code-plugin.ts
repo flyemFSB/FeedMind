@@ -4,7 +4,8 @@
  */
 "use client";
 
-import { code } from "@streamdown/code";
+import { code, type CodeHighlighterPlugin } from "@streamdown/code";
+import type { BundledLanguage } from "shiki";
 
 /** 主流编程语言白名单 */
 const MAINSTREAM_LANGS = new Set([
@@ -20,14 +21,14 @@ const MAINSTREAM_LANGS = new Set([
  * lightweightCode — 基于 @streamdown/code 的轻量包装
  * 仅识别主流语言，阻止 shiki 加载小众语言 grammar
  */
-export const lightweightCode = {
+export const lightweightCode: CodeHighlighterPlugin = {
   ...code,
   supportsLanguage(lang: string) {
     if (!lang) return false;
     const normalized = lang.trim().toLowerCase();
     return MAINSTREAM_LANGS.has(normalized);
   },
-  getSupportedLanguages() {
-    return Array.from(MAINSTREAM_LANGS);
+  getSupportedLanguages(): BundledLanguage[] {
+    return Array.from(MAINSTREAM_LANGS) as BundledLanguage[];
   },
 };

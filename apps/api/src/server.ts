@@ -41,6 +41,7 @@ async function main(): Promise<void> {
     fetch: app.fetch,
     hostname: apiEnv.API_HOST,
     port: apiEnv.API_PORT,
+    idleTimeout: 0,
   });
   console.log(`FeedMind API + Agent listening on http://${apiEnv.API_HOST}:${apiEnv.API_PORT}`);
 }

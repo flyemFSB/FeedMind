@@ -55,6 +55,7 @@
     "thinkProcess": "Thinking process",
     "newSession": "New Session",
     "sessionTitleDefault": "New Session",
+    "loadingHistory": "Loading history…",
     "scrollToBottom": "Scroll to bottom",
     "editMessage": "Edit",
     "submitEdit": "Submit",

@@ -10,7 +10,7 @@ import { Conversation, ConversationContent, ConversationEmptyState, Conversation
 import { MessageParts } from "./message-parts";
 import { Composer } from "./composer";
 import { useChatContext } from "@/lib/chat/chat-context";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, Loader2 } from "lucide-react";
 
 /**
  * Thread — 聊天视图容器
@@ -19,7 +19,7 @@ import { ArrowDown } from "lucide-react";
  * - 底部固定 Composer
  */
 export function Thread() {
-  const { messages, status } = useChatContext();
+  const { messages, status, isLoadingHistory } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
 
@@ -27,7 +27,14 @@ export function Thread() {
     <div className="relative flex h-full min-h-0 flex-col bg-editorial-surface-card">
       <Conversation>
         <ConversationContent className="max-w-4xl w-full mx-auto px-6 pt-6 pb-[220px]">
-          {messages.length === 0 ? (
+          {isLoadingHistory ? (
+            <div className="flex items-center justify-center py-24">
+              <div className="flex flex-col items-center gap-3 text-editorial-ink-muted">
+                <Loader2 size={20} className="animate-spin" />
+                <span className="text-[13px]">{t("chat.loadingHistory")}</span>
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
             <ConversationEmptyState
               icon={
                 <div className="size-14 rounded-2xl bg-gradient-to-br from-editorial-ink to-editorial-primary-active flex items-center justify-center">
