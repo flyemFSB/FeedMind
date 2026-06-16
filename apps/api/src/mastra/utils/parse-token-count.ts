@@ -1,4 +1,4 @@
-/** 解析 "128K" → 128000, "1M" → 1000000, null → undefined */
+/** 解析 "128" (KB) → 128000, "1M" → 1000000, "64K" → 64000 */
 export function parseTokenCount(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
   const upper = value.toUpperCase().trim();
@@ -9,5 +9,6 @@ export function parseTokenCount(value: string | null | undefined): number | unde
   const unit = match[2];
   if (unit === "M") return Math.round(num * 1_000_000);
   if (unit === "K") return Math.round(num * 1_000);
-  return Math.round(num);
+  // 无单位后缀视为 KB
+  return Math.round(num * 1_000);
 }

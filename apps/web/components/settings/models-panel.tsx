@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/settings/provider-icon";
-import { lookupModelInfo } from "@/lib/constants/provider-models";
+import { lookupModelInfo, formatKB } from "@/lib/constants/provider-models";
 import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
@@ -38,13 +38,23 @@ function VisibilityIcon({ visible, size }: { visible: boolean; size: number }) {
   return <Icon size={size} strokeWidth={1.7} />;
 }
 
-function getApiKeyDisplay(model: LLMModel, visible: boolean, t: (key: string) => string, apiKey?: string): string {
+function getApiKeyDisplay(
+  model: LLMModel,
+  visible: boolean,
+  t: (key: string) => string,
+  apiKey?: string,
+): string {
   if (!model.hasApiKey) return t("settings.noApiKey");
   if (!visible) return "********";
   return apiKey ?? t("common.loading");
 }
 
-function getApiKeyTooltip(model: LLMModel, visible: boolean, t: (key: string) => string, apiKey?: string): string {
+function getApiKeyTooltip(
+  model: LLMModel,
+  visible: boolean,
+  t: (key: string) => string,
+  apiKey?: string,
+): string {
   if (!model.hasApiKey) return t("settings.noApiKey");
   if (!visible) return t("settings.keyHidden");
   return apiKey ?? t("settings.loadingKey");
@@ -182,7 +192,10 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 <TableCell className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <ProviderIcon provider={model.provider} />
-                    <span className="truncate text-[13px] text-editorial-ink" title={model.provider}>
+                    <span
+                      className="truncate text-[13px] text-editorial-ink"
+                      title={model.provider}
+                    >
                       {model.provider}
                     </span>
                   </div>
@@ -195,21 +208,30 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                       </span>
                       {(() => {
                         const info = lookupModelInfo(model.provider, model.modelName);
-                        return info ? (
+                        const context = info?.context ?? model.contextWindow;
+                        const maxOutput = info?.maxOutput ?? model.maxOutput;
+                        if (!context && !maxOutput) return null;
+                        return (
                           <span className="flex shrink-0 items-center gap-1">
-                            <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
-                              {info.context}
-                            </span>
-                            <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
-                              {info.maxOutput}
-                            </span>
+                            {context ? (
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                                {formatKB(context)}
+                              </span>
+                            ) : null}
+                            {maxOutput ? (
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                                {formatKB(maxOutput)}
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null;
+                        );
                       })()}
                     </div>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard(model.modelName, t("settings.modelNameCopied"))}
+                      onClick={() =>
+                        copyToClipboard(model.modelName, t("settings.modelNameCopied"))
+                      }
                       className={iconButtonClass}
                       aria-label={t("settings.copyModelName")}
                       title={t("settings.copyModelName")}
@@ -220,7 +242,10 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 </TableCell>
                 <TableCell className="px-4 py-3 text-[12px] text-editorial-ink-soft">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
-                    <span className="truncate font-mono" title={model.baseUrl || t("settings.noApiKey")}>
+                    <span
+                      className="truncate font-mono"
+                      title={model.baseUrl || t("settings.noApiKey")}
+                    >
                       {model.baseUrl || "—"}
                     </span>
                     <button
@@ -259,8 +284,12 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                         onClick={() => toggleKeyVisibility(model)}
                         disabled={!model.hasApiKey}
                         className={iconButtonClass}
-                        aria-label={visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")}
-                        title={visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")}
+                        aria-label={
+                          visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")
+                        }
+                        title={
+                          visibleKeys[model.id] ? t("settings.hideKey") : t("settings.showKey")
+                        }
                       >
                         <VisibilityIcon visible={Boolean(visibleKeys[model.id])} size={14} />
                       </button>

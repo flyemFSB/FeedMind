@@ -10,6 +10,7 @@ import {
   CUSTOM_PROVIDER,
   lookupModelInfo,
   displayNameToModelId,
+  formatKB,
 } from "@/lib/constants/provider-models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +45,15 @@ const PROVIDERS = [
   "自定义",
 ] as const;
 
-const EMPTY_FORM = { provider: "ChatGPT", modelName: "", modelId: "", baseUrl: "", apiKey: "", context: "", maxOutput: "" };
+const EMPTY_FORM = {
+  provider: "ChatGPT",
+  modelName: "",
+  modelId: "",
+  baseUrl: "",
+  apiKey: "",
+  context: "",
+  maxOutput: "",
+};
 
 interface ModelFormDialogProps {
   open: boolean;
@@ -89,7 +98,7 @@ export function ModelFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const isCustom = form.provider === CUSTOM_PROVIDER;
-  const modelList = !isCustom ? PROVIDER_MODELS[form.provider] ?? [] : [];
+  const modelList = !isCustom ? (PROVIDER_MODELS[form.provider] ?? []) : [];
   const selectedModelInfo = lookupModelInfo(form.provider, form.modelName);
 
   function handleProviderChange(value: string | null) {
@@ -173,7 +182,10 @@ export function ModelFormDialog({
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 px-5 py-5">
           <div className="col-span-2">
-            <label htmlFor="model-provider-select" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="model-provider-select"
+              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+            >
               {t("settings.provider")}
             </label>
             <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
@@ -203,26 +215,57 @@ export function ModelFormDialog({
               </Select>
             </div>
           </div>
+          {/* 模型调用名称 — first position */}
           <div className="col-span-2">
-            <label htmlFor="model-name-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-              {t("settings.modelName")}
+            <label
+              htmlFor="model-api-id-input"
+              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+            >
+              模型调用名称
+            </label>
+            {isCustom ? (
+              <Input
+                id="model-api-id-input"
+                value={form.modelId}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setForm((current) => ({ ...current, modelId: val, modelName: val }));
+                }}
+                placeholder="例如 deepseek-v4-flash"
+                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+              />
+            ) : (
+              <Input
+                id="model-api-id-input"
+                value={form.modelId}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, modelId: event.target.value }))
+                }
+                placeholder="例如 deepseek-v4-flash"
+                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+              />
+            )}
+          </div>
+          {/* 模型显示名称 — second position */}
+          <div className="col-span-2">
+            <label
+              htmlFor="model-name-input"
+              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+            >
+              模型显示名称
             </label>
             {isCustom ? (
               <Input
                 id="model-name-input"
                 value={form.modelName}
                 onChange={(event) => {
-                  const val = event.target.value;
-                  setForm((current) => ({ ...current, modelName: val, modelId: displayNameToModelId(val) }));
+                  setForm((current) => ({ ...current, modelName: event.target.value }));
                 }}
-                placeholder={t("settings.modelNamePlaceholder")}
+                placeholder="根据调用名称自动生成"
                 className="h-10 rounded-xl border-editorial-hairline text-[13px]"
               />
             ) : (
-              <Select
-                value={form.modelName}
-                onValueChange={handleModelChange}
-              >
+              <Select value={form.modelName} onValueChange={handleModelChange}>
                 <SelectTrigger
                   id="model-name-select"
                   aria-label={t("settings.selectModel")}
@@ -238,8 +281,8 @@ export function ModelFormDialog({
                           <span className="flex items-center gap-2">
                             <span className="text-[13px]">{model.name}</span>
                             <span className="flex items-center gap-1">
-                              <ModelSpecBadge label={model.context} />
-                              <ModelSpecBadge label={model.maxOutput} />
+                              <ModelSpecBadge label={formatKB(model.context)} />
+                              <ModelSpecBadge label={formatKB(model.maxOutput)} />
                             </span>
                           </span>
                         </SelectItem>
@@ -255,21 +298,10 @@ export function ModelFormDialog({
             )}
           </div>
           <div className="col-span-2">
-            <label htmlFor="model-api-id-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-              模型调用名称
-            </label>
-            <Input
-              id="model-api-id-input"
-              value={form.modelId}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, modelId: event.target.value }))
-              }
-              placeholder="自动根据模型名称生成，可手动修改"
-              className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-            />
-          </div>
-          <div className="col-span-2">
-            <label htmlFor="model-endpoint-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="model-endpoint-input"
+              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+            >
               {t("settings.endpointLabel")}
             </label>
             <Input
@@ -283,7 +315,10 @@ export function ModelFormDialog({
             />
           </div>
           <div className="col-span-2">
-            <label htmlFor="model-api-key-input" className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="model-api-key-input"
+              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+            >
               {t("settings.apiKeyLabel")}
             </label>
             <div className="relative">
@@ -293,7 +328,11 @@ export function ModelFormDialog({
                 onChange={(event) =>
                   setForm((current) => ({ ...current, apiKey: event.target.value }))
                 }
-                placeholder={isEditing ? t("settings.apiKeyPlaceholderEdit") : t("settings.apiKeyPlaceholderNew")}
+                placeholder={
+                  isEditing
+                    ? t("settings.apiKeyPlaceholderEdit")
+                    : t("settings.apiKeyPlaceholderNew")
+                }
                 type={showKey ? "text" : "password"}
                 className="h-10 rounded-xl border-editorial-hairline pr-10 text-[13px]"
               />
@@ -313,35 +352,46 @@ export function ModelFormDialog({
             </div>
           </div>
           {isCustom ? (
-            <div className="col-span-2 grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">上下文窗口</label>
-                <Input
-                  value={form.context}
-                  onChange={(e) => setForm((c) => ({ ...c, context: e.target.value }))}
-                  placeholder="例如: 128K"
-                  className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-                />
+            <>
+              <div className="col-span-2 grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+                    上下文窗口（KB）{" "}
+                    <span className="font-normal text-[10px] text-editorial-ink-muted">
+                      1M = 1000K
+                    </span>
+                  </label>
+                  <Input
+                    type="number"
+                    value={form.context}
+                    onChange={(e) => setForm((c) => ({ ...c, context: e.target.value }))}
+                    placeholder="例如: 128"
+                    className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+                    最大输出（KB）
+                  </label>
+                  <Input
+                    type="number"
+                    value={form.maxOutput}
+                    onChange={(e) => setForm((c) => ({ ...c, maxOutput: e.target.value }))}
+                    placeholder="例如: 32"
+                    className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">最大输出</label>
-                <Input
-                  value={form.maxOutput}
-                  onChange={(e) => setForm((c) => ({ ...c, maxOutput: e.target.value }))}
-                  placeholder="例如: 32K"
-                  className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-                />
-              </div>
-            </div>
+            </>
           ) : selectedModelInfo ? (
             <div className="col-span-2 flex items-center gap-3 text-[12px] text-editorial-ink-muted">
               <span className="flex items-center gap-1">
                 <span className="font-medium text-editorial-ink-soft">上下文窗口:</span>
-                <span>{selectedModelInfo.context}</span>
+                <span>{formatKB(selectedModelInfo.context)}</span>
               </span>
               <span className="flex items-center gap-1">
                 <span className="font-medium text-editorial-ink-soft">最大输出:</span>
-                <span>{selectedModelInfo.maxOutput}</span>
+                <span>{formatKB(selectedModelInfo.maxOutput)}</span>
               </span>
             </div>
           ) : null}
