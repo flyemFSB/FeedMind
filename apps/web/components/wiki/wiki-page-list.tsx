@@ -18,11 +18,7 @@ interface WikiPageListProps {
   onPageSelect: (pageId: string) => void;
 }
 
-export function WikiPageList({
-  spaceId,
-  activePageId,
-  onPageSelect,
-}: WikiPageListProps) {
+export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageListProps) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -32,7 +28,6 @@ export function WikiPageList({
 
   const pages: WikiPageListItem[] = data?.items ?? [];
 
-  // Client-side filtering
   const filteredPages = pages.filter((page) => {
     if (typeFilter && page.type !== typeFilter) return false;
     if (search && !page.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -59,7 +54,10 @@ export function WikiPageList({
 
       <div className="px-3 pb-2">
         <div className="relative">
-          <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted" />
+          <Search
+            size={13}
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted"
+          />
           <Input
             ref={searchInputRef}
             className="h-8 rounded-lg border-editorial-surface-strong pl-8 text-[12px] placeholder:text-editorial-ink-muted focus:border-editorial-primary"
@@ -72,9 +70,19 @@ export function WikiPageList({
       </div>
 
       <div className="flex gap-1 overflow-x-auto px-3 pb-2">
-        <FilterChip label={t("common.all")} active={typeFilter === ""} onClick={() => setTypeFilter("")} />
+        <FilterChip
+          label={t("common.all")}
+          active={typeFilter === ""}
+          onClick={() => setTypeFilter("")}
+        />
         {filterTypes().map((t) => (
-          <FilterChip key={t} label={WIKI_TYPE_LABELS[t] || t} color={TYPE_COLORS[t]} active={typeFilter === t} onClick={() => setTypeFilter(t)} />
+          <FilterChip
+            key={t}
+            label={WIKI_TYPE_LABELS[t] || t}
+            color={TYPE_COLORS[t]}
+            active={typeFilter === t}
+            onClick={() => setTypeFilter(t)}
+          />
         ))}
       </div>
 
@@ -104,22 +112,33 @@ export function WikiPageList({
             </p>
           </div>
         ) : (
-          <CategorizedPageList pages={filteredPages} activePageId={activePageId} onPageSelect={onPageSelect} />
+          <CategorizedPageList
+            pages={filteredPages}
+            activePageId={activePageId}
+            onPageSelect={onPageSelect}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function CategorizedPageList({ pages, activePageId, onPageSelect }: {
+function CategorizedPageList({
+  pages,
+  activePageId,
+  onPageSelect,
+}: {
   pages: WikiPageListItem[];
   activePageId: string | null;
   onPageSelect: (pageId: string) => void;
 }) {
   const typeOrder = ["entity", "concept", "source", "overview", "index"];
   const typeLabels: Record<string, string> = {
-    entity: "实体", concept: "概念", source: "来源",
-    overview: "概览", index: "索引",
+    entity: "实体",
+    concept: "概念",
+    source: "来源",
+    overview: "概览",
+    index: "索引",
   };
 
   const grouped = pages.reduce<Record<string, WikiPageListItem[]>>((acc, page) => {
@@ -143,12 +162,24 @@ function CategorizedPageList({ pages, activePageId, onPageSelect }: {
       {sortedTypes.map((type) => (
         <div key={type} className="mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
-            <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: WIKI_TYPE_COLORS[type] || "var(--color-editorial-ink-muted)" }} />
-            <span className="text-[11px] font-medium text-editorial-ink-muted">{typeLabels[type] || type}</span>
+            <span
+              className="inline-block h-2 w-2 rounded-full shrink-0"
+              style={{
+                backgroundColor: WIKI_TYPE_COLORS[type] || "var(--color-editorial-ink-muted)",
+              }}
+            />
+            <span className="text-[11px] font-medium text-editorial-ink-muted">
+              {typeLabels[type] || type}
+            </span>
             <span className="text-[10px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
           {grouped[type].map((page) => (
-            <PageListItem key={page.id} page={page} active={activePageId === page.id} onClick={() => onPageSelect(page.id)} />
+            <PageListItem
+              key={page.id}
+              page={page}
+              active={activePageId === page.id}
+              onClick={() => onPageSelect(page.id)}
+            />
           ))}
         </div>
       ))}
@@ -196,9 +227,7 @@ function PageListItem({
     <button
       onClick={onClick}
       className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
-        active
-          ? "bg-editorial-primary/10"
-          : "hover:bg-editorial-surface-soft"
+        active ? "bg-editorial-primary/10" : "hover:bg-editorial-surface-soft"
       }`}
     >
       <FileText size={14} className="shrink-0 text-editorial-ink-muted" strokeWidth={1.5} />
@@ -216,7 +245,7 @@ function PageListItem({
         style={{ backgroundColor: color }}
       >
         {WIKI_TYPE_LABELS[page.type] || page.type}
-            </span>
-          </button>
-        );
-      }
+      </span>
+    </button>
+  );
+}

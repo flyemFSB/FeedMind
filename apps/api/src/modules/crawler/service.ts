@@ -14,8 +14,9 @@ import { HttpError } from "../../lib/http.js";
 import { createCrawler } from "@feedmind/crawler-core";
 import type { CrawlerContext } from "@feedmind/crawler-core";
 import { DbStore } from "./db-store.js";
+import { logger } from "../../lib/logger.js";
 
-// ─── Helpers ───────────────────────────────────────────────────
+// ─── 辅助函数 ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
   return {
     id: row.id,
@@ -55,23 +56,17 @@ function toTaskListItem(row: typeof crawlerTasks.$inferSelect): TaskListItem {
   };
 }
 
-// ─── Track running tasks for cancellation ─────────────────────
+// ─── 跟踪运行中的任务，支持取消 ─────────────────────
 const runningTasks = new Map<string, AbortController>();
 
-// ─── Public API ────────────────────────────────────────────────
+// ─── 公开 API ────────────────────────────────────────────────
 
-export async function createCrawlerTask(
-  input: TaskCreate,
-): Promise<TaskRead> {
+export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
   const id = randomUUID();
 
   const keywords = input.keywords?.length ? JSON.stringify(input.keywords) : null;
-  const specifiedUrls = input.specified_urls?.length
-    ? JSON.stringify(input.specified_urls)
-    : null;
-  const creatorIds = input.creator_ids?.length
-    ? JSON.stringify(input.creator_ids)
-    : null;
+  const specifiedUrls = input.specified_urls?.length ? JSON.stringify(input.specified_urls) : null;
+  const creatorIds = input.creator_ids?.length ? JSON.stringify(input.creator_ids) : null;
 
   if (input.crawler_type === "search" && !keywords) {
     throw new HttpError(422, "VALIDATION_ERROR", "search 模式需要提供 keywords");
@@ -111,19 +106,10 @@ export async function createCrawlerTask(
     const running = await tx
       .select({ count: count() })
       .from(crawlerTasks)
-      .where(
-        and(
-          eq(crawlerTasks.platform, input.platform),
-          eq(crawlerTasks.status, "running"),
-        ),
-      );
+      .where(and(eq(crawlerTasks.platform, input.platform), eq(crawlerTasks.status, "running")));
 
     if (Number(running[0]?.count ?? 0) > 0) {
-      throw new HttpError(
-        409,
-        "CONFLICT",
-        `平台 ${input.platform} 已有任务正在运行`,
-      );
+      throw new HttpError(409, "CONFLICT", `平台 ${input.platform} 已有任务正在运行`);
     }
 
     await tx.insert(crawlerTasks).values(rowValues);
@@ -131,16 +117,13 @@ export async function createCrawlerTask(
 
   // 后台启动爬虫（不阻塞响应）
   runCrawlerTask(id, input).catch(() => {
-    // 错误已在 runCrawlerTask 内部处理
+    // 错误在 runCrawlerTask 内部已处理
   });
 
   return toTaskRead(rowValues);
 }
 
-async function runCrawlerTask(
-  taskId: string,
-  input: TaskCreate,
-): Promise<void> {
+async function runCrawlerTask(taskId: string, input: TaskCreate): Promise<void> {
   const controller = new AbortController();
   runningTasks.set(taskId, controller);
 
@@ -171,15 +154,18 @@ async function runCrawlerTask(
     await crawler.start(ctx, store);
     await crawler.cleanup();
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[crawler] Task ${taskId} error:`, err);
+    logger.error({ err, taskId }, "爬虫任务执行失败");
     try {
       await db
         .update(crawlerTasks)
-        .set({ status: "failed", error: msg, finishedAt: sql`(current_timestamp)` })
+        .set({
+          status: "failed",
+          error: err instanceof Error ? err.message : String(err),
+          finishedAt: sql`(current_timestamp)`,
+        })
         .where(eq(crawlerTasks.id, taskId));
-    } catch (_) {
-      // DB 写入失败可能意味着整个系统有问题，不再重试
+    } catch {
+      // DB 写入失败说明系统可能有严重问题，不再重试
     }
   } finally {
     runningTasks.delete(taskId);
@@ -224,11 +210,7 @@ export async function listTasks(params: {
 }
 
 export async function getTask(taskId: string): Promise<TaskRead> {
-  const row = await db
-    .select()
-    .from(crawlerTasks)
-    .where(eq(crawlerTasks.id, taskId))
-    .get();
+  const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
 
   if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
 
@@ -236,11 +218,7 @@ export async function getTask(taskId: string): Promise<TaskRead> {
 }
 
 export async function cancelTask(taskId: string): Promise<TaskRead> {
-  const row = await db
-    .select()
-    .from(crawlerTasks)
-    .where(eq(crawlerTasks.id, taskId))
-    .get();
+  const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
 
   if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
 
@@ -260,11 +238,7 @@ export async function cancelTask(taskId: string): Promise<TaskRead> {
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const row = await db
-    .select()
-    .from(crawlerTasks)
-    .where(eq(crawlerTasks.id, taskId))
-    .get();
+  const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
 
   if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
 

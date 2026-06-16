@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 
-// ─── Types ─────────────────────────────────────────────────────────
+// ─── 类型 ─────────────────────────────────────────────────────────
 
 export interface ExtractedDocument {
   text: string;
@@ -12,7 +11,7 @@ export interface ExtractedDocument {
   mimeType: string;
 }
 
-// ─── Format Detection ──────────────────────────────────────────────
+// ─── 格式检测 ────────────────────────────────────────────────────
 
 const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
 const BINARY_EXTS = new Set(["pdf", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
@@ -33,7 +32,7 @@ export function isImageFormat(ext: string): boolean {
 }
 
 export function detectFormat(fileName: string): string {
-  const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   if (TEXT_EXTS.has(ext)) return "text";
   if (IMAGE_EXTS.has(ext)) return "image";
   if (ext === "pdf") return "pdf";
@@ -46,26 +45,39 @@ export function detectFormat(fileName: string): string {
 
 function mimeFromExt(ext: string): string {
   const map: Record<string, string> = {
-    pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    pdf: "application/pdf",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    xls: "application/vnd.ms-excel", odt: "application/vnd.oasis.opendocument.text",
+    xls: "application/vnd.ms-excel",
+    odt: "application/vnd.oasis.opendocument.text",
     odp: "application/vnd.oasis.opendocument.presentation",
     ods: "application/vnd.oasis.opendocument.spreadsheet",
-    md: "text/markdown", txt: "text/plain", html: "text/html", htm: "text/html",
-    csv: "text/csv", json: "application/json", yaml: "text/yaml", yml: "text/yaml",
-    xml: "text/xml", rtf: "application/rtf",
-    png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-    gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+    md: "text/markdown",
+    txt: "text/plain",
+    html: "text/html",
+    htm: "text/html",
+    csv: "text/csv",
+    json: "application/json",
+    yaml: "text/yaml",
+    yml: "text/yaml",
+    xml: "text/xml",
+    rtf: "application/rtf",
+    png: "image/png",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    gif: "image/gif",
+    webp: "image/webp",
+    svg: "image/svg+xml",
   };
   return map[ext] ?? "application/octet-stream";
 }
 
-// ─── Text Formats ─────────────────────────────────────────────────
+// ─── 文本格式 ────────────────────────────────────────────────────
 
 function extractTextFile(filePath: string, fileName: string, content?: string): ExtractedDocument {
   const text = content ?? fs.readFileSync(filePath, "utf-8");
-  const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   return {
     text: `# ${fileName}\n\n` + text,
     wordCount: text.split(/\s+/).filter(Boolean).length,
@@ -77,9 +89,9 @@ function extractTextFile(filePath: string, fileName: string, content?: string): 
 // ─── PDF ───────────────────────────────────────────────────────────
 
 async function extractPdf(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  // pdf-parse v2 exports the function directly (no .default needed in ESM)
-  const pdfParse = (await import("pdf-parse"));
-  const parseFn = (pdfParse as any).default ?? pdfParse as any;
+  // pdf-parse v2 直接导出函数本身（ESM 下不需要 .default）
+  const pdfParse = await import("pdf-parse");
+  const parseFn = (pdfParse as any).default ?? (pdfParse as any);
   const buf = fs.readFileSync(filePath);
 
   let text: string;
@@ -113,7 +125,7 @@ async function extractDocx(filePath: string, fileName: string): Promise<Extracte
   const mammoth = await import("mammoth");
 
   try {
-    // Use extractRawText for clean plain text (best for LLM ingestion)
+    // 使用 extractRawText 获取干净纯文本（最适合 LLM 导入）
     const result = await mammoth.extractRawText({ path: filePath });
     const text = result.value.trim();
     return {
@@ -134,13 +146,13 @@ async function extractDocx(filePath: string, fileName: string): Promise<Extracte
   }
 }
 
-// ─── PPTX (via officeparser) ───────────────────────────────────────
+// ─── PPTX（via officeparser）───────────────────────────────────────
 
 async function extractPptx(filePath: string, fileName: string): Promise<ExtractedDocument> {
   try {
     const buf = fs.readFileSync(filePath);
     const officeparser = await import("officeparser");
-    const rawText = await officeparser.parseOffice(buf) as unknown as string | undefined;
+    const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
     const text = (rawText ?? "").trim();
 
     if (!text) {
@@ -169,7 +181,7 @@ async function extractPptx(filePath: string, fileName: string): Promise<Extracte
   }
 }
 
-// ─── XLSX/XLS (via exceljs) ────────────────────────────────────────
+// ─── XLSX/XLS（via exceljs）────────────────────────────────────────
 
 async function extractXlsx(filePath: string, fileName: string): Promise<ExtractedDocument> {
   const ExcelJS = await import("exceljs");
@@ -226,13 +238,13 @@ async function extractXlsx(filePath: string, fileName: string): Promise<Extracte
   }
 }
 
-// ─── Office Formats (ODT/ODP/ODS) ─────────────────────────────────
+// ─── Office 格式（ODT/ODP/ODS）────────────────────────────────────
 
 async function extractOfficeFile(filePath: string, fileName: string): Promise<ExtractedDocument> {
   try {
     const buf = fs.readFileSync(filePath);
     const officeparser = await import("officeparser");
-    const rawText = await officeparser.parseOffice(buf) as unknown as string | undefined;
+    const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
     const text = (rawText ?? "").trim();
 
     if (!text) {
@@ -261,12 +273,12 @@ async function extractOfficeFile(filePath: string, fileName: string): Promise<Ex
   }
 }
 
-// ─── Image Metadata ────────────────────────────────────────────────
+// ─── 图片元数据 ────────────────────────────────────────────────────
 
 const SUPPORTED_IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
 async function extractImageInfo(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   let metadata = "";
 
   try {
@@ -285,7 +297,9 @@ async function extractImageInfo(filePath: string, fileName: string): Promise<Ext
       const dimMatch = content.match(/<svg[^>]*?width=["'](\d+)/i);
       if (dimMatch) metadata += `- Width: ${dimMatch[1]}px`;
     }
-  } catch { /* best-effort */ }
+  } catch {
+    /* 尽力而为，失败不影响主流程 */
+  }
 
   return {
     text: `# ${fileName}\n\nImage file — included for reference.\n\n${metadata ? `## Metadata\n${metadata}` : ""}`,
@@ -295,14 +309,14 @@ async function extractImageInfo(filePath: string, fileName: string): Promise<Ext
   };
 }
 
-// ─── Main Entry Point ──────────────────────────────────────────────
+// ─── 主入口 ───────────────────────────────────────────────────────
 
 export async function extractDocument(
   filePath: string,
   fileName: string,
   existingText?: string,
 ): Promise<ExtractedDocument> {
-  const ext = fileName.includes(".") ? fileName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   const format = detectFormat(fileName);
 
   switch (format) {
@@ -330,7 +344,7 @@ export async function extractDocument(
   }
 }
 
-// ─── File content hash (for ingest caching) ────────────────────────
+// ─── 文件内容哈希（用于导入缓存）─────────────────────────────────
 
 export function fileContentHash(filePath: string): string {
   try {

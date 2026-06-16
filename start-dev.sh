@@ -23,8 +23,8 @@ mkdir -p "$ROOT/data"
 
 # ── 3. install + db ──────────────────────────────────────
 cd "$ROOT"
-[[ "$SKIP_INSTALL" -eq 0 ]] && bun install
-[[ "$SKIP_DB" -eq 0 ]] && bun run db:init
+[[ "$SKIP_INSTALL" -eq 0 ]] && pnpm install
+[[ "$SKIP_DB" -eq 0 ]] && pnpm run db:init
 
-# ── 4. 启动 API + Web（同一终端，bun run --parallel 加前缀区分）───
-bun run dev
+# ── 4. 启动 API + Web（同一终端，concurrently 加前缀区分）───
+pnpm run dev

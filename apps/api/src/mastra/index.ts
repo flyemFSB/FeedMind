@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { feedmindAgent } from "./agents/feedmind-agent.js";
 import { ToolConfigClient } from "./tools/search/config.js";
 
-/** Mastra 专属 storage 数据库路径（独立于业务库 feedmind.db） */
+/** Mastra 专属存储数据库路径（独立于业务库 feedmind.db） */
 const thisDir = dirname(fileURLToPath(import.meta.url));
 const mastraDbPath = resolve(thisDir, "..", "..", "..", "..", "data", "mastra.db");
 
@@ -18,7 +18,7 @@ export function initToolConfig(): void {
 /** 创建 Mastra 实例，注册 Agent 和 AI SDK Chat Route */
 export function createMastra(): Mastra {
   return new Mastra({
-    agents: { feedmindAgent },
+    agents: { feedmind: feedmindAgent },
     storage: new LibSQLStore({
       id: "feedmind-mastra",
       url: `file:${mastraDbPath.replace(/\\/g, "/")}`,

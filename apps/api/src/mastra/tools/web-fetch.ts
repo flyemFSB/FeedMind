@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
 import { ToolConfigClient } from "./search/config.js";
+import { logger } from "../../lib/logger.js";
 
 const turndownService = new TurndownService({
   bulletListMarker: "-",
@@ -21,16 +22,26 @@ const PRIVATE_IPS = [
   /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
   /^192\.168\.\d+\.\d+$/,
   /^::1$/,
-  /^fc00:/, /^fd00:/, /^fe80:/,
+  /^fc00:/,
+  /^fd00:/,
+  /^fe80:/,
 ];
-const INTERNAL_HOSTS = ["localhost", "localhost.localdomain", "127.0.0.1", "0.0.0.0", "[::1]", "internal"];
+const INTERNAL_HOSTS = [
+  "localhost",
+  "localhost.localdomain",
+  "127.0.0.1",
+  "0.0.0.0",
+  "[::1]",
+  "internal",
+];
 
 /** 检查 hostname 是否为私网地址 */
 async function checkSSRF(urlStr: string): Promise<void> {
   const url = new URL(urlStr);
   const host = url.hostname.toLowerCase();
   if (INTERNAL_HOSTS.includes(host)) throw new Error(`SSRF blocked: ${host}`);
-  if (PRIVATE_IPS.some((re) => re.test(host))) throw new Error(`SSRF blocked: private IP (${host})`);
+  if (PRIVATE_IPS.some((re) => re.test(host)))
+    throw new Error(`SSRF blocked: private IP (${host})`);
   // 域名则尝试 DNS 解析后检查
   if (/^[a-z]/.test(host)) {
     try {
@@ -139,7 +150,7 @@ URLs must include the schema (https://example.com, not example.com).`,
     try {
       markdown = await fetchViaFirecrawl(url, AbortSignal.timeout(10_000), firecrawlApiKey);
     } catch (err) {
-      console.warn("[web_fetch] Firecrawl fetch failed:", err instanceof Error ? err.message : err);
+      logger.warn({ err, url }, "Firecrawl 抓取失败，切换至直接抓取");
     }
 
     if (markdown) {

@@ -1,7 +1,7 @@
 import type { Platform, CrawlerType } from "@feedmind/contracts";
 
-// ─── Crawler Context ──────────────────────────────────────────────
-// Passed from service to each crawler instance at start time
+// ─── 爬虫上下文 ─────────────────────────────────────────────────
+// 启动时由服务传递给每个爬虫实例
 export interface CrawlerContext {
   taskId: string;
   platform: Platform;
@@ -17,7 +17,7 @@ export interface CrawlerContext {
   abortSignal: AbortSignal;
 }
 
-// ─── Unified Content Model ────────────────────────────────────────
+// ─── 统一内容模型 ─────────────────────────────────────────────────
 export interface ContentModel {
   contentId: string;
   title?: string;
@@ -38,7 +38,7 @@ export interface ContentModel {
   rawJson?: string;
 }
 
-// ─── Unified Creator Model ────────────────────────────────────────
+// ─── 统一创作者模型 ───────────────────────────────────────────────
 export interface CreatorModel {
   creatorId: string;
   name?: string;
@@ -51,14 +51,14 @@ export interface CreatorModel {
   rawJson?: string;
 }
 
-// ─── Store Result ─────────────────────────────────────────────────
+// ─── 存储结果 ─────────────────────────────────────────────────────
 export interface StoreResult {
   insertedContents: number;
   insertedCreators: number;
 }
 
-// ─── Platform Crawler Types ───────────────────────────────────────
-// Which crawler types each platform supports
+// ─── 平台爬虫类型 ─────────────────────────────────────────────────
+// 各平台支持的爬虫类型列表
 export const PLATFORM_CRAWLER_TYPES: Record<Platform, CrawlerType[]> = {
   xhs: ["search", "detail", "creator"],
   dy: ["search", "detail", "creator"],

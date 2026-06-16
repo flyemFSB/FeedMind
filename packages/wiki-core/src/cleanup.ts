@@ -1,10 +1,15 @@
-import { extractWikilinks, normalizeWikiRefKey, buildDeletedKeys, cleanIndexListing, stripDeletedWikilinks, extractWikilinksWithAlias } from "./wikilinks.js";
+import {
+  normalizeWikiRefKey,
+  buildDeletedKeys,
+  cleanIndexListing,
+  stripDeletedWikilinks,
+} from "./wikilinks.js";
 import { parseFrontmatter, formatFrontmatter, extractRelated } from "./frontmatter.js";
 
 export { buildDeletedKeys, cleanIndexListing, stripDeletedWikilinks };
 
 /**
- * Clean frontmatter `related` field, removing references to deleted pages.
+ * 清理 frontmatter `related` 字段，移除指向已删除页面的引用。
  */
 export function cleanRelatedField(content: string, deletedKeys: Set<string>): string | null {
   const related = extractRelated(content);
@@ -19,8 +24,8 @@ export function cleanRelatedField(content: string, deletedKeys: Set<string>): st
 }
 
 /**
- * Clean all references to deleted pages from a wiki page.
- * Returns the updated content, or null if no changes.
+ * 清理 Wiki 页面中所有指向已删除页面的引用。
+ * 返回更新后的内容，若无变更则返回 null。
  */
 export function cleanPageReferences(content: string, deletedKeys: Set<string>): string | null {
   let updated = content;

@@ -10,7 +10,7 @@
 
 import { useState, useEffect, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { Wrench, Check, AlertCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Wrench, Check, AlertCircle, ChevronDown, ChevronRight, Brain } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -22,6 +22,11 @@ export type ToolProps = HTMLAttributes<HTMLDivElement> & {
   args?: string;
   result?: string;
   isError?: boolean;
+  /**
+   * 调用此工具前的推理/思考内容。
+   * 在 ThinkingProcess 中，每个 tool-* part 之前最近的 reasoning part 文本。
+   */
+  thought?: string;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -34,11 +39,13 @@ export function Tool({
   args,
   result,
   isError = false,
+  thought,
   ...props
 }: ToolProps) {
   const { t } = useTranslation();
   const resolvedStatus: ToolStatus = isError ? "error" : status;
   const [open, setOpen] = useState(false);
+  const [thoughtOpen, setThoughtOpen] = useState(false);
 
   // 流式/调用中时自动展开，完成后自动收起
   useEffect(() => {
@@ -82,9 +89,7 @@ export function Tool({
         <Check size={10} className="text-editorial-ink-soft" />
       </span>
     ),
-    error: () => (
-      <AlertCircle size={12} className="text-editorial-semantic-error" />
-    ),
+    error: () => <AlertCircle size={12} className="text-editorial-semantic-error" />,
   }[resolvedStatus];
 
   /* ---- Status label ---- */
@@ -97,7 +102,7 @@ export function Tool({
 
   return (
     <div className={cn("group", className)} {...props}>
-      {/* Header row */}
+      {/* 标题行 */}
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -107,7 +112,7 @@ export function Tool({
           resolvedStatus === "error" && "bg-editorial-semantic-error/5",
         )}
       >
-        {/* Expand/collapse chevron */}
+        {/* 展开/折叠箭头 */}
         <motion.span
           animate={{ rotate: open ? 0 : -90 }}
           transition={{ duration: 0.15 }}
@@ -116,23 +121,21 @@ export function Tool({
           <ChevronDown size={12} className="text-editorial-ink-muted" />
         </motion.span>
 
-        {/* Status icon */}
+        {/* 状态图标 */}
         <span className="flex h-4 w-4 shrink-0 items-center justify-center">
           <Icon />
         </span>
 
-        {/* Tool name + status */}
-        <span className="flex-1 truncate font-medium text-editorial-ink">
-          {toolName}
-        </span>
+        {/* 工具名 + 状态 */}
+        <span className="flex-1 truncate font-medium text-editorial-ink">{toolName}</span>
         <span className="shrink-0 text-[11px] text-editorial-ink-muted font-normal">
           {statusLabel}
         </span>
       </button>
 
-      {/* Expandable details */}
+      {/* 可展开详情 */}
       <AnimatePresence initial={false}>
-        {open && (hasArgs || hasResult) && (
+        {open && (hasArgs || hasResult || !!thought) && (
           <motion.div
             key="tool-details"
             initial={{ height: 0, opacity: 0 }}
@@ -142,6 +145,44 @@ export function Tool({
             className="overflow-hidden"
           >
             <div className="space-y-1.5 px-3 pb-2 pt-1">
+              {/* Thought section — 调用此工具前的模型思考 */}
+              {!!thought && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setThoughtOpen(!thoughtOpen)}
+                    className={cn(
+                      "mb-0.5 flex items-center gap-1.5 text-[11px] font-medium tracking-wide uppercase transition-colors",
+                      "text-editorial-ink-muted hover:text-editorial-ink",
+                    )}
+                  >
+                    <motion.span
+                      animate={{ rotate: thoughtOpen ? 0 : -90 }}
+                      transition={{ duration: 0.12 }}
+                    >
+                      <ChevronDown size={10} />
+                    </motion.span>
+                    <Brain size={10} />
+                    <span>{t("chat.toolThought")}</span>
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {thoughtOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.15, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/30 px-2.5 py-2 text-[12px] leading-[1.6] text-editorial-ink-soft font-mono italic">
+                          {thought}
+                        </pre>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
               {hasArgs && (
                 <div>
                   <div className="mb-0.5 text-[11px] font-medium text-editorial-ink-muted tracking-wide uppercase">
@@ -154,18 +195,22 @@ export function Tool({
               )}
               {hasResult && (
                 <div>
-                  <div className={cn(
-                    "mb-0.5 text-[11px] font-medium tracking-wide uppercase",
-                    isError ? "text-editorial-semantic-error" : "text-editorial-ink-muted",
-                  )}>
+                  <div
+                    className={cn(
+                      "mb-0.5 text-[11px] font-medium tracking-wide uppercase",
+                      isError ? "text-editorial-semantic-error" : "text-editorial-ink-muted",
+                    )}
+                  >
                     {isError ? t("common.error") : t("chat.toolResult")}
                   </div>
-                  <pre className={cn(
-                    "max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border px-2.5 py-2 text-[12px] leading-[1.5] font-mono [scrollbar-gutter:stable]",
-                    isError
-                      ? "border-editorial-semantic-error/20 bg-editorial-semantic-error/5 text-editorial-semantic-error"
-                      : "border-editorial-hairline bg-editorial-surface-soft/50 text-editorial-ink-soft",
-                  )}>
+                  <pre
+                    className={cn(
+                      "max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border px-2.5 py-2 text-[12px] leading-[1.5] font-mono [scrollbar-gutter:stable]",
+                      isError
+                        ? "border-editorial-semantic-error/20 bg-editorial-semantic-error/5 text-editorial-semantic-error"
+                        : "border-editorial-hairline bg-editorial-surface-soft/50 text-editorial-ink-soft",
+                    )}
+                  >
                     {result}
                   </pre>
                 </div>

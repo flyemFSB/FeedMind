@@ -1,14 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import {
-  index,
-  integer,
-  sqliteTable,
-  text,
-  unique,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
-// ─── Crawler Task ─────────────────────────────────────────────────
+// ─── 爬虫任务 ───────────────────────────────────────────────────
 export const crawlerTasks = sqliteTable(
   "crawler_tasks",
   {
@@ -31,19 +25,18 @@ export const crawlerTasks = sqliteTable(
     error: text("error"),
     startedAt: text("started_at"),
     finishedAt: text("finished_at"),
-    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
   },
   (table) => ({
-    platformStatusIdx: index("idx_crawler_tasks_platform_status").on(
-      table.platform,
-      table.status,
-    ),
+    platformStatusIdx: index("idx_crawler_tasks_platform_status").on(table.platform, table.status),
     createdAtIdx: index("idx_crawler_tasks_created_at").on(table.createdAt),
     statusIdx: index("idx_crawler_tasks_status").on(table.status),
   }),
 );
 
-// ─── Crawler Content ──────────────────────────────────────────────
+// ─── 爬虫内容 ───────────────────────────────────────────────────
 export const crawlerContents = sqliteTable(
   "crawler_contents",
   {
@@ -66,7 +59,9 @@ export const crawlerContents = sqliteTable(
     commentCount: integer("comment_count"),
     shareCount: integer("share_count"),
     publishedAt: text("published_at"),
-    crawledAt: text("crawled_at").notNull().default(sql`(current_timestamp)`),
+    crawledAt: text("crawled_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
     taskId: text("task_id"),
     rawJson: text("raw_json"),
     tag: text("tag"),
@@ -83,7 +78,7 @@ export const crawlerContents = sqliteTable(
   }),
 );
 
-// ─── Crawler Creator ──────────────────────────────────────────────
+// ─── 爬虫创作者 ─────────────────────────────────────────────────
 export const crawlerCreators = sqliteTable(
   "crawler_creators",
   {
@@ -99,7 +94,9 @@ export const crawlerCreators = sqliteTable(
     followingCount: integer("following_count"),
     noteCount: integer("note_count"),
     gender: text("gender"),
-    crawledAt: text("crawled_at").notNull().default(sql`(current_timestamp)`),
+    crawledAt: text("crawled_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
     taskId: text("task_id"),
     rawJson: text("raw_json"),
   },
@@ -113,7 +110,7 @@ export const crawlerCreators = sqliteTable(
   }),
 );
 
-// ─── Types ────────────────────────────────────────────────────────
+// ─── 类型 ────────────────────────────────────────────────────────
 export type CrawlerTaskRow = typeof crawlerTasks.$inferSelect;
 export type CrawlerTaskInsert = typeof crawlerTasks.$inferInsert;
 export type CrawlerContentRow = typeof crawlerContents.$inferSelect;

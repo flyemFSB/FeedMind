@@ -1,5 +1,6 @@
 import { baseEnvSchema } from "@feedmind/contracts";
 import { isProduction } from "@feedmind/shared";
+import { validateEncryptionKey } from "@feedmind/shared";
 import { z } from "zod";
 
 const apiEnvSchema = baseEnvSchema.extend({
@@ -9,11 +10,12 @@ const apiEnvSchema = baseEnvSchema.extend({
   API_PORT: z.coerce.number().int().positive().default(8000),
 });
 
-export const apiEnv = apiEnvSchema.parse(Bun.env);
+export const apiEnv = apiEnvSchema.parse(process.env);
 
-// 生产环境强制校验加密密钥，防止 API Key 明文存储
 export function validateApiRuntime(): void {
   if (isProduction(apiEnv.APP_ENV) && !apiEnv.ENCRYPTION_KEY.trim()) {
     throw new Error("ENCRYPTION_KEY must be set in production.");
   }
+  // 所有环境强制校验：密钥不存在或空值时拒绝启动
+  validateEncryptionKey();
 }

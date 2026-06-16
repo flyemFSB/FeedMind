@@ -3,11 +3,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [
-      "**/dist/**",
-      "**/.next/**",
-      "**/node_modules/**"
-    ],
+    ignores: ["**/dist/**", "**/.next/**", "**/node_modules/**", "**/routeTree.gen.ts"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -18,6 +14,15 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
+      "no-console": "warn",
     },
   },
 );

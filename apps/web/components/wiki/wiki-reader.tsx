@@ -32,11 +32,11 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
         getWikiPage(spaceId, pageId),
         getWikiBacklinks(spaceId, pageId),
       ]);
-      if (loadId !== loadIdRef.current) return; // stale
+      if (loadId !== loadIdRef.current) return; // 请求已过期，丢弃
       setPage(result);
       setBacklinks(links);
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一处理
     } finally {
       if (loadId === loadIdRef.current) setLoading(false);
     }
@@ -79,13 +79,11 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
 
   return (
     <div className="flex h-full flex-col bg-editorial-surface-card">
-      {/* Toolbar */}
+      {/* 工具栏 */}
       <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h1 className="truncate text-[17px] font-semibold text-editorial-ink">
-              {page.title}
-            </h1>
+            <h1 className="truncate text-[17px] font-semibold text-editorial-ink">{page.title}</h1>
             <span
               className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
               style={{ backgroundColor: typeColor }}
@@ -93,9 +91,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               {WIKI_TYPE_LABELS[page.type] || page.type}
             </span>
           </div>
-          {page.path && (
-            <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{page.path}</p>
-          )}
+          {page.path && <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{page.path}</p>}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -110,10 +106,9 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
         </div>
       </div>
 
-      {/* Content */}
+      {/* 内容区 */}
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[720px] px-8 py-6">
-          {/* Tags */}
           {page.tags && page.tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-1.5">
               {page.tags.map((tag) => (
@@ -127,7 +122,6 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
             </div>
           )}
 
-          {/* Sources */}
           {page.sources && page.sources.length > 0 && (
             <div className="mb-5 flex items-center gap-2 text-[11px] text-editorial-ink-muted">
               <span className="font-medium text-editorial-ink">{t("wiki.sources")}</span>
@@ -139,40 +133,44 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
             </div>
           )}
 
-          {/* Frontmatter info card */}
+          {/* 元信息卡片 */}
           {page.frontmatter && (
             <div className="mb-6 rounded-xl border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-3 text-[11px] text-editorial-ink-soft">
               <div className="flex flex-wrap gap-x-6 gap-y-1">
                 {page.type && (
                   <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.type")}：</span> {WIKI_TYPE_LABELS[page.type] || page.type}
+                    <span className="font-medium text-editorial-ink">{t("wiki.type")}：</span>{" "}
+                    {WIKI_TYPE_LABELS[page.type] || page.type}
                   </span>
                 )}
                 {page.sources && page.sources.length > 0 && (
                   <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.sources")}：</span> {page.sources.length}
+                    <span className="font-medium text-editorial-ink">{t("wiki.sources")}：</span>{" "}
+                    {page.sources.length}
                   </span>
                 )}
                 {page.tags && page.tags.length > 0 && (
                   <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.tags")}：</span> {page.tags.length}
+                    <span className="font-medium text-editorial-ink">{t("wiki.tags")}：</span>{" "}
+                    {page.tags.length}
                   </span>
                 )}
                 {page.related && page.related.length > 0 && (
                   <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.related")}：</span> {page.related.length}
+                    <span className="font-medium text-editorial-ink">{t("wiki.related")}：</span>{" "}
+                    {page.related.length}
                   </span>
                 )}
               </div>
             </div>
           )}
 
-          {/* Markdown content */}
+          {/* Markdown 内容 */}
           <div className="prose prose-sm max-w-none text-[14px] leading-relaxed text-editorial-ink">
             <SimpleMarkdown content={page.content} onWikilinkClick={onNavigate} />
           </div>
 
-          {/* Backlinks */}
+          {/* 反向链接 */}
           {backlinks.length > 0 && (
             <div className="mt-10 rounded-xl border border-editorial-surface-strong bg-editorial-canvas-soft p-4">
               <h3 className="mb-3 text-[13px] font-semibold text-editorial-ink">
@@ -199,7 +197,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   );
 }
 
-// ─── Simple Markdown renderer with wikilink support ───────────
+// ─── 简易 Markdown 渲染器（支持 Wiki 链接）───
 
 function SimpleMarkdown({
   content,

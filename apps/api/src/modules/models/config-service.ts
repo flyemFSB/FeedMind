@@ -1,10 +1,14 @@
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { RuntimeConfigRead, RuntimeConfigUpdate } from "@feedmind/contracts";
 import { db, llm, runtimeConfig, type RuntimeConfigRow } from "@feedmind/db";
 import { decryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-function toConfigRead(row: RuntimeConfigRow, modelName?: string, provider?: string): RuntimeConfigRead {
+function toConfigRead(
+  row: RuntimeConfigRow,
+  modelName?: string,
+  provider?: string,
+): RuntimeConfigRead {
   return {
     runtime: row.runtime,
     llm_id: row.llmId,
@@ -16,16 +20,32 @@ function toConfigRead(row: RuntimeConfigRow, modelName?: string, provider?: stri
   };
 }
 
-async function resolveModelName(llmId: number | null): Promise<{ modelName?: string; provider?: string }> {
+async function resolveModelName(
+  llmId: number | null,
+): Promise<{ modelName?: string; provider?: string }> {
   if (!llmId) return {};
-  const [row] = await db.select({ modelName: llm.modelName, provider: llm.provider }).from(llm).where(eq(llm.id, llmId)).limit(1);
+  const [row] = await db
+    .select({ modelName: llm.modelName, provider: llm.provider })
+    .from(llm)
+    .where(eq(llm.id, llmId))
+    .limit(1);
   return row ? { modelName: row.modelName, provider: row.provider } : {};
 }
 
 /** session 场景在 UI 层面不存自己的 llm_id，直接读 llm 表的选中模型 */
-async function resolveSelectedModel(): Promise<{ llmId: number | null; modelName?: string; provider?: string }> {
-  const [row] = await db.select({ id: llm.id, modelName: llm.modelName, provider: llm.provider }).from(llm).where(eq(llm.isSelected, true)).limit(1);
-  return row ? { llmId: row.id, modelName: row.modelName, provider: row.provider } : { llmId: null };
+async function resolveSelectedModel(): Promise<{
+  llmId: number | null;
+  modelName?: string;
+  provider?: string;
+}> {
+  const [row] = await db
+    .select({ id: llm.id, modelName: llm.modelName, provider: llm.provider })
+    .from(llm)
+    .where(eq(llm.isSelected, true))
+    .limit(1);
+  return row
+    ? { llmId: row.id, modelName: row.modelName, provider: row.provider }
+    : { llmId: null };
 }
 
 export async function getAllConfigs(): Promise<RuntimeConfigRead[]> {
@@ -49,7 +69,11 @@ export async function getAllConfigs(): Promise<RuntimeConfigRead[]> {
 }
 
 export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
-  const [row] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.runtime, runtime)).limit(1);
+  const [row] = await db
+    .select()
+    .from(runtimeConfig)
+    .where(eq(runtimeConfig.runtime, runtime))
+    .limit(1);
   if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
 
   if (runtime === "session") {
@@ -61,8 +85,13 @@ export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
   return toConfigRead(row, resolved.modelName, resolved.provider);
 }
 
-export async function updateConfig(runtime: string, payload: RuntimeConfigUpdate): Promise<RuntimeConfigRead> {
-  const values: Partial<typeof runtimeConfig.$inferInsert> = { updatedAt: new Date().toISOString() };
+export async function updateConfig(
+  runtime: string,
+  payload: RuntimeConfigUpdate,
+): Promise<RuntimeConfigRead> {
+  const values: Partial<typeof runtimeConfig.$inferInsert> = {
+    updatedAt: new Date().toISOString(),
+  };
   // session 运行配置不存储自己的 llm_id，忽略该字段
   if (payload.llm_id !== undefined && runtime !== "session") values.llmId = payload.llm_id;
   if (payload.temperature !== undefined) values.temperature = payload.temperature;
@@ -89,7 +118,11 @@ export async function getRuntimeConfig(runtime: string): Promise<{
   top_p: number;
   system_prompt: string;
 }> {
-  const [cfg] = await db.select().from(runtimeConfig).where(eq(runtimeConfig.runtime, runtime)).limit(1);
+  const [cfg] = await db
+    .select()
+    .from(runtimeConfig)
+    .where(eq(runtimeConfig.runtime, runtime))
+    .limit(1);
   if (!cfg) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
 
   let modelName = "";
@@ -113,18 +146,18 @@ export async function getRuntimeConfig(runtime: string): Promise<{
     }
   }
 
-  // fallback to env vars when no llm is linked
+  // 没有关联 llm 时回退到环境变量
   if (!modelName && runtime === "wiki") {
-    modelName = Bun.env.WIKI_LLM_MODEL || "gpt-4o";
-    baseUrl = Bun.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    apiKey = Bun.env.OPENAI_API_KEY || "";
+    modelName = process.env.WIKI_LLM_MODEL || "gpt-4o";
+    baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+    apiKey = process.env.OPENAI_API_KEY || "";
   }
 
   // 有模型名但没有 API key → 凭据缺失，提前报错
   if (modelName && !apiKey && !baseUrl) {
     throw new Error(
       `[config] Runtime "${runtime}": model "${modelName}" is configured but has no valid API key or base URL. ` +
-      "Please add a model with credentials in Settings → Model Config.",
+        "Please add a model with credentials in Settings → Model Config.",
     );
   }
 

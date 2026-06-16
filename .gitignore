@@ -21,9 +21,6 @@ htmlcov/
 dist/
 *.egg-info/
 
-# LangGraph runtime
-.langgraph_api/
-
 # Node / Bun / Next.js
 node_modules/
 .pnpm-store/
@@ -69,3 +66,6 @@ _tmp_*
 *.tmp
 tmp/
 temp/
+
+# Documentation
+docs/

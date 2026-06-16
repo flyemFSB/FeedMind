@@ -1,9 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseFrontmatter, formatFrontmatter, buildPageContent } from "@feedmind/wiki-core";
-import type { WikiPageCreate, WikiPageListItem, WikiPageRead, WikiPageUpdate, WikiResolveResult } from "@feedmind/contracts";
+import { parseFrontmatter, buildPageContent } from "@feedmind/wiki-core";
+import type {
+  WikiPageCreate,
+  WikiPageListItem,
+  WikiPageRead,
+  WikiPageUpdate,
+  WikiResolveResult,
+} from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
-import { dateSortDesc, ensureDir, nowISO, readDirRecursive, safeRename, safeUnlink, safeWriteFile, slugify, spaceDir } from "./wiki-utils.js";
+import {
+  dateSortDesc,
+  ensureDir,
+  nowISO,
+  readDirRecursive,
+  safeRename,
+  safeUnlink,
+  safeWriteFile,
+  spaceDir,
+} from "./wiki-utils.js";
 
 const TYPE_DIR_MAP: Record<string, string> = {
   entity: "entities",
@@ -16,7 +31,7 @@ const DIR_TYPE_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(TYPE_DIR_MAP).map(([t, d]) => [d, t]),
 );
 
-// ─── Page file slug cache ─────────────────────────────────────
+// ─── 页面文件 slug 缓存 ────────────────────────────────────────
 
 const pageFileCache = new Map<string, Map<string, string>>();
 
@@ -30,7 +45,9 @@ function getSlugCache(spaceId: string): Map<string, string> {
     for (const f of files) {
       cache.set(path.basename(f, ".md"), f);
     }
-  } catch { /* dir not created yet */ }
+  } catch {
+    /* dir not created yet */
+  }
   pageFileCache.set(spaceId, cache);
   return cache;
 }
@@ -43,7 +60,7 @@ export function invalidatePageFileCache(spaceId: string): void {
   pageFileCache.delete(spaceId);
 }
 
-// ─── Path helpers ─────────────────────────────────────────────
+// ─── 路径辅助函数 ────────────────────────────────────────────────
 
 function normalizePagePath(p: string): string {
   // 统一反斜杠为正斜杠（Windows 路径穿越防护）
@@ -74,7 +91,7 @@ function inferTypeFromDir(relDir: string): string {
   return wikiIdx >= 0 ? "overview" : "concept";
 }
 
-// ─── Page file → DTO mappers ──────────────────────────────────
+// ─── 页面文件 → DTO 映射 ─────────────────────────────────────────
 
 function pageFileToRead(filePath: string, spaceId: string): WikiPageRead | null {
   try {
@@ -133,12 +150,14 @@ function walkScopedPages(spaceId: string, typeFilter?: string): string[] {
     const scanDir = sub ? path.join(wikiDir, sub) : wikiDir;
     try {
       return readDirRecursive(scanDir, (_f, name) => name.endsWith(".md"));
-    } catch { return []; }
+    } catch {
+      return [];
+    }
   }
   return walkAllPages(spaceId);
 }
 
-// ─── Public API ───────────────────────────────────────────────
+// ─── 公开 API ──────────────────────────────────────────────────
 
 export async function listWikiPages(
   spaceId: string,
@@ -152,7 +171,12 @@ export async function listWikiPages(
     if (!item) continue;
     if (opts?.q) {
       const q = opts.q.toLowerCase();
-      if (!item.title.toLowerCase().includes(q) && !item.path.toLowerCase().includes(q) && !item.slug.toLowerCase().includes(q)) continue;
+      if (
+        !item.title.toLowerCase().includes(q) &&
+        !item.path.toLowerCase().includes(q) &&
+        !item.slug.toLowerCase().includes(q)
+      )
+        continue;
     }
     items.push(item);
   }
@@ -175,7 +199,10 @@ export async function getWikiPage(spaceId: string, pageId: string): Promise<Wiki
   return page;
 }
 
-export async function createWikiPage(spaceId: string, payload: WikiPageCreate): Promise<WikiPageRead> {
+export async function createWikiPage(
+  spaceId: string,
+  payload: WikiPageCreate,
+): Promise<WikiPageRead> {
   const normalizedPath = normalizePagePath(payload.path);
   const slug = slugFromPath(normalizedPath);
   const absPath = path.join(spaceDir(spaceId), normalizedPath);
@@ -218,7 +245,11 @@ export async function createWikiPage(spaceId: string, payload: WikiPageCreate): 
   };
 }
 
-export async function updateWikiPage(spaceId: string, pageId: string, payload: WikiPageUpdate): Promise<WikiPageRead> {
+export async function updateWikiPage(
+  spaceId: string,
+  pageId: string,
+  payload: WikiPageUpdate,
+): Promise<WikiPageRead> {
   const filePath = findPageFile(spaceId, pageId);
   if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
@@ -250,11 +281,19 @@ export async function updateWikiPage(spaceId: string, pageId: string, payload: W
 
     const newSlug = slugFromPath(newPath);
     return {
-      id: newSlug, space_id: spaceId, path: newPath, slug: newSlug,
-      type: updatedData.type as WikiPageRead["type"], title: updatedData.title,
-      content: updatedData.content, frontmatter: { ...updatedData } as Record<string, unknown>,
-      sources: updatedData.sources, tags: updatedData.tags, related: updatedData.related,
-      created_at: existing.created_at, updated_at: now,
+      id: newSlug,
+      space_id: spaceId,
+      path: newPath,
+      slug: newSlug,
+      type: updatedData.type as WikiPageRead["type"],
+      title: updatedData.title,
+      content: updatedData.content,
+      frontmatter: { ...updatedData } as Record<string, unknown>,
+      sources: updatedData.sources,
+      tags: updatedData.tags,
+      related: updatedData.related,
+      created_at: existing.created_at,
+      updated_at: now,
     };
   }
 
@@ -262,11 +301,19 @@ export async function updateWikiPage(spaceId: string, pageId: string, payload: W
   invalidatePageFileCache(spaceId);
 
   return {
-    id: existing.id, space_id: spaceId, path: existing.path, slug: existing.slug,
-    type: updatedData.type as WikiPageRead["type"], title: updatedData.title,
-    content: updatedData.content, frontmatter: { ...updatedData } as Record<string, unknown>,
-    sources: updatedData.sources, tags: updatedData.tags, related: updatedData.related,
-    created_at: existing.created_at, updated_at: now,
+    id: existing.id,
+    space_id: spaceId,
+    path: existing.path,
+    slug: existing.slug,
+    type: updatedData.type as WikiPageRead["type"],
+    title: updatedData.title,
+    content: updatedData.content,
+    frontmatter: { ...updatedData } as Record<string, unknown>,
+    sources: updatedData.sources,
+    tags: updatedData.tags,
+    related: updatedData.related,
+    created_at: existing.created_at,
+    updated_at: now,
   };
 }
 
@@ -293,7 +340,14 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
 
   if (bySlug.has(target)) {
     const page = bySlug.get(target)!;
-    return { resolved: true, page_id: page.id, slug: page.slug, title: page.title, status: "resolved" as const, candidates: [] };
+    return {
+      resolved: true,
+      page_id: page.id,
+      slug: page.slug,
+      title: page.title,
+      status: "resolved" as const,
+      candidates: [],
+    };
   }
 
   const normalized = target.toLowerCase().replace(/\s+/g, "-");
@@ -302,19 +356,45 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
   );
 
   if (matches.length === 1) {
-    return { resolved: true, page_id: matches[0].slug, slug: matches[0].slug, title: matches[0].title, status: "resolved" as const, candidates: [] };
+    return {
+      resolved: true,
+      page_id: matches[0].slug,
+      slug: matches[0].slug,
+      title: matches[0].title,
+      status: "resolved" as const,
+      candidates: [],
+    };
   }
   if (matches.length > 1) {
     return {
-      resolved: false, page_id: null, slug: null, title: null, status: "ambiguous" as const,
-      candidates: matches.map((m) => ({ page_id: m.slug, path: m.path, title: m.title, slug: m.slug })),
+      resolved: false,
+      page_id: null,
+      slug: null,
+      title: null,
+      status: "ambiguous" as const,
+      candidates: matches.map((m) => ({
+        page_id: m.slug,
+        path: m.path,
+        title: m.title,
+        slug: m.slug,
+      })),
     };
   }
 
-  return { resolved: false, page_id: null, slug: null, title: null, status: "missing" as const, candidates: [] };
+  return {
+    resolved: false,
+    page_id: null,
+    slug: null,
+    title: null,
+    status: "missing" as const,
+    candidates: [],
+  };
 }
 
-export async function getWikiBacklinks(spaceId: string, pageId: string): Promise<Array<{ page_id: string; slug: string; title: string; path: string }>> {
+export async function getWikiBacklinks(
+  spaceId: string,
+  pageId: string,
+): Promise<Array<{ page_id: string; slug: string; title: string; path: string }>> {
   const files = walkAllPages(spaceId);
   const backlinks: Array<{ page_id: string; slug: string; title: string; path: string }> = [];
   const linkPattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
@@ -333,7 +413,10 @@ export async function getWikiBacklinks(spaceId: string, pageId: string): Promise
       while ((match = linkPattern.exec(clean)) !== null) {
         const rawTarget = match[1]!.trim();
         const normalized = rawTarget.toLowerCase().replace(/\s+/g, "-");
-        if (normalized === targetSlug || normalized === pageId.toLowerCase()) { found = true; break; }
+        if (normalized === targetSlug || normalized === pageId.toLowerCase()) {
+          found = true;
+          break;
+        }
       }
       if (!found) continue;
 
@@ -341,7 +424,9 @@ export async function getWikiBacklinks(spaceId: string, pageId: string): Promise
       const title = (frontmatter.title as string) ?? slug;
       const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
       backlinks.push({ page_id: slug, slug, title, path: relPath });
-    } catch { /* skip unreadable */ }
+    } catch {
+      /* skip unreadable */
+    }
   }
 
   return backlinks;

@@ -4,16 +4,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --bun vite dev --host 127.0.0.1 --port 3000",
-    "build": "bun --bun vite build",
-    "preview": "bun --bun vite preview",
+    "dev": "vite dev --host 127.0.0.1 --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "bun test --pass-with-no-tests"
+    "test": "vitest run --pass-with-no-tests"
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.199",
-    "@base-ui/react": "^1.4.1",
+    "@base-ui/react": "^1.5.0",
     "@feedmind/contracts": "workspace:*",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
@@ -48,7 +48,8 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^10",
-    "shadcn": "^4.8.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "shadcn": "^4.11.0",
     "shiki": "^4.2.0",
     "tailwindcss": "^4",
     "typescript": "^6.0.3",

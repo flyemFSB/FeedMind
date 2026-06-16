@@ -1,18 +1,8 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  FileText,
-  Globe,
-  Loader2,
-  Play,
-  Trash2,
-  Type,
-} from "lucide-react";
-import {
-  deleteWikiSource,
-  runIngest,
-} from "@/lib/api/wiki";
+import { FileText, Globe, Loader2, Play, Trash2, Type } from "lucide-react";
+import { deleteWikiSource, runIngest } from "@/lib/api/wiki";
 import { useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiKeys } from "@/lib/hooks/use-wiki";
@@ -43,7 +33,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
       await deleteWikiSource(spaceId, sourceId, "detach");
       invalidateSources();
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一处理
     }
   };
 
@@ -79,29 +69,50 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const statusBadge = (status: string) => {
     switch (status) {
       case "ready":
-        return <Badge variant="default" className="text-[10px] bg-editorial-semantic-success">{t("wiki.sourceReady")}</Badge>;
+        return (
+          <Badge variant="default" className="text-[10px] bg-editorial-semantic-success">
+            {t("wiki.sourceReady")}
+          </Badge>
+        );
       case "failed":
-        return <Badge variant="destructive" className="text-[10px]">{t("wiki.sourceFailed")}</Badge>;
+        return (
+          <Badge variant="destructive" className="text-[10px]">
+            {t("wiki.sourceFailed")}
+          </Badge>
+        );
       case "ingesting":
-        return <Badge variant="secondary" className="text-[10px] bg-editorial-semantic-warning text-white">{t("wiki.sourceIngesting")}</Badge>;
+        return (
+          <Badge
+            variant="secondary"
+            className="text-[10px] bg-editorial-semantic-warning text-white"
+          >
+            {t("wiki.sourceIngesting")}
+          </Badge>
+        );
       default:
-        return <Badge variant="outline" className="text-[10px]">{status}</Badge>;
+        return (
+          <Badge variant="outline" className="text-[10px]">
+            {status}
+          </Badge>
+        );
     }
   };
 
   return (
     <div className="flex h-full flex-col bg-editorial-surface-card">
-      {/* Header */}
+      {/* 头部 */}
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.sourceManagement")}</h2>
+          <h2 className="text-[15px] font-semibold text-editorial-ink">
+            {t("wiki.sourceManagement")}
+          </h2>
           <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
             {t("wiki.sourceDescription")}
           </p>
         </div>
       </div>
 
-      {/* Source list */}
+      {/* 来源列表 */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="space-y-3 p-6">
@@ -143,14 +154,18 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 <div className="flex items-center gap-3">
                   {statusBadge(source.status)}
                   {source.page_count > 0 && (
-                    <span className="text-[11px] text-editorial-ink-muted">{t("wiki.pageCount", { count: source.page_count })}</span>
+                    <span className="text-[11px] text-editorial-ink-muted">
+                      {t("wiki.pageCount", { count: source.page_count })}
+                    </span>
                   )}
                 </div>
                 <button
                   onClick={() => handleIngest(source.identity, source.title)}
                   disabled={ingestingId === source.identity}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
-                  title={ingestingId === source.identity ? t("wiki.ingestingTitle") : t("wiki.runIngest")}
+                  title={
+                    ingestingId === source.identity ? t("wiki.ingestingTitle") : t("wiki.runIngest")
+                  }
                 >
                   {ingestingId === source.identity ? (
                     <Loader2 size={12} className="animate-spin" />
@@ -170,7 +185,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
           </div>
         )}
 
-        {/* Ingest result toast */}
+        {/* 导入结果提示 */}
         {ingestResult && (
           <div className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-[12px] leading-relaxed text-editorial-ink shadow-sm">
             {ingestResult}

@@ -1,77 +1,74 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHmac,
-  pbkdf2Sync,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
 
-// Fernet 对称加密实现，用于加密存储 LLM API Key
-// 格式：version(1B) | timestamp(8B) | iv(16B) | ciphertext | HMAC(32B)
-const DEV_KEY = "dev-encryption-key-do-not-use-in-production";
-const SALT = Buffer.from("feedmind-key-salt");
+// ─── 常量 ───
+const SALT_BYTES = 16;
+const NONCE_BYTES = 12;
+const TAG_BYTES = 16;
+const VERSION = 0x81;
 const ITERATIONS = 600_000;
 
-function base64UrlEncode(input: Buffer): string {
-  return input.toString("base64").replace(/\+/g, "-").replace(/\//g, "_");
+function base64UrlEncode(buf: Buffer): string {
+  return buf.toString("base64url");
+}
+function base64UrlDecode(s: string): Buffer {
+  return Buffer.from(s, "base64url");
 }
 
-function base64UrlDecode(input: string): Buffer {
-  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
-  return Buffer.from(normalized, "base64");
+function requireEncryptionKey(): string {
+  const key = (process.env.ENCRYPTION_KEY ?? "").trim();
+  if (!key) {
+    throw new Error("ENCRYPTION_KEY is not set. Configure it in .env before starting the server.");
+  }
+  return key;
 }
 
-// PBKDF2 密钥派生，与旧 Python Fernet 实现参数一致以兼容已有密文
-export function deriveFernetKey(rawKey: string): Buffer {
-  return pbkdf2Sync(rawKey || DEV_KEY, SALT, ITERATIONS, 32, "sha256");
+function deriveKey(rawKey: string, salt: Buffer): Buffer {
+  return pbkdf2Sync(rawKey, salt, ITERATIONS, 32, "sha256");
 }
 
-function splitKey(key: Buffer): { signingKey: Buffer; encryptionKey: Buffer } {
-  if (key.length !== 32) throw new Error("Fernet key must be 32 bytes.");
-  return {
-    signingKey: key.subarray(0, 16),
-    encryptionKey: key.subarray(16),
-  };
-}
-
-function sign(signingKey: Buffer, body: Buffer): Buffer {
-  return createHmac("sha256", signingKey).update(body).digest();
-}
-
-export function encryptValue(plaintext: string, rawKey = process.env.ENCRYPTION_KEY ?? ""): string {
+export function encryptValue(plaintext: string): string {
   if (!plaintext) return "";
 
-  const { signingKey, encryptionKey } = splitKey(deriveFernetKey(rawKey));
-  const version = Buffer.from([0x80]);
-  const timestamp = Buffer.alloc(8);
-  timestamp.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000)));
-  const iv = randomBytes(16);
+  const rawKey = requireEncryptionKey();
+  const salt = randomBytes(SALT_BYTES);
+  const nonce = randomBytes(NONCE_BYTES);
+  const key = deriveKey(rawKey, salt);
 
-  const cipher = createCipheriv("aes-128-cbc", encryptionKey, iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const body = Buffer.concat([version, timestamp, iv, ciphertext]);
-  return base64UrlEncode(Buffer.concat([body, sign(signingKey, body)]));
+  const cipher = createCipheriv("aes-256-gcm", key, nonce);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return base64UrlEncode(Buffer.concat([Buffer.from([VERSION]), salt, nonce, encrypted, tag]));
 }
 
-export function decryptValue(ciphertext: string, rawKey = process.env.ENCRYPTION_KEY ?? ""): string {
+export function decryptValue(ciphertext: string): string {
   if (!ciphertext) return "";
 
+  const rawKey = requireEncryptionKey();
   const token = base64UrlDecode(ciphertext);
-  if (token.length < 1 + 8 + 16 + 32 || token[0] !== 0x80) {
-    throw new Error("Invalid Fernet token.");
+  if (token.length < 1 + SALT_BYTES + NONCE_BYTES + TAG_BYTES) {
+    throw new Error("Invalid token.");
   }
 
-  const { signingKey, encryptionKey } = splitKey(deriveFernetKey(rawKey));
-  const body = token.subarray(0, -32);
-  const mac = token.subarray(-32);
-  const expectedMac = sign(signingKey, body);
-  if (mac.length !== expectedMac.length || !timingSafeEqual(mac, expectedMac)) {
-    throw new Error("Invalid Fernet token signature.");
+  const version = token[0];
+  if (version !== VERSION) {
+    throw new Error(`Unsupported token version: ${version}. Regenerate the encrypted data.`);
   }
 
-  const iv = body.subarray(9, 25);
-  const encrypted = body.subarray(25);
-  const decipher = createDecipheriv("aes-128-cbc", encryptionKey, iv);
+  let off = 1;
+  const salt = token.subarray(off, off + SALT_BYTES);
+  off += SALT_BYTES;
+  const nonce = token.subarray(off, off + NONCE_BYTES);
+  off += NONCE_BYTES;
+  const tag = token.subarray(token.length - TAG_BYTES);
+  const encrypted = token.subarray(off, token.length - TAG_BYTES);
+
+  const key = deriveKey(rawKey, salt);
+  const decipher = createDecipheriv("aes-256-gcm", key, nonce);
+  decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+}
+
+export function validateEncryptionKey(): void {
+  requireEncryptionKey();
 }

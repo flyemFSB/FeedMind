@@ -1,35 +1,42 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseFileBlocks, isSafeIngestPath, sanitizeIngestedFileContent, parseFrontmatter, formatFrontmatter, buildPageContent, mergePageContent, getFileStem } from "@feedmind/wiki-core";
+import {
+  parseFileBlocks,
+  isSafeIngestPath,
+  sanitizeIngestedFileContent,
+  parseFrontmatter,
+  formatFrontmatter,
+  buildPageContent,
+  mergePageContent,
+  getFileStem,
+} from "@feedmind/wiki-core";
 import { buildSystemPrompt, buildAnalysisPrompt, buildGenerationPrompt } from "./ingest-prompts.js";
 import { addReviewItems } from "./review-service.js";
 import type { ReviewItem } from "@feedmind/contracts";
 import { spaceDir } from "./wiki-utils.js";
 
-// ─── Config ──────────────────────────────────────────────────────
+// ─── 配置 ──────────────────────────────────────────────────────
 
 const MAX_SOURCE_CHARS = 80_000;
 
-// ─── LLM Client ──────────────────────────────────────────────────
+// ─── LLM 客户端 ──────────────────────────────────────────────────
 
 import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
 import { getRuntimeConfig } from "../models/config-service.js";
 
-// ─── Space Directory Helpers ─────────────────────────────────────
-// spaceDir 从 wiki-utils.ts 导入（固定以项目根目录为基准）
-
-function llmWikiDir(spaceId: string): string {
-  return path.join(spaceDir(spaceId), ".llm-wiki");
-}
+// ─── 空间目录辅助函数 ─────────────────────────────────────────────
 
 function sourceFilePath(spaceId: string, identity: string): string {
   const fileName = identity.endsWith(".md") ? identity : `${identity}.md`;
   return path.join(spaceDir(spaceId), "raw", "sources", fileName);
 }
 
-// ─── Read Source Content ─────────────────────────────────────────
+// ─── 读取源内容 ───────────────────────────────────────────────────
 
-function readSourceContent(spaceId: string, sourceIdentity: string): {
+function readSourceContent(
+  spaceId: string,
+  sourceIdentity: string,
+): {
   content: string;
   sourceStem: string;
 } {
@@ -42,19 +49,20 @@ function readSourceContent(spaceId: string, sourceIdentity: string): {
   const { frontmatter, body } = parseFrontmatter(raw);
   const stem = getFileStem(sourceIdentity);
 
-  // Get metadata context from frontmatter
+  // 从 frontmatter 读取元数据上下文
   const title = (frontmatter.title as string) || stem;
   const kind = (frontmatter.kind as string) || "text";
 
-  // For text sources, use the body directly. Others will need format conversion (M5).
+  // 文本类源直接用 body；其他格式需等 M5 做格式转换
   let content = body.trim();
   if (!content) {
     content = raw.trim();
   }
 
-  // Truncate very long content
+  // 截断超长内容
   if (content.length > MAX_SOURCE_CHARS) {
-    content = content.slice(0, MAX_SOURCE_CHARS) +
+    content =
+      content.slice(0, MAX_SOURCE_CHARS) +
       `\n\n[... content truncated at ${MAX_SOURCE_CHARS} characters ...]`;
   }
 
@@ -64,7 +72,7 @@ function readSourceContent(spaceId: string, sourceIdentity: string): {
   };
 }
 
-// ─── Read Space Context ─────────────────────────────────────────
+// ─── 读取空间上下文 ───────────────────────────────────────────────
 
 interface SpaceContext {
   purpose: string;
@@ -76,23 +84,22 @@ interface SpaceContext {
 function readSpaceContext(spaceId: string): SpaceContext {
   const sDir = spaceDir(spaceId);
 
-  const purpose = readOptionalFile(path.join(sDir, "purpose.md"))
-    || readOptionalFile(path.join(sDir, "space.json"))
-    || "";
+  const purpose =
+    readOptionalFile(path.join(sDir, "purpose.md")) ||
+    readOptionalFile(path.join(sDir, "space.json")) ||
+    "";
 
   const schema = readOptionalFile(path.join(sDir, "schema.md")) || "";
 
-  // Collect existing wiki pages
+  // 遍历已有 Wiki 页面
   const wikiDir = path.join(sDir, "wiki");
   const existingSlugs: string[] = [];
   const pageLines: string[] = [];
 
-  function collectPages(dir: string, category: string) {
+  function collectPages(dir: string, _category: string) {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
-      const mdFiles = entries
-        .filter((e) => !e.isDirectory() && e.name.endsWith(".md"))
-        .sort();
+      const mdFiles = entries.filter((e) => !e.isDirectory() && e.name.endsWith(".md")).sort();
 
       for (const entry of mdFiles) {
         const slug = entry.name.replace(/\.md$/, "");
@@ -111,11 +118,11 @@ function readSpaceContext(spaceId: string): SpaceContext {
         }
       }
     } catch {
-      // directory doesn't exist yet
+      // 目录尚不存在
     }
   }
 
-  // Collect in order: entities, concepts, sources
+  // 按 entities → concepts → sources 顺序收集，保证 index 排版一致
   collectPages(path.join(wikiDir, "entities"), "entities");
   collectPages(path.join(wikiDir, "concepts"), "concepts");
   collectPages(path.join(wikiDir, "sources"), "sources");
@@ -129,7 +136,7 @@ function readSpaceContext(spaceId: string): SpaceContext {
 function readOptionalFile(filePath: string): string | null {
   try {
     const content = fs.readFileSync(filePath, "utf-8").trim();
-    // If reading space.json, extract purpose field
+    // 若读取 space.json，提取 purpose 字段
     if (filePath.endsWith("space.json")) {
       try {
         const parsed = JSON.parse(content);
@@ -144,7 +151,7 @@ function readOptionalFile(filePath: string): string | null {
   }
 }
 
-// ─── Stage 1: Analysis ───────────────────────────────────────────
+// ─── 阶段一：分析 ─────────────────────────────────────────────────
 
 interface AnalysisResult {
   keyEntities: Array<{ name: string; description: string; type: string }>;
@@ -175,7 +182,7 @@ async function stage1Analysis(
     { responseFormat: "json", maxTokens: 4096 },
   );
 
-  // Parse JSON response with fallback
+  // 尝试解析 JSON 响应，失败时抛出详细错误
   try {
     const parsed = JSON.parse(raw);
 
@@ -190,11 +197,12 @@ async function stage1Analysis(
   } catch (err) {
     throw new Error(
       `Failed to parse analysis JSON from LLM response: ${err instanceof Error ? err.message : String(err)}\nRaw: ${raw.slice(0, 300)}`,
+      { cause: err },
     );
   }
 }
 
-// ─── Stage 2: Generation ─────────────────────────────────────────
+// ─── 阶段二：生成 ─────────────────────────────────────────────────
 
 async function stage2Generation(
   analysisJSON: string,
@@ -218,24 +226,7 @@ async function stage2Generation(
   );
 }
 
-// ─── Process FILE Blocks ─────────────────────────────────────────
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s一-鿿-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    || "untitled";
-}
-
-function generateSourceSlug(sourceIdentity: string): string {
-  const stem = sourceIdentity.endsWith(".md")
-    ? sourceIdentity.slice(0, -3)
-    : sourceIdentity;
-  return `source-${slugify(stem)}`;
-}
+// ─── 处理 FILE 块 ─────────────────────────────────────────────────
 
 interface ProcessBlocksResult {
   created: string[];
@@ -265,13 +256,13 @@ function processFileBlocks(
     const sanitizedContent = sanitizeIngestedFileContent(block.content);
 
     if (fs.existsSync(absPath)) {
-      // Merge with existing page
+      // 合并已有页面内容
       const existingContent = fs.readFileSync(absPath, "utf-8");
       const merged = mergePageContent(existingContent, sanitizedContent, sourceFileName);
       fs.writeFileSync(absPath, merged, "utf-8");
       updated.push(safePath);
     } else {
-      // New page — ensure frontmatter exists
+      // 新建页面——确保有 frontmatter
       let finalContent = sanitizedContent;
       if (!finalContent.startsWith("---")) {
         const slug = path.basename(safePath, ".md");
@@ -306,9 +297,12 @@ function inferTypeFromBlockPath(relPath: string): string {
   return "concept";
 }
 
-// ─── Update Index ────────────────────────────────────────────────
+// ─── 更新索引 ─────────────────────────────────────────────────────
 
-function updateIndex(spaceId: string, newPages: Array<{ path: string; title: string; type: string }>): void {
+function updateIndex(
+  spaceId: string,
+  newPages: Array<{ path: string; title: string; type: string }>,
+): void {
   if (newPages.length === 0) return;
 
   const indexPath = path.join(spaceDir(spaceId), "wiki", "index.md");
@@ -346,7 +340,7 @@ function updateIndex(spaceId: string, newPages: Array<{ path: string; title: str
   }
 }
 
-// ─── Update Log ──────────────────────────────────────────────────
+// ─── 更新变更日志 ─────────────────────────────────────────────────
 
 function updateLog(spaceId: string, entry: string): void {
   const logPath = path.join(spaceDir(spaceId), "wiki", "log.md");
@@ -366,7 +360,7 @@ function updateLog(spaceId: string, entry: string): void {
   fs.writeFileSync(logPath, content, "utf-8");
 }
 
-// ─── Update Overview ─────────────────────────────────────────────
+// ─── 更新概览页 ───────────────────────────────────────────────────
 
 function updateOverview(spaceId: string, newSummary: string): void {
   if (!newSummary) return;
@@ -382,7 +376,7 @@ function updateOverview(spaceId: string, newSummary: string): void {
     existingBody = body.trim();
   }
 
-  // Preserve existing frontmatter fields, only override known ones
+  // 保留现有 frontmatter 字段，仅覆写已知字段
   const fm = {
     ...existingFrontmatter,
     type: "overview",
@@ -394,7 +388,7 @@ function updateOverview(spaceId: string, newSummary: string): void {
   fs.writeFileSync(overviewPath, combined, "utf-8");
 }
 
-// ─── Save Review Items ───────────────────────────────────────────
+// ─── 保存审查项 ───────────────────────────────────────────────────
 
 interface ReviewItemInput {
   type: "missing-page" | "duplicate" | "contradiction" | "suggestion";
@@ -429,7 +423,7 @@ async function createAndSaveReviewItems(
   return reviewItems.length;
 }
 
-// ─── Extract Source Identity from Context ───────────────────────
+// ─── 从上下文提取源标识 ────────────────────────────────────────────
 
 export function extractIdentity(sourcePath: string): string {
   const normalized = sourcePath.replace(/\\/g, "/");
@@ -438,7 +432,7 @@ export function extractIdentity(sourcePath: string): string {
   return last;
 }
 
-// ─── Main Ingest Orchestrator ────────────────────────────────────
+// ─── 主导入编排 ───────────────────────────────────────────────────
 
 export type IngestProgressCallback = (message: string, step: number, totalSteps: number) => void;
 
@@ -469,7 +463,7 @@ export async function runIngest(
     onProgress?.(message, step, TOTAL_STEPS);
   }
 
-  // Resolve wiki runtime config & create LLM client
+  // 解析 Wiki 运行配置并创建 LLM 客户端
   const runtime = await getRuntimeConfig("wiki");
   const llmClient: LlmClient = new OpenAiLlmClient({
     apiKey: runtime.api_key,
@@ -478,40 +472,38 @@ export async function runIngest(
   });
   addLog(`Wiki LLM: ${runtime.model_name}`);
 
-  // Step 1: Read source content
+  // 步骤 1：读取源内容
   const sourceIdentity = extractIdentity(sourcePath);
   let sourceContent: string;
-  let sourceStem: string;
   try {
     const result = readSourceContent(spaceId, sourceIdentity);
     sourceContent = result.content;
-    sourceStem = result.sourceStem;
     reportProgress(`读取源文件: ${sourceIdentity} (${sourceContent.length} 字符)`, 1);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to read source: ${msg}`);
+    throw new Error(`Failed to read source: ${msg}`, { cause: err });
   }
 
-  // 2. Read space context
+  // 步骤 2：读取空间上下文
   const context = readSpaceContext(spaceId);
-  addLog(`Space context: ${context.existingSlugs.length} existing pages`);
+  addLog(`空间上下文: ${context.existingSlugs.length} 个已有页面`);
 
-  // Step 3: Analysis
+  // 步骤 3：分析
   reportProgress("正在分析内容...", 2);
   let analysis: AnalysisResult;
   try {
     analysis = await stage1Analysis(sourceContent, context, llmClient);
     addLog(
-      `Analysis complete: ${analysis.keyEntities.length} entities, ` +
-      `${analysis.keyConcepts.length} concepts, ` +
-      `${analysis.reviewItems.length} review items`,
+      `分析完成: ${analysis.keyEntities.length} 个实体, ` +
+        `${analysis.keyConcepts.length} 个概念, ` +
+        `${analysis.reviewItems.length} 个待审查项`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Stage 1 (Analysis) failed: ${msg}`);
+    throw new Error(`阶段一（分析）失败: ${msg}`, { cause: err });
   }
 
-  // Step 4: Generation
+  // 步骤 4：生成
   reportProgress("正在生成 Wiki 页面...", 3);
   let generationText: string;
   try {
@@ -521,13 +513,13 @@ export async function runIngest(
       sourceIdentity,
       llmClient,
     );
-    addLog(`Generation complete (${generationText.length} chars)`);
+    addLog(`生成完成 (${generationText.length} 字符)`);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Stage 2 (Generation) failed: ${msg}`);
+    throw new Error(`阶段二（生成）失败: ${msg}`, { cause: err });
   }
 
-  // Parse FILE blocks
+  // 解析 FILE 块
   const { blocks, warnings: parseWarnings } = parseFileBlocks(generationText);
   for (const w of parseWarnings) {
     warnings.push(w);
@@ -541,12 +533,12 @@ export async function runIngest(
     return { pagesCreated: 0, pagesUpdated: 0, reviewItemsCreated: 0, warnings, log };
   }
 
-  // Step 5: Write pages
+  // 步骤 5：写入页面
   reportProgress("正在写入页面...", 4);
   const { created, updated } = processFileBlocks(spaceId, blocks, sourceIdentity);
   addLog(`Written: ${created.length} created, ${updated.length} updated`);
 
-  // Update index.md
+  // 更新 index.md
   const newPageEntries = [...created, ...updated].map((p) => ({
     path: p,
     title: path.basename(p, ".md"),
@@ -554,18 +546,18 @@ export async function runIngest(
   }));
   updateIndex(spaceId, newPageEntries);
 
-  // Update log.md
+  // 更新 log.md
   updateLog(
     spaceId,
     `Ingested "${sourceIdentity}": ${created.length} pages created, ${updated.length} updated`,
   );
 
-  // Update overview.md with source summary
+  // 用源摘要更新 overview.md
   if (analysis.summary) {
     updateOverview(spaceId, analysis.summary);
   }
 
-  // Save review items
+  // 保存审查项
   let reviewItemsCreated = 0;
   if (analysis.reviewItems.length > 0) {
     reviewItemsCreated = await createAndSaveReviewItems(
@@ -586,5 +578,3 @@ export async function runIngest(
     log,
   };
 }
-
-

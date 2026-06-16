@@ -18,12 +18,10 @@ import type { Pagination } from "@feedmind/contracts";
 
 export const crawlerRoutes = new Hono();
 
-// ─── Platforms ─────────────────────────────────────────────────
-crawlerRoutes.get("/crawler/platforms", async (c) =>
-  jsonOk(c, { data: PLATFORMS }),
-);
+// ─── 平台 ───────────────────────────────────────────────────────
+crawlerRoutes.get("/crawler/platforms", async (c) => jsonOk(c, { data: PLATFORMS }));
 
-// ─── Tasks ─────────────────────────────────────────────────────
+// ─── 任务 ───────────────────────────────────────────────────────
 crawlerRoutes.post("/crawler/tasks", async (c) => {
   const payload = await parseJson(c, taskCreateSchema);
   return jsonOk(c, { data: await createCrawlerTask(payload) }, 201);
@@ -69,7 +67,7 @@ crawlerRoutes.delete("/crawler/tasks/:id", async (c) => {
   return c.body(null, 204);
 });
 
-// ─── Contents ──────────────────────────────────────────────────
+// ─── 内容 ───────────────────────────────────────────────────────
 crawlerRoutes.get("/crawler/contents", async (c) => {
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
   const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 20));
@@ -100,7 +98,7 @@ crawlerRoutes.get("/crawler/contents/:id", async (c) => {
   return jsonOk(c, { data: content });
 });
 
-// ─── Creators ──────────────────────────────────────────────────
+// ─── 创作者 ─────────────────────────────────────────────────────
 crawlerRoutes.get("/crawler/creators", async (c) => {
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
   const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 20));

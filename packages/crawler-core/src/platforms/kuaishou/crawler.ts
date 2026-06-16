@@ -45,10 +45,7 @@ interface KsGraphQLResponse {
 }
 
 export class KuaishouCrawler extends AbstractCrawler {
-  protected async execute(
-    ctx: CrawlerContext,
-    store: CrawlerStore,
-  ): Promise<StoreResult> {
+  protected async execute(ctx: CrawlerContext, store: CrawlerStore): Promise<StoreResult> {
     const allContents: ContentModel[] = [];
     const allCreators: CreatorModel[] = [];
 
@@ -91,7 +88,7 @@ export class KuaishouCrawler extends AbstractCrawler {
 
   private async searchPhoto(
     keyword: string,
-    maxResults: number,
+    _maxNotes: number,
   ): Promise<{ contents: ContentModel[]; creators: CreatorModel[] }> {
     const query = `
       query searchSearchFeed($keyword: String, $pageParam: String) {

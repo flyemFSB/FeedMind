@@ -5,13 +5,12 @@ import { runIngest, extractIdentity } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
 import { invalidatePageFileCache } from "./page-store.js";
 import { spaceDir, wikiRootDir, nowISO, safeWriteFile } from "./wiki-utils.js";
+import { logger } from "../../lib/logger.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const MAX_RETRIES = 3;
 
-/**
- * Background worker: polls spaces for pending ingest jobs and processes them.
- */
+/** 后台轮询 worker：检查各 space 的待处理导入任务并执行 */
 export function startIngestWorker(): void {
   let running = false;
 
@@ -24,7 +23,8 @@ export function startIngestWorker(): void {
 
       let spaceDirs: string[] = [];
       try {
-        spaceDirs = fs.readdirSync(wikiRoot, { withFileTypes: true })
+        spaceDirs = fs
+          .readdirSync(wikiRoot, { withFileTypes: true })
           .filter((e) => e.isDirectory() && !e.name.startsWith("."))
           .map((e) => e.name)
           .filter((d) => d !== "registry.json");
@@ -39,7 +39,7 @@ export function startIngestWorker(): void {
         if (!job) continue;
 
         store.updateStatus(spaceId, job.id, "processing");
-        console.log(`[ingest-worker] ${spaceId}: processing ${job.sourcePath}`);
+        logger.info({ spaceId, sourcePath: job.sourcePath }, "开始处理导入任务");
 
         try {
           const result = await runIngest(spaceId, job.sourcePath, (message, step, totalSteps) => {
@@ -48,19 +48,24 @@ export function startIngestWorker(): void {
             });
           });
 
-          // Invalidate page cache so newly created pages appear immediately
+          // 使页面缓存失效，确保新创建的页面立即可见
           invalidatePageFileCache(spaceId);
 
-          // Mark job as done instead of removing — keeps import history
+          // 标记任务完成而非删除，保留导入历史
           store.updateStatus(spaceId, job.id, "done", {
             writtenFiles: [],
             pagesCreated: result.pagesCreated,
             pagesUpdated: result.pagesUpdated,
           });
 
-          // Mark source as ingested
+          // 标记源文档为已导入
           try {
-            const sourcePath = path.join(spaceDir(spaceId), "raw", "sources", extractIdentity(job.sourcePath));
+            const sourcePath = path.join(
+              spaceDir(spaceId),
+              "raw",
+              "sources",
+              extractIdentity(job.sourcePath),
+            );
             if (fs.existsSync(sourcePath)) {
               const raw = fs.readFileSync(sourcePath, "utf-8");
               const { frontmatter, body } = parseFrontmatter(raw);
@@ -69,12 +74,17 @@ export function startIngestWorker(): void {
               frontmatter.page_count = result.pagesCreated;
               safeWriteFile(sourcePath, formatFrontmatter(frontmatter) + "\n" + body);
             }
-          } catch { /* non-critical */ }
+          } catch {
+            /* 非关键操作 */
+          }
 
-          console.log(`[ingest-worker] ${spaceId}: done — ${result.pagesCreated} created, ${result.pagesUpdated} updated`);
+          logger.info(
+            { spaceId, pagesCreated: result.pagesCreated, pagesUpdated: result.pagesUpdated },
+            "导入任务完成",
+          );
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[ingest-worker] ${spaceId}: job ${job.id} failed: ${msg}`);
+          logger.error({ spaceId, jobId: job.id, err }, "导入任务失败");
 
           if ((job.retryCount ?? 0) >= MAX_RETRIES) {
             store.updateStatus(spaceId, job.id, "failed", { error: msg });
@@ -83,19 +93,22 @@ export function startIngestWorker(): void {
           }
         }
 
-        break; // one job per tick
+        break; // 每轮 tick 只处理一个任务
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes("abort")) {
-        console.error(`[ingest-worker] Error: ${msg}`);
+        logger.error({ err }, "导入 worker 轮询异常");
       }
     } finally {
       running = false;
     }
   }
 
-  setInterval(tick, POLL_INTERVAL_MS);
-  tick().catch(() => {});
-  console.log(`[ingest-worker] Started (poll every ${POLL_INTERVAL_MS}ms)`);
+  setInterval(() => {
+    void tick();
+  }, POLL_INTERVAL_MS);
+  void tick();
+  logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, "导入 worker 已启动");
+  logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, "导入 worker 已启动");
 }

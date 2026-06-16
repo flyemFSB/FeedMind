@@ -27,13 +27,14 @@ export function sha256(text: string): string {
 }
 
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^\w\s一-鿿-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    || "untitled";
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^\w\s一-鿿-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "untitled"
+  );
 }
 
 export function safeWriteFile(filePath: string, content: string): void {
@@ -78,14 +79,14 @@ export function readDirRecursive(
         results.push(fullPath);
       }
     }
-  } catch { /* dir doesn't exist */ }
+  } catch {
+    /* dir doesn't exist */
+  }
   return results;
 }
 
 export function countFiles(dir: string, ext?: string): number {
-  return readDirRecursive(dir, (_f, name) =>
-    ext ? name.endsWith(ext) : true,
-  ).length;
+  return readDirRecursive(dir, (_f, name) => (ext ? name.endsWith(ext) : true)).length;
 }
 
 export function dateSortDesc(a: string, b: string): number {
@@ -95,8 +96,8 @@ export function dateSortDesc(a: string, b: string): number {
 }
 
 export function wikiRootDir(): string {
-  return Bun.env.WIKI_DIR
-    ? path.resolve(PROJECT_ROOT, Bun.env.WIKI_DIR)
+  return process.env.WIKI_DIR
+    ? path.resolve(PROJECT_ROOT, process.env.WIKI_DIR)
     : path.join(PROJECT_ROOT, "data", "wiki");
 }
 

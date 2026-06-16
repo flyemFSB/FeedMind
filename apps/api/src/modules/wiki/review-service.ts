@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ReviewItem } from "@feedmind/contracts";
-import { HttpError } from "../../lib/http.js";
 import { spaceDir } from "./wiki-utils.js";
 
 function reviewPath(spaceId: string): string {
@@ -33,7 +32,7 @@ export async function listReviewItems(spaceId: string): Promise<ReviewItem[]> {
 export async function addReviewItems(spaceId: string, items: ReviewItem[]): Promise<void> {
   const existing = readItems(spaceId);
 
-  // Dedupe by type + title
+  // 按 type + title 去重
   const seen = new Set(existing.map((r) => `${r.type}:${r.title.toLowerCase()}`));
   const newItems = items.filter((r) => !seen.has(`${r.type}:${r.title.toLowerCase()}`));
 
@@ -49,18 +48,20 @@ export async function resolveReviewItem(spaceId: string, itemId: string): Promis
 
 export async function dismissReviewItem(spaceId: string, itemId: string): Promise<void> {
   const items = readItems(spaceId);
-  writeItems(spaceId, items.filter((r) => r.id !== itemId));
+  writeItems(
+    spaceId,
+    items.filter((r) => r.id !== itemId),
+  );
 }
 
 export async function sweepReviewItems(spaceId: string): Promise<number> {
-  // Auto-resolve items whose affected pages no longer exist
+  // 自动解决其影响页面已不存在的审查项
   const items = readItems(spaceId);
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
   let swept = 0;
 
   const resolved = items.map((r) => {
     if (r.resolved) return r;
-    // If all affected pages are gone, auto-resolve
+    // 若所有影响页面已不存在，自动标记为已解决
     if (r.affectedPages.length > 0) {
       const allMissing = r.affectedPages.every((p) => {
         const fullPath = path.join(spaceDir(spaceId), p);

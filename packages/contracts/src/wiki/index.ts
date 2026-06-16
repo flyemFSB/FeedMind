@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-// ─── Wiki Space ────────────────────────────────────────────────
+// ─── Wiki 空间 ──────────────────────────────────────────────
 export const wikiTemplateSchema = z.enum([
   "research",
   "reading",
@@ -12,12 +12,7 @@ export type WikiTemplate = z.infer<typeof wikiTemplateSchema>;
 
 export const wikiSpaceSettingsSchema = z.object({
   language: z.string().default("zh-CN"),
-  enabledPageTypes: z.array(z.string()).default([
-    "entity",
-    "concept",
-    "source",
-    "overview",
-  ]),
+  enabledPageTypes: z.array(z.string()).default(["entity", "concept", "source", "overview"]),
   extraDirs: z.array(z.string()).default([]),
 });
 export type WikiSpaceSettings = z.infer<typeof wikiSpaceSettingsSchema>;
@@ -29,12 +24,7 @@ export const wikiSpaceCreateSchema = z.object({
   schema: z.string().default(""),
   settings: wikiSpaceSettingsSchema.default({
     language: "zh-CN",
-    enabledPageTypes: [
-      "entity",
-      "concept",
-      "source",
-      "overview",
-    ],
+    enabledPageTypes: ["entity", "concept", "source", "overview"],
     extraDirs: [],
   }),
 });
@@ -73,14 +63,8 @@ export const wikiSpaceListItemSchema = wikiSpaceReadSchema.pick({
 });
 export type WikiSpaceListItem = z.infer<typeof wikiSpaceListItemSchema>;
 
-// ─── Wiki Page ─────────────────────────────────────────────────
-export const wikiPageTypeSchema = z.enum([
-  "entity",
-  "concept",
-  "source",
-  "overview",
-  "index",
-]);
+// ─── Wiki 页面 ─────────────────────────────────────────────────
+export const wikiPageTypeSchema = z.enum(["entity", "concept", "source", "overview", "index"]);
 export type WikiPageType = z.infer<typeof wikiPageTypeSchema>;
 
 export const wikiPageCreateSchema = z.object({
@@ -134,14 +118,8 @@ export const wikiPageListItemSchema = wikiPageReadSchema.pick({
 });
 export type WikiPageListItem = z.infer<typeof wikiPageListItemSchema>;
 
-// ─── Wiki Source ───────────────────────────────────────────────
-export const wikiSourceKindSchema = z.enum([
-  "file",
-  "text",
-  "url",
-  "clip",
-  "generated",
-]);
+// ─── Wiki 来源 ─────────────────────────────────────────────────
+export const wikiSourceKindSchema = z.enum(["file", "text", "url", "clip", "generated"]);
 export type WikiSourceKind = z.infer<typeof wikiSourceKindSchema>;
 
 export const wikiSourceStatusSchema = z.enum([
@@ -199,12 +177,8 @@ export const wikiSourceListItemSchema = wikiSourceReadSchema.pick({
 });
 export type WikiSourceListItem = z.infer<typeof wikiSourceListItemSchema>;
 
-// ─── Wiki Link / Backlinks ──────────────────────────────────────
-export const wikiLinkStatusSchema = z.enum([
-  "resolved",
-  "missing",
-  "ambiguous",
-]);
+// ─── Wiki 链接 / 反向链接 ───────────────────────────────────────
+export const wikiLinkStatusSchema = z.enum(["resolved", "missing", "ambiguous"]);
 export type WikiLinkStatus = z.infer<typeof wikiLinkStatusSchema>;
 
 export const wikiBacklinkSchema = z.object({
@@ -215,7 +189,7 @@ export const wikiBacklinkSchema = z.object({
 });
 export type WikiBacklink = z.infer<typeof wikiBacklinkSchema>;
 
-// ─── Wiki Resolve ──────────────────────────────────────────────
+// ─── Wiki 解析 ─────────────────────────────────────────────────
 export const wikiResolveQuery = z.object({
   target: z.string().min(1),
 });
@@ -240,7 +214,7 @@ export const wikiResolveResultSchema = z.object({
 });
 export type WikiResolveResult = z.infer<typeof wikiResolveResultSchema>;
 
-// ─── Graph Types ───────────────────────────────────────────────
+// ─── 图谱类型 ──────────────────────────────────────────────────
 export const graphNodeSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -273,7 +247,7 @@ export const wikiGraphSchema = z.object({
 });
 export type WikiGraph = z.infer<typeof wikiGraphSchema>;
 
-// ─── Search Types ──────────────────────────────────────────────
+// ─── 搜索类型 ──────────────────────────────────────────────────
 export const wikiSearchResultSchema = z.object({
   path: z.string(),
   title: z.string(),
@@ -290,7 +264,7 @@ export const wikiSearchResponseSchema = z.object({
 });
 export type WikiSearchResponse = z.infer<typeof wikiSearchResponseSchema>;
 
-// ─── Ingest Queue Types ────────────────────────────────────────
+// ─── 导入队列类型 ──────────────────────────────────────────────
 export const ingestJobStatusSchema = z.enum([
   "pending",
   "processing",
@@ -326,7 +300,7 @@ export const ingestJobSchema = z.object({
 });
 export type IngestJob = z.infer<typeof ingestJobSchema>;
 
-// ─── Review Types ──────────────────────────────────────────────
+// ─── 审查类型 ──────────────────────────────────────────────────
 export const reviewItemTypeSchema = z.enum([
   "contradiction",
   "duplicate",
@@ -359,13 +333,8 @@ export const reviewItemSchema = z.object({
 });
 export type ReviewItem = z.infer<typeof reviewItemSchema>;
 
-// ─── Lint Types ────────────────────────────────────────────────
-export const lintResultTypeSchema = z.enum([
-  "orphan",
-  "broken-link",
-  "no-outlinks",
-  "semantic",
-]);
+// ─── Lint 类型 ─────────────────────────────────────────────────
+export const lintResultTypeSchema = z.enum(["orphan", "broken-link", "no-outlinks", "semantic"]);
 export type LintResultType = z.infer<typeof lintResultTypeSchema>;
 
 export const lintSeveritySchema = z.enum(["warning", "info"]);

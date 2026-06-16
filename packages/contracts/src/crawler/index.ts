@@ -1,30 +1,16 @@
 import { z } from "zod";
 
-// ─── Platform Enum ────────────────────────────────────────────────
-export const platformSchema = z.enum([
-  "xhs",
-  "dy",
-  "ks",
-  "bili",
-  "wb",
-  "zhihu",
-  "tieba",
-]);
+// ─── 平台枚举 ───────────────────────────────────────────────────
+export const platformSchema = z.enum(["xhs", "dy", "ks", "bili", "wb", "zhihu", "tieba"]);
 export type Platform = z.infer<typeof platformSchema>;
 
 export const crawlerTypeSchema = z.enum(["search", "detail", "creator"]);
 export type CrawlerType = z.infer<typeof crawlerTypeSchema>;
 
-export const taskStatusSchema = z.enum([
-  "queued",
-  "running",
-  "completed",
-  "failed",
-  "cancelled",
-]);
+export const taskStatusSchema = z.enum(["queued", "running", "completed", "failed", "cancelled"]);
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
 
-// ─── Platform Metadata ────────────────────────────────────────────
+// ─── 平台元数据 ─────────────────────────────────────────────────
 export const platformInfoSchema = z.object({
   code: platformSchema,
   name: z.string(),
@@ -42,7 +28,7 @@ export const PLATFORMS: PlatformInfo[] = [
   { code: "tieba", name: "贴吧", crawler_types: ["search", "detail"] },
 ];
 
-// ─── Task ─────────────────────────────────────────────────────────
+// ─── 任务 ────────────────────────────────────────────────────────
 export const taskCreateSchema = z.object({
   platform: platformSchema,
   crawler_type: crawlerTypeSchema,
@@ -94,7 +80,7 @@ export const taskListItemSchema = taskReadSchema.pick({
 });
 export type TaskListItem = z.infer<typeof taskListItemSchema>;
 
-// ─── Content ──────────────────────────────────────────────────────
+// ─── 内容 ────────────────────────────────────────────────────────
 export const contentImageSchema = z.object({
   url: z.string(),
   width: z.number().optional(),
@@ -140,7 +126,7 @@ export const contentListItemSchema = contentReadSchema.pick({
 });
 export type ContentListItem = z.infer<typeof contentListItemSchema>;
 
-// ─── Creator ──────────────────────────────────────────────────────
+// ─── 创作者 ──────────────────────────────────────────────────────
 export const creatorReadSchema = z.object({
   id: z.string(),
   platform: platformSchema,
@@ -168,7 +154,7 @@ export const creatorListItemSchema = creatorReadSchema.pick({
 });
 export type CreatorListItem = z.infer<typeof creatorListItemSchema>;
 
-// ─── Pagination ───────────────────────────────────────────────────
+// ─── 分页 ────────────────────────────────────────────────────────
 export const paginationSchema = z.object({
   offset: z.number().int().nonnegative(),
   limit: z.number().int().positive().max(100),

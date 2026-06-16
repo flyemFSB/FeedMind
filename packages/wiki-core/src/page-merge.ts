@@ -1,9 +1,8 @@
-import { parseFrontmatter, formatFrontmatter, extractSources, extractRelated } from "./frontmatter.js";
-import { extractWikilinks } from "./wikilinks.js";
+import { parseFrontmatter, formatFrontmatter } from "./frontmatter.js";
 
 /**
- * Merge two sets of frontmatter array fields (sources, tags, related).
- * Union-based, preserves first-encountered casing.
+ * 合并两套 frontmatter 数组字段（sources、tags、related）。
+ * 基于并集，保留首次出现的大小写。
  */
 export function mergeArrays(existing: string[], incoming: string[]): string[] {
   const seen = new Set<string>();
@@ -26,8 +25,7 @@ export function mergeArrays(existing: string[], incoming: string[]): string[] {
 }
 
 /**
- * Merge two wiki page contents.
- * Returns the merged content string.
+ * 合并两套 Wiki 页面内容。返回合并后的内容字符串。
  */
 export function mergePageContent(
   existing: string | null,
@@ -39,7 +37,7 @@ export function mergePageContent(
   const { frontmatter: existingFm, body: existingBody } = parseFrontmatter(existing);
   const { frontmatter: incomingFm, body: incomingBody } = parseFrontmatter(incoming);
 
-  // Locked fields: preserve existing type/title/created
+  // 锁定字段：保留已有的 type/title/created
   const type = (existingFm.type as string) ?? (incomingFm.type as string) ?? "concept";
   const title = (existingFm.title as string) ?? (incomingFm.title as string) ?? "";
   const created = (existingFm.created as string) ?? (incomingFm.created as string) ?? nowDate();
@@ -53,7 +51,7 @@ export function mergePageContent(
     (existingFm.sources as string[]) ?? [],
     (incomingFm.sources as string[]) ?? [],
   );
-  // Ensure this source is in the list
+  // 确保当前来源在 sources 列表中
   if (sourceFileName && !sources.some((s) => s.toLowerCase() === sourceFileName.toLowerCase())) {
     sources.push(sourceFileName);
   }
@@ -63,10 +61,11 @@ export function mergePageContent(
     (incomingFm.related as string[]) ?? [],
   );
 
-  // Prefer longer body (likely more content)
-  const body = existingBody.trim().length >= incomingBody.trim().length
-    ? existingBody.trim()
-    : incomingBody.trim();
+  // 优先保留更长的 body（通常内容更丰富）
+  const body =
+    existingBody.trim().length >= incomingBody.trim().length
+      ? existingBody.trim()
+      : incomingBody.trim();
 
   const fm: Record<string, unknown> = {
     type,

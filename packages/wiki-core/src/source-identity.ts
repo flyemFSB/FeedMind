@@ -1,8 +1,8 @@
 import { normalizePath, getFileName } from "./paths.js";
 
 /**
- * Compute a stable source identity from a project-relative path.
- * Preserves the relative path under raw/sources/ to avoid name collisions.
+ * 从项目相对路径计算稳定的来源标识。
+ * 保留 raw/sources/ 下的相对路径以避免名称冲突。
  */
 export function sourceIdentityForPath(projectPath: string, sourcePath: string): string {
   const pp = normalizePath(projectPath);
@@ -11,39 +11,52 @@ export function sourceIdentityForPath(projectPath: string, sourcePath: string): 
   if (sp.startsWith(prefix)) {
     return sp.slice(prefix.length);
   }
-  // Fall back to filename if not under raw/sources/
+  // 不在 raw/sources/ 下时回退到纯文件名
   return getFileName(sp);
 }
 
 /**
- * Generate a source summary slug from a source identity.
- * Replaces non-alphanumeric chars with hyphens.
+ * 从来源标识生成来源摘要 slug。
+ * 将非字母数字字符替换为连字符。
  */
 export function sourceSummarySlugFromIdentity(identity: string): string {
   const name = getFileName(identity);
   const stem = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name;
-  return stem
-    .toLowerCase()
-    .replace(/[^a-z0-9一-鿿-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    || "source";
+  return (
+    stem
+      .toLowerCase()
+      .replace(/[^a-z0-9一-鿿-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "source"
+  );
 }
 
-/**
- * Normalize a source reference for comparison.
- */
+/** 标准化来源引用用于比较 */
 export function sourceReferenceIdentity(identity: string): string {
   return normalizePath(identity).toLowerCase();
 }
 
-/**
- * Source file extensions that can be ingested.
- */
+/** 可导入的来源文件扩展名 */
 export const INGESTABLE_EXTENSIONS = new Set([
-  "md", "txt", "pdf", "doc", "docx", "pptx", "xlsx", "xls",
-  "odt", "odp", "ods", "csv", "json", "html", "htm", "rtf",
-  "xml", "yaml", "yml",
+  "md",
+  "txt",
+  "pdf",
+  "doc",
+  "docx",
+  "pptx",
+  "xlsx",
+  "xls",
+  "odt",
+  "odp",
+  "ods",
+  "csv",
+  "json",
+  "html",
+  "htm",
+  "rtf",
+  "xml",
+  "yaml",
+  "yml",
 ]);
 
 export function isIngestableExtension(fileName: string): boolean {

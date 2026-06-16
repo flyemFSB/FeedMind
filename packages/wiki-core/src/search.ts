@@ -1,20 +1,55 @@
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { extractWikilinks } from "./wikilinks.js";
-import { parseFrontmatter } from "./frontmatter.js";
 
 const SNIPPET_CONTEXT = 80;
 
 const STOP_WORDS = new Set([
-  "的", "是", "了", "什么", "在", "有", "和", "与", "对", "从",
-  "the", "is", "a", "an", "what", "how", "are", "was", "were",
-  "do", "does", "did", "be", "been", "being", "have", "has", "had",
-  "it", "its", "in", "on", "at", "to", "for", "of", "with", "by",
-  "this", "that", "these", "those",
+  "的",
+  "是",
+  "了",
+  "什么",
+  "在",
+  "有",
+  "和",
+  "与",
+  "对",
+  "从",
+  "the",
+  "is",
+  "a",
+  "an",
+  "what",
+  "how",
+  "are",
+  "was",
+  "were",
+  "do",
+  "does",
+  "did",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "it",
+  "its",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "this",
+  "that",
+  "these",
+  "those",
 ]);
 
 /**
- * Tokenize a search query into searchable tokens.
- * Handles CJK bigram generation.
+ * 将搜索查询分词为可检索的 token。
+ * 处理中日韩文（CJK）二元分词。
  */
 export function tokenizeQuery(query: string): string[] {
   const rawTokens = query
@@ -40,18 +75,14 @@ export function tokenizeQuery(query: string): string[] {
   return [...new Set(tokens)];
 }
 
-/**
- * Page content for searching.
- */
+/** 用于搜索的页面内容 */
 export interface SearchablePage {
   path: string;
   title: string;
   content: string;
 }
 
-/**
- * Search wiki pages by keyword.
- */
+/** 按关键词搜索 Wiki 页面 */
 export function searchPages(
   pages: SearchablePage[],
   query: string,
@@ -81,7 +112,13 @@ export function searchPages(
       if (contentLower.includes(token)) contentTokenScore++;
     }
 
-    if (!filenameExact && !titleHasPhrase && contentPhraseOcc === 0 && titleTokenScore === 0 && contentTokenScore === 0) {
+    if (
+      !filenameExact &&
+      !titleHasPhrase &&
+      contentPhraseOcc === 0 &&
+      titleTokenScore === 0 &&
+      contentTokenScore === 0
+    ) {
       continue;
     }
 
@@ -92,9 +129,10 @@ export function searchPages(
       titleTokenScore * 5 +
       contentTokenScore;
 
-    const snippetAnchor = contentPhraseOcc > 0
-      ? queryPhrase
-      : effectiveTokens.find((t) => contentLower.includes(t)) ?? queryPhrase;
+    const snippetAnchor =
+      contentPhraseOcc > 0
+        ? queryPhrase
+        : (effectiveTokens.find((t) => contentLower.includes(t)) ?? queryPhrase);
 
     const snippet = buildSnippet(page.content, snippetAnchor);
 

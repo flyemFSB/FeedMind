@@ -23,12 +23,10 @@ export interface UnpackedSkillMeta {
   author?: string;
 }
 
-/** 确保 skills 目录存在 */
 async function ensureSkillsDir(): Promise<void> {
   await fsp.mkdir(SKILLS_DIR, { recursive: true });
 }
 
-/** 消毒技能名称：只允许字母数字和连字符 */
 function sanitizeName(input: string): string {
   return input.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 128);
 }
@@ -39,7 +37,6 @@ function isInsideSkillsDir(target: string): boolean {
   return !relative.startsWith("..") && !path.isAbsolute(relative);
 }
 
-/** 解析 SKILL.md 的 frontmatter */
 function parseSkillMeta(content: string): UnpackedSkillMeta {
   const { frontmatter } = parseFrontmatter(content);
   return {
@@ -82,7 +79,6 @@ export async function listSkills(): Promise<SkillRead[]> {
   return items;
 }
 
-/** 递归计算目录大小 */
 async function getDirSize(dir: string): Promise<number> {
   let total = 0;
   const entries = await fsp.readdir(dir, { withFileTypes: true });
@@ -129,17 +125,16 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
       await fsp.unlink(tmpPath).catch(() => {});
     }
 
-    // 验证解压结果中是否包含 SKILL.md
     const skillMdPath = path.join(targetDir, "SKILL.md");
     const skillMd = await fsp.readFile(skillMdPath, "utf-8").catch(() => null);
     if (!skillMd) {
       // 也许 zip 根目录有一个子目录
-      const subDirs = (await fsp.readdir(targetDir, { withFileTypes: true }))
-        .filter((e) => e.isDirectory());
+      const subDirs = (await fsp.readdir(targetDir, { withFileTypes: true })).filter((e) =>
+        e.isDirectory(),
+      );
       for (const sub of subDirs) {
         const subMd = path.join(targetDir, sub.name, "SKILL.md");
         if (fs.existsSync(subMd)) {
-          // 将子目录内容上移一层
           const subPath = path.join(targetDir, sub.name);
           const files = await fsp.readdir(subPath);
           for (const f of files) {
@@ -151,7 +146,6 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
       }
     }
 
-    // 最终验证
     if (!fs.existsSync(path.join(targetDir, "SKILL.md"))) {
       await fsp.rm(targetDir, { recursive: true, force: true });
       throw new Error("Invalid skill archive: missing SKILL.md at root.");

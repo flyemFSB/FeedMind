@@ -9,7 +9,7 @@ export const toolsRoutes = new Hono();
 
 toolsRoutes.get("/tools", async (c) => jsonOk(c, await listTools()));
 
-// /tools/runtime 仅返回运行时状态，不暴露 API Key（密码字段已掩码）
+// /tools/runtime 仅返回运行时状态，密码字段已掩码不暴露原始值
 toolsRoutes.get("/tools/runtime", async (c) => jsonOk(c, await listTools()));
 
 const batchUpdateSchema = z.record(z.string(), toolConfigUpdateSchema);

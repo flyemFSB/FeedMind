@@ -1,14 +1,32 @@
 import fs from "node:fs";
 import path from "node:path";
-import { loadQueue, dumpQueue, createIngestJob, upsertJob, nextJob, updateJobStatus, incrementRetry } from "@feedmind/wiki-core";
+import {
+  loadQueue,
+  dumpQueue,
+  createIngestJob,
+  upsertJob,
+  nextJob,
+  updateJobStatus,
+  incrementRetry,
+} from "@feedmind/wiki-core";
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
 import { spaceDir } from "./wiki-utils.js";
 
 export interface QueueStore {
   list(spaceId: string): IngestJob[];
-  enqueue(spaceId: string, sourcePath: string, folderContext?: string, sourceTitle?: string): IngestJob;
+  enqueue(
+    spaceId: string,
+    sourcePath: string,
+    folderContext?: string,
+    sourceTitle?: string,
+  ): IngestJob;
   nextPending(spaceId: string): IngestJob | null;
-  updateStatus(spaceId: string, jobId: string, status: IngestJobStatus, updates?: Partial<IngestJob>): void;
+  updateStatus(
+    spaceId: string,
+    jobId: string,
+    status: IngestJobStatus,
+    updates?: Partial<IngestJob>,
+  ): void;
   retry(spaceId: string, jobId: string): void;
   remove(spaceId: string, jobId: string): void;
 }
@@ -36,7 +54,12 @@ export class JsonQueueStore implements QueueStore {
     return this.readQueue(spaceId);
   }
 
-  enqueue(spaceId: string, sourcePath: string, folderContext?: string, sourceTitle?: string): IngestJob {
+  enqueue(
+    spaceId: string,
+    sourcePath: string,
+    folderContext?: string,
+    sourceTitle?: string,
+  ): IngestJob {
     const queue = this.readQueue(spaceId);
     const job = createIngestJob(spaceId, sourcePath, folderContext, sourceTitle);
     const updated = upsertJob(queue, job);
@@ -48,7 +71,12 @@ export class JsonQueueStore implements QueueStore {
     return nextJob(this.readQueue(spaceId), spaceId);
   }
 
-  updateStatus(spaceId: string, jobId: string, status: IngestJobStatus, updates?: Partial<IngestJob>): void {
+  updateStatus(
+    spaceId: string,
+    jobId: string,
+    status: IngestJobStatus,
+    updates?: Partial<IngestJob>,
+  ): void {
     const queue = this.readQueue(spaceId);
     this.writeQueue(spaceId, updateJobStatus(queue, jobId, status, updates));
   }
@@ -60,11 +88,14 @@ export class JsonQueueStore implements QueueStore {
 
   remove(spaceId: string, jobId: string): void {
     const queue = this.readQueue(spaceId);
-    this.writeQueue(spaceId, queue.filter((j) => j.id !== jobId));
+    this.writeQueue(
+      spaceId,
+      queue.filter((j) => j.id !== jobId),
+    );
   }
 }
 
-// Singleton — lazily initialized
+// 单例——延迟初始化
 let _instance: QueueStore | null = null;
 
 export function getQueueStore(): QueueStore {

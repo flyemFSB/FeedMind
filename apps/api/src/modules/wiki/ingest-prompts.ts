@@ -1,11 +1,11 @@
 /**
- * LLM prompts for two-stage wiki ingest pipeline.
+ * LLM 提示词，用于两阶段 Wiki 导入流水线。
  *
- * Stage 1 (Analysis): LLM reads source + context, outputs structured analysis.
- * Stage 2 (Generation): LLM reads analysis, outputs FILE blocks for page creation.
+ * 阶段一（分析）：LLM 读取源内容 + 上下文，输出结构化分析结果。
+ * 阶段二（生成）：LLM 读取分析结果，输出 FILE 块用于创建页面。
  */
 
-// ─── Stage 0: System Prompt ──────────────────────────────────────
+// ─── 阶段零：系统提示词 ───────────────────────────────────────────
 
 export function buildSystemPrompt(purpose: string, schema: string): string {
   return `You are a wiki knowledge curator. Your job is to analyze source documents and maintain a structured wiki.
@@ -14,8 +14,11 @@ export function buildSystemPrompt(purpose: string, schema: string): string {
 ${purpose || "Not specified."}
 
 ## Page Type Schema
-${schema || `Four types: entity (people, orgs, products), concept (ideas, methods),
-source (document summaries), overview (global summary).`}
+${
+  schema ||
+  `Four types: entity (people, orgs, products), concept (ideas, methods),
+source (document summaries), overview (global summary).`
+}
 
 ## Rules
 - Entity pages: people, organizations, products, tools, named things
@@ -28,12 +31,9 @@ source (document summaries), overview (global summary).`}
 - All page titles, tags, and content must be written in Chinese`;
 }
 
-// ─── Stage 1: Analysis Prompt ────────────────────────────────────
+// ─── 阶段一：分析提示词 ────────────────────────────────────────────
 
-export function buildAnalysisPrompt(
-  sourceContent: string,
-  existingIndex: string,
-): string {
+export function buildAnalysisPrompt(sourceContent: string, existingIndex: string): string {
   return `Analyze the following source document and provide a structured analysis.
 
 ## Existing Wiki Index
@@ -55,16 +55,14 @@ Analyze the source document and return a JSON object with these fields:
 Focus on substantive content. Ignore minor details, formatting, and references sections.`;
 }
 
-// ─── Stage 2: Generation Prompt ──────────────────────────────────
+// ─── 阶段二：生成提示词 ────────────────────────────────────────────
 
 export function buildGenerationPrompt(
   analysis: string,
   existingSlugs: string[],
   sourceIdentity: string,
 ): string {
-  const slugList = existingSlugs.length > 0
-    ? existingSlugs.join(", ")
-    : "(empty)";
+  const slugList = existingSlugs.length > 0 ? existingSlugs.join(", ") : "(empty)";
 
   return `Based on the analysis below, generate wiki pages as FILE blocks. All wiki page titles and content must be in Chinese.
 

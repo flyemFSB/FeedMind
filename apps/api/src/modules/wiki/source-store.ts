@@ -3,9 +3,18 @@ import path from "node:path";
 import { formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
 import type { WikiSourceCreate, WikiSourceListItem, WikiSourceRead } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
-import { ensureDir, nowISO, readDirRecursive, safeUnlink, safeWriteFile, sha256, slugify, spaceDir } from "./wiki-utils.js";
+import {
+  ensureDir,
+  nowISO,
+  readDirRecursive,
+  safeUnlink,
+  safeWriteFile,
+  sha256,
+  slugify,
+  spaceDir,
+} from "./wiki-utils.js";
 
-// ─── Source file helpers ──────────────────────────────────────
+// ─── 源文件辅助函数 ─────────────────────────────────────────────
 
 function sourceFilePath(spaceId: string, identity: string): string {
   return path.join(spaceDir(spaceId), "raw", "sources", identity);
@@ -18,7 +27,9 @@ function listSourceFiles(spaceId: string): string[] {
   for (const f of files) {
     try {
       withMtime.push({ path: f, mtime: fs.statSync(f).mtimeMs });
-    } catch { /* file deleted between readdir and stat */ }
+    } catch {
+      /* file deleted between readdir and stat */
+    }
   }
   withMtime.sort((a, b) => b.mtime - a.mtime);
   return withMtime.map((e) => e.path);
@@ -36,7 +47,9 @@ function computeSourcePageCounts(spaceId: string): Map<string, number> {
       for (const s of srcs) {
         counts.set(s, (counts.get(s) ?? 0) + 1);
       }
-    } catch { /* skip unreadable */ }
+    } catch {
+      /* skip unreadable */
+    }
   }
   return counts;
 }
@@ -50,7 +63,10 @@ function findSourceFile(spaceId: string, sourceId: string): string | null {
   return null;
 }
 
-function sourceFileToRead(filePath: string, spaceId: string): Omit<WikiSourceRead, "page_count"> | null {
+function sourceFileToRead(
+  filePath: string,
+  spaceId: string,
+): Omit<WikiSourceRead, "page_count"> | null {
   try {
     const stat = fs.statSync(filePath);
     const content = fs.readFileSync(filePath, "utf-8");
@@ -83,19 +99,29 @@ function sourceFileToRead(filePath: string, spaceId: string): Omit<WikiSourceRea
   }
 }
 
-function sourceFileToList(filePath: string, spaceId: string, pageCounts: Map<string, number>): WikiSourceListItem | null {
+function sourceFileToList(
+  filePath: string,
+  spaceId: string,
+  pageCounts: Map<string, number>,
+): WikiSourceListItem | null {
   const read = sourceFileToRead(filePath, spaceId);
   if (!read) return null;
   return {
-    id: read.id, space_id: read.space_id, identity: read.identity,
-    title: read.title, kind: read.kind, original_name: read.original_name,
-    mime_type: read.mime_type, status: read.status,
+    id: read.id,
+    space_id: read.space_id,
+    identity: read.identity,
+    title: read.title,
+    kind: read.kind,
+    original_name: read.original_name,
+    mime_type: read.mime_type,
+    status: read.status,
     page_count: pageCounts.get(read.id) ?? 0,
-    created_at: read.created_at, updated_at: read.updated_at,
+    created_at: read.created_at,
+    updated_at: read.updated_at,
   };
 }
 
-// ─── Public API ───────────────────────────────────────────────
+// ─── 公开 API ──────────────────────────────────────────────────
 
 export async function listWikiSources(
   spaceId: string,
@@ -129,7 +155,10 @@ export async function getWikiSource(spaceId: string, sourceId: string): Promise<
   return { ...base, page_count: pageCount };
 }
 
-export async function createWikiSource(spaceId: string, payload: WikiSourceCreate): Promise<WikiSourceRead> {
+export async function createWikiSource(
+  spaceId: string,
+  payload: WikiSourceCreate,
+): Promise<WikiSourceRead> {
   const slug = slugify(payload.title);
   const fileName = `${slug}.md`;
   const absPath = sourceFilePath(spaceId, fileName);
@@ -153,8 +182,11 @@ export async function createWikiSource(spaceId: string, payload: WikiSourceCreat
 
   const stat = fs.statSync(absPath);
   return {
-    id: slug, space_id: spaceId, identity: fileName,
-    title: payload.title, kind: (payload.kind as WikiSourceRead["kind"]) ?? "text",
+    id: slug,
+    space_id: spaceId,
+    identity: fileName,
+    title: payload.title,
+    kind: (payload.kind as WikiSourceRead["kind"]) ?? "text",
     original_name: payload.original_name ?? fileName,
     original_uri: payload.original_uri ?? null,
     storage_path: `raw/sources/${fileName}`,
@@ -169,7 +201,11 @@ export async function createWikiSource(spaceId: string, payload: WikiSourceCreat
   };
 }
 
-export async function deleteWikiSource(spaceId: string, sourceId: string, _mode: "detach" | "delete-orphans" = "detach"): Promise<{ deleted_pages: number; updated_pages: number }> {
+export async function deleteWikiSource(
+  spaceId: string,
+  sourceId: string,
+  _mode: "detach" | "delete-orphans" = "detach",
+): Promise<{ deleted_pages: number; updated_pages: number }> {
   const filePath = findSourceFile(spaceId, sourceId);
   if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki source does not exist (${sourceId})`);
 
@@ -210,7 +246,9 @@ export async function deleteWikiSource(spaceId: string, sourceId: string, _mode:
       frontmatter.sources = filtered;
       safeWriteFile(wf, formatFrontmatter(frontmatter) + "\n" + body);
       updatedPages++;
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   // Clean index.md
@@ -221,11 +259,16 @@ export async function deleteWikiSource(spaceId: string, sourceId: string, _mode:
       const cleaned = indexContent.split("\n").filter((line) => {
         const match = line.match(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/);
         if (!match) return true;
-        const refSlug = match[1].trim().toLowerCase().replace(/[\s\-_]+/g, "");
+        const refSlug = match[1]
+          .trim()
+          .toLowerCase()
+          .replace(/[\s\-_]+/g, "");
         return !deletedKeys.has(refSlug);
       });
       if (cleaned.length > 0) fs.writeFileSync(indexPath, cleaned.join("\n"), "utf-8");
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
 
   // Update log.md
@@ -236,12 +279,17 @@ export async function deleteWikiSource(spaceId: string, sourceId: string, _mode:
     if (!logContent.trim()) logContent = "# Change Log\n\n";
     const entry = `- ${nowISO().replace("T", " ").slice(0, 16)}: Deleted source "${slug}". ${deletedPages > 0 ? `${deletedPages} orphan pages removed. ` : ""}${updatedPages > 0 ? `${updatedPages} pages updated.` : ""}\n`;
     fs.writeFileSync(logPath, logContent + entry, "utf-8");
-  } catch { /* skip */ }
+  } catch {
+    /* skip */
+  }
 
   return { deleted_pages: deletedPages, updated_pages: updatedPages };
 }
 
-export async function previewDeleteImpact(spaceId: string, sourceId: string): Promise<{ willDelete: string[]; willUpdate: string[]; unaffected: number }> {
+export async function previewDeleteImpact(
+  spaceId: string,
+  sourceId: string,
+): Promise<{ willDelete: string[]; willUpdate: string[]; unaffected: number }> {
   const filePath = findSourceFile(spaceId, sourceId);
   if (!filePath) return { willDelete: [], willUpdate: [], unaffected: 0 };
 
@@ -259,11 +307,16 @@ export async function previewDeleteImpact(spaceId: string, sourceId: string): Pr
       const content = fs.readFileSync(wf, "utf-8");
       const { frontmatter } = parseFrontmatter(content);
       const srcs = (frontmatter.sources as string[]) ?? [];
-      if (!srcs.includes(slug) && !srcs.includes(fileName)) { unaffected++; continue; }
+      if (!srcs.includes(slug) && !srcs.includes(fileName)) {
+        unaffected++;
+        continue;
+      }
       const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
       if (filtered.length === 0) willDelete.push(wf);
       else willUpdate.push(wf);
-    } catch { unaffected++; }
+    } catch {
+      unaffected++;
+    }
   }
 
   return { willDelete, willUpdate, unaffected };

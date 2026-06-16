@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-// graphology uses export default class Graph — but TS module resolution 
-// with NodeNext doesn't expose constructable types. Use require at runtime.
+// graphology 使用 export default class Graph，但 NodeNext 下的 TS 模块解析
+// 无法暴露可构造类型。故在运行时通过动态 import() 加载。
 let _Graph: any = null;
 let _Louvain: any = null;
 async function ensureGraphLibs() {
@@ -28,7 +28,9 @@ function collectMdFiles(dir: string): Array<{ name: string; path: string; is_dir
         results.push(...collectMdFiles(fullPath));
       }
     }
-  } catch { /* dir doesn't exist */ }
+  } catch {
+    /* dir doesn't exist */
+  }
   return results;
 }
 
@@ -40,9 +42,7 @@ export async function getWikiGraph(
     return { nodes: [], edges: [], communities: [] };
   }
 
-  const mdFiles = collectMdFiles(wikiDir).filter(
-    (f) => !f.is_dir && f.name.endsWith(".md"),
-  );
+  const mdFiles = collectMdFiles(wikiDir).filter((f) => !f.is_dir && f.name.endsWith(".md"));
 
   const { nodes, edges } = await buildWikiGraph(
     async (filePath: string) => fs.readFileSync(filePath, "utf-8"),
@@ -79,7 +79,7 @@ async function detectCommunities(
         try {
           g.addEdgeWithKey(key, edge.source, edge.target, { weight: edge.weight });
         } catch {
-          // graphology may throw if edge already exists
+          // graphology 可能在边已存在时抛出异常
         }
       }
     }

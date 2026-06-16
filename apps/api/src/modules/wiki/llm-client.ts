@@ -28,19 +28,22 @@ export class OpenAiLlmClient implements LlmClient {
       body: JSON.stringify({
         model,
         messages,
-        response_format:
-          opts.responseFormat === "json"
-            ? { type: "json_object" }
-            : undefined,
+        response_format: opts.responseFormat === "json" ? { type: "json_object" } : undefined,
         max_tokens: maxTokens,
         temperature: 0.3,
       }),
     });
 
     if (!response.ok) {
-      let errorBody = "";
-      try { errorBody = await response.text(); } catch { errorBody = "(failed to read error body)"; }
-      throw new Error(`LLM API error (${response.status}): ${errorBody.slice(0, 500)}`);
+      let errorBody: string;
+      try {
+        errorBody = await response.text();
+      } catch {
+        errorBody = "(读取错误响应体失败)";
+      }
+      throw new Error(`LLM API 错误 (${response.status}): ${errorBody.slice(0, 500)}`, {
+        cause: response,
+      });
     }
 
     const data = (await response.json()) as {

@@ -32,7 +32,7 @@ export class ToolConfigClient {
     return ToolConfigClient.instance;
   }
 
-  async load(signal?: AbortSignal): Promise<ToolEntry[]> {
+  async load(_signal?: AbortSignal): Promise<ToolEntry[]> {
     if (this.tools && Date.now() - this.lastLoaded < this.ttl) {
       return this.tools;
     }

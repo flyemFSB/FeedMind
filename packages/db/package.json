@@ -12,16 +12,17 @@
   "scripts": {
     "build": "tsc -b",
     "lint": "eslint src drizzle.config.ts --ext .ts",
-    "test": "bun test --pass-with-no-tests",
+    "test": "vitest run --pass-with-no-tests",
     "typecheck": "tsc -b --pretty false",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:init": "bun src/init.ts",
-    "db:reset": "bun src/reset.ts"
+    "db:init": "tsx src/init.ts",
+    "db:reset": "tsx src/reset.ts"
   },
   "dependencies": {
     "@feedmind/shared": "workspace:*",
     "@libsql/client": "^0.17.3",
+    "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {

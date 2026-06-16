@@ -17,7 +17,7 @@ export interface KnowledgeGap {
 }
 
 /**
- * Find connections that cross community boundaries or type boundaries.
+ * 发现跨社区或跨类型的连接。
  */
 export function findSurprisingConnections(
   nodes: GraphNode[],
@@ -47,9 +47,7 @@ export function findSurprisingConnections(
     }
 
     if (source.type !== target.type) {
-      const distantPairs = new Set([
-        "source-concept", "concept-source",
-      ]);
+      const distantPairs = new Set(["source-concept", "concept-source"]);
       const pair = `${source.type}-${target.type}`;
       if (distantPairs.has(pair)) {
         score += 2;
@@ -79,7 +77,7 @@ export function findSurprisingConnections(
 }
 
 /**
- * Detect knowledge gaps based on graph structure.
+ * 基于图结构检测知识缺口。
  */
 export function detectKnowledgeGaps(
   nodes: GraphNode[],
@@ -89,7 +87,7 @@ export function detectKnowledgeGaps(
 ): KnowledgeGap[] {
   const gaps: KnowledgeGap[] = [];
 
-  // 1. Isolated nodes
+  // 1. 孤立节点
   const isolatedNodes = nodes.filter(
     (n) => n.linkCount <= 1 && n.type !== "overview" && n.id !== "index" && n.id !== "log",
   );
@@ -98,14 +96,15 @@ export function detectKnowledgeGaps(
     gaps.push({
       type: "isolated-node",
       title: `${isolatedNodes.length} isolated page${isolatedNodes.length > 1 ? "s" : ""}`,
-      description: topIsolated.map((n) => n.label).join(", ") +
+      description:
+        topIsolated.map((n) => n.label).join(", ") +
         (isolatedNodes.length > 5 ? ` and ${isolatedNodes.length - 5} more` : ""),
       nodeIds: isolatedNodes.map((n) => n.id),
       suggestion: "Add [[wikilinks]] to related pages, or expand their content.",
     });
   }
 
-  // 2. Sparse communities
+  // 2. 稀疏社区
   for (const comm of communities) {
     if (comm.cohesion < 0.15 && comm.nodeCount >= 3) {
       gaps.push({
@@ -118,7 +117,7 @@ export function detectKnowledgeGaps(
     }
   }
 
-  // 3. Bridge nodes (connected to multiple communities)
+  // 3. 桥接节点（连接多个社区）
   const communityNeighbors = new Map<string, Set<number>>();
   for (const node of nodes) communityNeighbors.set(node.id, new Set());
   for (const edge of edges) {

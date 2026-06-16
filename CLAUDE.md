@@ -1,78 +1,192 @@
-# CLAUDE.md
+# CLAUDE.md — FeedMind 项目开发规范
 
-This file provides guidance to Claude Code when working with code in this repository.
+## 项目概述
 
-## Commands
+FeedMind — 知识管理、AI 对话、内容爬取服务平台。基于 pnpm monorepo 架构，包含两个应用和五个共享包。
 
-```bash
-bun install               # Install all dependencies
-bun run dev               # Start all dev services (web + API, parallel via bun run --parallel)
-bun run build             # Build all packages and apps
-bun run build:packages    # Build shared packages only (contracts, shared, db, crawler-core, wiki-core)
-bun run typecheck         # TypeScript type check across all packages
-bun run lint              # ESLint
-bun run test              # Run all tests (bun test)
-bun run db:init           # Initialize SQLite database (create tables + seed tools)
-bun run db:generate       # Generate Drizzle migrations
-bun run db:migrate        # Apply Drizzle migrations
-bun run web:dev           # Web frontend only (http://localhost:3000)
-bun run api:dev           # API + Mastra Agent (http://localhost:8000)
-bun run --bun vite dev    # Force Vite to run on Bun runtime
-```
-
-## Architecture
-
-Monorepo (Bun workspaces). Two apps, five shared packages. Mastra Agent is embedded in the API app.
+## 技术栈
 
 ```
 apps/
-  web/        TanStack Start + React 19 + Tailwind CSS 4 + ai-elements + shadcn/ui
-  api/        Hono REST API + Mastra Agent (Wiki, crawler, model management, chat)
+  api/    Hono REST API + Mastra AI Agent + OpenAPI (Scalar)
+  web/    TanStack Start + React 19 + Tailwind CSS 4 + shadcn/ui
 packages/
-  contracts/  Zod schemas + shared TypeScript types (single source of truth for API shapes)
-  db/         Drizzle ORM schema definitions + SQLite init
-  shared/     Crypto (AES encrypt/decrypt for API keys), env vars, helpers
-  wiki-core/  Wiki file-system operations (file blocks, frontmatter, wikilinks, graph)
-  crawler-core/ Multi-platform content crawler engine (xhs, douyin, bilibili, etc.)
+  contracts/    Zod 4 schemas + TypeScript 类型（API 契约单一数据源）
+  db/           Drizzle ORM 表定义 + SQLite (libsql)
+  shared/       Crypto (AES 加密/解密) + 环境变量 + 工具函数
+  wiki-core/    Wiki 文件系统操作（file blocks、frontmatter、wikilinks、graph）
+  crawler-core/ 多平台内容爬虫引擎（小红书、抖音、B 站等）
 data/
-  wiki/       Wiki spaces as markdown files (runtime data, not in repo)
+  wiki/         Wiki 空间（Markdown 文件，不在仓库中）
 ```
 
-## Key Architecture Decisions
+## 关键架构决策
 
-- **File-based Wiki**: Wiki pages are stored as plain Markdown files on disk, not in the database. Each Wiki "space" is a directory under `data/wiki/`. Pages use YAML frontmatter for metadata. The db only stores chat/crawler data.
-- **Language**: All user-facing UI text and wiki content is in Chinese. English supported via react-i18next.
-- **Mastra Agent**: The AI agent runs inside the API process (apps/api/src/mastra/), using @mastra/core. It exposes a chat route via @mastra/ai-sdk's chatRoute() which outputs AI SDK v6 compatible streaming format.
-- **Dynamic Model Resolution**: The agent resolves the LLM model at runtime from the `llm` table, reading the user's selected model via request headers.
-- **Wiki import pipeline** (`ingest-pipeline.ts`): Two-stage LLM pipeline — stage 1 analyzes source content into structured data (entities, concepts, arguments), stage 2 generates wiki page FILE blocks. The LLM client is resolved from `runtime_config` table at runtime.
-- **Runtime Config** (`runtime_config` table): Stores per-runtime LLM config (temperature, max_tokens, system_prompt, etc.) for "session" (chat) and "wiki" (ingest) runtimes.
-- **Crawler**: Playwright-based, uses cookie authentication, stores results in SQLite.
+- **文件型 Wiki**：Wiki 页面以纯 Markdown 存储于磁盘，不入库。每个 Wiki "空间" 是 `data/wiki/` 下的独立目录。页面使用 YAML frontmatter 管理元数据。数据库仅存储聊天/爬虫数据。
+- **中文优先**：所有用户界面文本和 Wiki 内容使用中文。通过 react-i18next 支持英文。
+- **Mastra Agent**：AI Agent 内嵌于 API 进程 (`apps/api/src/mastra/`)，使用 `@mastra/core`。通过 `@mastra/ai-sdk` 的 `chatRoute()` 暴露 AI SDK v6 兼容的流式聊天接口。
+- **动态模型解析**：Agent 从 `llm` 表运行时解析 LLM 模型，通过请求头读取用户选中的模型。
+- **Wiki 导入管道** (`ingest-pipeline.ts`)：两阶段 LLM 管道——阶段一分析源内容为结构化数据，阶段二生成 Wiki 页面 FILE 块。
+- **运行时配置** (`runtime_config` 表)：存储每个运行时（"session" 聊天、"wiki" 导入）的 LLM 参数。
+- **爬虫**：基于 Playwright，使用 Cookie 认证，结果存入 SQLite。
+- **OpenAPI 文档**：通过 `@hono/zod-openapi` 自动生成 OpenAPI 3.1 规范，Scalar UI 提供交互式文档页面。
 
-## API Routes (Hono)
+## 命令
 
-All routes under `/api/v1`:
-- `health` — health check
-- `llms` — CRUD + select LLM models
-- `runtime-configs` — read/update per-runtime config
-- `chats` — chat session CRUD
-- `tools` — tool config CRUD (web search, web fetch)
-- `wiki/*` — wiki spaces, pages, sources, ingest, graph, review, lint
-- `crawler/*` — crawl tasks and results
+```bash
+pnpm install                   # 安装所有依赖
+pnpm run dev                   # 并行启动所有开发服务
+pnpm run build                 # 构建所有包和应用
+pnpm run build:packages        # 仅构建共享包
+pnpm run typecheck             # 全仓库 TypeScript 类型检查
+pnpm run lint                  # 全仓库 ESLint 检查
+pnpm run test                  # 运行所有测试（vitest）
+pnpm run db:init               # 初始化 SQLite 数据库
+pnpm run db:generate           # 生成 Drizzle 迁移
+pnpm run db:migrate            # 执行 Drizzle 迁移
+pnpm run web:dev               # 仅前端（http://localhost:3000）
+pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:8000）
+```
 
-Agent chat route at `/api/agent/chat/:agentId` (proxied from web via Vite dev proxy).
+## API 路由
 
-Pattern: Each route file defines a Hono router; routes are mounted in `routes/v1/index.ts`. Services live in `modules/<name>/`. Zod schemas from `@feedmind/contracts` validate request bodies.
+所有路由位于 `/api/v1` 下：
 
-## Model Config Pattern
+| 路由              | 功能                                                     |
+| ----------------- | -------------------------------------------------------- |
+| `GET /health`     | 健康检查（含数据库连接状态）                             |
+| `LLMs`            | 模型 CRUD + 选中                                         |
+| `runtime-configs` | 运行时配置读写                                           |
+| `chats`           | 聊天会话 CRUD                                            |
+| `tools`           | 工具配置 CRUD                                            |
+| `wiki/*`          | Wiki 空间/页面/源/导入/图谱/审查/lint                    |
+| `crawler/*`       | 爬虫任务和结果                                           |
+| `openapi`         | OpenAPI 3.1 JSON 规范（由 `@hono/zod-openapi` 自动生成） |
+| `docs`            | Scalar 交互式 API 文档 UI                                |
 
-LLM providers are stored in the `llm` table (supports any OpenAI-compatible API). Users add models via the settings modal. One model can be "selected" (`is_selected = true`) for chat usage. The wiki ingest model is stored separately via `runtime_config` with `runtime = 'wiki'`.
+Agent 聊天路由：`/api/agent/chat/:agentId`（通过 Vite dev proxy 转发）。
 
-When adding a new runtime that needs LLM access, add a row to `runtime_config` and use `getRuntimeConfig(runtime)` from `config-service.ts` to resolve credentials.
+## 开发规范
 
-## Web App Notes
+### 实施规范
 
-- Uses TanStack Start (Vite-based), NOT the pages router. Routes in `src/routes/`.
-- Uses TanStack Query for server state management. Hooks in `lib/hooks/`, API clients in `lib/api/`.
-- Components in `components/` with subdirectories by domain (chat, wiki, settings, ai-elements, ui).
-- Chat UI uses ai-elements components (Conversation, Message, PromptInput) powered by @ai-sdk/react's useChat.
-- i18n via react-i18next (Chinese + English), theme via next-themes (light/dark/system).
+1. **动手前先联网调研**：当实现涉及已有技术栈的功能时，必须先通过联网搜索（WebSearch / MCP Context7）获取相关库/框架/工具的最新官方文档、API 变更、推荐实践，确保实现方案基于最新版本。
+2. **中文注释**：所有代码注释使用中文。遵循"注释说 WHY 不说 WHAT"原则——代码本身应自文档化，注释解释设计决策、边界条件、workaround 原因。
+3. **中文日志**：所有日志消息使用中文，结构化字段名使用英文。
+4. **中文回复**：与用户的交流、思考过程展示、代码评审等全部使用中文。
+
+### 提交规范
+
+- **约定式提交**：遵循 Conventional Commits 规范
+  ```
+  feat(scope): 添加用户登录功能
+  fix(api): 修复健康检查超时问题
+  chore(deps): 升级 pino 到 v10
+  docs(readme): 更新 API 文档链接
+  refactor(ingest): 提取公共解析逻辑
+  test(contracts): 补充 Zod schema 测试
+  style(eslint): 启用 no-floating-promises 规则
+  perf(worker): 优化缓存策略
+  ```
+- **husky pre-commit**：自动运行 `lint-staged`（prettier 格式化）
+- **husky commit-msg**：自动运行 `commitlint` 校验提交信息格式
+- **推送前**：运行 `pnpm run typecheck && pnpm run lint` 确保无错误
+
+### 代码格式化 (Prettier + EditorConfig)
+
+- `printWidth: 100`，2 空格缩进
+- 尾逗号（trailing comma），LF 换行
+- `.editorconfig` 统一跨 IDE 行为
+- `.gitattributes` 确保跨平台换行符一致
+
+### ESLint 规则
+
+| 规则                        | 级别  | 说明                      |
+| --------------------------- | ----- | ------------------------- |
+| `no-explicit-any`           | warn  | 避免随意使用 any          |
+| `no-unused-vars`            | warn  | `_` 前缀豁免              |
+| `consistent-type-imports`   | error | 强制 `import type`        |
+| `no-floating-promises`      | error | 禁止未处理的 Promise      |
+| `no-misused-promises`       | error | 禁止 Promise 误用         |
+| `await-thenable`            | error | 确保 await 仅用于 Promise |
+| `prefer-nullish-coalescing` | warn  | 鼓励 `??` 替代 `\|\|`     |
+| `prefer-optional-chain`     | warn  | 鼓励 `?.` 替代 `&&`       |
+
+API 和 Web 子包启用了 `parserOptions.projectService: true` 支持类型感知检查。
+
+### TypeScript 严格度
+
+- `strict: true` + `noUnusedLocals: true` + `noUnusedParameters: true`
+- `target: ES2023` + `module: NodeNext`，支持 `import type` 语法
+- `declarationMap: true`，方便 IDE 导航到源码
+
+### 命名规范
+
+- **文件命名**：kebab-case（`page-store.ts`、`ingest-worker.ts`）
+- **变量/函数**：camelCase
+- **类/类型/接口**：PascalCase
+- **未使用参数**：`_` 前缀（`_signal`、`_category`）
+
+### 日志规范
+
+- 使用 `pino` 结构化日志，通过 `import { logger } from "../../lib/logger.js"` 引用
+- 级别映射：`fatal`（进程退出）→ `error`（需人工关注）→ `warn`（可恢复降级）→ `info`（正常事件）
+- 敏感字段自动脱敏（`apiKey`、`password`、`cookies`、`authorization`）
+- 数据库包使用 `dbLogger`（`packages/db/src/logger.ts`）
+- 主动丢弃 Promise 时使用 `void` 操作符
+
+### 错误处理
+
+- API 层业务错误使用 `HttpError`（`lib/http.ts`）
+- 重新抛出捕获的异常时传递 `{ cause: err }`（符合 `preserve-caught-error` 规则）
+- 错误日志使用结构化字段：`logger.error({ err, taskId }, "描述")`
+
+### OpenAPI 文档
+
+- 使用 `@hono/zod-openapi` 定义带文档的路由：`createRoute()` → `openapiApp.openapi()`
+- 路由定义和 handler 分离，handler 中返回类型需要显式标注
+- 所有新路由优先使用 `OpenAPIHono` + `createRoute` 模式
+
+### 目录结构约定
+
+```
+apps/api/src/
+  lib/          通用工具（http、logger、openapi）
+  routes/v1/    Hono 路由定义 + OpenAPI 注册
+  modules/      业务逻辑服务（按模块分包）
+  mastra/       Mastra Agent 定义（agents、tools、prompts、subagents）
+packages/
+  contracts/    Zod schema + TypeScript types（契约单一数据源）
+  shared/       纯工具函数、加密、常量
+  db/           数据库 schema + 客户端初始化 + 迁移
+  wiki-core/    Wiki 文件系统引擎
+  crawler-core/ 爬虫引擎（core + platforms）
+```
+
+### 依赖管理
+
+- 使用 `pnpm@11` + workspace 协议（`workspace:*`）
+- 跨包共享依赖版本通过 `pnpm-workspace.yaml` 的 catalog 管理
+- 依赖更新通过 `.github/dependabot.yml` 自动化（如已配置）
+
+### 测试策略
+
+- 使用 `vitest` 作为测试框架
+- 测试文件放在源文件同级：`*.test.ts`
+- 编写测试优先覆盖 `packages/contracts` 的 Zod schema 验证
+- 集成测试使用内存 SQLite，避免外部依赖
+
+### 实施检查清单
+
+实现新功能前依次确认：
+
+1. [ ] 联网调研涉及的技术栈官方最新文档
+2. [ ] 遵循 kebab-case 文件命名
+3. [ ] 为公开 API 添加 JSDoc 说明
+4. [ ] 添加中文 "why" 注释（而非 "what" 注释）
+5. [ ] 使用中文日志消息 + 结构化字段
+6. [ ] 正确使用日志级别（error/warn/info）
+7. [ ] 捕获异常时传递 `{ cause: err }`
+8. [ ] 使用 `import type` 分离类型导入
+9. [ ] 路由优先使用 `@hono/zod-openapi` 模式
+10. [ ] 运行 `pnpm run typecheck && pnpm run lint` 确保无错误

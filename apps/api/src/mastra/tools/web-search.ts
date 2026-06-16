@@ -18,7 +18,11 @@ export const webSearchTool = createTool({
     const webSearch = ToolConfigClient.getInstance().getTool("web_search");
 
     if (!webSearch?.is_enabled) {
-      return JSON.stringify({ error: "WEB_SEARCH_DISABLED", query, message: "Web search is disabled" });
+      return JSON.stringify({
+        error: "WEB_SEARCH_DISABLED",
+        query,
+        message: "Web search is disabled",
+      });
     }
 
     const limit = Number(max_results ?? 5);
@@ -26,13 +30,16 @@ export const webSearchTool = createTool({
     // 按优先级顺序尝试：Tavily → Exa → AnySearch（兜底）
     const engines: Array<{
       name: string;
-      search: (signal: AbortSignal) => Promise<Array<{ title: string; url: string; content: string }>>;
+      search: (
+        signal: AbortSignal,
+      ) => Promise<Array<{ title: string; url: string; content: string }>>;
     }> = [];
 
     if (webSearch.config?.tavilyApiKey) {
       engines.push({
         name: "tavily",
-        search: (signal) => tavilySearch(query, limit, webSearch.config.tavilyApiKey as string, signal),
+        search: (signal) =>
+          tavilySearch(query, limit, webSearch.config.tavilyApiKey as string, signal),
       });
     }
     if (webSearch.config?.exaApiKey) {
@@ -43,7 +50,13 @@ export const webSearchTool = createTool({
     }
     engines.push({
       name: "anysearch",
-      search: (signal) => anysearchSearch(query, limit, webSearch.config?.anysearchApiKey as string | undefined, signal),
+      search: (signal) =>
+        anysearchSearch(
+          query,
+          limit,
+          webSearch.config?.anysearchApiKey as string | undefined,
+          signal,
+        ),
     });
 
     for (const engine of engines) {
@@ -54,7 +67,7 @@ export const webSearchTool = createTool({
           null,
           2,
         );
-      } catch (error) {
+      } catch (_error) {
         // 试下一个引擎，不提前中断
       }
     }

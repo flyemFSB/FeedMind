@@ -1,15 +1,15 @@
 import type { CrawlerContext, ContentModel, CreatorModel, StoreResult } from "./types.js";
 
 /**
- * Abstract base for all platform crawlers.
+ * 所有平台爬虫的抽象基类。
  *
- * Lifecycle:
+ * 生命周期:
  *   const crawler = new XxxCrawler(cookies, proxyUrl, abortSignal);
  *   const result = await crawler.start(ctx, store);
  *   await crawler.cleanup();
  *
- * Subclasses override execute() to implement crawl logic.
- * Use this.fetchWithAbort() for HTTP requests with safe cancellation.
+ * 子类重写 execute() 实现爬取逻辑。
+ * 使用 this.fetchWithAbort() 进行带安全取消的 HTTP 请求。
  */
 export abstract class AbstractCrawler {
   constructor(
@@ -18,7 +18,7 @@ export abstract class AbstractCrawler {
     protected abortSignal?: AbortSignal,
   ) {}
 
-  /** Template method: manages lifecycle, delegates to execute() */
+  /** 模板方法：管理生命周期，委托 execute() 执行实际逻辑 */
   async start(ctx: CrawlerContext, store: CrawlerStore): Promise<StoreResult> {
     await store.updateTaskStatus(ctx.taskId, "running");
 
@@ -41,26 +41,20 @@ export abstract class AbstractCrawler {
     }
   }
 
-  /** Subclasses implement crawl logic here. */
-  protected abstract execute(
-    ctx: CrawlerContext,
-    store: CrawlerStore,
-  ): Promise<StoreResult>;
+  /** 子类在此实现爬取逻辑。 */
+  protected abstract execute(ctx: CrawlerContext, store: CrawlerStore): Promise<StoreResult>;
 
-  /** Release resources (browser, etc.). */
+  /** 释放资源（浏览器等）。 */
   async cleanup(): Promise<void> {
     // subclasses override
   }
 
   /**
-   * Fetch with safe abort propagation and default timeout（15s）.
-   * Creates an inner AbortController linked to this.abortSignal
-   * so the request is cancelled when the task is cancelled or times out.
+   * 带安全取消传播和默认超时（15s）的 fetch。
+   * 创建与 this.abortSignal 关联的内部 AbortController，
+   * 使请求在任务取消或超时时中断。
    */
-  protected async fetchWithAbort(
-    url: string,
-    init?: RequestInit,
-  ): Promise<Response> {
+  protected async fetchWithAbort(url: string, init?: RequestInit): Promise<Response> {
     const controller = new AbortController();
     const timeout = AbortSignal.timeout(15_000);
     const onAbort = () => controller.abort();
@@ -74,31 +68,13 @@ export abstract class AbstractCrawler {
   }
 }
 
-/**
- * Store interface used by crawlers to persist results.
- */
+/** 爬虫保存结果的存储接口。 */
 export interface CrawlerStore {
-  saveContents(
-    taskId: string,
-    platform: string,
-    contents: ContentModel[],
-  ): Promise<number>;
+  saveContents(taskId: string, platform: string, contents: ContentModel[]): Promise<number>;
 
-  saveCreators(
-    taskId: string,
-    platform: string,
-    creators: CreatorModel[],
-  ): Promise<number>;
+  saveCreators(taskId: string, platform: string, creators: CreatorModel[]): Promise<number>;
 
-  updateTaskProgress(
-    taskId: string,
-    progress: number,
-    total: number,
-  ): Promise<void>;
+  updateTaskProgress(taskId: string, progress: number, total: number): Promise<void>;
 
-  updateTaskStatus(
-    taskId: string,
-    status: string,
-    error?: string,
-  ): Promise<void>;
+  updateTaskStatus(taskId: string, status: string, error?: string): Promise<void>;
 }

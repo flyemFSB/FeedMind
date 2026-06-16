@@ -55,9 +55,7 @@ export interface ChatContextValue {
   /** 重新生成最后一条助手消息 */
   regenerate: () => void;
   /** 直接设置消息（用于会话切换时加载历史） */
-  setMessages: (
-    messages: UIMessage[] | ((messages: UIMessage[]) => UIMessage[]),
-  ) => void;
+  setMessages: (messages: UIMessage[] | ((messages: UIMessage[]) => UIMessage[])) => void;
   /** 当前活跃会话 ID */
   activeThreadId: string | null;
   /** 是否正在加载历史消息 */
@@ -68,6 +66,8 @@ export interface ChatContextValue {
   createNewSession: () => Promise<void>;
   /** 立即保存当前会话 */
   saveCurrentSession: () => Promise<void>;
+  /** 清空当前会话（不保存，用于删除当前会话时） */
+  clearSession: () => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -104,8 +104,11 @@ function uiMessageToSnapshot(msg: UIMessage, modelId: string): ChatMessageSnapsh
 }
 
 /** 构建完整会话快照 */
-function buildSnapshot(messages: UIMessage[], modelId: string): { messages: ChatMessageSnapshot[] } {
-  return { messages: messages.map(msg => uiMessageToSnapshot(msg, modelId)) };
+function buildSnapshot(
+  messages: UIMessage[],
+  modelId: string,
+): { messages: ChatMessageSnapshot[] } {
+  return { messages: messages.map((msg) => uiMessageToSnapshot(msg, modelId)) };
 }
 
 /**
@@ -132,7 +135,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // 使用 ref 保存最新值，避免 onFinish 闭包捕获过期值
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
   const messagesRef = useRef<UIMessage[]>([]);
-  useEffect(() => { activeThreadIdRef.current = activeThreadId; }, [activeThreadId]);
+  useEffect(() => {
+    activeThreadIdRef.current = activeThreadId;
+  }, [activeThreadId]);
 
   // ── 当前选中模型的 modelId（API 模型标识符，如 "deepseek-v4-flash"）──
   const modelIdRef = useRef(getSelectedFeedMindModelId());
@@ -153,9 +158,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           const feedmindModelId = getSelectedFeedMindModel();
           return {
             body: { messages },
-            headers: (feedmindModelId
-              ? { "x-feedmind-model-id": feedmindModelId }
-              : {}) as Record<string, string>,
+            headers: (feedmindModelId ? { "x-feedmind-model-id": feedmindModelId } : {}) as Record<
+              string,
+              string
+            >,
           };
         },
       }),
@@ -173,18 +179,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   } = useChat({
     transport,
     onFinish: async () => {
-      // 流完成后自动持久化
       const threadId = activeThreadIdRef.current;
       if (!threadId) return;
       await persistMessages(threadId);
     },
     onError: (error) => {
-      console.error("[Chat] Stream error:", error);
+      console.error("[Chat] 流式响应异常:", error);
     },
   });
 
-  // 保持 messagesRef 同步
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // ── 持久化逻辑 ──
 
@@ -200,7 +206,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         // 刷新侧边栏列表
         queryClient.invalidateQueries({ queryKey: chatKeys.list() });
       } catch (err) {
-        console.error("[Chat] Failed to persist messages:", err);
+        console.error("[Chat] 消息持久化失败:", err);
       } finally {
         setIsSaving(false);
       }
@@ -219,7 +225,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const uiMessages = loaded.map(readToUIMessage);
         setUiMessages(uiMessages);
       } catch (err) {
-        console.error("[Chat] Failed to load messages:", err);
+        console.error("[Chat] 加载历史消息失败:", err);
         // 会话不存在则重置
         if ((err as Error)?.message?.includes("不存在")) {
           clearActiveFeedMindThreadId();
@@ -270,10 +276,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     async (threadId: string) => {
       if (threadId === activeThreadIdRef.current) return;
 
-      // 保存当前会话
       await persistMessages(activeThreadIdRef.current!);
 
-      // 切换到新会话
       writeActiveFeedMindThreadId(threadId);
       setActiveThreadId(threadId);
       activeThreadIdRef.current = threadId;
@@ -304,6 +308,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [persistMessages]);
 
+  /** 清空当前会话（不保存，用于删除当前会话时） */
+  const clearSession = useCallback(() => {
+    clearActiveFeedMindThreadId();
+    setActiveThreadId(null);
+    activeThreadIdRef.current = null;
+    setUiMessages([]);
+  }, [setUiMessages]);
+
   // ── 上下文值 ──
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -318,6 +330,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchSession,
       createNewSession: createNewSessionFn,
       saveCurrentSession,
+      clearSession,
     }),
     [
       messages,
@@ -331,14 +344,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       switchSession,
       createNewSessionFn,
       saveCurrentSession,
+      clearSession,
     ],
   );
 
-  return (
-    <ChatContext.Provider value={value}>
-      {children}
-    </ChatContext.Provider>
-  );
+  return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
 /**

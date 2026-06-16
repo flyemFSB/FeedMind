@@ -8,7 +8,7 @@ import { WeiboCrawler } from "../platforms/weibo/crawler.js";
 import { ZhihuCrawler } from "../platforms/zhihu/crawler.js";
 import { KuaishouCrawler } from "../platforms/kuaishou/crawler.js";
 
-/** Registry: platform → crawler factory function */
+/** 注册表：platform → crawler 工厂函数 */
 type CrawlerFactoryFn = (
   cookies?: string,
   proxyUrl?: string,
@@ -17,7 +17,7 @@ type CrawlerFactoryFn = (
 
 const registry = new Map<string, CrawlerFactoryFn>();
 
-// Register all built-in crawlers
+// 注册所有内置爬虫
 registry.set("xhs", (c, p, s) => new XhsCrawler(c, p, s));
 registry.set("dy", (c, p, s) => new DouyinCrawler(c, p, s));
 registry.set("bili", (c, p, s) => new BilibiliCrawler(c, p, s));
@@ -26,10 +26,7 @@ registry.set("zhihu", (c, p, s) => new ZhihuCrawler(c, p, s));
 registry.set("ks", (c, p, s) => new KuaishouCrawler(c, p, s));
 registry.set("tieba", (c, p, s) => new TiebaCrawler(c, p, s));
 
-/**
- * Create a crawler instance for the given platform.
- * Throws if the platform is not implemented.
- */
+/** 为指定平台创建爬虫实例。平台未实现时抛出异常。 */
 export function createCrawler(
   platform: Platform,
   cookies?: string,
@@ -43,7 +40,7 @@ export function createCrawler(
   return factory(cookies, proxyUrl, abortSignal);
 }
 
-/** Check whether a platform crawler is implemented. */
+/** 检查平台爬虫是否已实现。 */
 export function isPlatformImplemented(platform: Platform): boolean {
   return registry.has(platform);
 }

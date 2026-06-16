@@ -4,9 +4,13 @@
  * 依照 AI SDK v6 消息协议分派每种 part 类型：
  * - text          → MessageResponse (Markdown 流式渲染)
  * - reasoning     → Reasoning (可折叠思考过程)
- * - tool-{name}   → Tool (调用状态 + 参数 + 结果)
+ * - tool-{name}   → Tool (调用状态 + 参数 + 结果 + 关联思考)
  * - step-start    → 步骤分隔线
  * - source-*      → 来源引用
+ *
+ * 关联思考（thought）：每个 tool-* part 之前最近的 reasoning part 文本，
+ * 作为该工具调用的思考上下文传递给 Tool 组件，让用户了解模型
+ * 在调用工具时的推理过程。
  *
  * @see https://ai-sdk.dev/docs/ai-sdk-ui/chatbot
  * @see https://mastra.ai/reference/ai-sdk/chat-route
@@ -26,14 +30,7 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import { Tool, type ToolStatus } from "@/components/ai-elements/tool";
 import { useChatContext } from "@/lib/chat/chat-context";
-import {
-  Copy,
-  RotateCcw,
-  User,
-  Link as LinkIcon,
-  Brain,
-  ChevronDown,
-} from "lucide-react";
+import { Copy, RotateCcw, User, Link as LinkIcon, Brain, ChevronDown } from "lucide-react";
 import type { UIMessage } from "ai";
 import { useTranslation } from "react-i18next";
 
@@ -57,6 +54,69 @@ interface ToolPartInfo {
 /* -------------------------------------------------------------------------- */
 /* Helpers */
 /* -------------------------------------------------------------------------- */
+
+/** 将 thinkParts 按原始顺序渲染为 Reasoning + Tool 穿插的 React 节点列表 */
+function renderThinkParts(
+  thinkParts: UIMessage["parts"],
+  isReasoningStreaming: boolean,
+): React.ReactNode[] {
+  let pendingReasoning: string | null = null;
+  const elements: React.ReactNode[] = [];
+  let partIndex = 0;
+
+  for (const part of thinkParts) {
+    if (part.type === "reasoning") {
+      pendingReasoning = (part as { text: string }).text;
+      continue;
+    }
+
+    const toolInfo = parseToolPart(part);
+    if (toolInfo) {
+      if (pendingReasoning !== null) {
+        elements.push(
+          <Reasoning
+            key={`reason-${partIndex}`}
+            isStreaming={isReasoningStreaming}
+            defaultOpen={isReasoningStreaming}
+          >
+            <ReasoningTrigger />
+            <ReasoningContent>{pendingReasoning}</ReasoningContent>
+          </Reasoning>,
+        );
+        pendingReasoning = null;
+      }
+      elements.push(
+        <Tool
+          key={`tool-${partIndex}`}
+          toolName={toolInfo.toolName}
+          status={toolInfo.status}
+          args={toolInfo.args}
+          result={toolInfo.result}
+          isError={toolInfo.isError}
+        />,
+      );
+      partIndex++;
+      continue;
+    }
+
+    if (part.type === "step-start") {
+      pendingReasoning = null;
+      continue;
+    }
+  }
+
+  // 末尾可能还有未消费的 reasoning（模型思考后直接输出文本）
+  if (pendingReasoning !== null && isReasoningStreaming) {
+    elements.push(
+      <Reasoning key={`reason-tail-${partIndex}`} isStreaming={true} defaultOpen={true}>
+        <ReasoningTrigger />
+        <ReasoningContent>{pendingReasoning}</ReasoningContent>
+      </Reasoning>,
+    );
+  }
+
+  return elements;
+}
 
 /** 格式化任意值为可读 JSON 字符串 */
 function formatPayload(value: unknown): string {
@@ -105,16 +165,19 @@ function parseToolPart(part: UIMessage["parts"][number]): ToolPartInfo | null {
   const errorText = "errorText" in p ? (p.errorText as string) : undefined;
 
   const status: ToolStatus =
-    state === "output-available" ? "complete" :
-    state === "output-error" ? "error" :
-    state === "input-streaming" ? "streaming" :
-    "running";
+    state === "output-available"
+      ? "complete"
+      : state === "output-error"
+        ? "error"
+        : state === "input-streaming"
+          ? "streaming"
+          : "running";
 
   return {
     toolName,
     status,
     args: input !== undefined ? formatPayload(input) : "",
-    result: output !== undefined ? formatPayload(output) : errorText ?? "",
+    result: output !== undefined ? formatPayload(output) : (errorText ?? ""),
     isError: state === "output-error",
   };
 }
@@ -230,20 +293,26 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   }, [message.parts]);
 
   const hasThinking = thinkParts.length > 0;
-  const isThinkingStreaming = isStreaming && thinkParts.some((p) => {
-    if (p.type === "reasoning") return true;
-    const t = parseToolPart(p);
-    return t && (t.status === "streaming" || t.status === "running");
-  });
+  const isThinkingStreaming =
+    isStreaming &&
+    thinkParts.some((p) => {
+      if (p.type === "reasoning") return true;
+      const t = parseToolPart(p);
+      return t && (t.status === "streaming" || t.status === "running");
+    });
 
-  // 合并所有 reasoning part 的文本为一个可折叠面板
-  const reasoningParts = message.parts.filter(
-    (p): p is { type: "reasoning"; text: string } => p.type === "reasoning",
-  );
-  const reasoningText = reasoningParts.map((p) => p.text).join("\n\n");
-  const hasReasoning = reasoningParts.length > 0;
-  const lastPart = message.parts.at(-1);
-  const isReasoningStreaming = isLastMessage && isStreaming && lastPart?.type === "reasoning";
+  // 判断当前是否处于 reasoning 流式状态（用于 Reasoning 组件的 streaming 指示器）
+  const isReasoningStreaming = useMemo(() => {
+    if (!isLastMessage || !isStreaming) return false;
+    // 如果最后一个非 step-start 的 think part 是 reasoning，表示 reasoning 还在流
+    const lastThink = [...thinkParts].reverse().find((p) => p.type !== "step-start");
+    if (!lastThink) return false;
+    if (lastThink.type === "reasoning") return true;
+    const tool = parseToolPart(lastThink);
+    // 如果最后一个 tool 还在 streaming/running，说明工具调用完成后可能还有 reasoning
+    if (tool && (tool.status === "streaming" || tool.status === "running")) return true;
+    return false;
+  }, [thinkParts, isLastMessage, isStreaming]);
 
   /* ---- 用户消息 ---- */
   if (message.role === "user") {
@@ -285,41 +354,10 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
           </div>
 
           <MessageContent>
-            {/* ---- 思考过程（推理 + 工具调用） ---- */}
+            {/* ---- 思考过程（推理 + 工具调用，按原始顺序穿插） ---- */}
             {hasThinking && (
               <ThinkingProcess isStreaming={isThinkingStreaming}>
-                {/* 合并渲染所有推理文本 */}
-                {hasReasoning && (
-                  <Reasoning isStreaming={isReasoningStreaming} defaultOpen={isReasoningStreaming}>
-                    <ReasoningTrigger />
-                    <ReasoningContent>{reasoningText}</ReasoningContent>
-                  </Reasoning>
-                )}
-
-                {thinkParts.map((part, i) => {
-                  const toolInfo = parseToolPart(part);
-                  if (toolInfo) {
-                    return (
-                      <Tool
-                        key={`think-${i}`}
-                        toolName={toolInfo.toolName}
-                        status={toolInfo.status}
-                        args={toolInfo.args}
-                        result={toolInfo.result}
-                        isError={toolInfo.isError}
-                      />
-                    );
-                  }
-
-                  switch (part.type) {
-                    case "reasoning":
-                      return null; // 已在上面合并渲染
-                    case "step-start":
-                      return null; // 已移除分割线
-                    default:
-                      return null;
-                  }
-                })}
+                {renderThinkParts(thinkParts, isReasoningStreaming)}
               </ThinkingProcess>
             )}
 

@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { runStructuralLint, parseFrontmatter, getFileStem, getRelativePath, normalizePath } from "@feedmind/wiki-core";
+import { runStructuralLint, getFileStem, normalizePath } from "@feedmind/wiki-core";
 import type { LintResult } from "@feedmind/contracts";
-import { HttpError } from "../../lib/http.js";
 import { spaceDir } from "./wiki-utils.js";
 
 function lintPath(spaceId: string): string {
@@ -30,16 +29,19 @@ export async function runLint(spaceId: string): Promise<LintResult[]> {
         } else if (entry.name.endsWith(".md")) {
           try {
             const content = fs.readFileSync(fullPath, "utf-8");
-            const relPath = path.relative(spaceDir(spaceId), fullPath);
             pages.push({
               path: normalizePath(fullPath),
               slug: getFileStem(entry.name),
               content,
             });
-          } catch { /* skip */ }
+          } catch {
+            /* skip */
+          }
         }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   };
   loadDir(wikiDir);
 

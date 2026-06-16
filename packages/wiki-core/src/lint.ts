@@ -1,23 +1,21 @@
 import type { LintResult } from "@feedmind/contracts";
-import { extractWikilinks, normalizeWikilinkTarget } from "./wikilinks.js";
-import { parseFrontmatter, extractType, extractTitle } from "./frontmatter.js";
+import { extractWikilinks } from "./wikilinks.js";
+import { extractType } from "./frontmatter.js";
 import { getFileStem, getRelativePath } from "./paths.js";
 
-/**
- * Run structural lint on wiki pages.
- */
+/** 对 Wiki 页面执行结构性 lint 检查 */
 export function runStructuralLint(
   pages: Array<{ path: string; slug: string; content: string }>,
   wikiRoot: string,
 ): LintResult[] {
-  // Build slug map
+  // 构建 slug 映射表
   const slugMap = new Map<string, string>();
   for (const p of pages) {
     slugMap.set(p.slug.toLowerCase(), p.path);
     slugMap.set(getFileStem(p.path).toLowerCase(), p.path);
   }
 
-  // Build inbound link counts
+  // 构建入链计数
   const inboundCounts = new Map<string, number>();
   const outlinksByPage = new Map<string, string[]>();
 
@@ -39,7 +37,7 @@ export function runStructuralLint(
   for (const p of pages) {
     const shortName = getRelativePath(p.path, wikiRoot);
 
-    // Orphan check
+    // 孤立页面检查
     const inbound = inboundCounts.get(p.slug.toLowerCase()) ?? 0;
     if (inbound === 0 && p.slug !== "index" && p.slug !== "log") {
       results.push({
@@ -50,7 +48,7 @@ export function runStructuralLint(
       });
     }
 
-    // No outlinks check
+    // 无外链检查
     const outlinks = outlinksByPage.get(p.slug) ?? [];
     if (outlinks.length === 0 && p.slug !== "index" && p.slug !== "log" && p.slug !== "overview") {
       results.push({
@@ -61,7 +59,7 @@ export function runStructuralLint(
       });
     }
 
-    // Broken links
+    // 死链检查
     for (const link of outlinks) {
       const lookup = link.toLowerCase();
       const exists = slugMap.has(lookup);
@@ -75,7 +73,7 @@ export function runStructuralLint(
       }
     }
 
-    // Invalid frontmatter check (type must be set)
+    // 无效 frontmatter 检查（type 字段必须设置）
     const type = extractType(p.content);
     if (!type) {
       results.push({

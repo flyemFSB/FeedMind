@@ -2,76 +2,63 @@ import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "./model-cache.js";
-import { getSelectedModel, getModelRuntime } from "../../modules/llms/service.js";
+import { getSelectedModel } from "../../modules/llms/service.js";
 import { getConfig } from "../../modules/models/config-service.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
 import { wikiReadTool } from "../tools/wiki-read.js";
 import { wikiSearchTool } from "../tools/wiki-search.js";
+import { taskTool, getSubagentDescriptions } from "../tools/task.js";
 import { createFeedMindWorkspace } from "../workspace.js";
+import { cachedGet, clearCache } from "../utils/cached-get.js";
+import { parseTokenCount } from "../utils/parse-token-count.js";
+import { resolveChatModel } from "../utils/model-resolver.js";
+import { logger } from "../../lib/logger.js";
 
 const feedmindWorkspace = createFeedMindWorkspace();
 
-// 简单 TTL 缓存，减少每次消息重复查 DB
-const cache = new Map<string, { value: unknown; expiry: number }>();
-const CACHE_TTL = 30_000; // 30 秒
-
-async function cachedGet<T>(key: string, fetch: () => Promise<T>): Promise<T> {
-  const now = Date.now();
-  const entry = cache.get(key);
-  if (entry && entry.expiry > now) return entry.value as T;
-  const value = await fetch();
-  cache.set(key, { value, expiry: now + CACHE_TTL });
-  return value;
-}
-
-/** 解析 "128K" → 128000, "1M" → 1000000, null → undefined */
-function parseTokenCount(value: string | null | undefined): number | undefined {
-  if (!value) return undefined;
-  const upper = value.toUpperCase().trim();
-  const match = upper.match(/^([\d.]+)\s*(K|M)?$/);
-  if (!match) return undefined;
-  const num = parseFloat(match[1]);
-  if (Number.isNaN(num)) return undefined;
-  const unit = match[2];
-  if (unit === "M") return Math.round(num * 1_000_000);
-  if (unit === "K") return Math.round(num * 1_000);
-  return Math.round(num);
-}
-
 /**
- * FeedMind Agent — 通过 Mastra RequestContext 动态解析模型，
- * 从 runtime_config 表读取统一参数注入 AI SDK v6 标准化字段。
+ * FeedMind Agent — Supervisor Agent
+ *
+ * 面向用户的主 agent，通过 task 工具动态创建 subagent 来执行子任务。
+ * 所有 subagent（researcher / extractor / summarizer / browser）均通过
+ * task 工具在运行时动态生成，不在编译时注册。
+ *
+ * 模型解析：支持请求头 x-feedmind-model-id → DB 兜底，带 30s TTL 缓存。
  */
 export const feedmindAgent = new Agent({
   id: "feedmind",
   name: "FeedMind",
-  instructions: buildSystemPrompt(),
-  model: async ({ requestContext }: { requestContext?: RequestContext }) => {
-    // 1. 优先使用请求级模型 ID（来自 header → requestContext）
-    const modelId = requestContext?.get("feedmindModelId") as string | undefined;
-    if (modelId) {
-      try {
-        const { client, modelName } = await resolveModelClient(Number(modelId));
-        return client.chat(modelName);
-      } catch (err) {
-        console.error("[feedmind] resolveModelClient from header failed:", err);
-        // fall through to fallback
-      }
-    }
+  description: "研究辅助 supervisor agent，负责协调搜索、wiki、浏览器等子任务。",
+  instructions:
+    buildSystemPrompt(`你是 FeedMind，面向研究任务的 AI 助手。你可以使用自身工具或通过 task 工具创建专用 subagent 来完成任务。
 
-    // 2. 回退：查询已选模型（带缓存）
-    const selected = await cachedGet("getSelectedModel", () => getSelectedModel());
-    if (!selected.id) {
-      throw new Error(
-        "No model configured. Please add an LLM model in Settings, then try again.",
-      );
-    }
+## 自身工具
+- web_search / web_fetch — 搜索和抓取网络信息
+- wiki_search / wiki_read — 查询本地知识库
+- ask_clarification — 用户意图模糊时提问澄清
 
-    const { client, modelName } = await resolveModelClient(selected.id);
-    return client.chat(modelName);
-  },
+## task 工具 — 动态创建 subagent
+当任务可分解为独立子任务时，使用 task 工具创建专用 subagent：
+
+${getSubagentDescriptions()}
+
+## 委托规则
+1. 简单搜索、wiki 查询 → 使用自身工具（web_search / web_fetch / wiki_search）
+2. 深度多来源研究 → 使用 task(researcher)
+3. 数据提取、页面解析 → 使用 task(extractor)
+4. 长文本总结 → 使用 task(summarizer)
+5. 浏览器交互（JS 渲染、点击、表单） → 使用 task(browser)
+6. 多个独立子任务可以在同一步骤中并行执行
+7. 委托后结合 subagent 返回的结果给出最终回答
+
+规则：
+- 不编造来源；搜索无可用结果时，说明依据不是搜索结果。
+- 回答清晰、结构化、可执行。
+- 调用工具时，数组参数必须传 JSON 数组（如 ["a","b"]），数字必须传数字不要传字符串。`),
+  model: async ({ requestContext }: { requestContext?: RequestContext }) =>
+    resolveChatModel(requestContext),
   defaultOptions: async () => {
     try {
       const [cfg, selected] = await Promise.all([
@@ -81,8 +68,9 @@ export const feedmindAgent = new Agent({
 
       let maxTokens: number | undefined;
       if (selected.id) {
-        const runtime = await getModelRuntime(selected.id);
-        maxTokens = parseTokenCount(runtime.max_output);
+        // resolveModelClient 自带缓存，避免重复 getModelRuntime 查询
+        const resolved = await resolveModelClient(selected.id);
+        maxTokens = parseTokenCount(resolved.maxOutput);
       }
 
       return {
@@ -93,7 +81,7 @@ export const feedmindAgent = new Agent({
         },
       };
     } catch (err) {
-      console.error("[feedmind] getConfig(\"session\") failed:", err);
+      logger.error({ err }, "获取会话配置失败，使用默认配置");
       return {};
     }
   },
@@ -103,11 +91,12 @@ export const feedmindAgent = new Agent({
     webSearchTool,
     wikiReadTool,
     wikiSearchTool,
+    taskTool,
   },
   workspace: feedmindWorkspace,
 });
 
 /** 供外部调用以在模型选择变更时清理缓存 */
 export function clearConfigCache(): void {
-  cache.clear();
+  clearCache();
 }

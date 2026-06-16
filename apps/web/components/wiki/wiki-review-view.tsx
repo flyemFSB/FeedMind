@@ -2,7 +2,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Lightbulb, RefreshCw, XCircle } from "lucide-react";
 import type { ReviewItem } from "@feedmind/contracts";
-import { listReviewItems, resolveReviewItem, dismissReviewItem, sweepReviewItems } from "@/lib/api/wiki";
+import {
+  listReviewItems,
+  resolveReviewItem,
+  dismissReviewItem,
+  sweepReviewItems,
+} from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
@@ -37,26 +42,32 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
       const result = await listReviewItems(spaceId);
       setItems(result);
     } catch {
-      // errors handled by apiFetch toast
+      // 错误由 apiFetch toast 统一处理
     } finally {
       setLoading(false);
     }
   }, [spaceId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const handleResolve = async (itemId: string) => {
     try {
       await resolveReviewItem(spaceId, itemId);
-      setItems((prev) => prev.map((r) => r.id === itemId ? { ...r, resolved: true } : r));
-    } catch { /* handled by apiFetch toast */ }
+      setItems((prev) => prev.map((r) => (r.id === itemId ? { ...r, resolved: true } : r)));
+    } catch {
+      /* 错误由 apiFetch toast 统一处理 */
+    }
   };
 
   const handleDismiss = async (itemId: string) => {
     try {
       await dismissReviewItem(spaceId, itemId);
       setItems((prev) => prev.filter((r) => r.id !== itemId));
-    } catch { /* handled by apiFetch toast */ }
+    } catch {
+      /* 错误由 apiFetch toast 统一处理 */
+    }
   };
 
   const handleSweep = async () => {
@@ -117,7 +128,9 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                 <div
                   key={item.id}
                   className={`rounded-xl border p-4 transition-colors ${
-                    item.resolved ? "border-editorial-surface-strong bg-editorial-canvas-soft opacity-60" : "border-editorial-surface-strong bg-editorial-surface-card"
+                    item.resolved
+                      ? "border-editorial-surface-strong bg-editorial-canvas-soft opacity-60"
+                      : "border-editorial-surface-strong bg-editorial-surface-card"
                   }`}
                 >
                   <div className="mb-2 flex items-center gap-2">
@@ -129,8 +142,12 @@ export function WikiReviewView({ spaceId }: WikiReviewViewProps) {
                       {item.type}
                     </span>
                   </div>
-                  <h3 className="mb-1 text-[13px] font-semibold text-editorial-ink">{item.title}</h3>
-                  <p className="mb-3 text-[11px] leading-relaxed text-editorial-ink-muted">{item.description}</p>
+                  <h3 className="mb-1 text-[13px] font-semibold text-editorial-ink">
+                    {item.title}
+                  </h3>
+                  <p className="mb-3 text-[11px] leading-relaxed text-editorial-ink-muted">
+                    {item.description}
+                  </p>
                   {!item.resolved && (
                     <div className="flex gap-2">
                       <Button

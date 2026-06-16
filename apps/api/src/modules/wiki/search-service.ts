@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { searchPages, parseFrontmatter } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { HttpError } from "../../lib/http.js";
 import { spaceDir } from "./wiki-utils.js";
 
 interface SearchablePage {
@@ -30,10 +29,14 @@ function loadSearchablePages(spaceId: string): SearchablePage[] {
             const title = (frontmatter.title as string) ?? entry.name.replace(/\.md$/, "");
             const relPath = path.relative(spaceDir(spaceId), fullPath).replace(/\\/g, "/");
             pages.push({ path: relPath, title, content });
-          } catch { /* skip unreadable */ }
+          } catch {
+            /* skip unreadable */
+          }
         }
       }
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   };
   loadDir(wikiDir);
   return pages;

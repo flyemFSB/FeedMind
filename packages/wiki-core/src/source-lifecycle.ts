@@ -1,17 +1,15 @@
-import { normalizePath, getFileName, getFileStem, joinPath } from "./paths.js";
-import { sourceIdentityForPath, sourceReferenceIdentity, sourceSummarySlugFromIdentity } from "./source-identity.js";
-import { parseFrontmatter, formatFrontmatter, extractSources, extractRelated } from "./frontmatter.js";
+import { normalizePath, joinPath } from "./paths.js";
+import { sourceIdentityForPath, sourceReferenceIdentity } from "./source-identity.js";
+import { parseFrontmatter, formatFrontmatter, extractSources } from "./frontmatter.js";
 
-/**
- * Result of deleting source files.
- */
+/** 删除来源文件的结果 */
 export interface DeleteSourcesResult {
   deletedWikiPaths: string[];
   rewrittenSourcePages: number;
 }
 
 /**
- * Delete source files and cascade cleanup of wiki pages that reference them.
+ * 删除来源文件，并级联清理引用了这些来源的 Wiki 页面。
  */
 export function deleteSources(
   projectDir: string,
@@ -21,7 +19,7 @@ export function deleteSources(
 ): DeleteSourcesResult {
   const pp = normalizePath(projectDir);
 
-  // Build identity set for sources being deleted
+  // 构建被删除来源的身份标识集
   const deletingIdentities = new Set(
     sourcePaths.map((sp) => {
       const fullPath = joinPath(pp, "raw/sources", sp);
@@ -32,7 +30,7 @@ export function deleteSources(
   const pagesToDelete: string[] = [];
   const pagesToRewrite: Array<{ path: string; newContent: string }> = [];
 
-  for (const [pageId, page] of pageContents) {
+  for (const [, page] of pageContents) {
     const sources = extractSources(page.content);
     if (sources.length === 0) continue;
 
@@ -46,10 +44,13 @@ export function deleteSources(
     if (survivors.length === 0) {
       pagesToDelete.push(page.path);
     } else if (mode === "detach") {
-      // Remove deleted source from sources list, keep page
+      // 从 sources 列表中移除已删除来源，保留页面
       const { frontmatter, body } = parseFrontmatter(page.content);
       frontmatter.sources = survivors;
-      pagesToRewrite.push({ path: page.path, newContent: formatFrontmatter(frontmatter) + "\n" + body });
+      pagesToRewrite.push({
+        path: page.path,
+        newContent: formatFrontmatter(frontmatter) + "\n" + body,
+      });
     }
   }
 
@@ -60,7 +61,7 @@ export function deleteSources(
 }
 
 /**
- * Get a preview of what would be deleted/affected.
+ * 预览删除操作的影响范围。
  */
 export function previewDeleteImpact(
   projectDir: string,
@@ -85,15 +86,24 @@ export function previewDeleteImpact(
 
   for (const [, page] of pageContents) {
     const sources = extractSources(page.content);
-    if (sources.length === 0) { unaffected++; continue; }
+    if (sources.length === 0) {
+      unaffected++;
+      continue;
+    }
 
     const survivors = sources.filter((s: string) => {
       const key = sourceReferenceIdentity(s);
       return !deletingIdentities.has(key);
     });
 
-    if (survivors.length === sources.length) { unaffected++; continue; }
-    if (survivors.length === 0) { willDelete.push(page.path); continue; }
+    if (survivors.length === sources.length) {
+      unaffected++;
+      continue;
+    }
+    if (survivors.length === 0) {
+      willDelete.push(page.path);
+      continue;
+    }
     willUpdate.push(page.path);
   }
 

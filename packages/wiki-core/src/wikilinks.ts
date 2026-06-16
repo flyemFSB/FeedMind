@@ -1,11 +1,11 @@
 const WIKILINK_REGEX = /\[\[([^\]|]+?)(?:\|([^\]]+?))?\]\]/g;
 
 /**
- * Extract wikilink targets from content, skipping fenced code blocks.
+ * 从内容中提取 wikilink 目标，跳过代码 fence 块。
  */
 export function extractWikilinks(content: string): string[] {
   const links: string[] = [];
-  // Remove fenced code blocks first
+  // 先移除代码 fence 块
   const clean = content.replace(/```[\s\S]*?```/g, "").replace(/~~~[\s\S]*?~~~/g, "");
   const regex = new RegExp(WIKILINK_REGEX.source, "g");
   let match: RegExpExecArray | null;
@@ -15,9 +15,7 @@ export function extractWikilinks(content: string): string[] {
   return links;
 }
 
-/**
- * Extract wikilinks with display text.
- */
+/** 提取 wikilink 及其显示文字 */
 export function extractWikilinksWithAlias(
   content: string,
 ): Array<{ target: string; alias: string | null }> {
@@ -31,21 +29,16 @@ export function extractWikilinksWithAlias(
   return links;
 }
 
-/**
- * Normalize a wikilink target for matching (lowercase, hyphens).
- */
+/** 标准化 wikilink 目标用于匹配（小写、连字符化） */
 export function normalizeWikilinkTarget(target: string): string {
   return target.toLowerCase().replace(/\s+/g, "-");
 }
 
 /**
- * Resolve a wikilink target to a known page slug.
- * Returns the matching slug or null if not found.
+ * 将 wikilink 目标解析为已知页面 slug。
+ * 返回匹配的 slug 或 null。
  */
-export function resolveWikilink(
-  target: string,
-  knownSlugs: Set<string>,
-): string | null {
+export function resolveWikilink(target: string, knownSlugs: Set<string>): string | null {
   if (knownSlugs.has(target)) return target;
 
   const normalized = normalizeWikilinkTarget(target);
@@ -57,12 +50,9 @@ export function resolveWikilink(
 }
 
 /**
- * Strip wikilinks to deleted pages, replacing with plain text.
+ * 剥离指向已删除页面的 wikilink，替换为纯文字。
  */
-export function stripDeletedWikilinks(
-  text: string,
-  deletedKeys: Set<string>,
-): string {
+export function stripDeletedWikilinks(text: string, deletedKeys: Set<string>): string {
   if (deletedKeys.size === 0) return text;
   return text.replace(WIKILINK_REGEX, (match, target: string, display?: string) => {
     const key = normalizeWikilinkTarget(target.trim());
@@ -71,9 +61,7 @@ export function stripDeletedWikilinks(
   });
 }
 
-/**
- * Normalize a label for comparison (lowercase, strip hyphens/spaces).
- */
+/** 标准化标签用于比较（小写，去连字符/空格） */
 export function normalizeWikiRefKey(s: string): string {
   const normalized = s.trim().replace(/\\/g, "/");
   const leaf = normalized.split("/").pop() ?? normalized;
@@ -81,9 +69,7 @@ export function normalizeWikiRefKey(s: string): string {
   return withoutMd.toLowerCase().replace(/[\s\-_]+/g, "");
 }
 
-/**
- * Build the lookup set of normalized keys for deleted pages.
- */
+/** 构建已删除页面的标准化键查询集 */
 export function buildDeletedKeys(infos: Array<{ slug: string; title: string }>): Set<string> {
   const keys = new Set<string>();
   for (const info of infos) {
@@ -93,9 +79,7 @@ export function buildDeletedKeys(infos: Array<{ slug: string; title: string }>):
   return keys;
 }
 
-/**
- * Clean index.md listing lines whose primary wikilink targets a deleted page.
- */
+/** 清理 index.md 列表中指向已删除页面的行 */
 export function cleanIndexListing(text: string, deletedKeys: Set<string>): string {
   if (deletedKeys.size === 0) return text;
   const INDEX_ENTRY_RE = /^\s*[-*]\s*\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/;

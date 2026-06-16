@@ -1,5 +1,8 @@
 # Node.js → Bun 迁移方案
 
+> **2026-06-16 更新：决策已逆转。本项目已完成 Bun → Node.js 的全量迁移，当前使用 pnpm + Node.js。**
+> 保留此文件作为历史记录。
+
 > 基于 @mastra/core v1.41.0、Hono v4、Vite 8、TanStack Router v1 + Query v5 官方文档分析。
 
 ## 一、当前架构总览

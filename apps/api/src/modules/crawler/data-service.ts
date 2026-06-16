@@ -1,8 +1,5 @@
 import { and, count, desc, eq, sql } from "drizzle-orm";
-import {
-  crawlerContents,
-  crawlerCreators,
-} from "@feedmind/db";
+import { crawlerContents, crawlerCreators } from "@feedmind/db";
 import type {
   ContentListItem,
   ContentRead,
@@ -13,7 +10,7 @@ import type {
 import { db } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
 
-// ─── Helpers ───────────────────────────────────────────────────
+// ─── 辅助函数 ─────────────────────────────────────────────────
 function toContentRead(row: typeof crawlerContents.$inferSelect): ContentRead {
   return {
     id: row.id,
@@ -84,7 +81,7 @@ function toCreatorListItem(row: typeof crawlerCreators.$inferSelect): CreatorLis
   };
 }
 
-// ─── Public API ────────────────────────────────────────────────
+// ─── 公开 API ──────────────────────────────────────────────────
 
 export async function listContents(params: {
   platform?: string;

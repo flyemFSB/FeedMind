@@ -4,7 +4,7 @@ export async function exaSearch(
   query: string,
   maxResults: number,
   apiKey: string,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ) {
   const exa = new Exa(apiKey);
 

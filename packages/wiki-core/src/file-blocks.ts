@@ -1,8 +1,6 @@
 import { isAbsolutePath, normalizePath } from "./paths.js";
 
-/**
- * A parsed FILE block from LLM output.
- */
+/** LLM 输出的 FILE block 解析结果 */
 export interface ParsedFileBlock {
   path: string;
   content: string;
@@ -13,13 +11,13 @@ export interface ParseFileBlocksResult {
   warnings: string[];
 }
 
-// Matchers for FILE block markers
+// FILE block 标记的正则匹配
 const OPENER_LINE = /^---\s*FILE:\s*(.+?)\s*---\s*$/i;
 const CLOSER_LINE = /^---\s*END\s+FILE\s*---\s*$/i;
 const FENCE_LINE = /^\s{0,3}(```+|~~~+)/;
 
 /**
- * Parse LLM output into FILE blocks with path traversal protection.
+ * 解析 LLM 输出中的 FILE block，含路径穿越防护。
  */
 export function parseFileBlocks(text: string): ParseFileBlocksResult {
   const normalized = text.replace(/\r\n/g, "\n");
@@ -45,7 +43,7 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
     while (i < lines.length) {
       const line = lines[i];
 
-      // Track fenced code blocks so we don't mistake ---END FILE--- inside them
+      // 追踪代码 fence，避免将 ``` 内部的 ---END FILE--- 误判为 block 结束
       const fenceMatch = FENCE_LINE.exec(line);
       if (fenceMatch) {
         const run = fenceMatch[1];
@@ -53,7 +51,7 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
         const len = run.length;
         if (fenceMarker === null) {
           fenceMarker = char;
-        } else if (char === fenceMarker && len >= (fenceMarker.length)) {
+        } else if (char === fenceMarker && len >= fenceMarker.length) {
           fenceMarker = null;
         }
         contentLines.push(line);
@@ -72,7 +70,9 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
     }
 
     if (!closed) {
-      warnings.push(`FILE block "${path || "(unnamed)"}" was not closed before end of stream — dropped.`);
+      warnings.push(
+        `FILE block "${path || "(unnamed)"}" was not closed before end of stream — dropped.`,
+      );
       continue;
     }
 
@@ -93,8 +93,8 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
 }
 
 /**
- * Check if a FILE block path is safe to write.
- * Only allows paths under wiki/, rejects .., absolute paths, etc.
+ * 检查 FILE block 路径是否安全可写入。
+ * 只允许 wiki/ 下的路径，拒绝 ..、绝对路径等。
  */
 export function isSafeIngestPath(p: string): boolean {
   if (typeof p !== "string" || p.trim().length === 0) return false;
@@ -111,33 +111,29 @@ export function isSafeIngestPath(p: string): boolean {
 }
 
 /**
- * Sanitize ingested file content: remove wrapping code fences, fix common LLM errors.
+ * 净化导入的文件内容：移除外层代码包围、修复 LLM 常见错误。
  */
 export function sanitizeIngestedFileContent(content: string): string {
   let result = content.trim();
 
-  // Remove wrapping ```yaml ... ``` or ```markdown ... ```
+  // 移除 ```yaml ... ``` 或 ```markdown ... ``` 外层包围
   const fencingMatch = result.match(/^```(?:\w+)?\n([\s\S]*?)```$/);
   if (fencingMatch) {
     result = fencingMatch[1].trim();
   }
 
-  // Remove "frontmatter:" prefix that LLMs sometimes add
+  // 移除 LLM 有时会多加的 "frontmatter:" 前缀
   result = result.replace(/^frontmatter:\s*\n/i, "");
 
   return result;
 }
 
-/**
- * Check if a path is a log path.
- */
+/** 判断路径是否为日志页面 */
 export function isLogPath(relativePath: string): boolean {
   return relativePath === "wiki/log.md" || relativePath.endsWith("/log.md");
 }
 
-/**
- * Check if a path is a listing page (index or overview).
- */
+/** 判断路径是否为索引/总览页面 */
 export function isListingPath(relativePath: string): boolean {
   return (
     relativePath === "wiki/index.md" ||

@@ -13,7 +13,6 @@ import {
 
 export const chatRoutes = new Hono();
 
-// 创建新会话
 const createSessionSchema = z.object({
   agent_thread_id: z.string().optional(),
   title: z.string().nullable().optional(),
@@ -25,10 +24,16 @@ chatRoutes.post("/chats", async (c) => {
 });
 
 chatRoutes.get("/chats", async (c) => jsonOk(c, await listChatSessions()));
-chatRoutes.get("/chats/:sessionId", async (c) => jsonOk(c, await getChatSession(c.req.param("sessionId"))));
-chatRoutes.get("/chats/:sessionId/messages", async (c) => jsonOk(c, await getChatSessionMessages(c.req.param("sessionId"))));
+chatRoutes.get("/chats/:sessionId", async (c) =>
+  jsonOk(c, await getChatSession(c.req.param("sessionId"))),
+);
+chatRoutes.get("/chats/:sessionId/messages", async (c) =>
+  jsonOk(c, await getChatSessionMessages(c.req.param("sessionId"))),
+);
 chatRoutes.put("/chats/:sessionId", async (c) => {
   const payload = await parseJson(c, chatSessionSnapshotSchema);
   return jsonOk(c, await saveChatSession(c.req.param("sessionId"), payload));
 });
-chatRoutes.delete("/chats/:sessionId", async (c) => jsonOk(c, await deleteChatSession(c.req.param("sessionId"))));
+chatRoutes.delete("/chats/:sessionId", async (c) =>
+  jsonOk(c, await deleteChatSession(c.req.param("sessionId"))),
+);

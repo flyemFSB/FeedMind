@@ -4,7 +4,7 @@
 .DESCRIPTION
   自动完成：.env 检查 → 依赖安装 → 数据库初始化 → 启动 API + Web（同一终端）
 .PARAMETER SkipInstall
-  跳过 bun install
+  跳过 pnpm install
 .PARAMETER SkipDb
   跳过数据库初始化
 #>
@@ -27,11 +27,11 @@ New-Item -ItemType Directory -Path (Join-Path $root "data") -Force | Out-Null
 # ── 3. install + db ──────────────────────────────────────
 Push-Location $root
 try {
-    if (-not $SkipInstall) { bun install }
-    if (-not $SkipDb) { bun run db:init }
+    if (-not $SkipInstall) { pnpm install }
+    if (-not $SkipDb) { pnpm run db:init }
 
-    # ── 4. 启动 API + Web（同一终端，bun run --parallel 加前缀区分）───
-    bun run dev
+    # ── 4. 启动 API + Web（同一终端，concurrently 加前缀区分）───
+    pnpm run dev
 } finally {
     Pop-Location
 }

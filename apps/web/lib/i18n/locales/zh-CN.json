@@ -68,6 +68,7 @@
     "toolComplete": "完成",
     "toolArgs": "参数",
     "toolResult": "结果",
+    "toolThought": "思考过程",
     "toolError": "错误",
     "noArgsOrResult": "暂无参数或结果",
     "expandToolDetails": "展开工具调用详情",

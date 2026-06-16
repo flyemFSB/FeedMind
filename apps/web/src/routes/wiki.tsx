@@ -61,7 +61,6 @@ function MyWikiPage() {
   const { data: spaces = [], isLoading } = useWikiSpaces();
   const createSpaceMutation = useCreateWikiSpace();
 
-  // Auto-select first space when data loads
   useEffect(() => {
     if (!isLoading && spaces.length > 0 && !spaceId) {
       setSpaceId(spaces[0].id);
@@ -69,7 +68,6 @@ function MyWikiPage() {
     }
   }, [isLoading, spaces, spaceId]);
 
-  // Refresh page list when exiting edit mode
   useEffect(() => {
     if (prevIsEditing.current && !isEditing && spaceId) {
       queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
@@ -96,7 +94,7 @@ function MyWikiPage() {
           handlePageSelect(result.page_id);
         }
       } catch {
-        // handled by apiFetch toast
+        // 错误由 apiFetch toast 统一处理
       }
     },
     [handlePageSelect],
@@ -142,12 +140,8 @@ function MyWikiPage() {
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
               <BookOpen size={20} className="text-editorial-ink-soft" />
             </div>
-            <p className="text-sm text-editorial-ink-soft">
-              {t("wiki.noSpace")}
-            </p>
-            <p className="mt-1 text-xs text-editorial-ink-muted">
-              {t("wiki.noSpaceDesc")}
-            </p>
+            <p className="text-sm text-editorial-ink-soft">{t("wiki.noSpace")}</p>
+            <p className="mt-1 text-xs text-editorial-ink-muted">{t("wiki.noSpaceDesc")}</p>
             <Button
               variant="default"
               size="sm"
@@ -275,19 +269,11 @@ function MyWikiPage() {
             />
           )}
           {activeView === "graph" && spaceId && (
-            <WikiGraphView
-              spaceId={spaceId}
-              onPageSelect={handlePageSelect}
-            />
+            <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
-          {activeView === "review" && spaceId && (
-            <WikiReviewView spaceId={spaceId} />
-          )}
+          {activeView === "review" && spaceId && <WikiReviewView spaceId={spaceId} />}
           {activeView === "lint" && spaceId && (
-            <WikiLintView
-              spaceId={spaceId}
-              onPageSelect={handlePageSelect}
-            />
+            <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
           {activeView === "sources" && spaceId && (
             <div className="flex-1 overflow-y-auto">
@@ -374,11 +360,7 @@ function DualPaneLayout({
   return (
     <div className="flex min-w-0 flex-1">
       <aside className="flex w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-editorial-surface-card">
-        <WikiPageList
-          spaceId={spaceId}
-          activePageId={activePageId}
-          onPageSelect={onPageSelect}
-        />
+        <WikiPageList spaceId={spaceId} activePageId={activePageId} onPageSelect={onPageSelect} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">

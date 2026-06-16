@@ -34,13 +34,8 @@ import {
   deleteWikiSource,
   previewDeleteImpact,
 } from "../../modules/wiki/source-store.js";
-import {
-  getWikiGraph,
-  getWikiGraphInsights,
-} from "../../modules/wiki/graph-service.js";
-import {
-  searchWiki,
-} from "../../modules/wiki/search-service.js";
+import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/graph-service.js";
+import { searchWiki } from "../../modules/wiki/search-service.js";
 import {
   listIngestJobs,
   enqueueIngest,
@@ -49,19 +44,14 @@ import {
   completeIngestJob,
   failIngestJob,
 } from "../../modules/wiki/job-service.js";
-import {
-  runIngest,
-} from "../../modules/wiki/ingest-pipeline.js";
+import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
 import {
   listReviewItems,
   resolveReviewItem,
   dismissReviewItem,
   sweepReviewItems,
 } from "../../modules/wiki/review-service.js";
-import {
-  runLint,
-  getLintItems,
-} from "../../modules/wiki/lint-service.js";
+import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
 import { wikiRootDir, readSourceTitle } from "../../modules/wiki/wiki-utils.js";
 
 function sha256(text: string): string {
@@ -72,17 +62,28 @@ function sanitizeFileName(name: string): string {
   const normalized = name.replace(/\\/g, "/");
   const parts = normalized.split("/");
   const base = parts[parts.length - 1] ?? name;
-  return base.replace(/[^a-zA-Z0-9一-鿿._-]/g, "").replace(/^\.+/, "").replace(/\.{2,}/g, ".") || "untitled";
+  return (
+    base
+      .replace(/[^a-zA-Z0-9一-鿿._-]/g, "")
+      .replace(/^\.+/, "")
+      .replace(/\.{2,}/g, ".") || "untitled"
+  );
 }
 
 function slugFromName(name: string): string {
   const stem = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name;
-  return stem.toLowerCase().replace(/[^a-z0-9一-鿿-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "untitled";
+  return (
+    stem
+      .toLowerCase()
+      .replace(/[^a-z0-9一-鿿-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "untitled"
+  );
 }
 
 export const wikiRoutes = new Hono();
 
-// ─── Spaces ────────────────────────────────────────────────────
+// ─── 空间 ──────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces", async (c) => jsonOk(c, await listWikiSpaces()));
 wikiRoutes.post("/wiki/spaces", async (c) => {
   const payload = await parseJson(c, wikiSpaceCreateSchema);
@@ -96,7 +97,7 @@ wikiRoutes.patch("/wiki/spaces/:spaceId", async (c) => {
   return jsonOk(c, await updateWikiSpace(c.req.param("spaceId"), payload));
 });
 
-// ─── Pages ─────────────────────────────────────────────────────
+// ─── 页面 ───────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/pages", async (c) => {
   const spaceId = c.req.param("spaceId");
   const type = c.req.query("type");
@@ -113,7 +114,15 @@ wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
 wikiRoutes.get("/wiki/spaces/:spaceId/pages/resolve", async (c) => {
   const spaceId = c.req.param("spaceId");
   const target = c.req.query("target");
-  if (!target) return jsonOk(c, { resolved: false, page_id: null, slug: null, title: null, status: "missing", candidates: [] });
+  if (!target)
+    return jsonOk(c, {
+      resolved: false,
+      page_id: null,
+      slug: null,
+      title: null,
+      status: "missing",
+      candidates: [],
+    });
   return jsonOk(c, await resolveWikiLink(spaceId, target));
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId", async (c) =>
@@ -135,7 +144,7 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
   return jsonOk(c, { success: true });
 });
 
-// ─── Sources ───────────────────────────────────────────────────
+// ─── 源文件 ────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/sources", async (c) => {
   const spaceId = c.req.param("spaceId");
   const status = c.req.query("status");
@@ -168,7 +177,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   if (byteArray.length > MAX_FILE_SIZE) {
     return jsonError(c, 413, "HTTP_ERROR", `文件大小超过 10MB 限制: ${safeName}`);
   }
-  const ext = safeName.includes(".") ? safeName.split(".").pop()?.toLowerCase() ?? "" : "";
+  const ext = safeName.includes(".") ? (safeName.split(".").pop()?.toLowerCase() ?? "") : "";
   const slug = slugFromName(safeName);
   const sourceFileName = `${slug}.md`;
 
@@ -177,25 +186,63 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   fs.mkdirSync(sourcesDir, { recursive: true });
 
   const now = new Date().toISOString();
-  const textExts = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
+  const textExts = new Set([
+    "md",
+    "txt",
+    "html",
+    "htm",
+    "csv",
+    "json",
+    "yaml",
+    "yml",
+    "xml",
+    "rtf",
+  ]);
   const binaryExts = new Set(["pdf", "doc", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
   const imageExts = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
   if (textExts.has(ext)) {
     const decoder = new TextDecoder("utf-8", { fatal: false });
     const text = decoder.decode(byteArray);
-    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: ext === "md" ? "text/markdown" : `text/${ext}`, size_bytes: byteArray.length, created: now, updated: now, import_ext: ext };
-    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text, "utf-8");
-    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
-    return jsonOk(c, {
-      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
-      kind: "file", original_name: safeName, original_uri: safeName,
-      storage_path: `raw/sources/${sourceFileName}`,
+    const fm = {
+      title: safeName,
+      kind: "file",
+      original_name: safeName,
+      original_uri: safeName,
       mime_type: ext === "md" ? "text/markdown" : `text/${ext}`,
-      size_bytes: stat.size, content_hash: sha256(text),
-      status: "ready", metadata: { import_ext: ext }, page_count: 0,
-      created_at: now, updated_at: now,
-    }, 201);
+      size_bytes: byteArray.length,
+      created: now,
+      updated: now,
+      import_ext: ext,
+    };
+    fs.writeFileSync(
+      path.join(sourcesDir, sourceFileName),
+      formatFrontmatter(fm) + "\n" + text,
+      "utf-8",
+    );
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
+    return jsonOk(
+      c,
+      {
+        id: slug,
+        space_id: spaceId,
+        identity: sourceFileName,
+        title: safeName,
+        kind: "file",
+        original_name: safeName,
+        original_uri: safeName,
+        storage_path: `raw/sources/${sourceFileName}`,
+        mime_type: ext === "md" ? "text/markdown" : `text/${ext}`,
+        size_bytes: stat.size,
+        content_hash: sha256(text),
+        status: "ready",
+        metadata: { import_ext: ext },
+        page_count: 0,
+        created_at: now,
+        updated_at: now,
+      },
+      201,
+    );
   }
 
   if (binaryExts.has(ext)) {
@@ -216,21 +263,53 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       extractedText = `[Extraction failed: ${err instanceof Error ? err.message : String(err)}]`;
     } finally {
       // 无论提取成功与否，都清理临时二进制文件
-      try { fs.unlinkSync(binPath); } catch { /* best-effort */ }
+      try {
+        fs.unlinkSync(binPath);
+      } catch {
+        /* best-effort */
+      }
     }
 
-    const fm = { title: safeName, kind: "file", original_name: safeName, original_uri: safeName, mime_type: docMime, size_bytes: byteArray.length, status: "ready", created: now, updated: now, import_ext: ext };
-    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + extractedText, "utf-8");
-    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
-    return jsonOk(c, {
-      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
-      kind: "file", original_name: safeName, original_uri: safeName,
-      storage_path: `raw/sources/${sourceFileName}`,
+    const fm = {
+      title: safeName,
+      kind: "file",
+      original_name: safeName,
+      original_uri: safeName,
       mime_type: docMime,
-      size_bytes: stat.size, content_hash: sha256(extractedText),
-      status: "ready", metadata: { import_ext: ext, extract_warnings: warnings },
-      page_count: 0, created_at: now, updated_at: now,
-    }, 201);
+      size_bytes: byteArray.length,
+      status: "ready",
+      created: now,
+      updated: now,
+      import_ext: ext,
+    };
+    fs.writeFileSync(
+      path.join(sourcesDir, sourceFileName),
+      formatFrontmatter(fm) + "\n" + extractedText,
+      "utf-8",
+    );
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
+    return jsonOk(
+      c,
+      {
+        id: slug,
+        space_id: spaceId,
+        identity: sourceFileName,
+        title: safeName,
+        kind: "file",
+        original_name: safeName,
+        original_uri: safeName,
+        storage_path: `raw/sources/${sourceFileName}`,
+        mime_type: docMime,
+        size_bytes: stat.size,
+        content_hash: sha256(extractedText),
+        status: "ready",
+        metadata: { import_ext: ext, extract_warnings: warnings },
+        page_count: 0,
+        created_at: now,
+        updated_at: now,
+      },
+      201,
+    );
   }
 
   if (imageExts.has(ext)) {
@@ -241,24 +320,56 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     fs.writeFileSync(assetPath, Buffer.from(byteArray));
 
     const imageMimeMap: Record<string, string> = {
-      png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-      gif: "image/gif", webp: "image/webp", svg: "image/svg+xml",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+      svg: "image/svg+xml",
     };
     const imageMime = imageMimeMap[ext] ?? "application/octet-stream";
 
     const imageMarkdown = `![${safeName}](../assets/${safeName})`;
-    const fm = { title: safeName, kind: "image", original_name: safeName, original_uri: safeName, mime_type: imageMime, size_bytes: byteArray.length, status: "ready", created: now, updated: now, import_ext: ext };
-    fs.writeFileSync(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + imageMarkdown, "utf-8");
-    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
-    return jsonOk(c, {
-      id: slug, space_id: spaceId, identity: sourceFileName, title: safeName,
-      kind: "image", original_name: safeName, original_uri: safeName,
-      storage_path: `raw/sources/${sourceFileName}`,
+    const fm = {
+      title: safeName,
+      kind: "image",
+      original_name: safeName,
+      original_uri: safeName,
       mime_type: imageMime,
-      size_bytes: stat.size, content_hash: sha256(imageMarkdown),
-      status: "ready", metadata: { import_ext: ext, asset_path: `raw/assets/${safeName}` },
-      page_count: 0, created_at: now, updated_at: now,
-    }, 201);
+      size_bytes: byteArray.length,
+      status: "ready",
+      created: now,
+      updated: now,
+      import_ext: ext,
+    };
+    fs.writeFileSync(
+      path.join(sourcesDir, sourceFileName),
+      formatFrontmatter(fm) + "\n" + imageMarkdown,
+      "utf-8",
+    );
+    const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
+    return jsonOk(
+      c,
+      {
+        id: slug,
+        space_id: spaceId,
+        identity: sourceFileName,
+        title: safeName,
+        kind: "image",
+        original_name: safeName,
+        original_uri: safeName,
+        storage_path: `raw/sources/${sourceFileName}`,
+        mime_type: imageMime,
+        size_bytes: stat.size,
+        content_hash: sha256(imageMarkdown),
+        status: "ready",
+        metadata: { import_ext: ext, asset_path: `raw/assets/${safeName}` },
+        page_count: 0,
+        created_at: now,
+        updated_at: now,
+      },
+      201,
+    );
   }
 
   return jsonError(c, 400, "HTTP_ERROR", `Unsupported file type: .${ext}`);
@@ -274,7 +385,7 @@ wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId/delete-impact", async (c
   jsonOk(c, await previewDeleteImpact(c.req.param("spaceId"), c.req.param("sourceId"))),
 );
 
-// ─── Ingest (Direct) ────────────────────────────────────────────
+// ─── 导入（直接）─────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await c.req.json().catch(() => ({}));
@@ -284,13 +395,12 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   // Extract source title from file for import history display
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
 
-
-  // Record a job entry for import history
+  // 记录任务以展示导入历史
   const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);
 
   try {
     const result = await runIngest(spaceId, sourcePath);
-    // Update job with completion status
+    // 更新任务完成状态
     await completeIngestJob(spaceId, job.id, [], result.pagesCreated, result.pagesUpdated);
     return jsonOk(c, result);
   } catch (err) {
@@ -300,16 +410,16 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   }
 });
 
-// ─── Search ────────────────────────────────────────────────────
+// ─── 搜索 ──────────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/search", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await c.req.json().catch(() => ({}));
-  const query = body.query as string || "";
+  const query = (body.query as string) || "";
   const topK = Number(body.topK) || 20;
   return jsonOk(c, await searchWiki(spaceId, query, topK));
 });
 
-// ─── Graph ─────────────────────────────────────────────────────
+// ─── 图谱 ───────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/graph", async (c) =>
   jsonOk(c, await getWikiGraph(c.req.param("spaceId"))),
 );
@@ -317,7 +427,7 @@ wikiRoutes.get("/wiki/spaces/:spaceId/graph/insights", async (c) =>
   jsonOk(c, await getWikiGraphInsights(c.req.param("spaceId"))),
 );
 
-// ─── Ingest Jobs ─────────────────────────────────────────────────
+// ─── 导入任务 ───────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/jobs/ingest", async (c) =>
   jsonOk(c, await listIngestJobs(c.req.param("spaceId"))),
 );
@@ -328,9 +438,8 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const folderContext = body.folderContext as string | undefined;
   if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
 
-  // Extract source title for import history display
+  // 获取源标题用于导入历史展示
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
-
 
   return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));
 });
@@ -343,7 +452,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/retry", async (c) => {
   return jsonOk(c, { success: true });
 });
 
-// ─── Lint ──────────────────────────────────────────────────────
+// ─── 检查 ────────────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/lint", async (c) =>
   jsonOk(c, await runLint(c.req.param("spaceId"))),
 );
@@ -351,7 +460,7 @@ wikiRoutes.get("/wiki/spaces/:spaceId/lint-items", async (c) =>
   jsonOk(c, await getLintItems(c.req.param("spaceId"))),
 );
 
-// ─── Review ────────────────────────────────────────────────────
+// ─── 审查 ──────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/review-items", async (c) =>
   jsonOk(c, await listReviewItems(c.req.param("spaceId"))),
 );

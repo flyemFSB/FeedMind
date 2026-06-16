@@ -4,7 +4,7 @@ export async function tavilySearch(
   query: string,
   maxResults: number,
   apiKey: string,
-  signal?: AbortSignal,
+  _signal?: AbortSignal,
 ) {
   const client = tavily({ apiKey });
 

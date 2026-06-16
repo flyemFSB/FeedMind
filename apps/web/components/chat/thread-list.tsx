@@ -20,7 +20,7 @@ import { MessageSquare, Trash2, Loader2 } from "lucide-react";
 export function AssistantThreadList() {
   const { data: sessions = [], isLoading } = useChatSessions();
   const deleteMutation = useDeleteChatSession();
-  const { switchSession, activeThreadId } = useChatContext();
+  const { switchSession, activeThreadId, clearSession } = useChatContext();
   const navigate = useNavigate();
   const isChatPage = useRouterState({ select: (s) => s.location.pathname }) === "/chat";
   const { t } = useTranslation();
@@ -50,13 +50,21 @@ export function AssistantThreadList() {
                   : "text-editorial-ink-soft"
               }`}
             >
-              <MessageSquare size={14} className={`shrink-0 ${isActive ? "text-editorial-ink" : "text-editorial-ink-muted"}`} />
+              <MessageSquare
+                size={14}
+                className={`shrink-0 ${isActive ? "text-editorial-ink" : "text-editorial-ink-muted"}`}
+              />
               <span className="min-w-0 flex-1 truncate">
                 {session.title || t("chat.sessionTitleDefault")}
               </span>
             </button>
             <button
-              onClick={() => deleteMutation.mutate(session.agent_thread_id)}
+              onClick={() => {
+                if (session.agent_thread_id === activeThreadId) {
+                  clearSession();
+                }
+                deleteMutation.mutate(session.agent_thread_id);
+              }}
               className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-all duration-150 ease-out hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
               title={t("common.delete")}
             >

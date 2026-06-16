@@ -1,8 +1,6 @@
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
 
-/**
- * Create a new ingest queue entry.
- */
+/** 创建新的导入队列条目 */
 export function createIngestJob(
   projectId: string,
   sourcePath: string,
@@ -28,9 +26,7 @@ export function createIngestJob(
   };
 }
 
-/**
- * Load queue from JSON string.
- */
+/** 从 JSON 字符串加载队列 */
 export function loadQueue(json: string): IngestJob[] {
   try {
     const parsed = JSON.parse(json);
@@ -40,27 +36,22 @@ export function loadQueue(json: string): IngestJob[] {
   }
 }
 
-/**
- * Serialize queue to JSON string.
- */
+/** 将队列序列化为 JSON 字符串 */
 export function dumpQueue(queue: IngestJob[]): string {
   return JSON.stringify(queue, null, 2);
 }
 
 /**
- * Upsert a job into the queue. If a pending/failed job for the same
- * source already exists, don't duplicate.
+ * 将任务插入队列。如果同来源已有 pending/failed 状态的任务，则不重复添加。
  */
 export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
   const existing = queue.findIndex(
-    (j) =>
-      j.sourcePath === job.sourcePath &&
-      (j.status === "pending" || j.status === "failed"),
+    (j) => j.sourcePath === job.sourcePath && (j.status === "pending" || j.status === "failed"),
   );
   if (existing >= 0) {
-    // Don't re-queue if already pending
+    // 如果已在 pending 则不重复入队
     if (queue[existing].status === "pending") return queue;
-    // Replace failed entry
+    // 替换失败的旧条目
     const updated = [...queue];
     updated[existing] = job;
     return updated;
@@ -68,16 +59,12 @@ export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
   return [...queue, job];
 }
 
-/**
- * Get the next pending job for a project.
- */
+/** 获取项目中下一个待处理任务 */
 export function nextJob(queue: IngestJob[], projectId: string): IngestJob | null {
   return queue.find((j) => j.projectId === projectId && j.status === "pending") ?? null;
 }
 
-/**
- * Update a job's status.
- */
+/** 更新任务状态 */
 export function updateJobStatus(
   queue: IngestJob[],
   jobId: string,
@@ -92,24 +79,26 @@ export function updateJobStatus(
       ...updates,
       status,
       startedAt: status === "processing" ? now : j.startedAt,
-      completedAt: status === "done" || status === "failed" || status === "cancelled" ? now : j.completedAt,
+      completedAt:
+        status === "done" || status === "failed" || status === "cancelled" ? now : j.completedAt,
     };
   });
 }
 
-/**
- * Increment retry count for a failed job.
- */
+/** 增加失败任务的重试计数 */
 export function incrementRetry(queue: IngestJob[], jobId: string): IngestJob[] {
   return queue.map((j) => {
     if (j.id !== jobId) return j;
-    return { ...j, status: "pending" as IngestJobStatus, retryCount: j.retryCount + 1, error: null };
+    return {
+      ...j,
+      status: "pending" as IngestJobStatus,
+      retryCount: j.retryCount + 1,
+      error: null,
+    };
   });
 }
 
-/**
- * Remove cancelled/done jobs older than the given timestamp.
- */
+/** 移除早于给定时间戳的已完成/已取消任务 */
 export function pruneQueue(queue: IngestJob[], olderThan: number): IngestJob[] {
   return queue.filter(
     (j) =>

@@ -1,16 +1,11 @@
-// ─── Core ─────────────────────────────────────────────────────────
+// ─── 核心 ─────────────────────────────────────────────────────────
 export { AbstractCrawler } from "./core/abstract-crawler.js";
 export type { CrawlerStore } from "./core/abstract-crawler.js";
 export { createCrawler, isPlatformImplemented } from "./core/factory.js";
-export type {
-  ContentModel,
-  CrawlerContext,
-  CreatorModel,
-  StoreResult,
-} from "./core/types.js";
+export type { ContentModel, CrawlerContext, CreatorModel, StoreResult } from "./core/types.js";
 export { PLATFORM_CRAWLER_TYPES } from "./core/types.js";
 
-// ─── Platforms ────────────────────────────────────────────────────
+// ─── 平台 ────────────────────────────────────────────────────────
 export { TiebaCrawler } from "./platforms/tieba/crawler.js";
 export { XhsCrawler } from "./platforms/xhs/crawler.js";
 export { DouyinCrawler } from "./platforms/douyin/crawler.js";

@@ -1,0 +1,16 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# pnpm v11: onlyBuiltDependencies → allowBuilds
+allowBuilds:
+  esbuild: true
+  agent-browser: true
+  edgedriver: true
+  geckodriver: true
+  tesseract.js: true
+
+hoist: false
+linkWorkspacePackages: true
+minimumReleaseAgeExclude:
+  - "@hono/node-server@2.0.5"

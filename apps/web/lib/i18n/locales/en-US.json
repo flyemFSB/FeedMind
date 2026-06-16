@@ -68,6 +68,7 @@
     "toolComplete": "Done",
     "toolArgs": "Arguments",
     "toolResult": "Result",
+    "toolThought": "Thought",
     "toolError": "Error",
     "noArgsOrResult": "No arguments or results",
     "expandToolDetails": "Expand tool call details",

@@ -1,0 +1,35 @@
+import { resolveModelClient } from "../agents/model-cache.js";
+import { getSelectedModel } from "../../modules/llms/service.js";
+import { cachedGet } from "./cached-get.js";
+import type { createOpenAI } from "@ai-sdk/openai";
+
+type ChatModel = ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
+
+/**
+ * 共享模型解析 — 供 feedmind-agent 和 task tool 统一使用。
+ *
+ * 解析链路：
+ * 1. 优先使用请求级模型 ID（来自 header → requestContext）
+ * 2. 回退：查询已选模型（带 30s TTL 缓存）
+ */
+export async function resolveChatModel(requestContext?: {
+  get(key: string): unknown;
+}): Promise<ChatModel> {
+  const modelId = requestContext?.get("feedmindModelId") as string | undefined;
+  if (modelId) {
+    try {
+      const { client, modelName } = await resolveModelClient(Number(modelId));
+      return client.chat(modelName);
+    } catch {
+      // fall through to fallback
+    }
+  }
+
+  const selected = await cachedGet("getSelectedModel", () => getSelectedModel());
+  if (!selected.id) {
+    throw new Error("No model configured. Please add an LLM model in Settings, then try again.");
+  }
+
+  const { client, modelName } = await resolveModelClient(selected.id);
+  return client.chat(modelName);
+}
