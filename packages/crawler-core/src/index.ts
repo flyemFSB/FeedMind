@@ -1,15 +1,9 @@
-// ─── 核心 ─────────────────────────────────────────────────────────
-export { AbstractCrawler } from "./core/abstract-crawler.js";
-export type { CrawlerStore } from "./core/abstract-crawler.js";
-export { createCrawler, isPlatformImplemented } from "./core/factory.js";
-export type { ContentModel, CrawlerContext, CreatorModel, StoreResult } from "./core/types.js";
-export { PLATFORM_CRAWLER_TYPES } from "./core/types.js";
+// ─── 路由（自动注册） ──────────────────────────────────────────
+import "./routes/index.js";
 
-// ─── 平台 ────────────────────────────────────────────────────────
-export { TiebaCrawler } from "./platforms/tieba/crawler.js";
-export { XhsCrawler } from "./platforms/xhs/crawler.js";
-export { DouyinCrawler } from "./platforms/douyin/crawler.js";
-export { BilibiliCrawler } from "./platforms/bilibili/crawler.js";
-export { WeiboCrawler } from "./platforms/weibo/crawler.js";
-export { ZhihuCrawler } from "./platforms/zhihu/crawler.js";
-export { KuaishouCrawler } from "./platforms/kuaishou/crawler.js";
+// ─── 核心 ─────────────────────────────────────────────────────────
+export { createBrowser, closeBrowser } from "./core/browser.js";
+export { buildRssXml, buildGuid, toRfc2822, fromUnixTimestamp } from "./core/rss-builder.js";
+export type { RssFeed, RssItem } from "./core/rss-builder.js";
+export { registerRoute, getRouteHandler, listRoutes } from "./core/route-registry.js";
+export type { RouteHandlerParams, RouteHandlerResult, RouteHandler } from "./core/types.js";

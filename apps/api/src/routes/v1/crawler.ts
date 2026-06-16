@@ -1,25 +1,16 @@
 import { Hono } from "hono";
-import { PLATFORMS, taskCreateSchema } from "@feedmind/contracts";
+import { taskCreateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
   createCrawlerTask,
   listTasks,
   getTask,
+  getTaskRss,
   cancelTask,
   deleteTask,
 } from "../../modules/crawler/service.js";
-import {
-  listContents,
-  getContent,
-  listCreators,
-  getCreator,
-} from "../../modules/crawler/data-service.js";
-import type { Pagination } from "@feedmind/contracts";
 
 export const crawlerRoutes = new Hono();
-
-// ─── 平台 ───────────────────────────────────────────────────────
-crawlerRoutes.get("/crawler/platforms", async (c) => jsonOk(c, { data: PLATFORMS }));
 
 // ─── 任务 ───────────────────────────────────────────────────────
 crawlerRoutes.post("/crawler/tasks", async (c) => {
@@ -33,16 +24,14 @@ crawlerRoutes.get("/crawler/tasks", async (c) => {
   const sort = c.req.query("sort") ?? "-created_at";
 
   const { data, total } = await listTasks({
-    platform: c.req.query("platform"),
+    route: c.req.query("route"),
     status: c.req.query("status"),
-    crawler_type: c.req.query("crawler_type"),
-    keyword: c.req.query("keyword"),
     offset,
     limit,
     sort,
   });
 
-  const pagination: Pagination = {
+  const pagination = {
     offset,
     limit,
     total,
@@ -57,6 +46,12 @@ crawlerRoutes.get("/crawler/tasks/:id", async (c) => {
   return jsonOk(c, { data: task });
 });
 
+crawlerRoutes.get("/crawler/tasks/:id/rss", async (c) => {
+  const rssXml = await getTaskRss(c.req.param("id"));
+  c.header("Content-Type", "application/rss+xml; charset=utf-8");
+  return c.body(rssXml);
+});
+
 crawlerRoutes.post("/crawler/tasks/:id/cancel", async (c) => {
   const task = await cancelTask(c.req.param("id"));
   return jsonOk(c, { data: task }, 202);
@@ -65,63 +60,4 @@ crawlerRoutes.post("/crawler/tasks/:id/cancel", async (c) => {
 crawlerRoutes.delete("/crawler/tasks/:id", async (c) => {
   await deleteTask(c.req.param("id"));
   return c.body(null, 204);
-});
-
-// ─── 内容 ───────────────────────────────────────────────────────
-crawlerRoutes.get("/crawler/contents", async (c) => {
-  const offset = Math.max(0, Number(c.req.query("offset")) || 0);
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 20));
-  const sort = c.req.query("sort") ?? "-crawled_at";
-
-  const { data, total } = await listContents({
-    platform: c.req.query("platform"),
-    keyword: c.req.query("keyword"),
-    author_id: c.req.query("author_id"),
-    task_id: c.req.query("task_id"),
-    offset,
-    limit,
-    sort,
-  });
-
-  const pagination: Pagination = {
-    offset,
-    limit,
-    total,
-    has_more: offset + limit < total,
-  };
-
-  return jsonOk(c, { data, pagination });
-});
-
-crawlerRoutes.get("/crawler/contents/:id", async (c) => {
-  const content = await getContent(c.req.param("id"));
-  return jsonOk(c, { data: content });
-});
-
-// ─── 创作者 ─────────────────────────────────────────────────────
-crawlerRoutes.get("/crawler/creators", async (c) => {
-  const offset = Math.max(0, Number(c.req.query("offset")) || 0);
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 20));
-  const sort = c.req.query("sort") ?? "-crawled_at";
-
-  const { data, total } = await listCreators({
-    platform: c.req.query("platform"),
-    offset,
-    limit,
-    sort,
-  });
-
-  const pagination: Pagination = {
-    offset,
-    limit,
-    total,
-    has_more: offset + limit < total,
-  };
-
-  return jsonOk(c, { data, pagination });
-});
-
-crawlerRoutes.get("/crawler/creators/:id", async (c) => {
-  const creator = await getCreator(c.req.param("id"));
-  return jsonOk(c, { data: creator });
 });

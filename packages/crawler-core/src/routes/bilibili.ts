@@ -1,0 +1,286 @@
+/**
+ * B站 路由 handlers
+ *
+ * - WBI 签名：从 nav API + JS 排列表获取 wbiVerifyString
+ * - 反爬探针：dm_img_list, dm_img_str, dm_cover_img_str
+ * - Cookie 认证必需
+ * - -352 错误时降级到 AgentBrowser 兜底
+ */
+import { load } from "cheerio";
+import type { RouteHandler } from "../core/types.js";
+import { registerRoute } from "../core/route-registry.js";
+import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
+import {
+  getWbiVerifyString,
+  addWbiVerifyInfo,
+  addDmVerifyInfo,
+  getDmImgList,
+} from "../core/wbi-sign.js";
+import { createBrowser, closeBrowser } from "../core/browser.js";
+
+const API_BASE = "https://api.bilibili.com";
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
+
+/** -352 验证码错误标记 */
+class BiliCaptchaError extends Error {
+  constructor() {
+    super("BILI API -352 captcha");
+    this.name = "BiliCaptchaError";
+  }
+}
+
+/**
+ * 带 WBI 签名 + 反爬探针的 B站 API 调用
+ */
+async function biliFetch<T>(
+  path: string,
+  params: Record<string, string>,
+  cookies?: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const wbiVerifyString = await getWbiVerifyString(signal);
+  let qs = new URLSearchParams(params).toString();
+  qs = addDmVerifyInfo(qs, getDmImgList());
+  qs = addWbiVerifyInfo(qs, wbiVerifyString);
+
+  const url = `${API_BASE}${path}?${qs}`;
+  const headers: Record<string, string> = {
+    "User-Agent": UA,
+    Referer: "https://www.bilibili.com",
+    "Accept-Language": "zh-CN,zh;q=0.9",
+  };
+  if (cookies) headers.Cookie = cookies;
+
+  const res = await fetch(url, { headers, signal });
+  if (!res.ok) throw new Error(`BILI API ${res.status}`);
+
+  const json = (await res.json()) as any;
+  if (json.code === -352) {
+    throw new BiliCaptchaError();
+  }
+  if (json.code !== 0) {
+    throw new Error(`BILI API error: ${json.code} - ${json.message || "unknown"}`);
+  }
+  return json as T;
+}
+
+/**
+ * AgentBrowser 降级：导航到 B站页面，提取 window.__INITIAL_STATE__ 中的关键数据
+ */
+async function biliBrowserFetch(url: string, evaluateScript: string): Promise<any> {
+  const browser = await createBrowser();
+  try {
+    await browser.ensureReady();
+    const manager = await browser.getManagerForThread();
+    const page = manager.getPage();
+    await page.route("**/*", (route) => {
+      const type = route.request().resourceType();
+      if (["image", "media", "font", "stylesheet"].includes(type)) {
+        route.abort();
+      } else {
+        route.continue();
+      }
+    });
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    return await page.evaluate(evaluateScript);
+  } finally {
+    await closeBrowser();
+  }
+}
+
+// ─── User Video（用户视频列表） ──────────────────────────────────
+
+const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
+  const uid = String(params.uid ?? "");
+
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  abortSignal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    let vlist: any[] = [];
+
+    try {
+      const json = await biliFetch<any>(
+        "/x/space/wbi/arc/search",
+        { mid: uid, ps: String(Math.min(maxItems, 50)), pn: "1" },
+        cookies,
+        controller.signal,
+      );
+      vlist = json?.data?.list?.vlist ?? [];
+    } catch (err) {
+      if (err instanceof BiliCaptchaError) {
+        // 降级到浏览器：导航到空间页，提取视频列表
+        const data = await biliBrowserFetch(
+          `https://space.bilibili.com/${uid}/video`,
+          "window.__INITIAL_STATE__ ? window.__INITIAL_STATE__.videoData?.vlist : []",
+        );
+        vlist = Array.isArray(data) ? data : [];
+      } else {
+        throw err;
+      }
+    }
+
+    const items = vlist.slice(0, maxItems).map((v: any) => ({
+      title: v.title || "",
+      description: v.description || "",
+      link: `https://www.bilibili.com/video/${v.bvid}`,
+      guid: buildGuid("bili", v.bvid || String(v.aid)),
+      pubDate: fromUnixTimestamp(v.created),
+      author: v.author,
+    }));
+
+    return {
+      rssXml: buildRssXml({
+        title: `${items[0]?.author || uid} - B站视频`,
+        link: `https://space.bilibili.com/${uid}/video`,
+        description: `B站用户 ${uid} 的视频`,
+        language: "zh-CN",
+        items,
+      }),
+      metadata: { itemCount: items.length, platform: "bilibili" },
+    };
+  } finally {
+    abortSignal.removeEventListener("abort", onAbort);
+  }
+};
+
+// ─── Video Detail（单个视频详情） ────────────────────────────────
+
+const videoHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
+  const bvid = String(params.bvid ?? "");
+
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  abortSignal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    let videoData: any = null;
+
+    try {
+      const json = await biliFetch<any>(
+        "/x/web-interface/view",
+        { bvid },
+        cookies,
+        controller.signal,
+      );
+      videoData = json?.data;
+    } catch (err) {
+      if (err instanceof BiliCaptchaError) {
+        videoData = await biliBrowserFetch(
+          `https://www.bilibili.com/video/${bvid}`,
+          "window.__INITIAL_STATE__ ? window.__INITIAL_STATE__.videoData : null",
+        );
+      } else {
+        throw err;
+      }
+    }
+
+    if (!videoData) throw new Error("视频不存在");
+
+    return {
+      rssXml: buildRssXml({
+        title: videoData.title || "B站视频",
+        link: `https://www.bilibili.com/video/${videoData.bvid}`,
+        description: videoData.desc || "",
+        language: "zh-CN",
+        items: [
+          {
+            title: videoData.title || "",
+            description: videoData.desc || "",
+            link: `https://www.bilibili.com/video/${videoData.bvid || bvid}`,
+            guid: buildGuid("bili", videoData.bvid || bvid),
+            pubDate: videoData.pubdate
+              ? fromUnixTimestamp(videoData.pubdate)
+              : new Date().toUTCString(),
+            author: videoData.owner?.name,
+          },
+        ],
+      }),
+      metadata: { itemCount: 1, platform: "bilibili" },
+    };
+  } finally {
+    abortSignal.removeEventListener("abort", onAbort);
+  }
+};
+
+// ─── Search（搜索视频） ──────────────────────────────────────────
+
+const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
+  const keyword = String(params.keyword ?? "");
+
+  const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  abortSignal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    let results: any[] = [];
+
+    try {
+      const json = await biliFetch<any>(
+        "/x/web-interface/search/type",
+        { search_type: "video", keyword, page: "1", page_size: String(Math.min(maxItems, 50)) },
+        cookies,
+        controller.signal,
+      );
+      results = json?.data?.result ?? [];
+    } catch (err) {
+      if (err instanceof BiliCaptchaError) {
+        // 降级到浏览器：搜索页面 HTML 解析
+        const html = await biliBrowserFetch(
+          `https://search.bilibili.com/video?keyword=${encodeURIComponent(keyword)}`,
+          "document.documentElement.outerHTML",
+        );
+        const $ = load(html);
+        results = [];
+        $(".video-list .video-item").each((_i: number, el: any) => {
+          const titleEl = $(el).find(".title");
+          const link = titleEl.attr("href") || "";
+          const bvidMatch = link.match(/video\/(BV\w+)/);
+          if (bvidMatch) {
+            results.push({
+              bvid: bvidMatch[1],
+              title: titleEl.text().trim(),
+              author: $(el).find(".up-name").text().trim(),
+            });
+          }
+        });
+      } else {
+        throw err;
+      }
+    }
+
+    const items = results
+      .filter((r: any) => r.bvid)
+      .slice(0, maxItems)
+      .map((r: any) => ({
+        title: (r.title || "").replace(/<[^>]+>/g, ""),
+        description: r.description || "",
+        link: `https://www.bilibili.com/video/${r.bvid}`,
+        guid: buildGuid("bili", r.bvid),
+        pubDate: r.pubdate ? fromUnixTimestamp(r.pubdate) : new Date().toUTCString(),
+        author: r.author,
+        category: r.tag ? [r.tag] : undefined,
+      }));
+
+    return {
+      rssXml: buildRssXml({
+        title: `${keyword} - B站搜索`,
+        link: `https://search.bilibili.com/video?keyword=${encodeURIComponent(keyword)}`,
+        description: `B站搜索 - ${keyword}`,
+        language: "zh-CN",
+        items,
+      }),
+      metadata: { itemCount: items.length, platform: "bilibili" },
+    };
+  } finally {
+    abortSignal.removeEventListener("abort", onAbort);
+  }
+};
+
+// ─── 注册路由 ────────────────────────────────────────────────────
+
+registerRoute("bili/user/video", userVideoHandler);
+registerRoute("bili/video", videoHandler);
+registerRoute("bili/search", searchHandler);
