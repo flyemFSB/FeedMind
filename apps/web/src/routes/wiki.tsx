@@ -6,11 +6,14 @@ import {
   ClipboardCheck,
   Clock,
   Database,
+  Ellipsis,
   FileText,
   Import,
   Network,
+  Pencil,
   Plus,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
@@ -24,10 +27,24 @@ import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
 import { WikiReviewView } from "@/components/wiki/wiki-review-view";
 import { WikiLintView } from "@/components/wiki/wiki-lint-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
-import { useWikiSpaces, useCreateWikiSpace, wikiKeys } from "@/lib/hooks/use-wiki";
+import {
+  useWikiSpaces,
+  useUpdateWikiSpace,
+  useDeleteWikiSpace,
+  wikiKeys,
+} from "@/lib/hooks/use-wiki";
 import { resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,10 +73,14 @@ function MyWikiPage() {
   const [showImport, setShowImport] = useState(false);
   const [showImportHistory, setShowImportHistory] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
+  const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
   const prevIsEditing = useRef(isEditing);
 
   const { data: spaces = [], isLoading } = useWikiSpaces();
-  const createSpaceMutation = useCreateWikiSpace();
+  const updateSpaceMutation = useUpdateWikiSpace(spaceId ?? undefined);
+  const deleteSpaceMutation = useDeleteWikiSpace();
 
   useEffect(() => {
     if (!isLoading && spaces.length > 0 && !spaceId) {
@@ -104,6 +125,44 @@ function MyWikiPage() {
     setShowCreateSpace(true);
     setShowSpaceMenu(false);
   }, []);
+
+  const handleOpenRename = useCallback(() => {
+    setRenameValue(spaceName);
+    setShowRenameDialog(true);
+  }, [spaceName]);
+
+  const handleRenameConfirm = useCallback(() => {
+    if (!spaceId || !renameValue.trim()) return;
+    updateSpaceMutation.mutate(
+      { name: renameValue.trim() },
+      {
+        onSuccess: (updated) => {
+          setSpaceName(updated.name);
+          setShowRenameDialog(false);
+        },
+      },
+    );
+  }, [spaceId, renameValue, updateSpaceMutation]);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!spaceId) return;
+    deleteSpaceMutation.mutate(spaceId, {
+      onSuccess: () => {
+        setShowDeleteConfirm(false);
+        // 选择剩余空间或清空
+        const remaining = spaces.filter((s) => s.id !== spaceId);
+        if (remaining.length > 0) {
+          setSpaceId(remaining[0].id);
+          setSpaceName(remaining[0].name);
+        } else {
+          setSpaceId(null);
+          setSpaceName(t("wiki.title"));
+        }
+        setActiveView("pages");
+        setActivePageId(null);
+      },
+    });
+  }, [spaceId, spaces, deleteSpaceMutation, t]);
 
   const handleImportSuccess = useCallback(() => {
     setShowImport(false);
@@ -201,15 +260,39 @@ function MyWikiPage() {
   );
 
   const topRightContent = spaceId ? (
-    <Button
-      variant="default"
-      size="default"
-      className="gap-2 rounded-lg text-[13px] h-9"
-      onClick={() => setShowImport(true)}
-    >
-      <Import size={16} />
-      {t("wiki.importTitle")}
-    </Button>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="default"
+        size="default"
+        className="gap-2 rounded-lg text-[13px] h-9"
+        onClick={() => setShowImport(true)}
+      >
+        <Import size={16} />
+        {t("wiki.importTitle")}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-strong cursor-pointer"
+          aria-label={t("wiki.switchSpace")}
+        >
+          <Ellipsis size={18} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[160px] rounded-xl p-1.5">
+          <DropdownMenuItem onClick={handleOpenRename} className="gap-2 rounded-lg text-[13px]">
+            <Pencil size={14} />
+            {t("wiki.renameSpace")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => setShowDeleteConfirm(true)}
+            className="gap-2 rounded-lg text-[13px] text-red-600 focus:text-red-600"
+          >
+            <Trash2 size={14} />
+            {t("wiki.deleteSpace")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   ) : undefined;
 
   return (
@@ -309,6 +392,59 @@ function MyWikiPage() {
           setShowCreateSpace(false);
         }}
       />
+
+      {/* 重命名空间对话框 */}
+      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
+        <DialogContent className="rounded-2xl sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("wiki.renameSpaceTitle")}</DialogTitle>
+            <DialogDescription>{t("wiki.renameSpaceDesc")}</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder={t("wiki.renameSpacePlaceholder")}
+            className="mt-2"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleRenameConfirm();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowRenameDialog(false)}>
+              {t("wiki.cancel")}
+            </Button>
+            <Button
+              onClick={handleRenameConfirm}
+              disabled={!renameValue.trim() || updateSpaceMutation.isPending}
+            >
+              {updateSpaceMutation.isPending ? t("wiki.saving") : t("wiki.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 删除空间确认对话框 */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="rounded-2xl sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>{t("wiki.confirmDeleteSpace")}</DialogTitle>
+            <DialogDescription>{t("wiki.confirmDeleteSpaceDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
+              {t("wiki.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+              disabled={deleteSpaceMutation.isPending}
+            >
+              {deleteSpaceMutation.isPending ? t("wiki.saving") : t("wiki.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </LayoutWrapper>
   );
 }

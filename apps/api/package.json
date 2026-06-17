@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -b && cp -r src/mastra/skills dist/mastra/skills",
+    "build": "tsc -b && node -e \"require('fs').cpSync('src/mastra/skills','dist/mastra/skills',{recursive:true})\"",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run --pass-with-no-tests",
@@ -16,6 +16,7 @@
     "@feedmind/contracts": "workspace:*",
     "@feedmind/crawler-core": "workspace:*",
     "@feedmind/db": "workspace:*",
+    "@feedmind/env": "workspace:*",
     "@feedmind/shared": "workspace:*",
     "@feedmind/wiki-core": "workspace:*",
     "@hono/node-server": "^2.0.5",

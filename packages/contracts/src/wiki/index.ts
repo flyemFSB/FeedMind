@@ -283,20 +283,20 @@ export type IngestProgress = z.infer<typeof ingestProgressSchema>;
 
 export const ingestJobSchema = z.object({
   id: z.string(),
-  projectId: z.string(),
-  sourcePath: z.string(),
-  sourceTitle: z.string().default(""),
-  folderContext: z.string().default(""),
+  project_id: z.string(),
+  source_path: z.string(),
+  source_title: z.string().default(""),
+  folder_context: z.string().default(""),
   status: ingestJobStatusSchema.default("pending"),
   progress: ingestProgressSchema.nullable().default(null),
-  addedAt: z.number(),
-  startedAt: z.number().nullable().default(null),
-  completedAt: z.number().nullable().default(null),
+  added_at: z.number(),
+  started_at: z.number().nullable().default(null),
+  completed_at: z.number().nullable().default(null),
   error: z.string().nullable().default(null),
-  retryCount: z.number().int().default(0),
-  writtenFiles: z.array(z.string()).default([]),
-  pagesCreated: z.number().int().default(0),
-  pagesUpdated: z.number().int().default(0),
+  retry_count: z.number().int().default(0),
+  written_files: z.array(z.string()).default([]),
+  pages_created: z.number().int().default(0),
+  pages_updated: z.number().int().default(0),
 });
 export type IngestJob = z.infer<typeof ingestJobSchema>;
 

@@ -68,6 +68,20 @@ export async function getTool(name: string): Promise<ToolRead> {
   return maskSensitiveFields(row);
 }
 
+/** 返回单个工具的解密后配置（供前端显示密码字段的真实值） */
+export async function getToolRuntime(name: string): Promise<{ config: Record<string, unknown> }> {
+  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  const fields = JSON.parse(row.configFields) as ConfigField[];
+  const config: Record<string, unknown> = JSON.parse(row.config);
+  for (const f of fields) {
+    if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
+      config[f.key] = decryptValue(config[f.key] as string);
+    }
+  }
+  return { config };
+}
+
 export async function updateToolConfig(name: string, payload: ToolConfigUpdate): Promise<ToolRead> {
   const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
   if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");

@@ -136,7 +136,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
         </div>
         <Button
           onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-editorial-primary text-editorial-ink-on-primary text-[13px] font-medium hover:bg-editorial-primary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 transition-colors"
         >
           <Plus size={14} />
           <span>{t("settings.addModel")}</span>

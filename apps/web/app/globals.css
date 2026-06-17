@@ -291,8 +291,9 @@ body {
   --background: var(--editorial-canvas);
   --foreground: var(--editorial-ink);
   --surface: var(--editorial-surface-soft);
-  --primary: var(--editorial-primary);
-  --primary-text: var(--editorial-ink-on-primary);
+  --primary: oklch(0.88 0.015 70);       /* warm cream — dark text on light fill */
+  --primary-foreground: var(--editorial-ink);
+  --primary-text: var(--editorial-ink);
   --secondary-text: var(--editorial-ink-soft);
   --muted-text: var(--editorial-ink-muted);
   --border: var(--editorial-hairline);
@@ -303,7 +304,7 @@ body {
   --card-foreground: var(--editorial-ink);
   --popover: var(--editorial-surface-card);
   --popover-foreground: var(--editorial-ink);
-  --primary-foreground: var(--editorial-ink-on-primary);
+  --primary-foreground: var(--editorial-ink);
   --secondary: var(--editorial-surface-soft);
   --secondary-foreground: var(--editorial-ink);
   --muted: var(--editorial-surface-soft);
@@ -376,8 +377,9 @@ body {
   --background: var(--editorial-canvas);
   --foreground: var(--editorial-ink);
   --surface: var(--editorial-surface-soft);
-  --primary: var(--editorial-primary);
-  --primary-text: var(--editorial-ink-on-primary);
+  --primary: oklch(0.52 0.03 70);        /* warm muted — dark text on medium fill */
+  --primary-foreground: var(--editorial-ink);
+  --primary-text: var(--editorial-ink);
   --secondary-text: var(--editorial-ink-soft);
   --muted-text: var(--editorial-ink-muted);
   --border: var(--editorial-hairline);
@@ -388,7 +390,7 @@ body {
   --card-foreground: var(--editorial-ink);
   --popover: var(--editorial-surface-card);
   --popover-foreground: var(--editorial-ink);
-  --primary-foreground: var(--editorial-ink-on-primary);
+  --primary-foreground: var(--editorial-ink);
   --secondary: var(--editorial-surface-soft);
   --secondary-foreground: var(--editorial-ink);
   --muted: var(--editorial-surface-soft);

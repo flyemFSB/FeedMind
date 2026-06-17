@@ -1,25 +1,26 @@
 import pino from "pino";
+import { isProduction } from "@feedmind/env";
 import { apiEnv } from "../env.js";
+import { APP_NAME } from "./constants.js";
 
-const devTransport =
-  apiEnv.APP_ENV !== "production"
-    ? {
-        transport: {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
-            ignore: "pid,hostname,service,env",
-          },
+const devTransport = isProduction()
+  ? {}
+  : {
+      transport: {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
+          ignore: "pid,hostname,service,env",
         },
-      }
-    : {};
+      },
+    };
 
 export const logger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
+  level: isProduction() ? "info" : "debug",
   ...devTransport,
   base: {
-    service: apiEnv.APP_NAME,
+    service: APP_NAME,
     env: apiEnv.APP_ENV,
   },
   redact: {

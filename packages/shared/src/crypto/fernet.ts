@@ -14,8 +14,12 @@ function base64UrlDecode(s: string): Buffer {
   return Buffer.from(s, "base64url");
 }
 
-function requireEncryptionKey(): string {
-  const key = (process.env.ENCRYPTION_KEY ?? "").trim();
+/**
+ * 获取加密密钥。优先使用传入值，回退到环境变量。
+ * 建议通过 @feedmind/env 的 apiEnv.ENCRYPTION_KEY 传入，确保启动时已校验。
+ */
+function resolveEncryptionKey(keyOverride?: string): string {
+  const key = (keyOverride ?? process.env.ENCRYPTION_KEY ?? "").trim();
   if (!key) {
     throw new Error("ENCRYPTION_KEY is not set. Configure it in .env before starting the server.");
   }
@@ -26,10 +30,10 @@ function deriveKey(rawKey: string, salt: Buffer): Buffer {
   return pbkdf2Sync(rawKey, salt, ITERATIONS, 32, "sha256");
 }
 
-export function encryptValue(plaintext: string): string {
+export function encryptValue(plaintext: string, keyOverride?: string): string {
   if (!plaintext) return "";
 
-  const rawKey = requireEncryptionKey();
+  const rawKey = resolveEncryptionKey(keyOverride);
   const salt = randomBytes(SALT_BYTES);
   const nonce = randomBytes(NONCE_BYTES);
   const key = deriveKey(rawKey, salt);
@@ -41,10 +45,10 @@ export function encryptValue(plaintext: string): string {
   return base64UrlEncode(Buffer.concat([Buffer.from([VERSION]), salt, nonce, encrypted, tag]));
 }
 
-export function decryptValue(ciphertext: string): string {
+export function decryptValue(ciphertext: string, keyOverride?: string): string {
   if (!ciphertext) return "";
 
-  const rawKey = requireEncryptionKey();
+  const rawKey = resolveEncryptionKey(keyOverride);
   const token = base64UrlDecode(ciphertext);
   if (token.length < 1 + SALT_BYTES + NONCE_BYTES + TAG_BYTES) {
     throw new Error("Invalid token.");
@@ -69,6 +73,7 @@ export function decryptValue(ciphertext: string): string {
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
 }
 
+/** 校验 ENCRYPTION_KEY 是否可用 */
 export function validateEncryptionKey(): void {
-  requireEncryptionKey();
+  resolveEncryptionKey();
 }

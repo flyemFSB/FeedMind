@@ -4,7 +4,12 @@
  */
 "use client";
 
-import { type FormEvent, type HTMLAttributes, type ReactNode, type TextareaHTMLAttributes, useCallback } from "react";
+import {
+  type FormEvent,
+  type HTMLAttributes,
+  type TextareaHTMLAttributes,
+  useCallback,
+} from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ArrowUp, Square } from "lucide-react";
@@ -23,12 +28,7 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit">
   onSubmit?: (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function PromptInput({
-  className,
-  onSubmit,
-  children,
-  ...props
-}: PromptInputProps) {
+export function PromptInput({ className, onSubmit, children, ...props }: PromptInputProps) {
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -42,11 +42,7 @@ export function PromptInput({
   );
 
   return (
-    <form
-      className={cn("space-y-3", className)}
-      onSubmit={handleSubmit}
-      {...props}
-    >
+    <form className={cn("space-y-3", className)} onSubmit={handleSubmit} {...props}>
       {children}
     </form>
   );
@@ -110,7 +106,7 @@ export function PromptInputSubmit({
         "rounded-full",
         isStreaming
           ? "bg-editorial-surface-soft text-editorial-ink hover:bg-editorial-surface-strong"
-          : "bg-editorial-primary text-editorial-ink-on-primary hover:bg-editorial-primary-active",
+          : "bg-primary text-primary-foreground hover:bg-primary/80",
         disabled && "opacity-50 cursor-not-allowed",
         className,
       )}

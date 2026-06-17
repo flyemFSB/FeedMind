@@ -6,7 +6,6 @@ import { deleteWikiSource, runIngest } from "@/lib/api/wiki";
 import { useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiKeys } from "@/lib/hooks/use-wiki";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";

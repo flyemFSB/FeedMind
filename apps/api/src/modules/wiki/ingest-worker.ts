@@ -39,10 +39,10 @@ export function startIngestWorker(): void {
         if (!job) continue;
 
         store.updateStatus(spaceId, job.id, "processing");
-        logger.info({ spaceId, sourcePath: job.sourcePath }, "开始处理导入任务");
+        logger.info({ spaceId, sourcePath: job.source_path }, "开始处理导入任务");
 
         try {
-          const result = await runIngest(spaceId, job.sourcePath, (message, step, totalSteps) => {
+          const result = await runIngest(spaceId, job.source_path, (message, step, totalSteps) => {
             store.updateStatus(spaceId, job.id, "processing", {
               progress: { message, step, totalSteps },
             });
@@ -53,9 +53,9 @@ export function startIngestWorker(): void {
 
           // 标记任务完成而非删除，保留导入历史
           store.updateStatus(spaceId, job.id, "done", {
-            writtenFiles: [],
-            pagesCreated: result.pagesCreated,
-            pagesUpdated: result.pagesUpdated,
+            written_files: [],
+            pages_created: result.pagesCreated,
+            pages_updated: result.pagesUpdated,
           });
 
           // 标记源文档为已导入
@@ -64,7 +64,7 @@ export function startIngestWorker(): void {
               spaceDir(spaceId),
               "raw",
               "sources",
-              extractIdentity(job.sourcePath),
+              extractIdentity(job.source_path),
             );
             if (fs.existsSync(sourcePath)) {
               const raw = fs.readFileSync(sourcePath, "utf-8");
@@ -86,14 +86,14 @@ export function startIngestWorker(): void {
           const msg = err instanceof Error ? err.message : String(err);
           logger.error({ spaceId, jobId: job.id, err }, "导入任务失败");
 
-          if ((job.retryCount ?? 0) >= MAX_RETRIES) {
+          if ((job.retry_count ?? 0) >= MAX_RETRIES) {
             store.updateStatus(spaceId, job.id, "failed", { error: msg });
           } else {
             store.retry(spaceId, job.id);
           }
         }
 
-        break; // 每轮 tick 只处理一个任务
+        // 继续处理下一个空间的任务（不 break）
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -109,6 +109,5 @@ export function startIngestWorker(): void {
     void tick();
   }, POLL_INTERVAL_MS);
   void tick();
-  logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, "导入 worker 已启动");
   logger.info({ pollIntervalMs: POLL_INTERVAL_MS }, "导入 worker 已启动");
 }

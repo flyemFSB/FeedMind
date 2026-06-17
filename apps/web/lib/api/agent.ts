@@ -1,4 +1,4 @@
-import { getSelectedLLMModel, setSelectedLLMModel } from "@/lib/api/llms";
+import { setSelectedLLMModel } from "@/lib/api/llms";
 
 const selectedModelStorageKey = "feedmind:selected-model";
 const selectedModelIdStorageKey = "feedmind:selected-model-id";
@@ -9,7 +9,7 @@ export function getSelectedFeedMindModel(): string {
     const selectedModel = window.localStorage.getItem(selectedModelStorageKey);
     if (selectedModel) return selectedModel;
   }
-  return import.meta.env.VITE_FEEDMIND_MODEL ?? "";
+  return "";
 }
 
 export function setSelectedFeedMindModel(model: string): void {
@@ -19,9 +19,7 @@ export function setSelectedFeedMindModel(model: string): void {
     } else {
       window.localStorage.removeItem(selectedModelStorageKey);
     }
-    window.dispatchEvent(
-      new CustomEvent(selectedModelChangeEvent, { detail: model }),
-    );
+    window.dispatchEvent(new CustomEvent(selectedModelChangeEvent, { detail: model }));
   }
 }
 
@@ -57,9 +55,7 @@ export async function persistSelectedFeedMindModel(model: string): Promise<void>
   }
 }
 
-export function onSelectedFeedMindModelChange(
-  listener: (model: string) => void,
-): () => void {
+export function onSelectedFeedMindModelChange(listener: (model: string) => void): () => void {
   if (typeof window === "undefined") return () => undefined;
 
   const handleChange = (event: Event) => {
@@ -69,6 +65,5 @@ export function onSelectedFeedMindModelChange(
   };
 
   window.addEventListener(selectedModelChangeEvent, handleChange);
-  return () =>
-    window.removeEventListener(selectedModelChangeEvent, handleChange);
+  return () => window.removeEventListener(selectedModelChangeEvent, handleChange);
 }

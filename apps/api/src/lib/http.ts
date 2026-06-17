@@ -16,7 +16,7 @@ export class HttpError extends Error {
 
 // 统一成功响应包装为 { data, error: null } 信封格式
 export function jsonOk<T>(c: Context, data: T, status = 200): Response {
-  return c.json<ApiEnvelope<T>>({ data, error: null }, status as any);
+  return c.json<ApiEnvelope<T>>({ data, error: null }, status as 200);
 }
 
 // 统一错误响应包装
@@ -27,7 +27,10 @@ export function jsonError(
   message: string,
   details: Record<string, unknown> = {},
 ): Response {
-  return c.json<ApiEnvelope<never>>({ data: null, error: { code, message, details } }, status as any);
+  return c.json<ApiEnvelope<never>>(
+    { data: null, error: { code, message, details } },
+    status as 400,
+  );
 }
 
 // 读取请求体并用 Zod schema 校验，失败抛出 HttpError 交由全局处理器

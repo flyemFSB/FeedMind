@@ -32,11 +32,15 @@ export async function processNextIngest(spaceId: string): Promise<IngestJob | nu
 export async function completeIngestJob(
   spaceId: string,
   jobId: string,
-  writtenFiles: string[],
-  pagesCreated?: number,
-  pagesUpdated?: number,
+  written_files: string[],
+  pages_created?: number,
+  pages_updated?: number,
 ): Promise<void> {
-  getQueueStore().updateStatus(spaceId, jobId, "done", { writtenFiles, pagesCreated, pagesUpdated });
+  getQueueStore().updateStatus(spaceId, jobId, "done", {
+    written_files,
+    pages_created,
+    pages_updated,
+  });
 }
 
 export async function failIngestJob(spaceId: string, jobId: string, error: string): Promise<void> {

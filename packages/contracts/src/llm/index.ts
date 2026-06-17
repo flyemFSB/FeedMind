@@ -10,7 +10,7 @@ export const llmModelCreateSchema = z.object({
   max_output: z.string().nullable().optional(),
 });
 
-export const llmModelUpdateSchema = llmModelCreateSchema;
+export const llmModelUpdateSchema = llmModelCreateSchema.partial();
 
 export const llmModelReadSchema = llmModelCreateSchema.omit({ api_key: true }).extend({
   id: z.number().int().positive(),

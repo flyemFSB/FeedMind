@@ -1,15 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ReviewItem } from "@feedmind/contracts";
-import { spaceDir } from "./wiki-utils.js";
+import { spaceDir, ensureLlmWikiDir } from "./wiki-utils.js";
 
 function reviewPath(spaceId: string): string {
   return path.join(spaceDir(spaceId), ".llm-wiki", "review.json");
-}
-
-function ensureLlmWikiDir(spaceId: string): void {
-  const dir = path.join(spaceDir(spaceId), ".llm-wiki");
-  fs.mkdirSync(dir, { recursive: true });
 }
 
 function readItems(spaceId: string): ReviewItem[] {

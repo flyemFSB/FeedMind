@@ -208,7 +208,15 @@
     "selectPageDesc": "Select a page from the list, or import documents to auto-generate knowledge",
     "pageCount": "{count} pages",
     "stepsProgress": "Step {step}/{total}",
-    "stepDetail": "Step {step}/{total} · {message}"
+    "stepDetail": "Step {step}/{total} · {message}",
+    "renameSpace": "Rename",
+    "deleteSpace": "Delete Space",
+    "renameSpaceTitle": "Rename Space",
+    "renameSpaceDesc": "Enter a new name for this space",
+    "renameSpacePlaceholder": "New name",
+    "confirmDeleteSpace": "Delete Space",
+    "confirmDeleteSpaceDesc": "All pages and sources will be permanently deleted. This cannot be undone.",
+    "delete": "Delete"
   },
   "settings": {
     "title": "Settings",

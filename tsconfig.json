@@ -6,6 +6,7 @@
     { "path": "./packages/db" },
     { "path": "./packages/crawler-core" },
     { "path": "./packages/wiki-core" },
+    { "path": "./packages/env" },
     { "path": "./apps/api" }
   ]
 }

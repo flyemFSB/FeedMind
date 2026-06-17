@@ -40,9 +40,14 @@ llmRoutes.put("/llms/selected", async (c) => {
 
 llmRoutes.get("/llms/selected", async (c) => jsonOk(c, await getSelectedModel()));
 
-llmRoutes.get("/llms/:modelId/runtime", async (c) =>
-  jsonOk(c, await getModelRuntime(parseModelId(c.req.param("modelId")))),
-);
+llmRoutes.get("/llms/:modelId/runtime", async (c) => {
+  // 仅限内部 Agent 调用，通过 x-feedmind-internal 头标识
+  const isInternal = c.req.header("x-feedmind-internal") === "1";
+  if (!isInternal) {
+    throw new HttpError(403, "FORBIDDEN", "runtime 端点仅限内部调用");
+  }
+  return jsonOk(c, await getModelRuntime(parseModelId(c.req.param("modelId"))));
+});
 
 llmRoutes.put("/llms/:modelId", async (c) => {
   const payload = await parseJson(c, llmModelUpdateSchema);

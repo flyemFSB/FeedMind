@@ -403,7 +403,7 @@ export function ModelFormDialog({
           <Button
             onClick={handleSubmit}
             disabled={!form.modelName || isPending}
-            className="rounded-xl bg-editorial-primary px-4 text-[13px] text-editorial-ink-on-primary hover:bg-editorial-primary disabled:cursor-not-allowed disabled:bg-editorial-hairline"
+            className="rounded-xl bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-hairline"
           >
             {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>

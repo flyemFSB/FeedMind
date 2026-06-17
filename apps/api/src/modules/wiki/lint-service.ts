@@ -2,15 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { runStructuralLint, getFileStem, normalizePath } from "@feedmind/wiki-core";
 import type { LintResult } from "@feedmind/contracts";
-import { spaceDir } from "./wiki-utils.js";
+import { spaceDir, ensureLlmWikiDir } from "./wiki-utils.js";
 
 function lintPath(spaceId: string): string {
   return path.join(spaceDir(spaceId), ".llm-wiki", "lint.json");
-}
-
-function ensureLlmWikiDir(spaceId: string): void {
-  const dir = path.join(spaceDir(spaceId), ".llm-wiki");
-  fs.mkdirSync(dir, { recursive: true });
 }
 
 export async function runLint(spaceId: string): Promise<LintResult[]> {

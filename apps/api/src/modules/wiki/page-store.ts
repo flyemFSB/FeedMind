@@ -31,14 +31,15 @@ const DIR_TYPE_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(TYPE_DIR_MAP).map(([t, d]) => [d, t]),
 );
 
-// ─── 页面文件 slug 缓存 ────────────────────────────────────────
+// ─── 页面文件 slug 缓存（带 TTL） ──────────────────────────────
 
-const pageFileCache = new Map<string, Map<string, string>>();
+const CACHE_TTL_MS = 60_000; // 60 秒过期
+const pageFileCache = new Map<string, { data: Map<string, string>; ts: number }>();
 
 function getSlugCache(spaceId: string): Map<string, string> {
-  let cache = pageFileCache.get(spaceId);
-  if (cache) return cache;
-  cache = new Map<string, string>();
+  const entry = pageFileCache.get(spaceId);
+  if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
+  const cache = new Map<string, string>();
   const dir = path.join(spaceDir(spaceId), "wiki");
   try {
     const files = readDirRecursive(dir, (_f, name) => name.endsWith(".md"));
@@ -48,7 +49,7 @@ function getSlugCache(spaceId: string): Map<string, string> {
   } catch {
     /* dir not created yet */
   }
-  pageFileCache.set(spaceId, cache);
+  pageFileCache.set(spaceId, { data: cache, ts: Date.now() });
   return cache;
 }
 

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
+import fsPromises from "node:fs/promises";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // ─── 类型 ─────────────────────────────────────────────────────────
 
@@ -75,8 +77,12 @@ function mimeFromExt(ext: string): string {
 
 // ─── 文本格式 ────────────────────────────────────────────────────
 
-function extractTextFile(filePath: string, fileName: string, content?: string): ExtractedDocument {
-  const text = content ?? fs.readFileSync(filePath, "utf-8");
+async function extractTextFile(
+  filePath: string,
+  fileName: string,
+  content?: string,
+): Promise<ExtractedDocument> {
+  const text = content ?? (await fsPromises.readFile(filePath, "utf-8"));
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   return {
     text: `# ${fileName}\n\n` + text,
@@ -92,7 +98,7 @@ async function extractPdf(filePath: string, fileName: string): Promise<Extracted
   // pdf-parse v2 直接导出函数本身（ESM 下不需要 .default）
   const pdfParse = await import("pdf-parse");
   const parseFn = (pdfParse as any).default ?? (pdfParse as any);
-  const buf = fs.readFileSync(filePath);
+  const buf = await fsPromises.readFile(filePath);
 
   let text: string;
   let pageCount: number | undefined;
@@ -150,7 +156,7 @@ async function extractDocx(filePath: string, fileName: string): Promise<Extracte
 
 async function extractPptx(filePath: string, fileName: string): Promise<ExtractedDocument> {
   try {
-    const buf = fs.readFileSync(filePath);
+    const buf = await fsPromises.readFile(filePath);
     const officeparser = await import("officeparser");
     const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
     const text = (rawText ?? "").trim();
@@ -242,7 +248,7 @@ async function extractXlsx(filePath: string, fileName: string): Promise<Extracte
 
 async function extractOfficeFile(filePath: string, fileName: string): Promise<ExtractedDocument> {
   try {
-    const buf = fs.readFileSync(filePath);
+    const buf = await fsPromises.readFile(filePath);
     const officeparser = await import("officeparser");
     const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
     const text = (rawText ?? "").trim();
@@ -282,9 +288,9 @@ async function extractImageInfo(filePath: string, fileName: string): Promise<Ext
   let metadata = "";
 
   try {
-    const stat = fs.statSync(filePath);
+    const stat = await fsPromises.stat(filePath);
     const fileType = await import("file-type");
-    const buf = fs.readFileSync(filePath);
+    const buf = await fsPromises.readFile(filePath);
     const type = await fileType.fileTypeFromBuffer(buf);
 
     if (type) {
@@ -316,6 +322,21 @@ export async function extractDocument(
   fileName: string,
   existingText?: string,
 ): Promise<ExtractedDocument> {
+  // 检查文件大小限制
+  try {
+    const stat = await fsPromises.stat(filePath);
+    if (stat.size > MAX_FILE_SIZE) {
+      return {
+        text: `# ${fileName}\n\n[File too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB exceeds 10MB limit]`,
+        wordCount: 0,
+        mimeType: "application/octet-stream",
+        warnings: [`File too large: ${(stat.size / 1024 / 1024).toFixed(1)}MB`],
+      };
+    }
+  } catch {
+    /* file may not exist, continue to let format handler deal with it */
+  }
+
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   const format = detectFormat(fileName);
 
@@ -346,9 +367,9 @@ export async function extractDocument(
 
 // ─── 文件内容哈希（用于导入缓存）─────────────────────────────────
 
-export function fileContentHash(filePath: string): string {
+export async function fileContentHash(filePath: string): Promise<string> {
   try {
-    const buf = fs.readFileSync(filePath);
+    const buf = await fsPromises.readFile(filePath);
     return crypto.createHash("sha256").update(buf).digest("hex");
   } catch {
     return "";

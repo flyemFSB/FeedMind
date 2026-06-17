@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { extractDocument, formatFrontmatter } from "@feedmind/wiki-core";
@@ -11,12 +10,14 @@ import {
   wikiSpaceCreateSchema,
   wikiSpaceUpdateSchema,
 } from "@feedmind/contracts";
+import { z } from "zod";
 import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 import {
   listWikiSpaces,
   getWikiSpace,
   createWikiSpace,
   updateWikiSpace,
+  deleteWikiSpace,
 } from "../../modules/wiki/space-registry.js";
 import {
   listWikiPages,
@@ -52,11 +53,29 @@ import {
   sweepReviewItems,
 } from "../../modules/wiki/review-service.js";
 import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
-import { wikiRootDir, readSourceTitle } from "../../modules/wiki/wiki-utils.js";
+import {
+  wikiRootDir,
+  readSourceTitle,
+  validateSpaceId,
+  sha256,
+} from "../../modules/wiki/wiki-utils.js";
 
-function sha256(text: string): string {
-  return crypto.createHash("sha256").update(text).digest("hex");
-}
+const sourcePathSchema = z
+  .string()
+  .min(1)
+  .max(512)
+  .refine((v) => !v.includes("..") && !v.startsWith("/") && !v.startsWith("\\"), {
+    message: "sourcePath 包含非法路径字符",
+  });
+
+const ingestBodySchema = z.object({
+  sourcePath: sourcePathSchema,
+});
+
+const searchBodySchema = z.object({
+  query: z.string().default(""),
+  topK: z.number().int().min(1).max(50).default(20),
+});
 
 function sanitizeFileName(name: string): string {
   const normalized = name.replace(/\\/g, "/");
@@ -96,14 +115,17 @@ wikiRoutes.patch("/wiki/spaces/:spaceId", async (c) => {
   const payload = await parseJson(c, wikiSpaceUpdateSchema);
   return jsonOk(c, await updateWikiSpace(c.req.param("spaceId"), payload));
 });
+wikiRoutes.delete("/wiki/spaces/:spaceId", async (c) => {
+  return jsonOk(c, await deleteWikiSpace(c.req.param("spaceId")));
+});
 
 // ─── 页面 ───────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/pages", async (c) => {
   const spaceId = c.req.param("spaceId");
   const type = c.req.query("type");
   const q = c.req.query("q");
-  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : 50;
-  const offset = c.req.query("offset") ? Number(c.req.query("offset")) : 0;
+  const limit = Math.max(1, Math.min(200, Number(c.req.query("limit")) || 50));
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0);
   return jsonOk(c, await listWikiPages(spaceId, { type, q, limit, offset }));
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
@@ -148,8 +170,8 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
 wikiRoutes.get("/wiki/spaces/:spaceId/sources", async (c) => {
   const spaceId = c.req.param("spaceId");
   const status = c.req.query("status");
-  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : 50;
-  const offset = c.req.query("offset") ? Number(c.req.query("offset")) : 0;
+  const limit = Math.max(1, Math.min(200, Number(c.req.query("limit")) || 50));
+  const offset = Math.max(0, Number(c.req.query("offset")) || 0);
   return jsonOk(c, await listWikiSources(spaceId, { status, limit, offset }));
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
@@ -159,6 +181,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const spaceId = c.req.param("spaceId");
+  validateSpaceId(spaceId);
   const contentType = c.req.header("Content-Type") ?? "";
 
   if (!contentType.includes("multipart/form-data")) {
@@ -378,7 +401,8 @@ wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId", async (c) =>
   jsonOk(c, await getWikiSource(c.req.param("spaceId"), c.req.param("sourceId"))),
 );
 wikiRoutes.delete("/wiki/spaces/:spaceId/sources/:sourceId", async (c) => {
-  const mode = (c.req.query("mode") ?? "detach") as "detach" | "delete-orphans";
+  const rawMode = c.req.query("mode") ?? "detach";
+  const mode = rawMode === "delete-orphans" ? "delete-orphans" : "detach";
   return jsonOk(c, await deleteWikiSource(c.req.param("spaceId"), c.req.param("sourceId"), mode));
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId/delete-impact", async (c) =>
@@ -388,9 +412,8 @@ wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId/delete-impact", async (c
 // ─── 导入（直接）─────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
-  const body = await c.req.json().catch(() => ({}));
-  const sourcePath = body.sourcePath as string;
-  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
+  const body = await parseJson(c, ingestBodySchema);
+  const sourcePath = body.sourcePath;
 
   // Extract source title from file for import history display
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
@@ -413,10 +436,8 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
 // ─── 搜索 ──────────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/search", async (c) => {
   const spaceId = c.req.param("spaceId");
-  const body = await c.req.json().catch(() => ({}));
-  const query = (body.query as string) || "";
-  const topK = Number(body.topK) || 20;
-  return jsonOk(c, await searchWiki(spaceId, query, topK));
+  const body = await parseJson(c, searchBodySchema);
+  return jsonOk(c, await searchWiki(spaceId, body.query, body.topK));
 });
 
 // ─── 图谱 ───────────────────────────────────────────────────────
@@ -435,8 +456,11 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await c.req.json().catch(() => ({}));
   const sourcePath = body.sourcePath as string;
-  const folderContext = body.folderContext as string | undefined;
   if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
+  if (sourcePath.includes("..") || sourcePath.startsWith("/") || sourcePath.startsWith("\\")) {
+    return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath 包含非法路径字符");
+  }
+  const folderContext = body.folderContext as string | undefined;
 
   // 获取源标题用于导入历史展示
   const sourceTitle = readSourceTitle(spaceId, sourcePath);

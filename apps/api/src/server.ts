@@ -1,24 +1,20 @@
-import "dotenv/config";
+import "./env-loader.js";
+
 import { serve } from "@hono/node-server";
 import { MastraServer } from "@mastra/hono";
 import { createApp } from "./app.js";
-import { apiEnv } from "./env.js";
+import { apiEnv, validateApiRuntime } from "./env.js";
 import { logger } from "./lib/logger.js";
 import { initDatabase } from "@feedmind/db";
 import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
 import { createMastra, initToolConfig } from "./mastra/index.js";
-import dotenv from "dotenv";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const thisDir = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(thisDir, "..", "..", "..");
+validateApiRuntime();
 
 async function main(): Promise<void> {
-  dotenv.config({ path: resolve(projectRoot, ".env") });
   await initDatabase();
 
-  if (process.env.DISABLE_INGEST_WORKER !== "1") {
+  if (apiEnv.DISABLE_INGEST_WORKER !== "1") {
     startIngestWorker();
   }
 

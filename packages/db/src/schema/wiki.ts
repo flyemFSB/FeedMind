@@ -1,2 +1,2 @@
-// Wiki 已改为文件存储 —— 参见 apps/api/src/modules/wiki/service.ts
-// 无需数据库表。
+// Wiki 已改为文件存储 —— 无需数据库表。
+// 此文件保留为空以维持 schema/index.ts 的导出兼容性。

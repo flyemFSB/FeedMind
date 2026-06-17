@@ -1,6 +1,7 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
+import type { RouteHandler } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
-import { apiEnv } from "../env.js";
+import { APP_NAME, APP_VERSION } from "./constants.js";
 import { getHealth } from "../modules/health/service.js";
 
 // ─── Schemas ─────────────────────────────────────────────────
@@ -49,24 +50,22 @@ const healthRoute = createRoute({
 export const openapiApp = new OpenAPIHono();
 
 // 注册已文档化的路由
-openapiApp.openapi(healthRoute, async (c) => {
+const healthHandler: RouteHandler<typeof healthRoute> = async (c) => {
   try {
     const result = await getHealth();
-    return c.json({ data: result, error: null });
+    return c.json({ data: result, error: null }, 200);
   } catch {
-    return c.json(
-      { data: null, error: { code: "INTERNAL_ERROR", message: "健康检查失败" } },
-      // 类型收窄需要显式标注
-    ) as any;
+    return c.json({ data: null, error: { code: "INTERNAL_ERROR", message: "健康检查失败" } }, 500);
   }
-});
+};
+openapiApp.openapi(healthRoute, healthHandler);
 
 // OpenAPI 规范文档（JSON）
 openapiApp.doc("/openapi", {
   openapi: "3.1.0",
   info: {
-    title: apiEnv.APP_NAME,
-    version: apiEnv.APP_VERSION,
+    title: APP_NAME,
+    version: APP_VERSION,
     description: "FeedMind API — 知识管理、AI 对话、内容爬取服务",
   },
   servers: [{ url: "/api/v1", description: "API v1" }],

@@ -7,7 +7,6 @@ import {
   getSelectedLLMModel,
   setSelectedLLMModel,
 } from "@/lib/api/llms";
-import type { LLMModel } from "@/lib/types";
 
 export const llmKeys = {
   all: ["llms"] as const,

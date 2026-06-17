@@ -23,7 +23,7 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
   const openai = createOpenAI({
     apiKey: config.api_key,
     baseURL: config.base_url || undefined,
-    fetch: createSanitizedFetch(config.base_url || undefined) as any,
+    fetch: createSanitizedFetch(config.base_url || undefined),
   });
   const cleanName = config.model_id?.trim() || "";
   const entry: ResolvedModel = {

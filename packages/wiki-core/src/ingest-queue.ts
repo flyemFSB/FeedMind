@@ -2,27 +2,27 @@ import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
 
 /** 创建新的导入队列条目 */
 export function createIngestJob(
-  projectId: string,
-  sourcePath: string,
-  folderContext?: string,
-  sourceTitle?: string,
+  project_id: string,
+  source_path: string,
+  folder_context?: string,
+  source_title?: string,
 ): IngestJob {
   return {
     id: `ingest-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    projectId,
-    sourcePath,
-    sourceTitle: sourceTitle ?? "",
-    folderContext: folderContext ?? "",
+    project_id,
+    source_path,
+    source_title: source_title ?? "",
+    folder_context: folder_context ?? "",
     status: "pending",
     progress: null,
-    addedAt: Date.now(),
-    startedAt: null,
-    completedAt: null,
+    added_at: Date.now(),
+    started_at: null,
+    completed_at: null,
     error: null,
-    retryCount: 0,
-    writtenFiles: [],
-    pagesCreated: 0,
-    pagesUpdated: 0,
+    retry_count: 0,
+    written_files: [],
+    pages_created: 0,
+    pages_updated: 0,
   };
 }
 
@@ -46,12 +46,10 @@ export function dumpQueue(queue: IngestJob[]): string {
  */
 export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
   const existing = queue.findIndex(
-    (j) => j.sourcePath === job.sourcePath && (j.status === "pending" || j.status === "failed"),
+    (j) => j.source_path === job.source_path && (j.status === "pending" || j.status === "failed"),
   );
   if (existing >= 0) {
-    // 如果已在 pending 则不重复入队
     if (queue[existing].status === "pending") return queue;
-    // 替换失败的旧条目
     const updated = [...queue];
     updated[existing] = job;
     return updated;
@@ -60,8 +58,8 @@ export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
 }
 
 /** 获取项目中下一个待处理任务 */
-export function nextJob(queue: IngestJob[], projectId: string): IngestJob | null {
-  return queue.find((j) => j.projectId === projectId && j.status === "pending") ?? null;
+export function nextJob(queue: IngestJob[], project_id: string): IngestJob | null {
+  return queue.find((j) => j.project_id === project_id && j.status === "pending") ?? null;
 }
 
 /** 更新任务状态 */
@@ -78,9 +76,9 @@ export function updateJobStatus(
       ...j,
       ...updates,
       status,
-      startedAt: status === "processing" ? now : j.startedAt,
-      completedAt:
-        status === "done" || status === "failed" || status === "cancelled" ? now : j.completedAt,
+      started_at: status === "processing" ? now : j.started_at,
+      completed_at:
+        status === "done" || status === "failed" || status === "cancelled" ? now : j.completed_at,
     };
   });
 }
@@ -92,7 +90,7 @@ export function incrementRetry(queue: IngestJob[], jobId: string): IngestJob[] {
     return {
       ...j,
       status: "pending" as IngestJobStatus,
-      retryCount: j.retryCount + 1,
+      retry_count: j.retry_count + 1,
       error: null,
     };
   });
@@ -103,6 +101,6 @@ export function pruneQueue(queue: IngestJob[], olderThan: number): IngestJob[] {
   return queue.filter(
     (j) =>
       !(j.status === "done" || j.status === "cancelled") ||
-      (j.completedAt && j.completedAt > olderThan),
+      (j.completed_at && j.completed_at > olderThan),
   );
 }

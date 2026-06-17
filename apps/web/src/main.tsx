@@ -10,7 +10,6 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { createQueryClient } from "@/lib/query-client";
 import { router } from "@/src/router";
 import { TanStackQueryDevtools } from "@/src/devtools";
-import { TanStackRouterDevtools } from "@/src/devtools";
 import { createRoot } from "react-dom/client";
 import "@/app/globals.css";
 
@@ -34,7 +33,6 @@ function App() {
         </ThemeProvider>
       </ErrorBoundary>
       <Toaster richColors closeButton position="top-center" />
-      <TanStackRouterDevtools />
     </>
   );
 }

@@ -17,6 +17,7 @@ function getBrowserInstance(): AgentBrowser {
       timeout: 30_000,
       scope: "thread",
       excludeTools: [],
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     });
   }
   return _browserInstance;
@@ -71,7 +72,7 @@ export const browserTemplate: SubagentTemplate = {
   },
 
   getTools() {
-    return getBrowserInstance().getTools() as any;
+    return getBrowserInstance().getTools() as Record<string, unknown>;
   },
 
   maxSteps: 15,

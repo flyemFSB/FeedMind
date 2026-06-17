@@ -2,15 +2,26 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { toolConfigUpdateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
-import { listTools, updateToolConfig } from "../../modules/tools/service.js";
+import {
+  listTools,
+  listToolsRuntime,
+  getToolRuntime,
+  updateToolConfig,
+} from "../../modules/tools/service.js";
 import { ToolConfigClient } from "../../mastra/tools/search/config.js";
 
 export const toolsRoutes = new Hono();
 
 toolsRoutes.get("/tools", async (c) => jsonOk(c, await listTools()));
 
-// /tools/runtime 仅返回运行时状态，密码字段已掩码不暴露原始值
-toolsRoutes.get("/tools/runtime", async (c) => jsonOk(c, await listTools()));
+// /tools/runtime 返回运行时状态，密码字段已掩码
+toolsRoutes.get("/tools/runtime", async (c) => jsonOk(c, await listToolsRuntime()));
+
+// /tools/:name/runtime 返回单个工具的解密后配置（供前端显示密码真实值）
+toolsRoutes.get("/tools/:name/runtime", async (c) => {
+  const name = c.req.param("name");
+  return jsonOk(c, await getToolRuntime(name));
+});
 
 const batchUpdateSchema = z.record(z.string(), toolConfigUpdateSchema);
 

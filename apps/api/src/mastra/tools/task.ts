@@ -1,5 +1,5 @@
 import { createTool } from "@mastra/core/tools";
-import type { ToolAction, ToolExecutionContext } from "@mastra/core/tools";
+import type { ToolExecutionContext } from "@mastra/core/tools";
 import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
 import { webSearchTool } from "./web-search.js";
@@ -16,12 +16,15 @@ import { resolveChatModel } from "../utils/model-resolver.js";
 
 export type SubagentType = "researcher" | "extractor" | "summarizer" | "browser";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ToolMap = Record<string, any>;
+
 export interface SubagentTemplate {
   type: SubagentType;
   name: string;
   description: string;
   getInstructions(): string;
-  getTools(): Record<string, ToolAction<any, any, any, any, any>>;
+  getTools(): ToolMap;
   maxSteps?: number;
 }
 
@@ -215,9 +218,9 @@ export const taskTool = createTool({
 
     const usage = result.usage
       ? {
-          inputTokens: (result.usage as any).inputTokens ?? 0,
-          outputTokens: (result.usage as any).outputTokens ?? 0,
-          totalTokens: (result.usage as any).totalTokens ?? 0,
+          inputTokens: (result.usage as { inputTokens?: number }).inputTokens ?? 0,
+          outputTokens: (result.usage as { outputTokens?: number }).outputTokens ?? 0,
+          totalTokens: (result.usage as { totalTokens?: number }).totalTokens ?? 0,
         }
       : undefined;
 

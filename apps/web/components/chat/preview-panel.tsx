@@ -37,7 +37,12 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
   const title = preview?.title?.trim() || t("chat.preview");
 
   return (
-    <Sheet open={!!preview} onOpenChange={(open) => { if (!open) closePreview(); }}>
+    <Sheet
+      open={!!preview}
+      onOpenChange={(open) => {
+        if (!open) closePreview();
+      }}
+    >
       <SheetContent
         side="right"
         className="flex w-[min(620px,42vw)] min-w-[420px] flex-col border-l border-editorial-hairline bg-editorial-surface-card p-0 max-lg:w-[min(520px,78vw)] max-sm:left-6 max-sm:w-auto max-sm:min-w-0"
@@ -48,7 +53,9 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
             <Globe2 size={16} />
           </div>
           <div className="min-w-0 flex-1">
-            <SheetTitle className="truncate text-left text-[14px] font-semibold text-editorial-ink">{title}</SheetTitle>
+            <SheetTitle className="truncate text-left text-[14px] font-semibold text-editorial-ink">
+              {title}
+            </SheetTitle>
             {(preview?.source || preview?.url) && (
               <SheetDescription className="truncate text-left text-[11px] text-editorial-ink-muted">
                 {preview?.source || preview?.url}
@@ -74,7 +81,7 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
               src={preview.url}
               title={title}
               className="h-full w-full border-0 bg-white"
-              sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+              sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
             />
           ) : (
             <div className="h-full overflow-auto p-5">

@@ -54,6 +54,9 @@ async function checkSSRF(urlStr: string): Promise<void> {
       }
     } catch (err) {
       if (err instanceof Error && err.message.startsWith("SSRF blocked")) throw err;
+      // DNS 解析失败时放行：实际 HTTP 请求仍会因域名不可达而失败，
+      // 但能返回更准确的错误信息（如 ENOTFOUND），而非 SSRF 误报
+      logger.warn({ err, host }, "DNS 解析失败，跳过 SSRF IP 检查");
     }
   }
 }

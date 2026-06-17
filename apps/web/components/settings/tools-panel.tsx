@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import type { ToolRead } from "@feedmind/contracts";
 import { updateAllToolConfigs } from "@/lib/api/tools";
 import { useTools } from "@/lib/hooks/use-tools";
 import { Button } from "@/components/ui/button";
@@ -79,7 +78,9 @@ export function ToolsPanel() {
   }
 
   if (!initialTools.length) {
-    return <div className="text-[13px] text-editorial-ink-muted px-5 py-4">{t("settings.noTools")}</div>;
+    return (
+      <div className="text-[13px] text-editorial-ink-muted px-5 py-4">{t("settings.noTools")}</div>
+    );
   }
 
   const currentTool = initialTools.find((t) => t.name === activeTool) ?? initialTools[0];
@@ -95,7 +96,9 @@ export function ToolsPanel() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={save} className="h-8 rounded-xl bg-editorial-primary text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary">{t("common.save")}</Button>
+          <Button size="sm" onClick={save} className="h-8 rounded-xl text-[12px]">
+            {t("common.save")}
+          </Button>
         </div>
       </div>
 
@@ -112,7 +115,6 @@ export function ToolsPanel() {
             }`}
           >
             {tool.display_name}
-            {tool.is_enabled && <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-editorial-semantic-success" />}
           </button>
         ))}
       </div>
@@ -135,7 +137,17 @@ export function ToolsPanel() {
                 <p className="mb-1.5 text-[11px] text-editorial-ink-muted">
                   {field.description}
                   {field.link && (
-                    <> <a href={field.link} target="_blank" rel="noopener noreferrer" className="text-editorial-primary underline underline-offset-2">{t("settings.getLink")}</a></>
+                    <>
+                      {" "}
+                      <a
+                        href={field.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-editorial-primary underline underline-offset-2"
+                      >
+                        {t("settings.getLink")}
+                      </a>
+                    </>
                   )}
                 </p>
               )}

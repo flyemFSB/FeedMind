@@ -10,8 +10,6 @@ export interface RouteHandlerParams {
   params: Record<string, unknown>;
   /** Optional cookies for authenticated requests */
   cookies?: string;
-  /** Optional proxy URL */
-  proxyUrl?: string;
   /** AbortSignal for task cancellation */
   abortSignal: AbortSignal;
   /** Maximum number of items to return in RSS feed */

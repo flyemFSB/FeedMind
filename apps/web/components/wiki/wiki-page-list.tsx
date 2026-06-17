@@ -189,7 +189,7 @@ function CategorizedPageList({
 
 function FilterChip({
   label,
-  color,
+  color: _color,
   active,
   onClick,
 }: {

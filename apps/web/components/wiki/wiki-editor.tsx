@@ -16,12 +16,7 @@ interface WikiEditorProps {
   onCancel: () => void;
 }
 
-export function WikiEditor({
-  spaceId,
-  pageId,
-  onSave,
-  onCancel,
-}: WikiEditorProps) {
+export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProps) {
   const { t } = useTranslation();
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +118,7 @@ export function WikiEditor({
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-8 rounded-lg bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
+            className="h-8 rounded-lg bg-primary px-4 text-[12px] text-primary-foreground hover:bg-primary/80"
           >
             {saving ? t("wiki.saving") : t("common.save")}
           </Button>

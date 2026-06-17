@@ -208,7 +208,15 @@
     "selectPageDesc": "从左侧列表选择一个页面，或导入文档自动生成知识",
     "pageCount": "{count} 页",
     "stepsProgress": "步骤 {step}/{total}",
-    "stepDetail": "步骤 {step}/{total} · {message}"
+    "stepDetail": "步骤 {step}/{total} · {message}",
+    "renameSpace": "重命名",
+    "deleteSpace": "删除空间",
+    "renameSpaceTitle": "重命名空间",
+    "renameSpaceDesc": "输入新的空间名称",
+    "renameSpacePlaceholder": "新名称",
+    "confirmDeleteSpace": "确定删除空间",
+    "confirmDeleteSpaceDesc": "删除后所有页面和来源将永久丢失，此操作不可撤销。",
+    "delete": "删除"
   },
   "settings": {
     "title": "配置中心",

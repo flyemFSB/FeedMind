@@ -12,7 +12,7 @@ import { load } from "cheerio";
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import { createBrowser } from "../core/browser.js";
+import { createBrowser, closeBrowser } from "../core/browser.js";
 
 const XHS_SALT = "i+X,MqLqFLwG";
 const BASE_URL = "https://edith.xiaohongshu.com";
@@ -221,7 +221,7 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
             .filter(Boolean);
         }
       } finally {
-        // 由外部 cleanup 统一关闭
+        await closeBrowser();
       }
     }
 
@@ -316,7 +316,7 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
             .filter(Boolean);
         }
       } finally {
-        // 由外部 cleanup 统一关闭
+        await closeBrowser();
       }
     }
 
@@ -387,7 +387,7 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
           noteData = detailMap[firstNoteId]?.note ?? null;
         }
       } finally {
-        // 由外部 cleanup 统一关闭
+        await closeBrowser();
       }
     }
 

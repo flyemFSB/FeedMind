@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
-import { Package, Trash2, Upload, ExternalLink } from "lucide-react";
+import { Package, Trash2, Upload } from "lucide-react";
 import type { SkillRead } from "@feedmind/contracts";
 import { listSkills, installSkill, deleteSkill } from "@/lib/api/skills";
 import { Button } from "@/components/ui/button";
@@ -57,25 +57,28 @@ export function SkillsPanel() {
     onError: () => toast.error(t("settings.deleteFailed")),
   });
 
-  const handleFile = useCallback(async (file: File) => {
-    if (!file.name.endsWith(".zip")) {
-      toast.error(t("settings.skillZipOnly"));
-      return;
-    }
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (!file.name.endsWith(".zip")) {
+        toast.error(t("settings.skillZipOnly"));
+        return;
+      }
 
-    setInstalling(true);
-    try {
-      const name = file.name.replace(/\.zip$/i, "");
-      await installSkill(name, file);
-      queryClient.invalidateQueries({ queryKey: skillKeys.list() });
-      toast.success(t("settings.skillInstalled"));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      toast.error(msg);
-    } finally {
-      setInstalling(false);
-    }
-  }, [queryClient, t]);
+      setInstalling(true);
+      try {
+        const name = file.name.replace(/\.zip$/i, "");
+        await installSkill(name, file);
+        queryClient.invalidateQueries({ queryKey: skillKeys.list() });
+        toast.success(t("settings.skillInstalled"));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        toast.error(msg);
+      } finally {
+        setInstalling(false);
+      }
+    },
+    [queryClient, t],
+  );
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
@@ -117,7 +120,10 @@ export function SkillsPanel() {
 
       {/* Drop zone */}
       <div
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
@@ -182,8 +188,6 @@ function SkillRow({
   onDelete: () => void;
   isDeleting: boolean;
 }) {
-  const { t } = useTranslation();
-
   return (
     <div className="flex items-start gap-3 px-5 py-3.5">
       <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-editorial-surface-soft">

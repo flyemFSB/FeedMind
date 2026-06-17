@@ -1,12 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { LLMModel } from "@/lib/types";
 import { useLLMModels, useSelectedLLMModel, useSetSelectedLLMModel } from "@/lib/hooks/use-llms";
 import {
   onSelectedFeedMindModelChange,
   persistSelectedFeedMindModel,
-  setSelectedFeedMindModel,
   setSelectedFeedMindModelId,
 } from "@/lib/api/agent";
 import {
@@ -58,7 +56,7 @@ export function ModelSelector() {
     await persistSelectedFeedMindModel(modelId);
 
     // 同步存储 API 模型 ID（如 "deepseek-v4-flash"），供消息快照等场景使用
-    const model = models.find(m => m.id === modelId);
+    const model = models.find((m) => m.id === modelId);
     if (model?.modelId) {
       setSelectedFeedMindModelId(model.modelId);
     }
@@ -68,13 +66,14 @@ export function ModelSelector() {
     return <Skeleton className="h-10 w-[260px] rounded-xl" />;
   }
 
-  const options = loadError && selectedModel
-    ? [{ label: t("settings.modelLoadFailed"), value: selectedModel, provider: "" }]
-    : models.map((model) => ({
-        label: model.modelName,
-        value: model.id,
-        provider: model.provider,
-      }));
+  const options =
+    loadError && selectedModel
+      ? [{ label: t("settings.modelLoadFailed"), value: selectedModel, provider: "" }]
+      : models.map((model) => ({
+          label: model.modelName,
+          value: model.id,
+          provider: model.provider,
+        }));
   const optionMap = new Map(options.map((o) => [o.value, o]));
   const hasModels = models.length > 0;
 

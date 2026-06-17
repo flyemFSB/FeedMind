@@ -44,7 +44,9 @@ export function SystemPanel() {
       {/* Language */}
       <div className="flex items-center justify-between rounded-xl border border-editorial-hairline px-5 py-4">
         <div className="min-w-0">
-          <label className="text-[13px] font-medium text-editorial-ink">{t("common.language")}</label>
+          <label className="text-[13px] font-medium text-editorial-ink">
+            {t("common.language")}
+          </label>
           <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{t("settings.language")}</p>
         </div>
         <Select value={currentLang} onValueChange={handleLanguageChange}>
@@ -57,8 +59,12 @@ export function SystemPanel() {
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="min-w-[150px] rounded-xl border-editorial-hairline">
-            <SelectItem value="zh-CN" className="text-[12px]">{t("common.zh-CN")}</SelectItem>
-            <SelectItem value="en-US" className="text-[12px]">{t("common.en-US")}</SelectItem>
+            <SelectItem value="zh-CN" className="text-[12px]">
+              {t("common.zh-CN")}
+            </SelectItem>
+            <SelectItem value="en-US" className="text-[12px]">
+              {t("common.en-US")}
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -80,7 +86,7 @@ export function SystemPanel() {
                 onClick={() => setTheme(item.value)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium transition-colors ${
                   isActive
-                    ? "bg-editorial-primary text-editorial-ink-on-primary"
+                    ? "bg-primary text-primary-foreground"
                     : "bg-transparent text-editorial-ink-soft hover:bg-editorial-surface-soft"
                 } ${item.value !== themes[themes.length - 1].value ? "border-r border-editorial-hairline" : ""}`}
               >

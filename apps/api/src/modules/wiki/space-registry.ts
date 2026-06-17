@@ -1,8 +1,23 @@
-import fs from "node:fs";
+import fs from "node:fs/promises";
 import path from "node:path";
-import type { WikiSpaceCreate, WikiSpaceListItem, WikiSpaceRead, WikiSpaceSettings, WikiSpaceUpdate } from "@feedmind/contracts";
+import type {
+  WikiSpaceCreate,
+  WikiSpaceListItem,
+  WikiSpaceRead,
+  WikiSpaceSettings,
+  WikiSpaceUpdate,
+} from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
-import { countFiles, dateSortDesc, ensureDir, nowISO, safeWriteFile, slugify, spaceDir, wikiRootDir } from "./wiki-utils.js";
+import {
+  countFiles,
+  dateSortDesc,
+  ensureDir,
+  nowISO,
+  safeWriteFile,
+  slugify,
+  spaceDir,
+  wikiRootDir,
+} from "./wiki-utils.js";
 
 function registryPath(): string {
   return path.join(wikiRootDir(), "registry.json");
@@ -12,9 +27,9 @@ function spaceMetaPath(spaceId: string): string {
   return path.join(spaceDir(spaceId), "space.json");
 }
 
-function readRegistry(): Array<Record<string, unknown>> {
+async function readRegistry(): Promise<Array<Record<string, unknown>>> {
   try {
-    return JSON.parse(fs.readFileSync(registryPath(), "utf-8"));
+    return JSON.parse(await fs.readFile(registryPath(), "utf-8"));
   } catch {
     return [];
   }
@@ -25,9 +40,9 @@ function writeRegistry(registry: Array<Record<string, unknown>>): void {
   safeWriteFile(registryPath(), JSON.stringify(registry, null, 2));
 }
 
-function readSpaceMeta(spaceId: string): Record<string, unknown> | null {
+async function readSpaceMeta(spaceId: string): Promise<Record<string, unknown> | null> {
   try {
-    return JSON.parse(fs.readFileSync(spaceMetaPath(spaceId), "utf-8"));
+    return JSON.parse(await fs.readFile(spaceMetaPath(spaceId), "utf-8"));
   } catch {
     return null;
   }
@@ -53,12 +68,12 @@ function createSpaceDirectories(spaceId: string): void {
 }
 
 export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
-  const registry = readRegistry();
+  const registry = await readRegistry();
   const items: WikiSpaceListItem[] = [];
 
   for (const entry of registry) {
     const spaceId = entry.id as string;
-    const meta = readSpaceMeta(spaceId);
+    const meta = await readSpaceMeta(spaceId);
     const pageCount = countFiles(path.join(spaceDir(spaceId), "wiki"), ".md");
     const sourceCount = countFiles(path.join(spaceDir(spaceId), "raw", "sources"));
 
@@ -77,7 +92,7 @@ export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
 }
 
 export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
-  const meta = readSpaceMeta(spaceId);
+  const meta = await readSpaceMeta(spaceId);
   if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
 
   return {
@@ -100,7 +115,7 @@ export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
 
 export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpaceRead> {
   const spaceId = slugify(payload.name);
-  if (readSpaceMeta(spaceId)) {
+  if (await readSpaceMeta(spaceId)) {
     throw new HttpError(409, "HTTP_ERROR", `Space with same name already exists (${spaceId})`);
   }
 
@@ -123,16 +138,10 @@ export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpa
   writeSpaceMeta(spaceId, meta);
   createSpaceDirectories(spaceId);
 
-  safeWriteFile(
-    path.join(spaceDir(spaceId), "purpose.md"),
-    payload.purpose || "# Purpose\n\n",
-  );
-  safeWriteFile(
-    path.join(spaceDir(spaceId), "schema.md"),
-    payload.schema || "# Schema\n\n",
-  );
+  safeWriteFile(path.join(spaceDir(spaceId), "purpose.md"), payload.purpose || "# Purpose\n\n");
+  safeWriteFile(path.join(spaceDir(spaceId), "schema.md"), payload.schema || "# Schema\n\n");
 
-  const registry = readRegistry();
+  const registry = await readRegistry();
   registry.push({ id: spaceId, name: payload.name });
   writeRegistry(registry);
 
@@ -150,8 +159,11 @@ export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpa
   };
 }
 
-export async function updateWikiSpace(spaceId: string, payload: WikiSpaceUpdate): Promise<WikiSpaceRead> {
-  const meta = readSpaceMeta(spaceId);
+export async function updateWikiSpace(
+  spaceId: string,
+  payload: WikiSpaceUpdate,
+): Promise<WikiSpaceRead> {
+  const meta = await readSpaceMeta(spaceId);
   if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
 
   if (payload.name !== undefined) meta.name = payload.name;
@@ -164,4 +176,19 @@ export async function updateWikiSpace(spaceId: string, payload: WikiSpaceUpdate)
   writeSpaceMeta(spaceId, meta);
 
   return getWikiSpace(spaceId);
+}
+
+export async function deleteWikiSpace(spaceId: string): Promise<{ success: boolean }> {
+  const meta = await readSpaceMeta(spaceId);
+  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
+
+  // 删除磁盘上的空间目录
+  await fs.rm(spaceDir(spaceId), { recursive: true, force: true });
+
+  // 从全局 registry 中移除
+  const registry = await readRegistry();
+  const updated = registry.filter((e) => e.id !== spaceId);
+  writeRegistry(updated);
+
+  return { success: true };
 }

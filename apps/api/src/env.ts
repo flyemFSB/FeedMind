@@ -1,21 +1,13 @@
-import { baseEnvSchema } from "@feedmind/contracts";
-import { isProduction } from "@feedmind/shared";
-import { validateEncryptionKey } from "@feedmind/shared";
-import { z } from "zod";
+/**
+ * API 环境变量入口。
+ * 统一从 @feedmind/env 加载和校验。
+ */
+import { apiEnv, requireEncryptionKey } from "@feedmind/env";
 
-const apiEnvSchema = baseEnvSchema.extend({
-  APP_NAME: z.string().default("FeedMind API"),
-  APP_VERSION: z.string().default("0.1.0"),
-  API_HOST: z.string().default("127.0.0.1"),
-  API_PORT: z.coerce.number().int().positive().default(8000),
-});
+/** 类型安全的 API 环境变量对象（启动时校验） */
+export { apiEnv };
 
-export const apiEnv = apiEnvSchema.parse(process.env);
-
+/** API 启动时运行的环境校验 */
 export function validateApiRuntime(): void {
-  if (isProduction(apiEnv.APP_ENV) && !apiEnv.ENCRYPTION_KEY.trim()) {
-    throw new Error("ENCRYPTION_KEY must be set in production.");
-  }
-  // 所有环境强制校验：密钥不存在或空值时拒绝启动
-  validateEncryptionKey();
+  requireEncryptionKey();
 }

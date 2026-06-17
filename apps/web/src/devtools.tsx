@@ -1,10 +1,6 @@
 import { type ComponentType, useEffect, useState } from "react";
 
-const devtoolsEnabled =
-  import.meta.env.DEV && import.meta.env.VITE_ENABLE_TANSTACK_DEVTOOLS === "true";
-
-const loadRouterDevtools = () =>
-  import("@tanstack/react-router-devtools").then((res) => res.TanStackRouterDevtools);
+const devtoolsEnabled = import.meta.env.DEV;
 
 const loadQueryDevtools = () =>
   import("@tanstack/react-query-devtools").then((res) => res.ReactQueryDevtools);
@@ -39,16 +35,9 @@ function useIdleDevtools(load: () => Promise<ComponentType>) {
   return Devtools;
 }
 
-export function TanStackRouterDevtools() {
-  if (!devtoolsEnabled) return null;
-  const Devtools = useIdleDevtools(loadRouterDevtools);
-  if (!Devtools) return null;
-  return <Devtools />;
-}
-
 export function TanStackQueryDevtools() {
-  if (!devtoolsEnabled) return null;
   const Devtools = useIdleDevtools(loadQueryDevtools);
+  if (!devtoolsEnabled) return null;
   if (!Devtools) return null;
   return <Devtools />;
 }

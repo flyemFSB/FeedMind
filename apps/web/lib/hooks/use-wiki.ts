@@ -3,7 +3,7 @@ import {
   listWikiSpaces,
   createWikiSpace,
   updateWikiSpace,
-  getWikiSpace,
+  deleteWikiSpace as apiDeleteWikiSpace,
   listWikiPages,
   createWikiPage,
   getWikiPage,
@@ -13,16 +13,10 @@ import {
   listWikiSources,
   createWikiSource,
   deleteWikiSource,
-  getWikiSource,
   getWikiGraph,
   getWikiGraphInsights,
-  runLint,
   getLintItems,
   listReviewItems,
-  resolveReviewItem,
-  dismissReviewItem,
-  sweepReviewItems,
-  searchWiki,
 } from "@/lib/api/wiki";
 
 export const wikiKeys = {
@@ -31,7 +25,8 @@ export const wikiKeys = {
   space: (id: string) => [...wikiKeys.spaces(), id] as const,
   pages: (spaceId: string) => [...wikiKeys.space(spaceId), "pages"] as const,
   page: (spaceId: string, pageId: string) => [...wikiKeys.pages(spaceId), pageId] as const,
-  backlinks: (spaceId: string, pageId: string) => [...wikiKeys.page(spaceId, pageId), "backlinks"] as const,
+  backlinks: (spaceId: string, pageId: string) =>
+    [...wikiKeys.page(spaceId, pageId), "backlinks"] as const,
   sources: (spaceId: string) => [...wikiKeys.space(spaceId), "sources"] as const,
   source: (spaceId: string, sourceId: string) => [...wikiKeys.sources(spaceId), sourceId] as const,
   graph: (spaceId: string) => [...wikiKeys.space(spaceId), "graph"] as const,
@@ -54,6 +49,27 @@ export function useCreateWikiSpace() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createWikiSpace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+    },
+  });
+}
+
+export function useUpdateWikiSpace(spaceId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { name: string }) => updateWikiSpace(spaceId!, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+      queryClient.invalidateQueries({ queryKey: wikiKeys.space(spaceId!) });
+    },
+  });
+}
+
+export function useDeleteWikiSpace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: apiDeleteWikiSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
     },
@@ -92,7 +108,10 @@ export function useCreateWikiPage(spaceId: string | undefined) {
 export function useUpdateWikiPage(spaceId: string | undefined) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ pageId, ...payload }: { pageId: string } & Parameters<typeof updateWikiPage>[2]) =>
+    mutationFn: ({
+      pageId,
+      ...payload
+    }: { pageId: string } & Parameters<typeof updateWikiPage>[2]) =>
       updateWikiPage(spaceId!, pageId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });

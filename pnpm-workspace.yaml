@@ -9,6 +9,7 @@ allowBuilds:
   edgedriver: true
   geckodriver: true
   tesseract.js: true
+  sharp: true
 
 hoist: false
 linkWorkspacePackages: true

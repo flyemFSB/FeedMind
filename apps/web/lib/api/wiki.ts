@@ -37,6 +37,10 @@ export function updateWikiSpace(spaceId: string, payload: WikiSpaceUpdate): Prom
   return apiPatch(`/wiki/spaces/${spaceId}`, payload);
 }
 
+export function deleteWikiSpace(spaceId: string): Promise<{ success: boolean }> {
+  return apiDelete(`/wiki/spaces/${spaceId}`);
+}
+
 // ─── Pages ─────────────────────────────────────────────────────
 export function listWikiPages(
   spaceId: string,
@@ -48,9 +52,7 @@ export function listWikiPages(
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
-  return apiFetch(
-    backendApiPath(`/wiki/spaces/${spaceId}/pages${qs ? `?${qs}` : ""}`),
-  );
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages${qs ? `?${qs}` : ""}`));
 }
 
 export function createWikiPage(spaceId: string, payload: WikiPageCreate): Promise<WikiPageRead> {
@@ -61,7 +63,11 @@ export function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRe
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${pageId}`));
 }
 
-export function updateWikiPage(spaceId: string, pageId: string, payload: WikiPageUpdate): Promise<WikiPageRead> {
+export function updateWikiPage(
+  spaceId: string,
+  pageId: string,
+  payload: WikiPageUpdate,
+): Promise<WikiPageRead> {
   return apiPut(`/wiki/spaces/${spaceId}/pages/${pageId}`, payload);
 }
 
@@ -71,20 +77,13 @@ export function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
 
 export function resolveWikiLink(spaceId: string, target: string): Promise<WikiResolveResult> {
   return apiFetch(
-    backendApiPath(
-      `/wiki/spaces/${spaceId}/pages/resolve?target=${encodeURIComponent(target)}`,
-    ),
+    backendApiPath(`/wiki/spaces/${spaceId}/pages/resolve?target=${encodeURIComponent(target)}`),
   );
 }
 
 // ─── Backlinks ──────────────────────────────────────────────────
-export function getWikiBacklinks(
-  spaceId: string,
-  pageId: string,
-): Promise<WikiBacklink[]> {
-  return apiFetch(
-    backendApiPath(`/wiki/spaces/${spaceId}/pages/${pageId}/backlinks`),
-  );
+export function getWikiBacklinks(spaceId: string, pageId: string): Promise<WikiBacklink[]> {
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${pageId}/backlinks`));
 }
 
 // ─── Sources ───────────────────────────────────────────────────
@@ -97,12 +96,13 @@ export function listWikiSources(
   if (params?.limit) searchParams.set("limit", String(params.limit));
   if (params?.offset) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
-  return apiFetch(
-    backendApiPath(`/wiki/spaces/${spaceId}/sources${qs ? `?${qs}` : ""}`),
-  );
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources${qs ? `?${qs}` : ""}`));
 }
 
-export function createWikiSource(spaceId: string, payload: WikiSourceCreate): Promise<WikiSourceRead> {
+export function createWikiSource(
+  spaceId: string,
+  payload: WikiSourceCreate,
+): Promise<WikiSourceRead> {
   return apiPost(`/wiki/spaces/${spaceId}/sources/text`, payload);
 }
 
@@ -125,10 +125,10 @@ export function uploadWikiFile(
 ): Promise<{ identity: string; title: string; kind: string; status: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  return apiFetch(
-    backendApiPath(`/wiki/spaces/${spaceId}/sources/files`),
-    { method: "POST", body: formData },
-  );
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/files`), {
+    method: "POST",
+    body: formData,
+  });
 }
 
 // ─── Search ────────────────────────────────────────────────────

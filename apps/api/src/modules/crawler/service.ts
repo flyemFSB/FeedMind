@@ -8,10 +8,11 @@ import type { RouteHandlerParams } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { DbStore } from "./db-store.js";
 import { logger } from "../../lib/logger.js";
+import { apiEnv } from "../../env.js";
 
 // ─── 辅助函数 ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
-  const baseUrl = process.env.API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = apiEnv.API_BASE_URL ?? "http://localhost:8000";
   return {
     id: row.id,
     route: row.route,
@@ -108,7 +109,6 @@ async function runCrawlerTask(taskId: string, input: TaskCreate): Promise<void> 
     const params: RouteHandlerParams = {
       params: input.params,
       cookies: input.cookies,
-      proxyUrl: input.proxy_url,
       abortSignal: controller.signal,
       maxItems: input.max_items,
     };

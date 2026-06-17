@@ -1,21 +1,10 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  FileText,
-  Globe,
-  Loader2,
-  Upload,
-  X,
-} from "lucide-react";
+import { CheckCircle2, FileText, Globe, Loader2, Upload, X } from "lucide-react";
 import { uploadWikiFile, createWikiSource } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
 
 // ─── Props ────────────────────────────────────────────────────
@@ -31,18 +20,21 @@ type ImportTab = "file" | "url";
 
 // ─── Component ─────────────────────────────────────────────────
 
-export function WikiImportDialog({
-  open,
-  spaceId,
-  onClose,
-  onImported,
-}: WikiImportDialogProps) {
+export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImportDialogProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<ImportTab>("file");
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
+      >
         {/* Header row — no border, kept clean */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
@@ -100,24 +92,7 @@ export function WikiImportDialog({
 
 // ─── File Upload Tab ───────────────────────────────────────────
 
-const ACCEPTED_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
-  "text/markdown",
-  "text/plain",
-  ".md",
-  ".pdf",
-];
-
-function FileUploadTab({
-  spaceId,
-  onImported,
-}: {
-  spaceId: string;
-  onImported: () => void;
-}) {
+function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: () => void }) {
   const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -209,9 +184,7 @@ function FileUploadTab({
           <p className="text-[13px] font-medium text-editorial-ink">
             {uploading ? t("wiki.uploading") : t("wiki.dropFiles")}
           </p>
-          <p className="mt-1 text-[11px] text-editorial-ink-muted">
-            {t("wiki.supportedFormats")}
-          </p>
+          <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.supportedFormats")}</p>
         </div>
         <input
           ref={inputRef}
@@ -256,13 +229,7 @@ function FileUploadTab({
 
 // ─── URL Paste Tab ─────────────────────────────────────────────
 
-function UrlPasteTab({
-  spaceId,
-  onImported,
-}: {
-  spaceId: string;
-  onImported: () => void;
-}) {
+function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () => void }) {
   const { t } = useTranslation();
   const [urls, setUrls] = useState("");
   const [processing, setProcessing] = useState(false);
@@ -340,9 +307,7 @@ function UrlPasteTab({
           onChange={(e) => setUrls(e.target.value)}
         />
         {hasError && (
-          <p className="mt-1 text-[11px] text-editorial-semantic-error">
-            {t("wiki.invalidUrls")}
-          </p>
+          <p className="mt-1 text-[11px] text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>
         )}
         {urlList.length > 0 && (
           <p className="mt-1 text-[11px] text-editorial-ink-muted">

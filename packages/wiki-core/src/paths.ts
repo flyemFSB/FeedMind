@@ -63,8 +63,9 @@ export function safeJoin(baseDir: string, userPath: string): string {
     throw new Error(`Control characters in path: ${normalized}`);
   }
   const joined = joinPath(baseDir, normalized);
-  // 验证拼接结果仍在 baseDir 之下
-  if (!joined.startsWith(normalizePath(baseDir))) {
+  // 验证拼接结果仍在 baseDir 之下（精确匹配或子目录）
+  const normalBase = normalizePath(baseDir);
+  if (joined !== normalBase && !joined.startsWith(normalBase + "/")) {
     throw new Error(`Path escapes base directory: ${normalized}`);
   }
   return joined;

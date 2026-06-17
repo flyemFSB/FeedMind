@@ -9,24 +9,41 @@ import { AgentBrowser } from "@mastra/agent-browser";
 
 let _browserInstance: AgentBrowser | null = null;
 let _refCount = 0;
+let _pendingCreate: Promise<AgentBrowser> | null = null;
 
 /**
  * Get or create the shared AgentBrowser instance.
- * Uses reference counting so concurrent handlers share the same browser.
+ * Uses single-flight 模式确保并发调用只创建一个实例。
  */
 export async function createBrowser(): Promise<AgentBrowser> {
-  if (!_browserInstance) {
-    _browserInstance = new AgentBrowser({
+  if (_browserInstance) {
+    _refCount++;
+    await _browserInstance.ensureReady();
+    return _browserInstance;
+  }
+
+  // single-flight：等待正在创建中的实例
+  if (_pendingCreate) {
+    _refCount++;
+    return _pendingCreate;
+  }
+
+  _refCount++;
+  _pendingCreate = (async () => {
+    const instance = new AgentBrowser({
       headless: true,
       viewport: { width: 1280, height: 720 },
       timeout: 30_000,
       scope: "thread",
       excludeTools: [],
     });
-  }
-  _refCount++;
-  await _browserInstance.ensureReady();
-  return _browserInstance;
+    await instance.ensureReady();
+    _browserInstance = instance;
+    _pendingCreate = null;
+    return instance;
+  })();
+
+  return _pendingCreate;
 }
 
 /**

@@ -146,11 +146,13 @@ export async function getRuntimeConfig(runtime: string): Promise<{
     }
   }
 
-  // 没有关联 llm 时回退到环境变量
-  if (!modelName && runtime === "wiki") {
-    modelName = process.env.WIKI_LLM_MODEL || "gpt-4o";
-    baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    apiKey = process.env.OPENAI_API_KEY || "";
+  // 没有关联 llm 时直接报错，引导用户通过 Settings UI 配置
+  if (!modelName) {
+    throw new HttpError(
+      400,
+      "MODEL_NOT_CONFIGURED",
+      `Runtime "${runtime}" 没有关联的 LLM 模型。请在设置页面 → 模型配置中添加模型并关联到此 runtime。`,
+    );
   }
 
   // 有模型名但没有 API key → 凭据缺失，提前报错

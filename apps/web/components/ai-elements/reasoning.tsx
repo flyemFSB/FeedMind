@@ -9,15 +9,7 @@
  */
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useId,
-  type HTMLAttributes,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, useEffect, type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
@@ -78,7 +70,6 @@ export function Reasoning({
   ...props
 }: ReasoningProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const uid = useId();
 
   // 流式进行中时保持展开
   useEffect(() => {
