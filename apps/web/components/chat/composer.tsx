@@ -6,10 +6,20 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { PromptInput, PromptInputTextarea, PromptInputSubmit } from "@/components/ai-elements/prompt-input";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputSubmit,
+} from "@/components/ai-elements/prompt-input";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 import { Plus, Square } from "lucide-react";
+
+interface ComposerProps {
+  className?: string;
+  textareaClassName?: string;
+}
 
 /**
  * Composer — 聊天输入框
@@ -17,7 +27,7 @@ import { Plus, Square } from "lucide-react";
  * - IME 安全性（中文输入法候选词期间不回车上屏）
  * - 流式时显示停止按钮
  */
-export function Composer() {
+export function Composer({ className, textareaClassName }: ComposerProps) {
   const { sendMessage, status, stop } = useChatContext();
   const { t } = useTranslation();
   const [input, setInput] = useState("");
@@ -31,18 +41,22 @@ export function Composer() {
   };
 
   return (
-    <div className="rounded-[28px] border border-editorial-hairline bg-editorial-surface-card p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]">
-      <PromptInput
-        onSubmit={(message) => handleSubmit(message.text)}
-        className="space-y-3"
-      >
+    <div
+      className={cn(
+        "rounded-[28px] border border-editorial-hairline bg-editorial-surface-card p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]",
+        className,
+      )}
+    >
+      <PromptInput onSubmit={(message) => handleSubmit(message.text)} className="space-y-3">
         <PromptInputTextarea
           value={input}
           onChange={(e) => {
             const next = e.currentTarget.value;
             setInput(next);
           }}
-          onCompositionStart={() => { isComposingRef.current = true; }}
+          onCompositionStart={() => {
+            isComposingRef.current = true;
+          }}
           onCompositionEnd={(e: React.CompositionEvent<HTMLTextAreaElement>) => {
             isComposingRef.current = false;
             setInput(e.currentTarget.value);
@@ -55,7 +69,7 @@ export function Composer() {
           }}
           placeholder={t("chat.placeholder")}
           disabled={isLoading}
-          className="min-h-[64px]"
+          className={cn("min-h-[64px]", textareaClassName)}
         />
         <div className="flex items-center justify-between mt-3">
           <button
@@ -75,11 +89,7 @@ export function Composer() {
               <Square size={16} fill="currentColor" />
             </button>
           ) : (
-            <PromptInputSubmit
-              status="ready"
-              disabled={!input.trim()}
-              className="h-10 w-10"
-            />
+            <PromptInputSubmit status="ready" disabled={!input.trim()} className="h-10 w-10" />
           )}
         </div>
       </PromptInput>

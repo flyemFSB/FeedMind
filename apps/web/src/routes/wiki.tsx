@@ -1,20 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  BookOpen,
-  ChevronDown,
-  ClipboardCheck,
-  Clock,
-  Database,
-  Ellipsis,
-  FileText,
-  Import,
-  Network,
-  Pencil,
-  Plus,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { BookOpen, ChevronDown, Import, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
@@ -24,27 +10,12 @@ import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
 import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
-import { WikiReviewView } from "@/components/wiki/wiki-review-view";
 import { WikiLintView } from "@/components/wiki/wiki-lint-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
-import {
-  useWikiSpaces,
-  useUpdateWikiSpace,
-  useDeleteWikiSpace,
-  wikiKeys,
-} from "@/lib/hooks/use-wiki";
+import { useWikiSpaces, wikiKeys } from "@/lib/hooks/use-wiki";
 import { resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +26,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
-type WikiView = "pages" | "graph" | "review" | "lint" | "sources";
+type WikiView = "pages" | "graph" | "lint" | "sources";
+const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "sources"];
 
 export const Route = createFileRoute("/wiki")({
   component: MyWikiPage,
@@ -66,22 +38,31 @@ function MyWikiPage() {
   const queryClient = useQueryClient();
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [spaceName, setSpaceName] = useState(t("wiki.title"));
-  const [activeView, setActiveView] = useState<WikiView>("pages");
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showImportHistory, setShowImportHistory] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
-  const [showRenameDialog, setShowRenameDialog] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
   const prevIsEditing = useRef(isEditing);
 
-  const { data: spaces = [], isLoading } = useWikiSpaces();
-  const updateSpaceMutation = useUpdateWikiSpace(spaceId ?? undefined);
-  const deleteSpaceMutation = useDeleteWikiSpace();
+  // 从 URL 读取当前 Wiki 子视图（由左侧全局导航栏驱动）
+  const search = useSearch({ strict: false }) as { view?: string };
+  const rawView = search.view ?? "pages";
+  const activeView: WikiView = VALID_VIEWS.includes(rawView as WikiView)
+    ? (rawView as WikiView)
+    : "pages";
 
+  // view=history 触发导入历史对话框（非持久视图）
+  useEffect(() => {
+    if (rawView === "history") {
+      setShowImportHistory(true);
+    }
+  }, [rawView]);
+
+  const { data: spaces = [], isLoading } = useWikiSpaces();
+
+  // Auto-select first space when data loads
   useEffect(() => {
     if (!isLoading && spaces.length > 0 && !spaceId) {
       setSpaceId(spaces[0].id);
@@ -89,6 +70,7 @@ function MyWikiPage() {
     }
   }, [isLoading, spaces, spaceId]);
 
+  // Refresh page list when exiting edit mode
   useEffect(() => {
     if (prevIsEditing.current && !isEditing && spaceId) {
       queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
@@ -98,7 +80,6 @@ function MyWikiPage() {
 
   const handlePageSelect = useCallback((pageId: string) => {
     setActivePageId(pageId);
-    setActiveView("pages");
     setIsEditing(false);
   }, []);
 
@@ -115,7 +96,7 @@ function MyWikiPage() {
           handlePageSelect(result.page_id);
         }
       } catch {
-        // 错误由 apiFetch toast 统一处理
+        // handled by apiFetch toast
       }
     },
     [handlePageSelect],
@@ -125,44 +106,6 @@ function MyWikiPage() {
     setShowCreateSpace(true);
     setShowSpaceMenu(false);
   }, []);
-
-  const handleOpenRename = useCallback(() => {
-    setRenameValue(spaceName);
-    setShowRenameDialog(true);
-  }, [spaceName]);
-
-  const handleRenameConfirm = useCallback(() => {
-    if (!spaceId || !renameValue.trim()) return;
-    updateSpaceMutation.mutate(
-      { name: renameValue.trim() },
-      {
-        onSuccess: (updated) => {
-          setSpaceName(updated.name);
-          setShowRenameDialog(false);
-        },
-      },
-    );
-  }, [spaceId, renameValue, updateSpaceMutation]);
-
-  const handleDeleteConfirm = useCallback(() => {
-    if (!spaceId) return;
-    deleteSpaceMutation.mutate(spaceId, {
-      onSuccess: () => {
-        setShowDeleteConfirm(false);
-        // 选择剩余空间或清空
-        const remaining = spaces.filter((s) => s.id !== spaceId);
-        if (remaining.length > 0) {
-          setSpaceId(remaining[0].id);
-          setSpaceName(remaining[0].name);
-        } else {
-          setSpaceId(null);
-          setSpaceName(t("wiki.title"));
-        }
-        setActiveView("pages");
-        setActivePageId(null);
-      },
-    });
-  }, [spaceId, spaces, deleteSpaceMutation, t]);
 
   const handleImportSuccess = useCallback(() => {
     setShowImport(false);
@@ -176,7 +119,6 @@ function MyWikiPage() {
     setSpaceId(s.id);
     setSpaceName(s.name);
     setShowSpaceMenu(false);
-    setActiveView("pages");
     setActivePageId(null);
     setIsEditing(false);
   }, []);
@@ -260,85 +202,20 @@ function MyWikiPage() {
   );
 
   const topRightContent = spaceId ? (
-    <div className="flex items-center gap-2">
-      <Button
-        variant="default"
-        size="default"
-        className="gap-2 rounded-lg text-[13px] h-9"
-        onClick={() => setShowImport(true)}
-      >
-        <Import size={16} />
-        {t("wiki.importTitle")}
-      </Button>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-strong cursor-pointer"
-          aria-label={t("wiki.switchSpace")}
-        >
-          <Ellipsis size={18} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-[160px] rounded-xl p-1.5">
-          <DropdownMenuItem onClick={handleOpenRename} className="gap-2 rounded-lg text-[13px]">
-            <Pencil size={14} />
-            {t("wiki.renameSpace")}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => setShowDeleteConfirm(true)}
-            className="gap-2 rounded-lg text-[13px] text-red-600 focus:text-red-600"
-          >
-            <Trash2 size={14} />
-            {t("wiki.deleteSpace")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <Button
+      variant="outline"
+      size="default"
+      className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+      onClick={() => setShowImport(true)}
+    >
+      <Import size={16} />
+      {t("wiki.importTitle")}
+    </Button>
   ) : undefined;
 
   return (
     <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
       <div className="flex h-full">
-        <nav className="flex w-12 shrink-0 flex-col items-center border-r border-editorial-surface-strong bg-editorial-canvas-soft py-2">
-          <WikiNavButton
-            icon={FileText}
-            label={t("wiki.tabPages")}
-            active={activeView === "pages"}
-            onClick={() => setActiveView("pages")}
-          />
-          <WikiNavButton
-            icon={Network}
-            label={t("wiki.tabGraph")}
-            active={activeView === "graph"}
-            onClick={() => setActiveView("graph")}
-          />
-          <div className="mt-2 mb-2 w-6 border-t border-editorial-surface-strong" />
-          <WikiNavButton
-            icon={Database}
-            label={t("wiki.tabSources")}
-            active={activeView === "sources"}
-            onClick={() => setActiveView("sources")}
-          />
-          <div className="mt-auto flex flex-col items-center gap-1 pt-4">
-            <WikiNavButton
-              icon={Clock}
-              label={t("wiki.tabImportHistory")}
-              onClick={() => setShowImportHistory(true)}
-            />
-            <WikiNavButton
-              icon={ClipboardCheck}
-              label={t("wiki.tabReview")}
-              active={activeView === "review"}
-              onClick={() => setActiveView("review")}
-            />
-            <WikiNavButton
-              icon={ShieldCheck}
-              label={t("wiki.tabLint")}
-              active={activeView === "lint"}
-              onClick={() => setActiveView("lint")}
-            />
-          </div>
-        </nav>
-
         <div className="flex min-w-0 flex-1">
           {activeView === "pages" && (
             <DualPaneLayout
@@ -354,7 +231,6 @@ function MyWikiPage() {
           {activeView === "graph" && spaceId && (
             <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
-          {activeView === "review" && spaceId && <WikiReviewView spaceId={spaceId} />}
           {activeView === "lint" && spaceId && (
             <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
           )}
@@ -392,87 +268,7 @@ function MyWikiPage() {
           setShowCreateSpace(false);
         }}
       />
-
-      {/* 重命名空间对话框 */}
-      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-        <DialogContent className="rounded-2xl sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>{t("wiki.renameSpaceTitle")}</DialogTitle>
-            <DialogDescription>{t("wiki.renameSpaceDesc")}</DialogDescription>
-          </DialogHeader>
-          <Input
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            placeholder={t("wiki.renameSpacePlaceholder")}
-            className="mt-2"
-            autoFocus
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleRenameConfirm();
-            }}
-          />
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowRenameDialog(false)}>
-              {t("wiki.cancel")}
-            </Button>
-            <Button
-              onClick={handleRenameConfirm}
-              disabled={!renameValue.trim() || updateSpaceMutation.isPending}
-            >
-              {updateSpaceMutation.isPending ? t("wiki.saving") : t("wiki.save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 删除空间确认对话框 */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="rounded-2xl sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>{t("wiki.confirmDeleteSpace")}</DialogTitle>
-            <DialogDescription>{t("wiki.confirmDeleteSpaceDesc")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteConfirm(false)}>
-              {t("wiki.cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteConfirm}
-              disabled={deleteSpaceMutation.isPending}
-            >
-              {deleteSpaceMutation.isPending ? t("wiki.saving") : t("wiki.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </LayoutWrapper>
-  );
-}
-
-function WikiNavButton({
-  icon: Icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: React.ElementType;
-  label: string;
-  active?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${
-        active
-          ? "bg-editorial-primary text-editorial-ink-on-primary shadow-sm"
-          : "text-editorial-ink-muted hover:bg-editorial-surface-strong hover:text-editorial-ink"
-      }`}
-    >
-      <Icon size={18} strokeWidth={active ? 2.2 : 1.6} />
-    </button>
   );
 }
 

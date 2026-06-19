@@ -79,7 +79,6 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           <FilterChip
             key={t}
             label={WIKI_TYPE_LABELS[t] || t}
-            color={TYPE_COLORS[t]}
             active={typeFilter === t}
             onClick={() => setTypeFilter(t)}
           />
@@ -189,12 +188,10 @@ function CategorizedPageList({
 
 function FilterChip({
   label,
-  color: _color,
   active,
   onClick,
 }: {
   label: string;
-  color?: string;
   active: boolean;
   onClick: () => void;
 }) {
@@ -203,8 +200,8 @@ function FilterChip({
       onClick={onClick}
       className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
         active
-          ? "bg-editorial-ink text-editorial-ink-on-primary"
-          : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
+          ? "bg-editorial-surface-strong text-editorial-ink"
+          : "bg-transparent text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink-soft"
       }`}
     >
       {label}

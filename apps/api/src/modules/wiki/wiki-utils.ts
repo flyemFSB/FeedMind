@@ -120,10 +120,17 @@ export function ensureLlmWikiDir(spaceId: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-const SPACE_ID_RE = /^[a-z0-9-]+$/;
+/** 通用字符：Unicode 字母、数字、下划线、连字符，禁止路径分隔与遍历 */
+const SPACE_ID_RE = /^[\p{L}\p{N}_-]+$/u;
 
 export function validateSpaceId(spaceId: string): void {
-  if (!spaceId || !SPACE_ID_RE.test(spaceId)) {
+  if (
+    !spaceId ||
+    !SPACE_ID_RE.test(spaceId) ||
+    spaceId.includes("..") ||
+    spaceId.includes("/") ||
+    spaceId.includes("\\")
+  ) {
     throw new HttpError(400, "VALIDATION_ERROR", `无效的 spaceId: ${spaceId}`);
   }
 }

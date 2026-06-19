@@ -6,11 +6,22 @@
 
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion } from "motion/react";
-import { Conversation, ConversationContent, ConversationEmptyState, ConversationScrollButton } from "@/components/ai-elements/conversation";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
 import { MessageParts } from "./message-parts";
 import { Composer } from "./composer";
 import { useChatContext } from "@/lib/chat/chat-context";
+import { cn } from "@/lib/utils";
 import { ArrowDown, Loader2 } from "lucide-react";
+
+interface ThreadProps {
+  className?: string;
+  contentClassName?: string;
+}
 
 /**
  * Thread — 聊天视图容器
@@ -18,15 +29,19 @@ import { ArrowDown, Loader2 } from "lucide-react";
  * - 消息流式渲染
  * - 底部固定 Composer
  */
-export function Thread() {
+export function Thread({ className, contentClassName }: ThreadProps) {
   const { messages, status, isLoadingHistory } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col bg-editorial-surface-card">
+    <div
+      className={cn("relative flex h-full min-h-0 flex-col bg-editorial-surface-card", className)}
+    >
       <Conversation>
-        <ConversationContent className="max-w-4xl w-full mx-auto px-6 pt-6 pb-[220px]">
+        <ConversationContent
+          className={cn("max-w-4xl w-full mx-auto px-6 pt-6 pb-[220px]", contentClassName)}
+        >
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
               <div className="flex flex-col items-center gap-3 text-editorial-ink-muted">

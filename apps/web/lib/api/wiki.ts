@@ -16,7 +16,6 @@ import type {
   WikiSpaceRead,
   WikiSpaceUpdate,
   IngestJob,
-  ReviewItem,
   LintResult,
 } from "@feedmind/contracts";
 
@@ -173,7 +172,6 @@ export function runIngest(
 ): Promise<{
   pagesCreated: number;
   pagesUpdated: number;
-  reviewItemsCreated: number;
   warnings: string[];
   log: string[];
 }> {
@@ -200,21 +198,4 @@ export function runLint(spaceId: string): Promise<LintResult[]> {
 
 export function getLintItems(spaceId: string): Promise<LintResult[]> {
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/lint-items`));
-}
-
-// ─── Review ────────────────────────────────────────────────────
-export function listReviewItems(spaceId: string): Promise<ReviewItem[]> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/review-items`));
-}
-
-export function resolveReviewItem(spaceId: string, itemId: string): Promise<void> {
-  return apiPost(`/wiki/spaces/${spaceId}/review-items/${itemId}/resolve`, {});
-}
-
-export function dismissReviewItem(spaceId: string, itemId: string): Promise<void> {
-  return apiPost(`/wiki/spaces/${spaceId}/review-items/${itemId}/dismiss`, {});
-}
-
-export function sweepReviewItems(spaceId: string): Promise<{ swept: number }> {
-  return apiPost(`/wiki/spaces/${spaceId}/review-items/sweep`, {});
 }

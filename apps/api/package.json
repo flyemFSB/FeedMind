@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "node --import tsx --watch src/server.ts",
     "build": "tsc -b && node -e \"require('fs').cpSync('src/mastra/skills','dist/mastra/skills',{recursive:true})\"",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",

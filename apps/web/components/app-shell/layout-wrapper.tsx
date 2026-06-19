@@ -1,16 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Menu } from "lucide-react";
 import { motion } from "motion/react";
-import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { SettingsModal } from "@/components/settings/settings-modal";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
 
 interface LayoutWrapperProps {
   children: React.ReactNode;
@@ -20,6 +11,11 @@ interface LayoutWrapperProps {
   topRightContent?: React.ReactNode;
 }
 
+/**
+ * LayoutWrapper — 页面级布局包装
+ * - 顶栏（Topbar）+ 主内容区
+ * - 左侧 Wiki 导航与右侧 Agent 抽屉由全局 AppShell 提供
+ */
 export function LayoutWrapper({
   children,
   title,
@@ -27,42 +23,25 @@ export function LayoutWrapper({
   showModelSelector = false,
   topRightContent,
 }: LayoutWrapperProps) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
   return (
-    <div className="flex h-screen w-full overflow-hidden">
-      <Sidebar onSettingsClick={() => setSettingsOpen(true)} />
+    <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
+      <Topbar
+        title={title}
+        subtitle={subtitle}
+        showModelSelector={showModelSelector}
+        rightContent={topRightContent}
+      />
 
-      <Sheet>
-        <SheetTrigger className="fixed left-3 top-3 z-50 inline-flex items-center justify-center rounded-lg p-2 text-editorial-ink-muted hover:bg-editorial-surface-soft md:hidden">
-          <Menu size={18} />
-        </SheetTrigger>
-        <SheetContent side="left" className="w-[260px] p-0">
-          <Sidebar mobile onSettingsClick={() => setSettingsOpen(true)} />
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
-        <Topbar
-          title={title}
-          subtitle={subtitle}
-          showModelSelector={showModelSelector}
-          rightContent={topRightContent}
-        />
-
-        <div className="flex min-h-0 flex-1">
-          <motion.main
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
-            className="min-w-0 flex-1 overflow-y-auto h-full"
-          >
-            {children}
-          </motion.main>
-        </div>
+      <div className="flex min-h-0 flex-1">
+        <motion.main
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.2 }}
+          className="min-w-0 flex-1 overflow-y-auto h-full"
+        >
+          {children}
+        </motion.main>
       </div>
-
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

@@ -1,21 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
-import { Thread } from "@/components/chat/thread";
-import { PreviewPanel } from "@/components/chat/preview-panel";
-import { useTranslation } from "react-i18next";
 
+/**
+ * /chat 路由保留以兼容旧链接。
+ * 实际渲染由全局 AppShell 接管：访问 /chat 会自动展开 Agent 抽屉
+ * 并重定向到 /wiki 工作台。此组件仅在重定向前短暂存在。
+ */
 export const Route = createFileRoute("/chat")({
-  component: ChatPage,
+  component: () => null,
 });
-
-function ChatPage() {
-  const { t } = useTranslation();
-  return (
-    <LayoutWrapper title={t("chat.title")} showModelSelector>
-      <div className="h-full">
-        <Thread />
-      </div>
-      <PreviewPanel />
-    </LayoutWrapper>
-  );
-}

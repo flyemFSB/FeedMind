@@ -46,12 +46,6 @@ import {
   failIngestJob,
 } from "../../modules/wiki/job-service.js";
 import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
-import {
-  listReviewItems,
-  resolveReviewItem,
-  dismissReviewItem,
-  sweepReviewItems,
-} from "../../modules/wiki/review-service.js";
 import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
 import {
   wikiRootDir,
@@ -482,20 +476,4 @@ wikiRoutes.post("/wiki/spaces/:spaceId/lint", async (c) =>
 );
 wikiRoutes.get("/wiki/spaces/:spaceId/lint-items", async (c) =>
   jsonOk(c, await getLintItems(c.req.param("spaceId"))),
-);
-
-// ─── 审查 ──────────────────────────────────────────────────────
-wikiRoutes.get("/wiki/spaces/:spaceId/review-items", async (c) =>
-  jsonOk(c, await listReviewItems(c.req.param("spaceId"))),
-);
-wikiRoutes.post("/wiki/spaces/:spaceId/review-items/:itemId/resolve", async (c) => {
-  await resolveReviewItem(c.req.param("spaceId"), c.req.param("itemId"));
-  return jsonOk(c, { success: true });
-});
-wikiRoutes.post("/wiki/spaces/:spaceId/review-items/:itemId/dismiss", async (c) => {
-  await dismissReviewItem(c.req.param("spaceId"), c.req.param("itemId"));
-  return jsonOk(c, { success: true });
-});
-wikiRoutes.post("/wiki/spaces/:spaceId/review-items/sweep", async (c) =>
-  jsonOk(c, { swept: await sweepReviewItems(c.req.param("spaceId")) }),
 );

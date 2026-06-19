@@ -49,8 +49,7 @@ Analyze the source document and return a JSON object with these fields:
 2. "keyConcepts": Array of {name, description, type} — important concepts, theories, or ideas. type is always "concept".
 3. "mainArguments": Array of strings — the main arguments or findings presented.
 4. "connections": Array of strings — how this connects to existing wiki pages. Use format "relates to [[page-slug]]: explanation".
-5. "reviewItems": Array of {type, title, description} — suggestions for new pages to create, possible duplicates, or contradictions found. type is one of: "missing-page", "duplicate", "contradiction", "suggestion".
-6. "summary": A 2-3 sentence summary of this source for the global overview.
+5. "summary": A 2-3 sentence summary of this source for the global overview.
 
 Focus on substantive content. Ignore minor details, formatting, and references sections.`;
 }

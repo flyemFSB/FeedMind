@@ -300,39 +300,6 @@ export const ingestJobSchema = z.object({
 });
 export type IngestJob = z.infer<typeof ingestJobSchema>;
 
-// ─── 审查类型 ──────────────────────────────────────────────────
-export const reviewItemTypeSchema = z.enum([
-  "contradiction",
-  "duplicate",
-  "missing-page",
-  "suggestion",
-]);
-export type ReviewItemType = z.infer<typeof reviewItemTypeSchema>;
-
-export const reviewItemSchema = z.object({
-  id: z.string(),
-  type: reviewItemTypeSchema,
-  title: z.string(),
-  description: z.string(),
-  sourcePath: z.string().default(""),
-  affectedPages: z.array(z.string()).default([]),
-  searchQueries: z.array(z.string()).default([]),
-  options: z
-    .array(
-      z.object({
-        label: z.string(),
-        action: z.string(),
-      }),
-    )
-    .default([
-      { label: "Approve", action: "Approve" },
-      { label: "Skip", action: "Skip" },
-    ]),
-  resolved: z.boolean().default(false),
-  createdAt: z.number(),
-});
-export type ReviewItem = z.infer<typeof reviewItemSchema>;
-
 // ─── Lint 类型 ─────────────────────────────────────────────────
 export const lintResultTypeSchema = z.enum(["orphan", "broken-link", "no-outlinks", "semantic"]);
 export type LintResultType = z.infer<typeof lintResultTypeSchema>;

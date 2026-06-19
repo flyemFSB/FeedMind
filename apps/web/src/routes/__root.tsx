@@ -1,5 +1,6 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
+import { AppShell } from "@/components/app-shell/app-shell";
 
 function NotFound() {
   const { t } = useTranslation();
@@ -16,5 +17,9 @@ function NotFound() {
 
 export const Route = createRootRoute({
   notFoundComponent: NotFound,
-  component: () => <Outlet />,
+  component: () => (
+    <AppShell>
+      <Outlet />
+    </AppShell>
+  ),
 });

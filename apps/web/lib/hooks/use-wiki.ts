@@ -16,7 +16,6 @@ import {
   getWikiGraph,
   getWikiGraphInsights,
   getLintItems,
-  listReviewItems,
 } from "@/lib/api/wiki";
 
 export const wikiKeys = {
@@ -32,7 +31,6 @@ export const wikiKeys = {
   graph: (spaceId: string) => [...wikiKeys.space(spaceId), "graph"] as const,
   graphInsights: (spaceId: string) => [...wikiKeys.space(spaceId), "graph", "insights"] as const,
   lint: (spaceId: string) => [...wikiKeys.space(spaceId), "lint"] as const,
-  review: (spaceId: string) => [...wikiKeys.space(spaceId), "review"] as const,
   search: (spaceId: string) => [...wikiKeys.space(spaceId), "search"] as const,
 };
 
@@ -194,16 +192,6 @@ export function useWikiLintItems(spaceId: string | undefined) {
   return useQuery({
     queryKey: wikiKeys.lint(spaceId!),
     queryFn: () => getLintItems(spaceId!),
-    enabled: !!spaceId,
-  });
-}
-
-// ─── Review ──────────────────────────────────────────────────────
-
-export function useWikiReviewItems(spaceId: string | undefined) {
-  return useQuery({
-    queryKey: wikiKeys.review(spaceId!),
-    queryFn: () => listReviewItems(spaceId!),
     enabled: !!spaceId,
   });
 }

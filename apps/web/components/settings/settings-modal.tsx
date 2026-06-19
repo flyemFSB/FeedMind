@@ -5,11 +5,7 @@ import { X, Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
 import { useLLMModels } from "@/lib/hooks/use-llms";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { TabId } from "./settings-types";
 import { ModelsPanel } from "./models-panel";
@@ -60,16 +56,23 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
       <DialogContent
         showCloseButton={false}
-        className="max-w-[1180px] w-[calc(100vw-48px)] h-[min(840px,calc(100vh-48px))] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-[1180px] overflow-hidden"
+        className="max-w-[calc(100vw-16px)] w-full h-[calc(100dvh-16px)] sm:max-w-[calc(100vw-32px)] sm:h-[calc(100dvh-32px)] md:max-w-[740px] md:h-[620px] lg:max-w-[880px] lg:h-[680px] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink overflow-hidden"
       >
         {/* Custom horizontal header bar with DialogTitle for a11y */}
         <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-editorial-hairline px-6">
           <div className="flex items-center gap-3">
             <div>
-              <DialogTitle className="text-[16px] font-semibold text-editorial-ink">{t("settings.title")}</DialogTitle>
+              <DialogTitle className="text-[16px] font-semibold text-editorial-ink">
+                {t("settings.title")}
+              </DialogTitle>
               <p className="text-[11px] text-editorial-ink-muted">{t("settings.description")}</p>
             </div>
           </div>
@@ -91,7 +94,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           }}
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <aside className="w-[220px] shrink-0 overflow-y-auto bg-editorial-surface-soft p-3">
+          <aside className="w-[180px] shrink-0 overflow-y-auto bg-editorial-surface-soft p-3">
             <TabsList className="w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0">
               {TABS.map((tab) => (
                 <TabsTrigger
@@ -150,7 +153,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           onClose={() => setDeletingModel(null)}
           onDeleted={handleModelDeleted}
         />
-
       </DialogContent>
     </Dialog>
   );
