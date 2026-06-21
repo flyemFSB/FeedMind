@@ -17,6 +17,12 @@ interface AppShellContextValue {
   openSettings: () => void;
   /** 关闭设置 */
   closeSettings: () => void;
+  /** 远程连接弹窗是否展开 */
+  remoteOpen: boolean;
+  /** 打开远程连接 */
+  openRemote: () => void;
+  /** 关闭远程连接 */
+  closeRemote: () => void;
 }
 
 const AppShellContext = createContext<AppShellContextValue | null>(null);
@@ -28,6 +34,7 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
 export function AppShellProvider({ children }: { children: ReactNode }) {
   const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [remoteOpen, setRemoteOpen] = useState(false);
 
   const openAgentDrawer = useCallback(() => setAgentDrawerOpen(true), []);
   const closeAgentDrawer = useCallback(() => setAgentDrawerOpen(false), []);
@@ -35,6 +42,9 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
 
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  const openRemote = useCallback(() => setRemoteOpen(true), []);
+  const closeRemote = useCallback(() => setRemoteOpen(false), []);
 
   const value = useMemo<AppShellContextValue>(
     () => ({
@@ -45,6 +55,9 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       settingsOpen,
       openSettings,
       closeSettings,
+      remoteOpen,
+      openRemote,
+      closeRemote,
     }),
     [
       agentDrawerOpen,
@@ -54,6 +67,9 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       settingsOpen,
       openSettings,
       closeSettings,
+      remoteOpen,
+      openRemote,
+      closeRemote,
     ],
   );
 

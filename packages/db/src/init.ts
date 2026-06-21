@@ -62,6 +62,21 @@ const SEED_TOOLS = [
 export async function initDatabase(): Promise<void> {
   await migrate(db, { migrationsFolder });
 
+  // 确保 remote_connections 表存在（drizzle-kit 的 migration 生成依赖环境，手动兜底）
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS remote_connections (
+      id text PRIMARY KEY NOT NULL,
+      platform text NOT NULL,
+      label text NOT NULL,
+      status text NOT NULL DEFAULT 'disconnected',
+      config text,
+      extra text,
+      error text,
+      created_at text NOT NULL DEFAULT (current_timestamp),
+      updated_at text NOT NULL DEFAULT (current_timestamp)
+    )`,
+  );
+
   for (const tool of SEED_TOOLS) {
     // 首次写入：insert or ignore 按 name 主键去重
     await client.execute({

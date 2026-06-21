@@ -10,6 +10,7 @@ allowBuilds:
   geckodriver: true
   tesseract.js: true
   sharp: true
+  protobufjs: true
 
 hoist: false
 linkWorkspacePackages: true

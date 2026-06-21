@@ -6,6 +6,7 @@ import { AppShellProvider, useAppShell } from "./app-shell-context";
 import { WikiSidebar } from "./wiki-sidebar";
 import { AgentDrawer } from "./agent-drawer";
 import { SettingsModal } from "@/components/settings/settings-modal";
+import { RemoteConnectionModal } from "@/components/remote-connection/remote-connection-modal";
 
 /**
  * AppShell — 全局应用壳层
@@ -33,6 +34,9 @@ function ShellLayout({ children }: { children: ReactNode }) {
     closeAgentDrawer,
     settingsOpen,
     closeSettings,
+    remoteOpen,
+    openRemote,
+    closeRemote,
   } = useAppShell();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
@@ -47,7 +51,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-editorial-canvas">
-      <WikiSidebar onSettingsClick={openSettings} />
+      <WikiSidebar onSettingsClick={openSettings} onRemoteClick={openRemote} />
       <div className="flex min-w-[320px] flex-1 flex-col">{children}</div>
       <AgentDrawer
         open={agentDrawerOpen}
@@ -56,6 +60,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         }}
       />
       <SettingsModal open={settingsOpen} onClose={closeSettings} />
+      <RemoteConnectionModal open={remoteOpen} onClose={closeRemote} />
     </div>
   );
 }

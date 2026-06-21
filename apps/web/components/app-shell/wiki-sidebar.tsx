@@ -1,13 +1,22 @@
 "use client";
 
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
-import { ClipboardCheck, Clock, Database, FileText, Network, Settings } from "lucide-react";
+import {
+  ClipboardCheck,
+  Clock,
+  Database,
+  FileText,
+  Network,
+  Settings,
+  Smartphone,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface WikiSidebarProps {
   onSettingsClick: () => void;
+  onRemoteClick: () => void;
 }
 
 const NAV_ITEMS = [
@@ -25,7 +34,7 @@ const NAV_ITEMS = [
  * - 激活态使用 surface-strong 背景，而非黑色填充
  * - 通过 URL ?view= 切换 Wiki 子视图，状态可分享、可前进后退
  */
-export function WikiSidebar({ onSettingsClick }: WikiSidebarProps) {
+export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const search = useSearch({ strict: false }) as { view?: string };
   const currentView = search.view ?? "pages";
@@ -90,8 +99,10 @@ export function WikiSidebar({ onSettingsClick }: WikiSidebarProps) {
         ))}
       </nav>
 
-      {/* 底部：设置 */}
+      {/* 底部：远程连接 + 设置 */}
       <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-2 pb-3 pt-2">
+        <NavIconButton icon={Smartphone} label="common.remoteConnection" onClick={onRemoteClick} />
+        <div className="h-px w-5 bg-editorial-hairline" />
         <NavIconButton icon={Settings} label="common.settings" onClick={onSettingsClick} />
       </nav>
     </aside>
