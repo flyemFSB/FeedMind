@@ -19,7 +19,7 @@ export function Message({ className, from, children, ...props }: MessageProps) {
   return (
     <div
       className={cn(
-        "group flex w-full max-w-[85%] flex-col gap-2 animate-fade-in",
+        "group flex w-full max-w-[85%] min-w-0 flex-col gap-2 animate-fade-in",
         from === "user" ? "ml-auto items-end" : "items-start",
         className,
       )}

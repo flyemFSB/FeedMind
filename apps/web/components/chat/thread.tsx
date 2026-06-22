@@ -17,6 +17,7 @@ import { Composer } from "./composer";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { cn } from "@/lib/utils";
 import { ArrowDown, Loader2 } from "lucide-react";
+import "./thread.css";
 
 interface ThreadProps {
   className?: string;
@@ -36,11 +37,14 @@ export function Thread({ className, contentClassName }: ThreadProps) {
 
   return (
     <div
-      className={cn("relative flex h-full min-h-0 flex-col bg-editorial-surface-card", className)}
+      className={cn(
+        "compact-chat relative flex h-full min-h-0 flex-col overflow-hidden bg-editorial-surface-card",
+        className,
+      )}
     >
       <Conversation>
         <ConversationContent
-          className={cn("max-w-4xl w-full mx-auto px-6 pt-6 pb-[220px]", contentClassName)}
+          className={cn("w-full mx-auto px-4 pt-6 pb-[155px] overflow-x-auto", contentClassName)}
         >
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
@@ -103,9 +107,8 @@ export function Thread({ className, contentClassName }: ThreadProps) {
         </ConversationScrollButton>
       </Conversation>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-6 pb-6 pt-16">
-        <div className="absolute inset-y-0 left-6 right-6 z-0 mx-auto max-w-3xl bg-gradient-to-t from-editorial-surface-card via-editorial-surface-card/95 to-transparent" />
-        <div className="relative z-10 pointer-events-auto max-w-3xl mx-auto w-full">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pt-16 pb-2">
+        <div className="relative z-10 pointer-events-auto w-full mx-auto">
           <Composer />
         </div>
       </div>

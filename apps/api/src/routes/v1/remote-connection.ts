@@ -7,11 +7,7 @@ import {
   upsertConnection,
   deleteConnection,
 } from "../../modules/remote-connection/service.js";
-import {
-  getFeishuConfig,
-  saveAndVerify,
-  handleWebhook,
-} from "../../modules/remote-connection/feishu-service.js";
+import { getFeishuConfig, saveAndVerify } from "../../modules/remote-connection/feishu-service.js";
 
 export const remoteConnectionRoutes = new Hono();
 
@@ -41,14 +37,10 @@ remoteConnectionRoutes.delete("/remote-connections/:id", async (c) => {
 // ─── 飞书: 状态检查 ─────────────────────────────────────────
 remoteConnectionRoutes.get("/remote-connections/feishu/status", async (c) => {
   const cfg = await getFeishuConfig();
-  const host = c.req.header("host") ?? "localhost:8000";
-  const proto = c.req.header("x-forwarded-proto") ?? "http";
-  const webhookUrl = `${proto}://${host}/api/v1/remote-connections/feishu/webhook`;
   return jsonOk(c, {
     configured: !!cfg,
     connected: !!cfg,
     config: cfg ? { appId: cfg.appId } : null,
-    webhookUrl,
   });
 });
 
@@ -64,10 +56,4 @@ remoteConnectionRoutes.post("/remote-connections/feishu/config", async (c) => {
   } catch (err: any) {
     return jsonError(c, 400, "VERIFY_FAILED", err.message ?? "凭证验证失败");
   }
-});
-
-// ─── 飞书: 事件推送 Webhook ─────────────────────────────────
-remoteConnectionRoutes.post("/remote-connections/feishu/webhook", async (c) => {
-  const body = await c.req.json();
-  return handleWebhook(body);
 });

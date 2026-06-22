@@ -25,7 +25,6 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
   const [appSecret, setAppSecret] = useState("");
   const [saving, setSaving] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [webhookUrl, setWebhookUrl] = useState("");
 
   const showQr = useCallback(async (id: string) => {
     setStep("qr");
@@ -46,7 +45,6 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
     fetch("/api/v1/remote-connections/feishu/status")
       .then((r) => r.json())
       .then((res) => {
-        if (res.data?.webhookUrl) setWebhookUrl(res.data.webhookUrl);
         if (res.data?.configured) {
           showQr(res.data.config?.appId ?? "");
         } else {
@@ -203,7 +201,7 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
               </span>
             </div>
             <div className="space-y-2">
-              <p className="text-[12px] font-medium text-editorial-ink">下一步：配置事件回调</p>
+              <p className="text-[12px] font-medium text-editorial-ink">下一步：开启长连接</p>
               <p className="text-[12px] leading-relaxed text-editorial-ink-soft">
                 在
                 <a
@@ -214,11 +212,9 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                 >
                   飞书开发者后台
                 </a>{" "}
-                → 事件与回调 → 回调配置中，设置请求地址为：
+                → 事件与回调 → 配置方式中，选择{" "}
+                <strong className="text-editorial-ink">使用长连接接收事件</strong>。
               </p>
-              <div className="rounded-lg bg-editorial-surface-soft px-3 py-2 text-[12px] font-mono text-editorial-ink select-all break-all">
-                {webhookUrl || window.location.origin + "/api/v1/remote-connections/feishu/webhook"}
-              </div>
               <p className="text-[12px] leading-relaxed text-editorial-ink-soft">
                 添加事件{" "}
                 <code className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[11px]">
@@ -228,7 +224,7 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                 <code className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[11px]">
                   im:message:send_as_bot
                 </code>
-                ，发布后即可使用。
+                ，发布后 FeedMind 会自动通过 WebSocket 连接飞书服务器。
               </p>
             </div>
           </div>

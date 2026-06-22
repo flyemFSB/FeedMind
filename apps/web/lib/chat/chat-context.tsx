@@ -226,7 +226,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setUiMessages(uiMessages);
       } catch (err) {
         console.error("[Chat] 加载历史消息失败:", err);
-        // 会话不存在则重置
+        // 会话不存在则重置为新会话
         if ((err as Error)?.message?.includes("不存在")) {
           clearActiveFeedMindThreadId();
           setActiveThreadId(null);

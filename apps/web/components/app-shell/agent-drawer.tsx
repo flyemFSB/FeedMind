@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { ChevronDown, Plus, Trash2, X } from "lucide-react";
 import { motion } from "motion/react";
 import {
   DropdownMenu,
@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Thread } from "@/components/chat/thread";
 import { useChatContext } from "@/lib/chat/chat-context";
-import { useChatSessions } from "@/lib/hooks/use-chats";
+import { useChatSessions, useDeleteChatSession } from "@/lib/hooks/use-chats";
 import { useLLMModels, useSelectedLLMModel, useSetSelectedLLMModel } from "@/lib/hooks/use-llms";
 import { persistSelectedFeedMindModel, setSelectedFeedMindModelId } from "@/lib/api/agent";
 import { ProviderIcon } from "@/components/settings/provider-icon";
@@ -41,11 +41,12 @@ interface AgentDrawerProps {
  */
 export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const { t } = useTranslation();
-  const { createNewSession, switchSession, activeThreadId } = useChatContext();
+  const { createNewSession, switchSession, activeThreadId, clearSession } = useChatContext();
   const { data: sessions = [] } = useChatSessions();
+  const deleteMutation = useDeleteChatSession();
   const drawerRef = useRef<HTMLDivElement>(null);
 
-  const currentSession = sessions.find((s) => s.id === activeThreadId);
+  const currentSession = sessions.find((s) => s.agent_thread_id === activeThreadId);
   const currentLabel = currentSession?.title || t("common.newChat");
 
   // Escape 键关闭
@@ -67,12 +68,12 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
     <motion.div
       ref={drawerRef}
       tabIndex={-1}
-      animate={{ width: open ? 420 : 0 }}
+      animate={{ width: open ? 520 : 0 }}
       initial={false}
       transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
       className="overflow-hidden border-l border-editorial-hairline bg-editorial-surface-card outline-none"
     >
-      <div className="flex h-full w-[min(420px,100vw)] flex-col">
+      <div className="flex h-full w-[min(520px,100vw)] flex-col">
         {/* 标题栏 */}
         <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-editorial-hairline pl-3 pr-2">
           {/* 会话切换 */}
@@ -89,13 +90,26 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
               ) : (
                 sessions.map((session) => (
                   <DropdownMenuItem
-                    key={session.id}
-                    onClick={() => switchSession(session.id)}
-                    className="rounded-lg text-[12px]"
+                    key={session.agent_thread_id}
+                    onClick={() => switchSession(session.agent_thread_id)}
+                    className="group flex items-center rounded-lg p-0 text-[12px]"
                   >
-                    <span className="truncate">
+                    <span className="flex-1 truncate px-2 py-1.5">
                       {session.title || t("chat.sessionTitleDefault")}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (session.agent_thread_id === activeThreadId) {
+                          clearSession();
+                        }
+                        deleteMutation.mutate(session.agent_thread_id);
+                      }}
+                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-all duration-150 ease-out hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+                      title={t("common.delete")}
+                    >
+                      <Trash2 size={12} />
+                    </button>
                   </DropdownMenuItem>
                 ))
               )}
@@ -138,10 +152,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
 
         {/* 聊天线程 */}
         <div className="flex min-h-0 flex-1">
-          <Thread
-            className="bg-editorial-surface-card"
-            contentClassName="px-4 pt-4 pb-[180px] max-w-full"
-          />
+          <Thread className="bg-editorial-surface-card" />
         </div>
       </div>
     </motion.div>

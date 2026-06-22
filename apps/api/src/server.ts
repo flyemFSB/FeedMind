@@ -8,6 +8,7 @@ import { logger } from "./lib/logger.js";
 import { initDatabase } from "@feedmind/db";
 import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
 import { createMastra, initToolConfig } from "./mastra/index.js";
+import { startLongConnection } from "./modules/remote-connection/feishu-service.js";
 
 validateApiRuntime();
 
@@ -19,6 +20,9 @@ async function main(): Promise<void> {
   }
 
   initToolConfig();
+
+  // 飞书 WebSocket 长连接（无需公网 IP，飞书服务器主动推送事件）
+  await startLongConnection();
 
   const mastra = createMastra();
   const app = createApp();

@@ -1,0 +1,59 @@
+/* Thread 组件专属样式 — prose 紧凑覆盖 */
+/* 限制回复内容宽度在对话框宽度内，长内容自动换行，表格横向滚动 */
+
+.compact-chat .prose {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  /* 确保所有内容（包括长 URL、连续英文）不溢出对话框 */
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.compact-chat .prose :where(p):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+.compact-chat .prose :where(h1):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 1.15em;
+  margin-top: 0.8em;
+}
+.compact-chat .prose :where(h2):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 1.05em;
+  margin-top: 0.7em;
+}
+.compact-chat .prose :where(h3):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 1em;
+  margin-top: 0.6em;
+}
+.compact-chat .prose :where(pre):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 0.75rem;
+  padding: 0.625rem 0.75rem;
+}
+.compact-chat .prose :where(code):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 0.8125em;
+}
+.compact-chat .prose :where(ul):not(:where([class~="not-prose"], [class~="not-prose"] *)),
+.compact-chat .prose :where(ol):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+}
+
+/* 表格：由 TableWrapper 包裹提供横向滚动，此处仅控制单元格样式 */
+.compact-chat .prose :where(table):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+.compact-chat .prose :where(th):not(:where([class~="not-prose"], [class~="not-prose"] *)),
+.compact-chat .prose :where(td):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  padding: 0.35em 0.5em;
+  white-space: nowrap;
+}
+
+/* 消息间距 */
+.compact-chat > div > div {
+  gap: 1rem;
+}
+/* 水平分割线：减小上下间距 */
+.compact-chat .prose :where(hr):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}

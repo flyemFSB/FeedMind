@@ -216,7 +216,7 @@ function ThinkingProcess({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors",
+          "flex h-8 w-full items-center gap-2 px-2.5 text-left text-[12px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors",
           isOpen && "border-b border-editorial-hairline",
         )}
       >
@@ -319,11 +319,11 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
     return (
       <Message from="user">
         <div className="flex flex-row-reverse items-center gap-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-editorial-primary">
-            <User size={14} className="text-editorial-ink-on-primary" />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-primary">
+            <User size={12} className="text-editorial-ink-on-primary" />
           </div>
           <MessageContent>
-            <div className="rounded-2xl rounded-tr-sm bg-editorial-surface-soft px-4 py-3 text-[14px] leading-relaxed text-editorial-ink">
+            <div className="rounded-2xl rounded-tr-sm bg-editorial-surface-soft px-4 py-3 text-[13px] leading-relaxed text-editorial-ink">
               {userText(message)}
             </div>
           </MessageContent>
@@ -337,20 +337,20 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
     <Message from="assistant">
       <div className="flex items-start gap-3">
         {/* Avatar */}
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-editorial-ink to-editorial-primary-active">
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-editorial-ink to-editorial-primary-active">
           <img
             src="/FeedMind-logo.svg"
             alt="FeedMind Agent"
-            width={28}
-            height={28}
-            className="size-7 rounded-full object-cover"
+            width={24}
+            height={24}
+            className="size-6 rounded-full object-cover"
           />
         </div>
 
         {/* Body */}
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-editorial-ink">FeedMind Agent</span>
+            <span className="text-[12px] font-semibold text-editorial-ink">FeedMind Agent</span>
           </div>
 
           <MessageContent>
