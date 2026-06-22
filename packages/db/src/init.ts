@@ -44,13 +44,13 @@ const SEED_TOOLS = [
     name: "web_fetch",
     category: "utility",
     display_name: "网页抓取",
-    description: "抓取网页内容并提取正文。",
+    description: "抓取网页内容。使用 Firecrawl 引擎，未配置 API Key 时自动使用匿名模式。",
     config_fields: JSON.stringify([
       {
         key: "firecrawlApiKey",
         type: "password",
         label: "Firecrawl API Key",
-        description: "从 Firecrawl 获取（留空则自动使用直接抓取兜底）",
+        description: "从 Firecrawl 获取（留空则使用匿名模式）",
         link: "https://www.firecrawl.dev/",
       },
     ]),

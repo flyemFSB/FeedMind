@@ -75,5 +75,5 @@ export const browserTemplate: SubagentTemplate = {
     return getBrowserInstance().getTools() as Record<string, unknown>;
   },
 
-  maxSteps: 15,
+  maxSteps: 20,
 };

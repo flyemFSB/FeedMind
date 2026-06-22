@@ -300,6 +300,7 @@
     "selectOption": "Select...",
     "passwordReplace": "Configured, enter new value to replace",
     "passwordLeaveEmpty": "Leave empty to not use",
+    "apiKeyPlaceholder": "Enter API key",
     "skillsDescription": "Manage installed skills. Skills are packaged reusable tool modules installed via .zip archives.",
     "skillDropzone": "Drag a skill archive here, or click to browse",
     "skillDropzoneHint": ".zip only. The archive must contain a SKILL.md at its root.",

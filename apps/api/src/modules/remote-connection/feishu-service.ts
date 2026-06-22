@@ -8,6 +8,15 @@ import { saveChatSession, getChatSessionMessages } from "../chats/service.js";
 
 let client: Client | null = null;
 let wsClient: WSClient | null = null;
+let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempt = 0;
+let isReconnecting = false;
+let isStopping = false;
+
+const RECONNECT_BASE_MS = 2_000;
+const RECONNECT_MAX_MS = 30_000;
+const HEALTH_CHECK_INTERVAL_MS = 30_000;
 
 async function getConfig() {
   const conn = await db
@@ -37,21 +46,59 @@ function ensureClient(cfg: { appId: string; appSecret: string }): Client {
   return client;
 }
 
-/** 构建飞书消息卡片 JSON（支持 Markdown 渲染） */
+/** 构建飞书消息卡片 JSON（JSON 2.0，完整 Markdown 支持） */
 function buildCardJson(markdownContent: string): string {
-  // 飞书 markdown 元素单次最大约 4096 字符，超长截断并提示
-  const MAX_LEN = 4000;
-  const truncated =
-    markdownContent.length > MAX_LEN
-      ? markdownContent.slice(0, MAX_LEN) + "\n\n…（内容过长，已截断）"
-      : markdownContent;
+  // 单个 markdown 组件最多 4 个表格，超出则按段落分割（\n---\n 分隔章节）
+  const MAX_TABLES = 4;
+  const tableCount =
+    (markdownContent.match(/^\|/gm)?.length ?? 0) > 0
+      ? (markdownContent.match(/\n\|-+\|/g)?.length ?? 0)
+      : 0;
+
+  let elements: { tag: "markdown"; content: string }[];
+  if (tableCount <= MAX_TABLES) {
+    elements = [{ tag: "markdown", content: markdownContent }];
+  } else {
+    elements = markdownContent.split(/\n---+\n/).map((s) => ({
+      tag: "markdown" as const,
+      content: s.trim(),
+    }));
+  }
+
   return JSON.stringify({
+    schema: "2.0",
     header: {
       template: "blue",
       title: { tag: "plain_text", content: "FeedMind" },
     },
-    elements: [{ tag: "markdown", content: truncated }],
+    body: { elements },
   });
+}
+
+/** 发送助手消息到飞书并持久化到会话 */
+async function sendReply(
+  client: Client,
+  openId: string,
+  threadId: string,
+  content: string,
+): Promise<void> {
+  await saveChatSession(threadId, {
+    messages: [
+      {
+        agent_message_id: `feishu-${Date.now()}-assistant`,
+        role: "assistant",
+        content,
+        status: "completed",
+        model: "",
+        metadata: {},
+      },
+    ],
+  });
+  await client.im.message.create({
+    params: { receive_id_type: "open_id" },
+    data: { receive_id: openId, content: buildCardJson(content), msg_type: "interactive" },
+  });
+  logger.info({ openId, threadId, contentLen: content.length }, "飞书回复消息");
 }
 
 /** 构建 im.message.receive_v1 事件处理器 */
@@ -71,110 +118,184 @@ function buildMessageHandler() {
       "飞书收到消息",
     );
 
-    // 处理单聊文本消息
-    if (msg.chat_type === "p2p" && msg.message_type === "text" && sender.sender_type === "user") {
-      // 解析用户文本（飞书文本消息 content 格式：{"text":"xxx"}）
-      let userText: string;
+    // 只处理单聊文本消息
+    if (msg.chat_type !== "p2p" || msg.message_type !== "text" || sender.sender_type !== "user")
+      return;
+
+    // 解析用户文本（飞书文本消息 content 格式：{"text":"xxx"}）
+    let userText: string;
+    try {
+      userText = JSON.parse(msg.content).text ?? "";
+    } catch {
+      userText = msg.content;
+    }
+    if (!userText.trim()) return;
+
+    // 异步调用 Agent，不阻塞事件回调（飞书长连接 3s 超时限制）
+    void (async () => {
+      let feishuClient: Client | undefined;
       try {
-        userText = JSON.parse(msg.content).text ?? "";
-      } catch {
-        userText = msg.content;
-      }
-      if (!userText.trim()) return;
+        const cfg = await getConfig();
+        if (!cfg) {
+          logger.warn({ sender: sender.sender_id?.open_id }, "飞书配置不存在，跳过回复");
+          return;
+        }
 
-      const cfg = await getConfig();
-      if (!cfg) return;
-      const c = ensureClient(cfg);
-      const openId = sender.sender_id.open_id;
+        feishuClient = ensureClient(cfg);
+        const openId = sender.sender_id.open_id;
+        const threadId = `feishu:${openId}`;
 
-      // 每个飞书用户对应一个持久会话，格式: feishu:{openId}
-      const threadId = `feishu:${openId}`;
+        // 保存用户消息到会话（先持久化，确保后续异常时消息不丢失）
+        await saveChatSession(threadId, {
+          title: userText.slice(0, 30),
+          messages: [
+            {
+              agent_message_id: `feishu-${Date.now()}-user`,
+              role: "user",
+              content: userText,
+              status: "completed",
+              model: "",
+              metadata: {},
+            },
+          ],
+        });
 
-      // 异步调用 Agent，不阻塞事件回调（飞书长连接 3s 超时限制）
-      void (async () => {
-        try {
-          // 保存用户消息到会话
-          const userMsgId = `feishu-${Date.now()}-user`;
-          await saveChatSession(threadId, {
-            title: userText.slice(0, 30),
-            messages: [
-              {
-                agent_message_id: userMsgId,
-                role: "user",
-                content: userText,
-                status: "completed",
-                model: "",
-                metadata: {},
-              },
-            ],
-          });
+        // 读取历史作为 Agent 上下文
+        const history = await getChatSessionMessages(threadId);
+        const context = history
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
 
-          // 从 DB 读取该会话的历史消息，作为 Agent 的上下文
-          const history = await getChatSessionMessages(threadId);
-          const context = history
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-          // 调用 Agent，通过 context 参数注入对话历史实现多轮记忆
-          const result = await feedmindAgent.generate(userText, { context });
-
-          if (result.text) {
-            const reply = result.text.trimStart();
-            logger.info(
-              {
-                openId,
-                threadId,
-                replyLength: reply.length,
-                reply,
-              },
-              "飞书 Agent 回复",
-            );
-
-            // 保存助手回复到会话
-            await saveChatSession(threadId, {
-              messages: [
-                {
-                  agent_message_id: `feishu-${Date.now()}-assistant`,
-                  role: "assistant",
-                  content: reply,
-                  status: "completed",
-                  model: "",
-                  metadata: {},
-                },
-              ],
-            });
-
-            await c.im.message.create({
-              params: { receive_id_type: "open_id" },
-              data: {
-                receive_id: openId,
-                content: buildCardJson(reply),
-                msg_type: "interactive",
-              },
-            });
+        // 调用 Agent（使用 stream 以分离推理过程和最终答案）
+        const stream = await feedmindAgent.stream(userText, { context });
+        let reply = "";
+        for await (const chunk of stream.fullStream) {
+          if (chunk.type === "text-delta") {
+            reply += chunk.payload.text;
           }
-        } catch (err: any) {
-          logger.error({ err }, "Agent 回复失败");
-          c.im.message
+          // 跳过 reasoning-delta（思考过程）、tool-call 等
+        }
+        reply = reply.trimStart();
+
+        const content = reply || "我没有生成有效的回复，请换个方式描述你的问题。";
+        if (!reply) logger.warn({ openId, threadId }, "Agent 返回空文本，发送提示");
+        await sendReply(feishuClient, openId, threadId, content);
+      } catch (err: any) {
+        logger.error({ err }, "Agent 回复失败");
+        if (feishuClient) {
+          feishuClient.im.message
             .create({
               params: { receive_id_type: "open_id" },
               data: {
-                receive_id: openId,
+                receive_id: sender.sender_id.open_id,
                 content: buildCardJson("⚠️ 处理消息时出错，请稍后重试。"),
                 msg_type: "interactive",
               },
             })
             .catch(() => {});
         }
-      })();
-    }
+      }
+    })();
   };
+}
+
+// ─── 连接管理 ──────────────────────────────────────────
+
+/** 清理所有定时器 */
+function clearConnectionTimers(): void {
+  if (healthCheckTimer) {
+    clearInterval(healthCheckTimer);
+    healthCheckTimer = null;
+  }
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+/** 尝试关闭底层 WebSocket 并清空 wsClient */
+function closeWsClient(): void {
+  if (!wsClient) return;
+  try {
+    const ws = (wsClient as any).ws;
+    if (ws?.removeAllListeners) ws.removeAllListeners("close");
+    if (ws?.removeAllListeners) ws.removeAllListeners("error");
+    if (ws?.close) ws.close();
+  } catch {
+    // 关闭阶段的异常无需处理
+  }
+  wsClient = null;
+}
+
+/** 断线重连（清除旧连接后启动新连接） */
+async function reconnect(): Promise<void> {
+  if (isReconnecting || isStopping) return;
+  isReconnecting = true;
+  try {
+    clearConnectionTimers();
+    closeWsClient();
+    // 小幅延迟避免立即重连时端口/资源未释放
+    await new Promise((r) => setTimeout(r, 200));
+    await startLongConnection();
+  } finally {
+    isReconnecting = false;
+  }
+}
+
+/** 指数退避重连调度 */
+function scheduleReconnect(): void {
+  if (isStopping || reconnectTimer || isReconnecting) return;
+  const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt), RECONNECT_MAX_MS);
+  reconnectAttempt++;
+  logger.info({ delay, attempt: reconnectAttempt }, "飞书计划重连");
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    reconnect();
+  }, delay);
+}
+
+/** 启动连接健康检查（每 30 秒检测 WebSocket 状态） */
+function startHealthCheck(): void {
+  clearConnectionTimers();
+  healthCheckTimer = setInterval(() => {
+    if (isStopping) return;
+    try {
+      const ws = (wsClient as any)?.ws;
+      // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+      if (ws && ws.readyState === 3) {
+        logger.warn("健康检查：飞书 WebSocket 已关闭，准备重连");
+        scheduleReconnect();
+      }
+    } catch {
+      // 检测异常不影响正常运行
+    }
+  }, HEALTH_CHECK_INTERVAL_MS);
+}
+
+/** 监听底层 WebSocket 的 close/error 事件 */
+function attachWsEventListeners(): void {
+  try {
+    const ws = (wsClient as any)?.ws;
+    if (!ws) return;
+    ws.on("close", () => {
+      if (!isStopping) {
+        logger.warn("飞书 WebSocket 连接关闭，准备重连");
+        scheduleReconnect();
+      }
+    });
+    ws.on("error", (err: any) => {
+      logger.error({ err }, "飞书 WebSocket 连接错误");
+      if (!isStopping) scheduleReconnect();
+    });
+  } catch {
+    // 非关键，healthCheck 兜底
+  }
 }
 
 // ─── 长连接模式 ──────────────────────────────────────────
 /**
  * 启动 WebSocket 长连接，通过 SDK WSClient 主动连接飞书服务器。
- * 无需公网 IP / 内网穿透，适合本地开发和无固定 IP 的部署环境。
+ * 含断线自动重连 + 健康检查，无需公网 IP / 内网穿透。
  */
 export async function startLongConnection(): Promise<void> {
   const cfg = await getConfig();
@@ -183,15 +304,9 @@ export async function startLongConnection(): Promise<void> {
     return;
   }
 
-  // 若已有连接且凭据未变则跳过
-  if (wsClient) {
-    const cached = wsClient as any;
-    if (cached.appId === cfg.appId && cached.appSecret === cfg.appSecret) {
-      logger.info("飞书长连接已存在且凭据未变，跳过");
-      return;
-    }
-    stopLongConnection();
-  }
+  // 若已有连接则清理
+  wsClient = null;
+  clearConnectionTimers();
 
   // 长连接模式下事件为明文推送，不需要 encryptKey
   const ed = new EventDispatcher({}).register({
@@ -201,7 +316,7 @@ export async function startLongConnection(): Promise<void> {
   wsClient = new WSClient({
     appId: cfg.appId,
     appSecret: cfg.appSecret,
-    loggerLevel: LoggerLevel.warn,
+    loggerLevel: LoggerLevel.debug,
   });
 
   try {
@@ -210,8 +325,12 @@ export async function startLongConnection(): Promise<void> {
 
     await db
       .update(remoteConnections)
-      .set({ status: "connected", updatedAt: new Date().toISOString() })
+      .set({ status: "connected", error: null, updatedAt: new Date().toISOString() })
       .where(eq(remoteConnections.platform, "feishu"));
+
+    reconnectAttempt = 0;
+    startHealthCheck();
+    attachWsEventListeners();
   } catch (err) {
     logger.error({ err }, "飞书长连接启动失败");
     wsClient = null;
@@ -219,15 +338,17 @@ export async function startLongConnection(): Promise<void> {
       .update(remoteConnections)
       .set({ status: "error", error: String(err), updatedAt: new Date().toISOString() })
       .where(eq(remoteConnections.platform, "feishu"));
+
+    scheduleReconnect();
   }
 }
 
 /** 停止长连接（配置变更或服务关闭时调用） */
 export function stopLongConnection(): void {
-  if (wsClient) {
-    wsClient = null;
-    logger.info("飞书长连接已断开");
-  }
+  isStopping = true;
+  clearConnectionTimers();
+  closeWsClient();
+  logger.info("飞书长连接已断开");
 }
 
 // ─── 保存配置并验证 ──────────────────────────────────────
@@ -290,6 +411,7 @@ export async function sendMessage(
     params: { receive_id_type: receiveIdType },
     data: { receive_id: receiveId, msg_type: msgType, content },
   });
+  logger.info({ receiveId, msgType, contentLen: content.length }, "飞书主动发送消息");
 }
 
 // ─── 获取配置状态 ────────────────────────────────────────

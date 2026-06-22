@@ -74,6 +74,7 @@ ${getSubagentDescriptions()}
       }
 
       return {
+        maxSteps: 20,
         modelSettings: {
           temperature: cfg.temperature,
           topP: cfg.top_p,

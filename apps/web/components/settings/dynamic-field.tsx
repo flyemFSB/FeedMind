@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -101,93 +100,54 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
   const isSet = passwordSet?.[field.key] ?? false;
   const [visible, setVisible] = useState(false);
   const [realKey, setRealKey] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState("");
+  const [inputValue, setInputValue] = useState("");
 
+  /** 切换可见性时从服务端加载真实密钥 */
   function toggleVisibility() {
-    if (!isSet) return;
     const next = !visible;
     setVisible(next);
     if (next && realKey == null && toolName) {
-      setLoading(true);
       getToolRuntime(toolName)
         .then((res) => {
           const val = res.config[field.key];
           setRealKey(typeof val === "string" ? val : "");
         })
-        .catch(() => toast.error(t("settings.readKeyFailed")))
-        .finally(() => setLoading(false));
+        .catch(() => toast.error(t("settings.readKeyFailed")));
     }
   }
 
   function copyKey() {
-    if (realKey) {
-      navigator.clipboard.writeText(realKey).then(() => toast.success(t("settings.copied")));
+    const keyToCopy = realKey;
+    if (keyToCopy) {
+      navigator.clipboard.writeText(keyToCopy).then(() => toast.success(t("settings.copied")));
     }
   }
 
-  function handleEditSubmit() {
-    if (editValue) onChange(field.key, editValue);
-    setEditing(false);
-    setEditValue("");
-    // 提交后刷新状态
-    if (editValue) {
-      setVisible(false);
-      setRealKey(null);
-    }
-  }
-
-  // 编辑模式：输入新值
-  if (editing) {
-    return (
-      <InputGroup className="h-9 rounded-xl border-editorial-hairline">
-        <InputGroupInput
-          autoFocus
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          placeholder={isSet ? t("settings.passwordReplace") : (field.placeholder ?? "sk-...")}
-          type="password"
-          className="text-[12px]"
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleEditSubmit();
-            if (e.key === "Escape") {
-              setEditing(false);
-              setEditValue("");
-            }
-          }}
-          onBlur={handleEditSubmit}
-        />
-      </InputGroup>
-    );
-  }
-
-  // 展示模式：跟模型表格一致
-  const displayValue = !isSet
-    ? t("settings.noApiKey")
-    : visible
-      ? loading
-        ? t("common.loading")
-        : (realKey ?? "")
-      : "********";
+  // 有密钥时默认显示屏蔽字符，用户开始输入后直接显示输入内容
+  const showValue =
+    inputValue !== "" ? inputValue : visible && realKey ? realKey : isSet ? "********" : "";
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-2 h-9 rounded-xl border border-editorial-hairline px-3">
-      <span
-        className={`truncate text-[12px] font-mono ${!isSet ? "text-editorial-ink-muted" : "text-editorial-ink-soft"}`}
-        title={visible ? displayValue : t("settings.keyHidden")}
-        onDoubleClick={() => {
-          setEditing(true);
-          setVisible(false);
+    <div className="relative">
+      <Input
+        type={visible ? "text" : "password"}
+        value={showValue}
+        onChange={(e) => {
+          setInputValue(e.target.value);
+          onChange(field.key, e.target.value);
         }}
-      >
-        {displayValue}
-      </span>
-      <div className="flex w-14 justify-end gap-1">
+        placeholder={
+          isSet
+            ? t("settings.passwordReplace")
+            : (field.placeholder ?? t("settings.apiKeyPlaceholder"))
+        }
+        className="h-9 rounded-xl border-editorial-hairline text-[12px] pr-14"
+      />
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-0.5">
         <button
           type="button"
           onClick={toggleVisibility}
-          disabled={!isSet}
+          disabled={!isSet && inputValue === ""}
           className={iconBtnClass}
           aria-label={visible ? t("settings.hideKey") : t("settings.showKey")}
           title={visible ? t("settings.hideKey") : t("settings.showKey")}
@@ -197,7 +157,7 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
         <button
           type="button"
           onClick={copyKey}
-          disabled={!isSet}
+          disabled={!realKey}
           className={iconBtnClass}
           aria-label={t("settings.copyApiKey")}
           title={t("settings.copyApiKey")}

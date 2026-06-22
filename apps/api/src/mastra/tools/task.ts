@@ -71,7 +71,7 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
     getTools() {
       return { webSearchTool, webFetchTool, wikiSearchTool, wikiReadTool };
     },
-    maxSteps: 10,
+    maxSteps: 20,
   },
 
   extractor: {
@@ -100,7 +100,7 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
     getTools() {
       return { webFetchTool, askClarificationTool };
     },
-    maxSteps: 6,
+    maxSteps: 20,
   },
 
   summarizer: {
@@ -126,7 +126,7 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
     getTools() {
       return {};
     },
-    maxSteps: 3,
+    maxSteps: 20,
   },
 
   browser: browserTemplate,

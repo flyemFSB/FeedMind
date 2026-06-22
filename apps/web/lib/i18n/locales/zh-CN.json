@@ -300,6 +300,7 @@
     "selectOption": "选择...",
     "passwordReplace": "已配置，输入新值以替换",
     "passwordLeaveEmpty": "留空则不使用",
+    "apiKeyPlaceholder": "输入 API 密钥",
     "skillsDescription": "管理已安装的技能（Skills）。技能是打包的可复用工具模块，使用 .zip 格式安装。",
     "skillDropzone": "拖拽技能压缩包到此处，或点击选择文件",
     "skillDropzoneHint": "仅支持 .zip 格式。技能包根目录需包含 SKILL.md。",
