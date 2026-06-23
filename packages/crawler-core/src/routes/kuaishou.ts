@@ -8,11 +8,11 @@
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import { createBrowser, closeBrowser } from "../core/browser.js";
+import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
 // ─── Profile（用户作品列表） ─────────────────────────────────────
 
-const profileHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
+const profileHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
   const principalId = String(params.principal_id ?? "");
 
   const controller = new AbortController();
@@ -64,6 +64,7 @@ const profileHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =
       });
 
       // 先访问主页再访问用户主页
+      await injectCookies(page, cookies, ".kuaishou.com");
       await page.goto("https://www.kuaishou.com", {
         waitUntil: "domcontentloaded",
         timeout: 30_000,
@@ -93,6 +94,7 @@ const profileHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =
         guid: buildGuid("kuaishou", String(item.id || item.photoId || "")),
         pubDate: item.timestamp ? fromUnixTimestamp(item.timestamp) : new Date().toUTCString(),
         author: item.author?.name || userInfo?.name,
+        image: item.poster,
       }));
 
       return {
@@ -115,7 +117,7 @@ const profileHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =
 
 // ─── Search（搜索） ──────────────────────────────────────────────
 
-const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
+const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
   const keyword = String(params.keyword ?? "");
 
   const controller = new AbortController();
@@ -157,6 +159,7 @@ const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =>
       });
 
       // 访问快手搜索页面
+      await injectCookies(page, cookies, ".kuaishou.com");
       await page.goto(`https://www.kuaishou.com/search?searchKey=${encodeURIComponent(keyword)}`, {
         waitUntil: "networkidle",
         timeout: 30_000,
@@ -178,6 +181,7 @@ const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =>
           guid: buildGuid("kuaishou", `search_${photo.photoId || photo.id || ""}`),
           pubDate: photo.timestamp ? fromUnixTimestamp(photo.timestamp) : new Date().toUTCString(),
           author: photo.user?.name,
+          image: photo.coverUrl,
         };
       });
 

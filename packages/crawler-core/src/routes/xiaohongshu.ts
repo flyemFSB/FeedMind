@@ -12,7 +12,7 @@ import { load } from "cheerio";
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import { createBrowser, closeBrowser } from "../core/browser.js";
+import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
 const XHS_SALT = "i+X,MqLqFLwG";
 const BASE_URL = "https://edith.xiaohongshu.com";
@@ -153,6 +153,7 @@ function noteToRssItem(note: any, tag?: string): any {
   if (!noteCard?.note_id && !noteCard?.id) return null;
 
   const id = noteCard.note_id || noteCard.id;
+  const firstImage = noteCard.imageList?.[0]?.urlDefault || noteCard.cover?.urlDefault;
 
   return {
     title: noteCard.display_title || noteCard.title || (noteCard.desc || "").substring(0, 80) || "",
@@ -162,6 +163,7 @@ function noteToRssItem(note: any, tag?: string): any {
     pubDate: noteCard.time ? fromUnixTimestamp(noteCard.time) : new Date().toUTCString(),
     author: noteCard.user?.nickname || noteCard.user?.nickName,
     category: tag ? [tag] : undefined,
+    image: firstImage,
   };
 }
 
@@ -208,6 +210,7 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
             route.continue();
           }
         });
+        await injectCookies(page, cookies, ".xiaohongshu.com");
         await page.goto(`https://www.xiaohongshu.com/user/profile/${userId}`, {
           waitUntil: "domcontentloaded",
           timeout: 30_000,
@@ -284,6 +287,7 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
             route.continue();
           }
         });
+        await injectCookies(page, cookies, ".xiaohongshu.com");
         await page.goto(`https://www.xiaohongshu.com/user/profile/${userId}`, {
           waitUntil: "domcontentloaded",
           timeout: 30_000,
@@ -376,6 +380,7 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
             route.continue();
           }
         });
+        await injectCookies(page, cookies, ".xiaohongshu.com");
         await page.goto(`https://www.xiaohongshu.com/explore/${noteId}`, {
           waitUntil: "domcontentloaded",
           timeout: 30_000,

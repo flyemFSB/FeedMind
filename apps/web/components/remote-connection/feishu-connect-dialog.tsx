@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Check } from "lucide-react";
-import QRCode from "qrcode";
+import { useState, useEffect } from "react";
+import { X, Loader2, Check, Eye, EyeOff, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -13,47 +12,39 @@ interface FeishuConnectDialogProps {
   onConnected: () => void;
 }
 
-type Step = "loading" | "config" | "qr" | "done";
+type Step = "loading" | "config" | "showConfig" | "done";
 
 /**
  * FeishuConnectDialog — 飞书机器人接入弹窗
- * 未配置时显示表单填写 App ID/Secret，已配置时显示应用安装二维码
+ * 未配置时显示表单填写 App ID/Secret，已配置时显示凭据信息
  */
 export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnectDialogProps) {
   const [step, setStep] = useState<Step>("loading");
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
   const [saving, setSaving] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-
-  const showQr = useCallback(async (id: string) => {
-    setStep("qr");
-    const installUrl = `https://app.feishu.cn/client/entrance/open?app_id=${id}`;
-    QRCode.toDataURL(installUrl, {
-      width: 240,
-      margin: 2,
-      color: { dark: "#292524", light: "#ffffff" },
-    })
-      .then(setQrDataUrl)
-      .catch(() => {});
-  }, []);
+  const [secretVisible, setSecretVisible] = useState(false);
+  const [storedAppId, setStoredAppId] = useState("");
+  const [storedAppSecret, setStoredAppSecret] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setStep("loading");
-    setQrDataUrl(null);
+    setSecretVisible(false);
     fetch("/api/v1/remote-connections/feishu/status")
       .then((r) => r.json())
       .then((res) => {
         if (res.data?.configured) {
-          showQr(res.data.config?.appId ?? "");
+          setStoredAppId(res.data.config?.appId ?? "");
+          setStoredAppSecret(res.data.config?.appSecret ?? "");
+          setStep("showConfig");
         } else {
           setStep("config");
         }
       })
       .catch(() => setStep("config"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, showQr]);
+  }, [open]);
 
   const handleSave = async () => {
     if (!appId.trim() || !appSecret.trim()) {
@@ -81,6 +72,10 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => toast.success(`${label} 已复制`));
   };
 
   return (
@@ -160,24 +155,68 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
           </div>
         )}
 
-        {step === "qr" && (
-          <div className="flex flex-col items-center gap-4 px-5 py-6">
-            {qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt=""
-                width={240}
-                height={240}
-                className="rounded-xl ring-1 ring-editorial-hairline"
-              />
-            ) : (
-              <div className="flex h-[240px] w-[240px] items-center justify-center rounded-xl bg-editorial-surface-soft text-[12px] text-editorial-ink-muted">
-                生成中...
-              </div>
-            )}
-            <p className="text-center text-[12px] leading-relaxed text-editorial-ink-soft">
-              用飞书扫描二维码添加机器人到通讯录，或在群聊中搜索添加
+        {step === "showConfig" && (
+          <div className="space-y-4 px-5 py-5">
+            <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+              飞书机器人已配置，凭据信息如下：
             </p>
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-editorial-ink">
+                  App ID
+                </label>
+                <div className="relative">
+                  <input
+                    value={storedAppId}
+                    readOnly
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(storedAppId, "App ID")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                  >
+                    <Copy size={14} strokeWidth={1.7} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-editorial-ink">
+                  App Secret
+                </label>
+                <div className="relative">
+                  <input
+                    type={secretVisible ? "text" : "password"}
+                    value={storedAppSecret}
+                    readOnly
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-14 text-[13px] text-editorial-ink outline-none"
+                  />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setSecretVisible(!secretVisible)}
+                      className="rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                    >
+                      {secretVisible ? (
+                        <EyeOff size={14} strokeWidth={1.7} />
+                      ) : (
+                        <Eye size={14} strokeWidth={1.7} />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(storedAppSecret, "App Secret")}
+                      className="rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                    >
+                      <Copy size={14} strokeWidth={1.7} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Button onClick={() => setStep("config")} variant="outline" className="w-full gap-1.5">
+              重新配置
+            </Button>
           </div>
         )}
 

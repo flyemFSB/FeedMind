@@ -7,7 +7,7 @@
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import { createBrowser, closeBrowser } from "../core/browser.js";
+import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
 async function waitForResponse(page: any, urlPattern: string, timeout = 60_000): Promise<any> {
   return new Promise((resolve, reject) => {
@@ -27,7 +27,7 @@ async function waitForResponse(page: any, urlPattern: string, timeout = 60_000):
 
 // ─── User（用户作品列表） ────────────────────────────────────────
 
-const userHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
+const userHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
   const uid = String(params.uid ?? "");
 
   const controller = new AbortController();
@@ -51,6 +51,9 @@ const userHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
         }
       });
 
+      // 注入 cookie 再导航
+      await injectCookies(page, cookies, ".douyin.com");
+
       // 并发等待拦截响应和导航完成
       const [postData] = await Promise.all([
         waitForResponse(page, "/web/aweme/post"),
@@ -71,6 +74,7 @@ const userHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
         pubDate: post.create_time ? fromUnixTimestamp(post.create_time) : new Date().toUTCString(),
         author: author?.nickname,
         category: post.video_tag?.map((t: any) => t.tag_name) || undefined,
+        image: post.video?.cover?.url_list?.[0],
       }));
 
       return {
@@ -93,7 +97,7 @@ const userHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
 
 // ─── Detail（单个视频详情） ──────────────────────────────────────
 
-const detailHandler: RouteHandler = async ({ params, abortSignal }) => {
+const detailHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
   const awemeId = String(params.aweme_id ?? "");
 
   const controller = new AbortController();
@@ -115,6 +119,8 @@ const detailHandler: RouteHandler = async ({ params, abortSignal }) => {
           route.continue();
         }
       });
+
+      await injectCookies(page, cookies, ".douyin.com");
 
       const [detailData] = await Promise.all([
         waitForResponse(page, "/web/aweme/detail/"),
@@ -143,6 +149,7 @@ const detailHandler: RouteHandler = async ({ params, abortSignal }) => {
                     ? fromUnixTimestamp(awemeDetail.create_time)
                     : new Date().toUTCString(),
                   author: awemeDetail.author?.nickname,
+                  image: awemeDetail.video?.cover?.url_list?.[0],
                 },
               ]
             : [],
@@ -159,7 +166,7 @@ const detailHandler: RouteHandler = async ({ params, abortSignal }) => {
 
 // ─── Search（搜索视频） ──────────────────────────────────────────
 
-const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) => {
+const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItems }) => {
   const keyword = String(params.keyword ?? "");
 
   const controller = new AbortController();
@@ -182,6 +189,8 @@ const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =>
         }
       });
 
+      await injectCookies(page, cookies, ".douyin.com");
+
       const [searchData] = await Promise.all([
         waitForResponse(page, "/web/general/search/single/"),
         page.goto(`https://www.douyin.com/search/${encodeURIComponent(keyword)}?type=general`, {
@@ -199,6 +208,7 @@ const searchHandler: RouteHandler = async ({ params, abortSignal, maxItems }) =>
         guid: buildGuid("douyin", `search_${post.aweme_id}`),
         pubDate: post.create_time ? fromUnixTimestamp(post.create_time) : new Date().toUTCString(),
         author: post.author?.nickname,
+        image: post.video?.cover?.url_list?.[0],
       }));
 
       return {

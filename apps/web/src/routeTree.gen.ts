@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WikiRouteImport } from './routes/wiki'
+import { Route as FeedsRouteImport } from './routes/feeds'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WikiRoute = WikiRouteImport.update({
   id: '/wiki',
   path: '/wiki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedsRoute = FeedsRouteImport.update({
+  id: '/feeds',
+  path: '/feeds',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -32,30 +38,34 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/feeds': typeof FeedsRoute
   '/wiki': typeof WikiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/feeds': typeof FeedsRoute
   '/wiki': typeof WikiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/feeds': typeof FeedsRoute
   '/wiki': typeof WikiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/wiki'
+  fullPaths: '/' | '/chat' | '/feeds' | '/wiki'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/wiki'
-  id: '__root__' | '/' | '/chat' | '/wiki'
+  to: '/' | '/chat' | '/feeds' | '/wiki'
+  id: '__root__' | '/' | '/chat' | '/feeds' | '/wiki'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  FeedsRoute: typeof FeedsRoute
   WikiRoute: typeof WikiRoute
 }
 
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/wiki'
       fullPath: '/wiki'
       preLoaderRoute: typeof WikiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feeds': {
+      id: '/feeds'
+      path: '/feeds'
+      fullPath: '/feeds'
+      preLoaderRoute: typeof FeedsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  FeedsRoute: FeedsRoute,
   WikiRoute: WikiRoute,
 }
 export const routeTree = rootRouteImport

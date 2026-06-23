@@ -16,7 +16,7 @@ import {
   addDmVerifyInfo,
   getDmImgList,
 } from "../core/wbi-sign.js";
-import { createBrowser, closeBrowser } from "../core/browser.js";
+import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
 const API_BASE = "https://api.bilibili.com";
 const UA =
@@ -68,12 +68,17 @@ async function biliFetch<T>(
 /**
  * AgentBrowser 降级：导航到 B站页面，提取 window.__INITIAL_STATE__ 中的关键数据
  */
-async function biliBrowserFetch(url: string, evaluateScript: string): Promise<any> {
+async function biliBrowserFetch(
+  url: string,
+  evaluateScript: string,
+  cookies?: string,
+): Promise<any> {
   const browser = await createBrowser();
   try {
     await browser.ensureReady();
     const manager = await browser.getManagerForThread();
     const page = manager.getPage();
+    await injectCookies(page, cookies, ".bilibili.com");
     await page.route("**/*", (route) => {
       const type = route.request().resourceType();
       if (["image", "media", "font", "stylesheet"].includes(type)) {
@@ -115,6 +120,7 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
         const data = await biliBrowserFetch(
           `https://space.bilibili.com/${uid}/video`,
           "window.__INITIAL_STATE__ ? window.__INITIAL_STATE__.videoData?.vlist : []",
+          cookies,
         );
         vlist = Array.isArray(data) ? data : [];
       } else {
@@ -129,6 +135,7 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
       guid: buildGuid("bili", v.bvid || String(v.aid)),
       pubDate: fromUnixTimestamp(v.created),
       author: v.author,
+      image: v.pic,
     }));
 
     return {
@@ -171,6 +178,7 @@ const videoHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
         videoData = await biliBrowserFetch(
           `https://www.bilibili.com/video/${bvid}`,
           "window.__INITIAL_STATE__ ? window.__INITIAL_STATE__.videoData : null",
+          cookies,
         );
       } else {
         throw err;
@@ -195,6 +203,7 @@ const videoHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
               ? fromUnixTimestamp(videoData.pubdate)
               : new Date().toUTCString(),
             author: videoData.owner?.name,
+            image: videoData.pic,
           },
         ],
       }),
@@ -231,6 +240,7 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
         const html = await biliBrowserFetch(
           `https://search.bilibili.com/video?keyword=${encodeURIComponent(keyword)}`,
           "document.documentElement.outerHTML",
+          cookies,
         );
         const $ = load(html);
         results = [];
@@ -262,6 +272,7 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
         pubDate: r.pubdate ? fromUnixTimestamp(r.pubdate) : new Date().toUTCString(),
         author: r.author,
         category: r.tag ? [r.tag] : undefined,
+        image: r.pic,
       }));
 
     return {

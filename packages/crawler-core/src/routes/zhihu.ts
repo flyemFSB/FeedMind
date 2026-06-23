@@ -87,6 +87,7 @@ const hotHandler: RouteHandler = async ({ cookies, abortSignal, maxItems }) => {
         link: target.url || `https://www.zhihu.com/question/${target.id}`,
         guid: buildGuid("zhihu", `hot_${target.id}`),
         pubDate: target.created ? fromUnixTimestamp(target.created) : new Date().toUTCString(),
+        image: target.image_url,
       };
     });
 
@@ -177,6 +178,7 @@ const articleHandler: RouteHandler = async ({ params, cookies, abortSignal }) =>
               ? fromUnixTimestamp(data.created_time)
               : new Date().toUTCString(),
             author: author.name,
+            image: data.image_url || data.title_image,
           },
         ],
       }),
@@ -222,6 +224,7 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
             ? fromUnixTimestamp(obj.created_time)
             : new Date().toUTCString(),
           author: author.name,
+          image: obj.image_url,
         };
       });
 

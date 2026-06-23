@@ -7,10 +7,11 @@ import {
   Database,
   FileText,
   Network,
+  Rss,
   Settings,
   Smartphone,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -72,32 +73,49 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
       {/* 分隔线 — 明确区分 Logo 与工具 */}
       <div className="mx-3 h-px w-6 bg-editorial-hairline" />
 
-      {/* 导航工具 */}
-      <nav className="flex w-full flex-col items-center gap-1.5 px-2 pt-3">
-        {NAV_ITEMS.slice(0, 3).map((tool) => (
-          <NavIconButton
-            key={tool.id}
-            icon={tool.icon}
-            label={tool.label}
-            active={isWikiActive && currentView === tool.view}
-            onClick={() => goToView(tool.view)}
-          />
-        ))}
-      </nav>
+      <LayoutGroup>
+        {/* 导航工具 */}
+        <nav className="flex w-full flex-col items-center gap-1.5 px-2 pt-3">
+          {NAV_ITEMS.slice(0, 3).map((tool) => (
+            <NavIconButton
+              key={tool.id}
+              icon={tool.icon}
+              label={tool.label}
+              active={isWikiActive && currentView === tool.view}
+              onClick={() => goToView(tool.view)}
+              layoutId="nav-indicator"
+            />
+          ))}
+        </nav>
 
-      <div className="mx-3 my-1.5 h-px w-6 bg-editorial-hairline" />
+        <div className="mx-3 my-1.5 h-px w-6 bg-editorial-hairline" />
 
-      <nav className="flex w-full flex-col items-center gap-1.5 px-2">
-        {NAV_ITEMS.slice(3).map((tool) => (
+        <nav className="flex w-full flex-col items-center gap-1.5 px-2">
+          {NAV_ITEMS.slice(3).map((tool) => (
+            <NavIconButton
+              key={tool.id}
+              icon={tool.icon}
+              label={tool.label}
+              active={isWikiActive && currentView === tool.view}
+              onClick={() => goToView(tool.view)}
+              layoutId="nav-indicator"
+            />
+          ))}
+        </nav>
+
+        {/* 资讯管理模块 */}
+        <div className="mx-3 my-1.5 h-px w-6 bg-editorial-hairline" />
+
+        <nav className="flex w-full flex-col items-center gap-1.5 px-2">
           <NavIconButton
-            key={tool.id}
-            icon={tool.icon}
-            label={tool.label}
-            active={isWikiActive && currentView === tool.view}
-            onClick={() => goToView(tool.view)}
+            icon={Rss}
+            label="feeds.title"
+            active={pathname.startsWith("/feeds")}
+            onClick={() => navigate({ to: "/feeds" })}
+            layoutId="nav-indicator"
           />
-        ))}
-      </nav>
+        </nav>
+      </LayoutGroup>
 
       {/* 底部：远程连接 + 设置 */}
       <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-2 pb-3 pt-2">
@@ -114,9 +132,10 @@ interface NavIconButtonProps {
   label: string;
   active?: boolean;
   onClick: () => void;
+  layoutId?: string;
 }
 
-function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProps) {
+function NavIconButton({ icon: Icon, label, active, onClick, layoutId }: NavIconButtonProps) {
   const { t } = useTranslation();
   const labelText = t(label);
   return (
@@ -139,7 +158,7 @@ function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProp
       <Icon size={18} strokeWidth={active ? 2 : 1.6} />
       {active && (
         <motion.span
-          layoutId="wiki-nav-indicator"
+          layoutId={layoutId}
           className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-editorial-ink"
           transition={{ type: "spring", stiffness: 500, damping: 35 }}
         />

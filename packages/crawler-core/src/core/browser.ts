@@ -58,3 +58,39 @@ export async function closeBrowser(): Promise<void> {
     _refCount = 0;
   }
 }
+
+/**
+ * 将 Cookie 字符串注入到 Playwright 页面上下文。
+ * 在 page.goto() 之前调用，使浏览器导航时携带登录态。
+ *
+ * @param page  - Playwright Page 对象（来自 manager.getPage()）
+ * @param cookieStr - Cookie 字符串，格式 "name=value; name2=value2"
+ * @param domain - Cookie 所属域名，例如 ".bilibili.com"
+ */
+export async function injectCookies(
+  page: any,
+  cookieStr: string | undefined,
+  domain: string,
+): Promise<void> {
+  if (!cookieStr) return;
+
+  const cookies = cookieStr
+    .split(";")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const equalIndex = item.indexOf("=");
+      if (equalIndex <= 0) return null;
+      return {
+        name: item.slice(0, equalIndex).trim(),
+        value: item.slice(equalIndex + 1).trim(),
+        domain,
+        path: "/",
+      };
+    })
+    .filter((c): c is { name: string; value: string; domain: string; path: string } => c !== null);
+
+  if (cookies.length > 0) {
+    await page.context().addCookies(cookies);
+  }
+}

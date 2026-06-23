@@ -15,6 +15,8 @@ export interface RssItem {
   category?: string[];
   enclosure_url?: string;
   enclosure_type?: string;
+  /** 封面图 URL（输出 RSS 时映射为 &lt;enclosure&gt;） */
+  image?: string;
 }
 
 export interface RssFeed {
@@ -88,6 +90,10 @@ export function buildRssXml(feed: RssFeed): string {
           ? `      <enclosure url="${escapeXml(item.enclosure_url)}" type="${escapeXml(item.enclosure_type)}" />`
           : "";
 
+      const imageEnclosure = item.image
+        ? `      <enclosure url="${escapeXml(item.image)}" type="image/jpeg" />`
+        : "";
+
       return `    <item>
       <title>${cdata(item.title)}</title>
       <description>${cdata(item.description)}</description>
@@ -95,7 +101,7 @@ export function buildRssXml(feed: RssFeed): string {
       <guid isPermaLink="false">${escapeXml(item.guid)}</guid>
       <pubDate>${item.pubDate}</pubDate>
       ${item.author ? `      <author>${escapeXml(item.author)}</author>` : ""}
-${cats}${enclosure}    </item>`;
+${cats}${enclosure}${imageEnclosure}    </item>`;
     })
     .join("\n");
 
