@@ -62,18 +62,22 @@ const SEED_TOOLS = [
 export async function initDatabase(): Promise<void> {
   await migrate(db, { migrationsFolder });
 
-  // 确保 remote_connections 表存在（drizzle-kit 的 migration 生成依赖环境，手动兜底）
+  // cookie_cloud: CookieCloud 加密数据
   await client.execute(
-    `CREATE TABLE IF NOT EXISTS remote_connections (
-      id text PRIMARY KEY NOT NULL,
+    `CREATE TABLE IF NOT EXISTS cookie_cloud (
+      uuid text PRIMARY KEY NOT NULL,
+      password text NOT NULL,
+      encrypted text NOT NULL,
+      crypto_type text NOT NULL DEFAULT 'legacy'
+    )`,
+  );
+  // cookie_store: 各平台明文 cookie
+  await client.execute(
+    `CREATE TABLE IF NOT EXISTS cookie_store (
+      uuid text NOT NULL,
       platform text NOT NULL,
-      label text NOT NULL,
-      status text NOT NULL DEFAULT 'disconnected',
-      config text,
-      extra text,
-      error text,
-      created_at text NOT NULL DEFAULT (current_timestamp),
-      updated_at text NOT NULL DEFAULT (current_timestamp)
+      cookies text NOT NULL,
+      PRIMARY KEY (uuid, platform)
     )`,
   );
 

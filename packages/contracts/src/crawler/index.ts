@@ -8,7 +8,6 @@ export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export const taskCreateSchema = z.object({
   route: z.string(),
   params: z.record(z.string(), z.unknown()),
-  cookies: z.string().optional(),
   proxy_url: z.string().optional(),
   max_items: z.number().int().positive().default(50),
 });

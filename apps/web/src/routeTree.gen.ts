@@ -10,13 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WikiRouteImport } from './routes/wiki'
+import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as FeedsRouteImport } from './routes/feeds'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FeedsIndexRouteImport } from './routes/feeds.index'
 
 const WikiRoute = WikiRouteImport.update({
   id: '/wiki',
   path: '/wiki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedsRoute = FeedsRouteImport.update({
@@ -34,38 +41,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedsIndexRoute = FeedsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FeedsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
-  '/feeds': typeof FeedsRoute
+  '/feeds': typeof FeedsRouteWithChildren
+  '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/feeds/': typeof FeedsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
-  '/feeds': typeof FeedsRoute
+  '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/feeds': typeof FeedsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
-  '/feeds': typeof FeedsRoute
+  '/feeds': typeof FeedsRouteWithChildren
+  '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/feeds/': typeof FeedsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/feeds' | '/wiki'
+  fullPaths: '/' | '/chat' | '/feeds' | '/sources' | '/wiki' | '/feeds/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/feeds' | '/wiki'
-  id: '__root__' | '/' | '/chat' | '/feeds' | '/wiki'
+  to: '/' | '/chat' | '/sources' | '/wiki' | '/feeds'
+  id: '__root__' | '/' | '/chat' | '/feeds' | '/sources' | '/wiki' | '/feeds/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
-  FeedsRoute: typeof FeedsRoute
+  FeedsRoute: typeof FeedsRouteWithChildren
+  SourcesRoute: typeof SourcesRoute
   WikiRoute: typeof WikiRoute
 }
 
@@ -76,6 +94,13 @@ declare module '@tanstack/react-router' {
       path: '/wiki'
       fullPath: '/wiki'
       preLoaderRoute: typeof WikiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feeds': {
@@ -99,13 +124,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feeds/': {
+      id: '/feeds/'
+      path: '/'
+      fullPath: '/feeds/'
+      preLoaderRoute: typeof FeedsIndexRouteImport
+      parentRoute: typeof FeedsRoute
+    }
   }
 }
+
+interface FeedsRouteChildren {
+  FeedsIndexRoute: typeof FeedsIndexRoute
+}
+
+const FeedsRouteChildren: FeedsRouteChildren = {
+  FeedsIndexRoute: FeedsIndexRoute,
+}
+
+const FeedsRouteWithChildren = FeedsRoute._addFileChildren(FeedsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
-  FeedsRoute: FeedsRoute,
+  FeedsRoute: FeedsRouteWithChildren,
+  SourcesRoute: SourcesRoute,
   WikiRoute: WikiRoute,
 }
 export const routeTree = rootRouteImport

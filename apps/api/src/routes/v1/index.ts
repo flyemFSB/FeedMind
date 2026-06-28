@@ -7,6 +7,7 @@ import { wikiRoutes } from "./wiki.js";
 import { crawlerRoutes } from "./crawler.js";
 import { skillsRoutes } from "./skills.js";
 import { remoteConnectionRoutes } from "./remote-connection.js";
+import { cookieCloudRoutes } from "./cookiecloud.js";
 
 export const v1Router = new Hono();
 
@@ -18,3 +19,4 @@ v1Router.route("/", wikiRoutes);
 v1Router.route("/", crawlerRoutes);
 v1Router.route("/", skillsRoutes);
 v1Router.route("/", remoteConnectionRoutes);
+v1Router.route("/", cookieCloudRoutes);

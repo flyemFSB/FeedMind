@@ -336,7 +336,8 @@
     "comingSoon": "功能即将上线"
   },
   "feeds": {
-    "title": "资讯管理",
+    "title": "资讯中心",
+    "sourceManagement": "来源管理",
     "rss": "RSS",
     "social": "社交媒体",
     "aiRecommend": "AI 推荐",

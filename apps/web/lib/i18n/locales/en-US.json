@@ -336,7 +336,8 @@
     "comingSoon": "Coming soon"
   },
   "feeds": {
-    "title": "Feeds",
+    "title": "Feed Center",
+    "sourceManagement": "Source Management",
     "rss": "RSS",
     "social": "Social",
     "aiRecommend": "AI Picks",

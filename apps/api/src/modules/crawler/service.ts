@@ -1,14 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { and, count, desc, eq, sql } from "drizzle-orm";
-import { crawlerTasks } from "@feedmind/db";
+import { crawlerTasks, db, cookieStore } from "@feedmind/db";
 import type { TaskCreate, TaskListItem, TaskRead, TaskStatus } from "@feedmind/contracts";
-import { db } from "@feedmind/db";
 import { getRouteHandler } from "@feedmind/crawler-core";
 import type { RouteHandlerParams } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { DbStore } from "./db-store.js";
 import { logger } from "../../lib/logger.js";
 import { apiEnv } from "../../env.js";
+
+const ROUTE_TO_PLATFORM: Record<string, string> = {
+  bili: "bilibili",
+  dy: "douyin",
+  xhs: "xiaohongshu",
+  zh: "zhihu",
+  ks: "kuaishou",
+};
 
 // ─── 辅助函数 ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
@@ -49,7 +56,6 @@ const runningTasks = new Map<string, AbortController>();
 // ─── 公开 API ────────────────────────────────────────────────
 
 export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
-  // 检查路由是否存在
   const handler = getRouteHandler(input.route);
   if (!handler) {
     throw new HttpError(400, "INVALID_ROUTE", `未知路由: ${input.route}`);
@@ -57,13 +63,22 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
 
   const id = randomUUID();
   const now = new Date().toISOString();
-  const paramsStr = JSON.stringify(input.params);
 
+  // 从 cookie_store 自动获取 cookie
+  const prefix = input.route.split("/")[0];
+  const platform = ROUTE_TO_PLATFORM[prefix];
+  const cookies = platform
+    ? (await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all())
+        .map((r) => r.cookies)
+        .join("; ")
+    : null;
+
+  const paramsStr = JSON.stringify(input.params);
   const rowValues = {
     id,
     route: input.route,
     params: paramsStr,
-    cookies: input.cookies ?? null,
+    cookies,
     proxyUrl: input.proxy_url ?? null,
     maxItems: input.max_items,
     status: "queued" as const,
@@ -88,13 +103,16 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
     await tx.insert(crawlerTasks).values(rowValues);
   });
 
-  // 后台执行（不阻塞响应）
-  runCrawlerTask(id, input).catch(() => {});
+  runCrawlerTask(id, input, cookies).catch(() => {});
 
   return toTaskRead(rowValues);
 }
 
-async function runCrawlerTask(taskId: string, input: TaskCreate): Promise<void> {
+async function runCrawlerTask(
+  taskId: string,
+  input: TaskCreate,
+  cookies: string | null,
+): Promise<void> {
   const controller = new AbortController();
   runningTasks.set(taskId, controller);
 
@@ -108,7 +126,7 @@ async function runCrawlerTask(taskId: string, input: TaskCreate): Promise<void> 
 
     const params: RouteHandlerParams = {
       params: input.params,
-      cookies: input.cookies,
+      cookies: cookies ?? undefined,
       abortSignal: controller.signal,
       maxItems: input.max_items,
     };

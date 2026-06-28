@@ -3,26 +3,18 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { X, Smartphone, Loader2 } from "lucide-react";
-import {
-  Feishu,
-  Xiaohongshu,
-  Douyin,
-  Bilibili,
-  Zhihu,
-} from "@/components/icons/remote-connection-icons";
+import { Feishu } from "@/components/icons/remote-connection-icons";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FeishuConnectDialog } from "./feishu-connect-dialog";
-import { toast } from "sonner";
 
 interface Platform {
   id: string;
   nameKey: string;
   descriptionKey: string;
   icon: React.ElementType;
-  section: "messaging" | "social";
 }
 
 const PLATFORMS: Platform[] = [
@@ -31,35 +23,6 @@ const PLATFORMS: Platform[] = [
     nameKey: "remoteConnection.feishu",
     descriptionKey: "remoteConnection.feishuDesc",
     icon: Feishu,
-    section: "messaging",
-  },
-  {
-    id: "xiaohongshu",
-    nameKey: "remoteConnection.xiaohongshu",
-    descriptionKey: "remoteConnection.xiaohongshuDesc",
-    icon: Xiaohongshu,
-    section: "social",
-  },
-  {
-    id: "douyin",
-    nameKey: "remoteConnection.douyin",
-    descriptionKey: "remoteConnection.douyinDesc",
-    icon: Douyin,
-    section: "social",
-  },
-  {
-    id: "bilibili",
-    nameKey: "remoteConnection.bilibili",
-    descriptionKey: "remoteConnection.bilibiliDesc",
-    icon: Bilibili,
-    section: "social",
-  },
-  {
-    id: "zhihu",
-    nameKey: "remoteConnection.zhihu",
-    descriptionKey: "remoteConnection.zhihuDesc",
-    icon: Zhihu,
-    section: "social",
   },
 ];
 
@@ -99,13 +62,8 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
   const handleConnect = (id: string) => {
     if (id === "feishu") {
       setShowFeishuConnect(true);
-    } else {
-      toast.info(t("remoteConnection.comingSoon"));
     }
   };
-
-  const messagingPlatforms = PLATFORMS.filter((p) => p.section === "messaging");
-  const socialPlatforms = PLATFORMS.filter((p) => p.section === "social");
 
   return (
     <>
@@ -151,45 +109,17 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
                 <Loader2 size={20} className="animate-spin text-editorial-ink-muted" />
               </div>
             ) : (
-              <>
-                {/* 消息服务 */}
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  <span className="text-[11px] font-medium tracking-[0.06em] text-editorial-ink-muted uppercase">
-                    {t("remoteConnection.messaging")}
-                  </span>
-                  <div className="h-px flex-1 bg-editorial-hairline" />
-                </div>
-                <div className="mb-5 space-y-1">
-                  {messagingPlatforms.map((platform) => (
-                    <div key={platform.id}>
-                      <PlatformRow
-                        platform={platform}
-                        connected={!!connections[platform.id]}
-                        onConnect={handleConnect}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                {/* 社交平台 */}
-                <div className="mb-2 flex items-center gap-2 px-1">
-                  <span className="text-[11px] font-medium tracking-[0.06em] text-editorial-ink-muted uppercase">
-                    {t("remoteConnection.social")}
-                  </span>
-                  <div className="h-px flex-1 bg-editorial-hairline" />
-                </div>
-                <div className="space-y-1">
-                  {socialPlatforms.map((platform) => (
-                    <div key={platform.id}>
-                      <PlatformRow
-                        platform={platform}
-                        connected={!!connections[platform.id]}
-                        onConnect={handleConnect}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </>
+              <div className="space-y-1">
+                {PLATFORMS.map((platform) => (
+                  <div key={platform.id}>
+                    <PlatformRow
+                      platform={platform}
+                      connected={!!connections[platform.id]}
+                      onConnect={handleConnect}
+                    />
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

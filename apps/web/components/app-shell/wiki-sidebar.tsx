@@ -6,6 +6,7 @@ import {
   Clock,
   Database,
   FileText,
+  List,
   Network,
   Rss,
   Settings,
@@ -103,15 +104,22 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
           ))}
         </nav>
 
-        {/* 资讯管理模块 */}
+        {/* 资讯中心模块 */}
         <div className="mx-3 my-1.5 h-px w-6 bg-editorial-hairline" />
 
         <nav className="flex w-full flex-col items-center gap-1.5 px-2">
           <NavIconButton
             icon={Rss}
             label="feeds.title"
-            active={pathname.startsWith("/feeds")}
+            active={pathname === "/feeds"}
             onClick={() => navigate({ to: "/feeds" })}
+            layoutId="nav-indicator"
+          />
+          <NavIconButton
+            icon={List}
+            label="feeds.sourceManagement"
+            active={pathname === "/sources"}
+            onClick={() => navigate({ to: "/sources" } as any)}
             layoutId="nav-indicator"
           />
         </nav>
