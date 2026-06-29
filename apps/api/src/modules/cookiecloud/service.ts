@@ -3,6 +3,7 @@ import { db, cookieCloud, cookieStore } from "@feedmind/db";
 import { eq } from "drizzle-orm";
 import type { CookieCloudRow, CookieStoreRow } from "@feedmind/db";
 import type { PlatformId } from "@feedmind/contracts";
+import { logger } from "../../lib/logger.js";
 
 // CookieCloud cookie 域名到平台的映射
 const DOMAIN_TO_PLATFORM: Record<string, PlatformId> = {
@@ -50,10 +51,14 @@ export async function storeEncrypted(
     try {
       const data = decrypt(uuid, encrypted, config.password, cryptoType);
       await syncCookies(uuid, data as Record<string, any>);
-    } catch {
-      // 解密失败
+    } catch (err) {
+      logger.warn({ uuid, err }, "CookieCloud 解密失败 — UUID 或密码不匹配");
     }
   }
+}
+
+export async function getAllConfigs(): Promise<CookieCloudRow[]> {
+  return db.select().from(cookieCloud).all();
 }
 
 export async function getEncrypted(uuid: string): Promise<CookieCloudRow | null> {

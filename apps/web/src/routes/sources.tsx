@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Plus, Trash2, Rss, Globe, Cookie, Upload, Bookmark, User } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Rss,
+  Globe,
+  Cookie,
+  Upload,
+  Bookmark,
+  User,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
@@ -58,6 +70,8 @@ function SourcesPage() {
 
   const [cookiecloudUuid, setCookiecloudUuid] = useState("");
   const [cookiecloudPassword, setCookiecloudPassword] = useState("");
+  const [hasConfig, setHasConfig] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [cookieStatus, setCookieStatus] = useState<Record<string, boolean>>({
     xiaohongshu: false,
@@ -103,6 +117,18 @@ function SourcesPage() {
           if (row.platform in status) status[row.platform] = true;
         }
         setCookieStatus(status);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/v1/cookiecloud/config")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.data && data.data.length > 0) {
+          setCookiecloudUuid(data.data[0].uuid);
+          setHasConfig(true);
+        }
       })
       .catch(() => {});
   }, []);
@@ -348,34 +374,51 @@ function SourcesPage() {
                   <input
                     value={cookiecloudUuid}
                     onChange={(e) => setCookiecloudUuid(e.target.value)}
-                    placeholder="输入 CookieCloud UUID"
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                    readOnly={hasConfig}
+                    placeholder={hasConfig ? "" : "输入 CookieCloud UUID"}
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted read-only:text-editorial-ink-muted read-only:cursor-not-allowed"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
                     端对端加密密码
                   </label>
-                  <input
-                    type="password"
-                    value={cookiecloudPassword}
-                    onChange={(e) => setCookiecloudPassword(e.target.value)}
-                    placeholder="输入加密密码"
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={cookiecloudPassword}
+                      onChange={(e) => setCookiecloudPassword(e.target.value)}
+                      placeholder={hasConfig ? "******" : "输入加密密码"}
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-editorial-ink-muted hover:text-editorial-ink"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!cookiecloudUuid.trim() || !cookiecloudPassword.trim()) return;
-                    fetch("/api/v1/cookiecloud/config", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        uuid: cookiecloudUuid,
-                        password: cookiecloudPassword,
-                        crypto_type: "legacy",
-                      }),
-                    });
+                    try {
+                      const res = await fetch("/api/v1/cookiecloud/config", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          uuid: cookiecloudUuid,
+                          password: cookiecloudPassword,
+                          crypto_type: "legacy",
+                        }),
+                      });
+                      if (!res.ok) throw new Error("请求失败");
+                      toast.success("CookieCloud 配置已保存");
+                    } catch {
+                      toast.error("保存 CookieCloud 配置失败");
+                    }
                   }}
                   disabled={!cookiecloudUuid.trim() || !cookiecloudPassword.trim()}
                   size="sm"

@@ -1,10 +1,12 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { gunzipSync } from "node:zlib";
 import { PlatformId } from "@feedmind/contracts";
 import { jsonOk, jsonError } from "../../lib/http.js";
 import {
   saveConfig,
   storeEncrypted,
   getEncrypted,
+  getAllConfigs,
   getCookies,
   getAllCookies,
   saveManualCookies,
@@ -13,11 +15,33 @@ import {
 
 export const cookieCloudRoutes = new Hono();
 
+async function parseBody(c: Context): Promise<Record<string, unknown>> {
+  const contentEncoding = c.req.header("content-encoding") || "";
+  if (contentEncoding.includes("gzip")) {
+    const buf = await c.req.raw.arrayBuffer();
+    const decompressed = gunzipSync(Buffer.from(buf));
+    return JSON.parse(decompressed.toString("utf-8"));
+  }
+  return c.req.json().catch(() => ({}));
+}
+
+// GET /api/v1/cookiecloud/config
+// 获取所有已保存的 CookieCloud 配置（不含 encrypted）
+cookieCloudRoutes.get("/cookiecloud/config", async (c) => {
+  const configs = await getAllConfigs();
+  return jsonOk(
+    c,
+    configs.map(({ encrypted: _, ...rest }) => rest),
+  );
+});
+
 // POST /api/v1/cookiecloud/config
 // 保存 UUID + 密码配置
 cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const { uuid, password, crypto_type = "legacy" } = body;
+  const body = await parseBody(c);
+  const uuid = body.uuid as string | undefined;
+  const password = body.password as string | undefined;
+  const crypto_type = (body.crypto_type as string) || "legacy";
 
   if (!uuid || !password) {
     return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 password 不能为空");
@@ -30,8 +54,10 @@ cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
 // POST /api/v1/cookiecloud/update
 // CookieCloud 扩展上传加密数据，自动解密并写入 cookie_cloud
 cookieCloudRoutes.post("/cookiecloud/update", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const { uuid, encrypted, crypto_type = "legacy" } = body;
+  const body = await parseBody(c);
+  const uuid = body.uuid as string | undefined;
+  const encrypted = body.encrypted as string | undefined;
+  const crypto_type = (body.crypto_type as string) || "legacy";
 
   if (!uuid || !encrypted) {
     return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 encrypted 不能为空");
