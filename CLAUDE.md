@@ -44,8 +44,8 @@ pnpm run test                  # 运行所有测试（vitest）
 pnpm run db:init               # 初始化 SQLite 数据库
 pnpm run db:generate           # 生成 Drizzle 迁移
 pnpm run db:migrate            # 执行 Drizzle 迁移
-pnpm run web:dev               # 仅前端（http://localhost:3000）
-pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:8000）
+pnpm run web:dev               # 仅前端（http://localhost:13790）
+pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790）
 ```
 
 ## API 路由

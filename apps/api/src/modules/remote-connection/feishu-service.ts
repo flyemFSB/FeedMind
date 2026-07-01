@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { Client, AppType, EventDispatcher, WSClient, LoggerLevel } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
-import { saveChatSession, getChatSessionMessages } from "../chats/service.js";
 
 let client: Client | null = null;
 let wsClient: WSClient | null = null;
@@ -75,30 +74,13 @@ function buildCardJson(markdownContent: string): string {
   });
 }
 
-/** 发送助手消息到飞书并持久化到会话 */
-async function sendReply(
-  client: Client,
-  openId: string,
-  threadId: string,
-  content: string,
-): Promise<void> {
-  await saveChatSession(threadId, {
-    messages: [
-      {
-        agent_message_id: `feishu-${Date.now()}-assistant`,
-        role: "assistant",
-        content,
-        status: "completed",
-        model: "",
-        metadata: {},
-      },
-    ],
-  });
+/** 发送助手消息到飞书 */
+async function sendReply(client: Client, openId: string, content: string): Promise<void> {
   await client.im.message.create({
     params: { receive_id_type: "open_id" },
     data: { receive_id: openId, content: buildCardJson(content), msg_type: "interactive" },
   });
-  logger.info({ openId, threadId, contentLen: content.length }, "飞书回复消息");
+  logger.info({ openId, contentLen: content.length }, "飞书回复消息");
 }
 
 /** 构建 im.message.receive_v1 事件处理器 */
@@ -145,41 +127,21 @@ function buildMessageHandler() {
         const openId = sender.sender_id.open_id;
         const threadId = `feishu:${openId}`;
 
-        // 保存用户消息到会话（先持久化，确保后续异常时消息不丢失）
-        await saveChatSession(threadId, {
-          title: userText.slice(0, 30),
-          messages: [
-            {
-              agent_message_id: `feishu-${Date.now()}-user`,
-              role: "user",
-              content: userText,
-              status: "completed",
-              model: "",
-              metadata: {},
-            },
-          ],
+        // 调用 Agent — Memory 自动加载历史 + 保存 user/assistant 消息
+        const stream = await feedmindAgent.stream(userText, {
+          memory: { thread: threadId, resource: threadId },
         });
-
-        // 读取历史作为 Agent 上下文
-        const history = await getChatSessionMessages(threadId);
-        const context = history
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-
-        // 调用 Agent（使用 stream 以分离推理过程和最终答案）
-        const stream = await feedmindAgent.stream(userText, { context });
         let reply = "";
         for await (const chunk of stream.fullStream) {
           if (chunk.type === "text-delta") {
             reply += chunk.payload.text;
           }
-          // 跳过 reasoning-delta（思考过程）、tool-call 等
         }
         reply = reply.trimStart();
 
         const content = reply || "我没有生成有效的回复，请换个方式描述你的问题。";
         if (!reply) logger.warn({ openId, threadId }, "Agent 返回空文本，发送提示");
-        await sendReply(feishuClient, openId, threadId, content);
+        await sendReply(feishuClient, openId, content);
       } catch (err: any) {
         logger.error({ err }, "Agent 回复失败");
         if (feishuClient) {

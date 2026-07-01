@@ -114,12 +114,12 @@ pnpm run db:init
 pnpm run dev
 ```
 
-| 服务              | 地址                                 |
-| ----------------- | ------------------------------------ |
-| Web 前端          | http://localhost:3000                |
-| REST API          | http://localhost:8000                |
-| API 文档 (Scalar) | http://localhost:8000/api/v1/docs    |
-| OpenAPI JSON      | http://localhost:8000/api/v1/openapi |
+| 服务              | 地址                                  |
+| ----------------- | ------------------------------------- |
+| Web 前端          | http://localhost:13790                |
+| REST API          | http://localhost:18790                |
+| API 文档 (Scalar) | http://localhost:18790/api/v1/docs    |
+| OpenAPI JSON      | http://localhost:18790/api/v1/openapi |
 
 ### 常用命令
 
@@ -274,7 +274,7 @@ feedmind/
 
 ```
 Chrome Extension (MV3)
-  chrome.cookies.getAll({ domain })  →  POST localhost:8000
+  chrome.cookies.getAll({ domain })  →  POST localhost:18790
        │
        ▼
 remoteConnections 表（SQLite）
@@ -317,8 +317,8 @@ Playwright 无头浏览器 → 已登录 → 爬取平台内容
 
 API 采用 OpenAPI 3.1 规范，通过 `@hono/zod-openapi` 自动生成文档：
 
-- **交互式文档**: 启动服务后访问 `http://localhost:8000/api/v1/docs`（Scalar UI）
-- **OpenAPI JSON**: `http://localhost:8000/api/v1/openapi`
+- **交互式文档**: 启动服务后访问 `http://localhost:18790/api/v1/docs`（Scalar UI）
+- **OpenAPI JSON**: `http://localhost:18790/api/v1/openapi`
 
 ### 路由概览
 
@@ -343,7 +343,7 @@ API 采用 OpenAPI 3.1 规范，通过 `@hono/zod-openapi` 自动生成文档：
 | `DATABASE_PATH`         | 否     | `./data/feedmind.db` | SQLite 数据库文件路径                                            |
 | `APP_ENV`               | 否     | `development`        | 运行环境（`production` 时强制校验加密密钥）                      |
 | `API_HOST`              | 否     | `127.0.0.1`          | API 监听地址（Docker 部署设为 `0.0.0.0`）                        |
-| `API_PORT`              | 否     | `8000`               | API 监听端口                                                     |
+| `API_PORT`              | 否     | `18790`              | API 监听端口                                                     |
 | `WIKI_DIR`              | 否     | `data/wiki`          | Wiki Markdown 文件存储目录                                       |
 | `DISABLE_INGEST_WORKER` | 否     | —                    | 设为 `1` 禁用 Wiki 导入 worker                                   |
 

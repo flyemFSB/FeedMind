@@ -9,7 +9,7 @@ export const apiEnv = createEnv({
     /** API 服务器监听地址（Docker 部署设为 "0.0.0.0"） */
     API_HOST: z.string().default("127.0.0.1"),
     /** API 服务器监听端口 */
-    API_PORT: z.coerce.number().int().positive().default(8000),
+    API_PORT: z.coerce.number().int().positive().default(18790),
     /** 是否禁用 Wiki 导入 worker（设为 "1" 禁用） */
     DISABLE_INGEST_WORKER: z.string().optional(),
     /** Wiki 文件存储目录（相对项目根目录的路径） */

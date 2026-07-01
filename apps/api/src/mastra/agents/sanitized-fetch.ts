@@ -4,7 +4,7 @@
  * @ai-sdk/openai 的流式解析器拒绝空字符串，因此需在 fetch 层修复。
  */
 export function createSanitizedFetch(_baseUrl?: string) {
-  return async (input: URL | RequestInfo, init?: RequestInit) => {
+  return async (input: string | URL | Request, init?: RequestInit) => {
     const response = await globalThis.fetch(input, init);
 
     const contentType = response.headers.get("content-type") || "";

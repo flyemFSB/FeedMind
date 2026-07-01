@@ -14,7 +14,8 @@ The pageId is the slug (filename without .md extension).`,
   }),
   execute: async ({ spaceId, pageId }, { requestContext }) => {
     // 从 RequestContext 获取后端 API 地址
-    const backendApiUrl = (requestContext?.get("backendApiUrl") as string) || "http://localhost:8000";
+    const backendApiUrl =
+      (requestContext?.get("backendApiUrl") as string) || "http://localhost:18790";
     const baseUrl = backendApiUrl.replace(/\/+$/, "");
     const url = `${baseUrl}/wiki/spaces/${encodeURIComponent(spaceId)}/pages/${encodeURIComponent(pageId)}`;
 
@@ -32,19 +33,26 @@ The pageId is the slug (filename without .md extension).`,
       });
     }
 
-    const data = await response.json();
-    const content = data.content ?? "";
-    const truncated = content.length > MAX_PAGE_CHARS
-      ? content.slice(0, MAX_PAGE_CHARS) + "\n\n[... content truncated ...]"
-      : content;
+    const data = (await response.json()) as Record<string, unknown>;
+    const content = (data.content as string) ?? "";
+    const truncated =
+      content.length > MAX_PAGE_CHARS
+        ? content.slice(0, MAX_PAGE_CHARS) + "\n\n[... content truncated ...]"
+        : content;
 
     return [
-      `Title: ${data.title}`,
-      `Type: ${data.type}`,
-      `Path: ${data.path}`,
-      ...(data.sources?.length ? [`Sources: ${data.sources.join(", ")}`] : []),
-      ...(data.tags?.length ? [`Tags: ${data.tags.join(", ")}`] : []),
-      ...(data.related?.length ? [`Related: ${data.related.join(", ")}`] : []),
+      `Title: ${data.title as string}`,
+      `Type: ${data.type as string}`,
+      `Path: ${data.path as string}`,
+      ...((data.sources as string[] | undefined)?.length
+        ? [`Sources: ${(data.sources as string[]).join(", ")}`]
+        : []),
+      ...((data.tags as string[] | undefined)?.length
+        ? [`Tags: ${(data.tags as string[]).join(", ")}`]
+        : []),
+      ...((data.related as string[] | undefined)?.length
+        ? [`Related: ${(data.related as string[]).join(", ")}`]
+        : []),
       "",
       truncated,
     ].join("\n");

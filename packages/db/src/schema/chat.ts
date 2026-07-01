@@ -1,13 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import {
-  check,
-  index,
-  integer,
-  sqliteTable,
-  text,
-  unique,
-} from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // 会话表：包含置顶排序和更新时间索引，支持会话列表按 pinned + updatedAt 排序
 export const chatSessions = sqliteTable(
@@ -21,8 +14,12 @@ export const chatSessions = sqliteTable(
     pinned: integer("pinned", { mode: "boolean" }).notNull().default(false),
     messageCount: integer("message_count").notNull().default(0),
     lastMessageAt: text("last_message_at"),
-    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
+    createdAt: text("created_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
+    updatedAt: text("updated_at")
+      .notNull()
+      .default(sql`(current_timestamp)`),
   },
   (table) => ({
     updatedAtIdx: index("idx_chat_sessions_updated_at").on(table.updatedAt),
@@ -33,43 +30,5 @@ export const chatSessions = sqliteTable(
   }),
 );
 
-// 消息表：agent_message_id + session_id 构成唯一约束支持幂等 upsert；级联删除随会话清除
-export const chatMessages = sqliteTable(
-  "chat_messages",
-  {
-    id: text("id")
-      .primaryKey()
-      .$defaultFn(() => randomUUID()),
-    sessionId: text("session_id")
-      .notNull()
-      .references(() => chatSessions.id, { onDelete: "cascade" }),
-    agentMessageId: text("agent_message_id").notNull(),
-    role: text("role").notNull(),
-    content: text("content").notNull(),
-    status: text("status").notNull().default("completed"),
-    model: text("model").notNull().default(""),
-    metadata: text("metadata").notNull().default("{}"),
-    createdAt: text("created_at").notNull().default(sql`(current_timestamp)`),
-    updatedAt: text("updated_at").notNull().default(sql`(current_timestamp)`),
-  },
-  (table) => ({
-    roleCheck: check("ck_chat_messages_role", sql`${table.role} in ('user', 'assistant', 'system', 'tool')`),
-    statusCheck: check(
-      "ck_chat_messages_status",
-      sql`${table.status} in ('streaming', 'completed', 'failed')`,
-    ),
-    sessionAgentIdUq: unique("uq_chat_messages_session_agent_id").on(
-      table.sessionId,
-      table.agentMessageId,
-    ),
-    sessionCreatedAtIdx: index("idx_chat_messages_session_created_at").on(
-      table.sessionId,
-      table.createdAt,
-    ),
-  }),
-);
-
 export type ChatSessionRow = typeof chatSessions.$inferSelect;
 export type ChatSessionInsert = typeof chatSessions.$inferInsert;
-export type ChatMessageRow = typeof chatMessages.$inferSelect;
-export type ChatMessageInsert = typeof chatMessages.$inferInsert;

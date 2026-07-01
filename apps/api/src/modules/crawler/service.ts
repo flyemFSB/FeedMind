@@ -19,7 +19,7 @@ const ROUTE_TO_PLATFORM: Record<string, string> = {
 
 // ─── 辅助函数 ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
-  const baseUrl = apiEnv.API_BASE_URL ?? "http://localhost:8000";
+  const baseUrl = apiEnv.API_BASE_URL ?? "http://localhost:18790";
   return {
     id: row.id,
     route: row.route,

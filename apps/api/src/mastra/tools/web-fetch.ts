@@ -60,8 +60,8 @@ async function fetchViaFirecrawl(
     return null;
   }
 
-  const body = await response.json();
-  const markdown: string | undefined = body?.data?.markdown;
+  const body = (await response.json()) as { data?: { markdown?: string } };
+  const markdown = body?.data?.markdown;
   return markdown?.trim() ? markdown : null;
 }
 

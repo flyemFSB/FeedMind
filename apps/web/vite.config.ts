@@ -6,15 +6,15 @@ import { TanStackRouterVite } from "@tanstack/router-vite-plugin";
 export default defineConfig({
   server: {
     host: "127.0.0.1",
-    port: 3000,
+    port: 13790,
     proxy: {
       "/api/chat": {
-        target: "http://127.0.0.1:8000",
+        target: "http://127.0.0.1:18790",
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/chat/, "/v1/agent/chat"),
       },
       "/api": {
-        target: "http://127.0.0.1:8000",
+        target: "http://127.0.0.1:18790",
         changeOrigin: true,
       },
     },
@@ -27,7 +27,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes("react-markdown") || id.includes("rehype-highlight") || id.includes("rehype-raw") || id.includes("remark-gfm")) {
+          if (
+            id.includes("react-markdown") ||
+            id.includes("rehype-highlight") ||
+            id.includes("rehype-raw") ||
+            id.includes("remark-gfm")
+          ) {
             return "markdown";
           }
         },

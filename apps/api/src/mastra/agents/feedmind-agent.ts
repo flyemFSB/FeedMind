@@ -1,5 +1,6 @@
 import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
+import { Memory } from "@mastra/memory";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "./model-cache.js";
 import { getSelectedModel } from "../../modules/llms/service.js";
@@ -86,6 +87,7 @@ ${getSubagentDescriptions()}
       return {};
     }
   },
+  memory: new Memory(),
   tools: {
     askClarificationTool,
     webFetchTool,

@@ -1,15 +1,14 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { chatSessionSnapshotSchema } from "@feedmind/contracts";
+import { toAISdkV5Messages } from "@mastra/ai-sdk/ui";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
   createChatSession,
   deleteChatSession,
   getChatSession,
-  getChatSessionMessages,
   listChatSessions,
-  saveChatSession,
 } from "../../modules/chats/service.js";
+import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 
 export const chatRoutes = new Hono();
 
@@ -27,13 +26,16 @@ chatRoutes.get("/chats", async (c) => jsonOk(c, await listChatSessions()));
 chatRoutes.get("/chats/:sessionId", async (c) =>
   jsonOk(c, await getChatSession(c.req.param("sessionId"))),
 );
-chatRoutes.get("/chats/:sessionId/messages", async (c) =>
-  jsonOk(c, await getChatSessionMessages(c.req.param("sessionId"))),
-);
-chatRoutes.put("/chats/:sessionId", async (c) => {
-  const payload = await parseJson(c, chatSessionSnapshotSchema);
-  return jsonOk(c, await saveChatSession(c.req.param("sessionId"), payload));
+
+/** 从 Memory 读取会话消息 */
+chatRoutes.get("/chats/:sessionId/messages", async (c) => {
+  const threadId = c.req.param("sessionId");
+  const memory = await feedmindAgent.getMemory();
+  if (!memory) return jsonOk(c, []);
+  const { messages } = await memory.recall({ threadId, perPage: false });
+  return jsonOk(c, toAISdkV5Messages(messages));
 });
+
 chatRoutes.delete("/chats/:sessionId", async (c) =>
   jsonOk(c, await deleteChatSession(c.req.param("sessionId"))),
 );
