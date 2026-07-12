@@ -2,43 +2,43 @@ import fs from "node:fs";
 import path from "node:path";
 import { runStructuralLint, getFileStem, normalizePath } from "@feedmind/wiki-core";
 import type { LintResult } from "@feedmind/contracts";
-import { spaceDir, ensureLlmWikiDir } from "./wiki-utils.js";
+import { getSpaceDir, ensureLlmWikiDir } from "./space-fs/index.js";
 
 function lintPath(spaceId: string): string {
-  return path.join(spaceDir(spaceId), ".llm-wiki", "lint.json");
+  return path.join(getSpaceDir(spaceId), ".llm-wiki", "lint.json");
 }
 
 export async function runLint(spaceId: string): Promise<LintResult[]> {
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
   if (!fs.existsSync(wikiDir)) return [];
 
   const pages: Array<{ path: string; slug: string; content: string }> = [];
 
   const loadDir = (dir: string) => {
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          loadDir(fullPath);
-        } else if (entry.name.endsWith(".md")) {
-          try {
-            const content = fs.readFileSync(fullPath, "utf-8");
-            pages.push({
-              path: normalizePath(fullPath),
-              slug: getFileStem(entry.name),
-              content,
-            });
-          } catch {
-            /* skip */
-          }
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        loadDir(fullPath);
+      } else if (entry.name.endsWith(".md")) {
+        try {
+          const content = fs.readFileSync(fullPath, "utf-8");
+          pages.push({
+            path: normalizePath(fullPath),
+            slug: getFileStem(entry.name),
+            content,
+          });
+        } catch {
+          /* skip */
         }
       }
-    } catch {
-      /* skip */
     }
   };
-  loadDir(wikiDir);
+  try {
+    loadDir(wikiDir);
+  } catch {
+    /* skip */
+  }
 
   const results = runStructuralLint(pages, normalizePath(wikiDir));
 

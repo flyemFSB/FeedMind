@@ -1,7 +1,5 @@
 import fs from "node:fs";
-import path from "node:path";
-// graphology 使用 export default class Graph，但 NodeNext 下的 TS 模块解析
-// 无法暴露可构造类型。故在运行时通过动态 import() 加载。
+
 let _Graph: any = null;
 let _Louvain: any = null;
 async function ensureGraphLibs() {
@@ -15,34 +13,17 @@ import {
   normalizePath,
 } from "@feedmind/wiki-core";
 import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";
-import { spaceDir } from "./wiki-utils.js";
-
-function collectMdFiles(dir: string): Array<{ name: string; path: string; is_dir: boolean }> {
-  const results: Array<{ name: string; path: string; is_dir: boolean }> = [];
-  try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      results.push({ name: entry.name, path: fullPath, is_dir: entry.isDirectory() });
-      if (entry.isDirectory()) {
-        results.push(...collectMdFiles(fullPath));
-      }
-    }
-  } catch {
-    /* dir doesn't exist */
-  }
-  return results;
-}
+import { getWikiDir, collectFileEntries } from "./space-fs/index.js";
 
 export async function getWikiGraph(
   spaceId: string,
 ): Promise<{ nodes: GraphNode[]; edges: GraphEdge[]; communities: CommunityInfo[] }> {
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  const wikiDir = getWikiDir(spaceId);
   if (!fs.existsSync(wikiDir)) {
     return { nodes: [], edges: [], communities: [] };
   }
 
-  const mdFiles = collectMdFiles(wikiDir).filter((f) => !f.is_dir && f.name.endsWith(".md"));
+  const mdFiles = collectFileEntries(wikiDir).filter((f) => !f.is_dir && f.name.endsWith(".md"));
 
   const { nodes, edges } = await buildWikiGraph(
     async (filePath: string) => fs.readFileSync(filePath, "utf-8"),

@@ -8,3 +8,5 @@ export * from "./runtime-config/index.js";
 export * from "./skill/index.js";
 export * from "./tools/index.js";
 export * from "./wiki/index.js";
+export * from "./rss-sources/index.js";
+export * from "./feeds/index.js";

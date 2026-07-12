@@ -3,14 +3,18 @@ import path from "node:path";
 import { formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
 import { runIngest, extractIdentity } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
-import { invalidatePageFileCache } from "./page-store.js";
-import { spaceDir, wikiRootDir, nowISO, safeWriteFile } from "./wiki-utils.js";
+import {
+  getSpaceDir,
+  getWikiRootDir,
+  nowISO,
+  safeWriteFile,
+  invalidatePageCache,
+} from "./space-fs/index.js";
 import { logger } from "../../lib/logger.js";
 
 const POLL_INTERVAL_MS = 30_000;
 const MAX_RETRIES = 3;
 
-/** 后台轮询 worker：检查各 space 的待处理导入任务并执行 */
 export function startIngestWorker(): void {
   let running = false;
 
@@ -19,7 +23,7 @@ export function startIngestWorker(): void {
     running = true;
 
     try {
-      const wikiRoot = wikiRootDir();
+      const wikiRoot = getWikiRootDir();
 
       let spaceDirs: string[] = [];
       try {
@@ -48,20 +52,17 @@ export function startIngestWorker(): void {
             });
           });
 
-          // 使页面缓存失效，确保新创建的页面立即可见
-          invalidatePageFileCache(spaceId);
+          invalidatePageCache(spaceId);
 
-          // 标记任务完成而非删除，保留导入历史
           store.updateStatus(spaceId, job.id, "done", {
             written_files: [],
             pages_created: result.pagesCreated,
             pages_updated: result.pagesUpdated,
           });
 
-          // 标记源文档为已导入
           try {
             const sourcePath = path.join(
-              spaceDir(spaceId),
+              getSpaceDir(spaceId),
               "raw",
               "sources",
               extractIdentity(job.source_path),
@@ -92,8 +93,6 @@ export function startIngestWorker(): void {
             store.retry(spaceId, job.id);
           }
         }
-
-        // 继续处理下一个空间的任务（不 break）
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

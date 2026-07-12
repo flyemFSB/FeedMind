@@ -26,12 +26,12 @@ async function parseBody(c: Context): Promise<Record<string, unknown>> {
 }
 
 // GET /api/v1/cookiecloud/config
-// 获取所有已保存的 CookieCloud 配置（不含 encrypted）
+// 获取所有已保存的 CookieCloud 配置（不含密钥与密文）
 cookieCloudRoutes.get("/cookiecloud/config", async (c) => {
   const configs = await getAllConfigs();
   return jsonOk(
     c,
-    configs.map(({ encrypted: _, ...rest }) => rest),
+    configs.map(({ password: _, encrypted: __, ...rest }) => rest),
   );
 });
 
@@ -64,11 +64,11 @@ cookieCloudRoutes.post("/cookiecloud/update", async (c) => {
   }
 
   await storeEncrypted(uuid, encrypted, crypto_type);
-  return jsonOk(c, { action: "done" });
+  return c.json({ action: "done" });
 });
 
 // GET /api/v1/cookiecloud/get/:uuid
-// 下载加密数据（用于跨设备同步）
+// CookieCloud 协议要求根对象直接包含 encrypted 与 crypto_type。
 cookieCloudRoutes.get("/cookiecloud/get/:uuid", async (c) => {
   const uuid = c.req.param("uuid");
   const row = await getEncrypted(uuid);
@@ -77,7 +77,7 @@ cookieCloudRoutes.get("/cookiecloud/get/:uuid", async (c) => {
     return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的数据");
   }
 
-  return jsonOk(c, {
+  return c.json({
     encrypted: row.encrypted,
     crypto_type: row.cryptoType,
   });

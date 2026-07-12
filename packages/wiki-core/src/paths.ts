@@ -59,7 +59,7 @@ export function safeJoin(baseDir: string, userPath: string): string {
   if (segments.some((s) => s === ".." || s === ".")) {
     throw new Error(`Path traversal rejected: ${normalized}`);
   }
-  if (/[\x00-\x1f]/.test(normalized)) {
+  if ([...normalized].some((c) => c < " ")) {
     throw new Error(`Control characters in path: ${normalized}`);
   }
   const joined = joinPath(baseDir, normalized);

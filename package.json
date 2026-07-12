@@ -14,7 +14,7 @@
   "scripts": {
     "dev": "pnpm run build:packages && concurrently -n api,web -c cyan,green \"pnpm run api:dev\" \"pnpm run web:dev\"",
     "build": "pnpm -r build",
-    "build:packages": "pnpm --filter @feedmind/contracts build && pnpm --filter @feedmind/shared build && pnpm --filter @feedmind/db build && pnpm --filter @feedmind/crawler-core build && pnpm --filter @feedmind/wiki-core build",
+    "build:packages": "pnpm --filter @feedmind/contracts build && pnpm --filter @feedmind/shared build && pnpm --filter @feedmind/db build && pnpm --filter @feedmind/crawler-core build && pnpm --filter @feedmind/wiki-core build && pnpm --filter @feedmind/env build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
@@ -36,9 +36,9 @@
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "prettier": "^3.6.2",
-    "typescript": "^6.0.3",
+    "typescript": "catalog:",
     "typescript-eslint": "^8.47.0",
-    "vitest": "^3.1.3"
+    "vitest": "^4.1.8"
   },
   "lint-staged": {
     "*.{ts,tsx,mjs}": [

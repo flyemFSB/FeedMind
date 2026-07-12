@@ -1,12 +1,10 @@
-import { eq } from "drizzle-orm";
 import type { ToolConfigUpdate, ToolRead, ConfigField } from "@feedmind/contracts";
-import { db, tools, type ToolRow } from "@feedmind/db";
+import { client } from "@feedmind/db";
 import { encryptValue, decryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-// password 类型的字段：不泄露真实值，用 passwordSet 标记是否已配置
-function maskSensitiveFields(row: ToolRow): ToolRead {
-  const fields = JSON.parse(row.configFields) as ConfigField[];
+function maskSensitiveFields(row: any): ToolRead {
+  const fields = JSON.parse(row.config_fields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   const passwordSet: Record<string, boolean> = {};
   for (const f of fields) {
@@ -18,61 +16,62 @@ function maskSensitiveFields(row: ToolRow): ToolRead {
   return {
     name: row.name,
     category: row.category,
-    display_name: row.displayName,
-    description: row.description,
-    icon: row.icon,
+    display_name: row.display_name,
+    description: row.description ?? null,
+    icon: row.icon ?? null,
     config_fields: fields,
     config,
     password_set: passwordSet,
-    is_enabled: row.isEnabled,
-    sort_order: row.sortOrder,
+    is_enabled: !!row.is_enabled,
+    sort_order: row.sort_order,
+  };
+}
+
+function decryptRow(row: any): ToolRead {
+  const fields = JSON.parse(row.config_fields) as ConfigField[];
+  const config: Record<string, unknown> = JSON.parse(row.config);
+  const passwordSet: Record<string, boolean> = {};
+  for (const f of fields) {
+    if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
+      config[f.key] = decryptValue(config[f.key] as string);
+      passwordSet[f.key] = true;
+    }
+  }
+  return {
+    name: row.name,
+    category: row.category,
+    display_name: row.display_name,
+    description: row.description ?? null,
+    icon: row.icon ?? null,
+    config_fields: fields,
+    config,
+    password_set: passwordSet,
+    is_enabled: !!row.is_enabled,
+    sort_order: row.sort_order,
   };
 }
 
 export async function listTools(): Promise<ToolRead[]> {
-  const rows = await db.select().from(tools).orderBy(tools.sortOrder);
-  return rows.map(maskSensitiveFields);
+  const result = await client.execute("SELECT * FROM tools ORDER BY sort_order");
+  return result.rows.map(maskSensitiveFields);
 }
 
-/** Agent 内部使用的运行时端点：返回解密后的配置 */
 export async function listToolsRuntime(): Promise<ToolRead[]> {
-  const rows = await db.select().from(tools).orderBy(tools.sortOrder);
-  return rows.map((row) => {
-    const fields = JSON.parse(row.configFields) as ConfigField[];
-    const config: Record<string, unknown> = JSON.parse(row.config);
-    const passwordSet: Record<string, boolean> = {};
-    for (const f of fields) {
-      if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
-        config[f.key] = decryptValue(config[f.key] as string);
-        passwordSet[f.key] = true;
-      }
-    }
-    return {
-      name: row.name,
-      category: row.category,
-      display_name: row.displayName,
-      description: row.description,
-      icon: row.icon,
-      config_fields: fields,
-      config,
-      password_set: passwordSet,
-      is_enabled: row.isEnabled,
-      sort_order: row.sortOrder,
-    };
-  });
+  const result = await client.execute("SELECT * FROM tools ORDER BY sort_order");
+  return result.rows.map(decryptRow);
 }
 
 export async function getTool(name: string): Promise<ToolRead> {
-  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
-  return maskSensitiveFields(row);
+  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
+  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  return maskSensitiveFields(result.rows[0]);
 }
 
-/** 返回单个工具的解密后配置（供前端显示密码字段的真实值） */
 export async function getToolRuntime(name: string): Promise<{ config: Record<string, unknown> }> {
-  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
-  const fields = JSON.parse(row.configFields) as ConfigField[];
+  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
+  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  const row = result.rows[0] as any;
+  const fields = JSON.parse(row.config_fields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   for (const f of fields) {
     if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
@@ -83,14 +82,13 @@ export async function getToolRuntime(name: string): Promise<{ config: Record<str
 }
 
 export async function updateToolConfig(name: string, payload: ToolConfigUpdate): Promise<ToolRead> {
-  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
+  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  const row = result.rows[0] as any;
 
-  const fields = JSON.parse(row.configFields) as ConfigField[];
+  const fields = JSON.parse(row.config_fields) as ConfigField[];
   const currentConfig = JSON.parse(row.config) as Record<string, unknown>;
 
-  // 对 password 类型字段加密，非 password 字段直接覆盖
-  // payload 中不存在的字段保持原值，空字符串表示清除
   const passwordKeys = new Set(fields.filter((f) => f.type === "password").map((f) => f.key));
   for (const [key, value] of Object.entries(payload.config)) {
     if (passwordKeys.has(key)) {
@@ -102,16 +100,21 @@ export async function updateToolConfig(name: string, payload: ToolConfigUpdate):
 
   const updatedConfig = JSON.stringify(currentConfig);
   const now = new Date().toISOString();
+  const enabled = payload.is_enabled !== undefined ? (payload.is_enabled ? 1 : 0) : undefined;
 
-  const [updated] = await db
-    .update(tools)
-    .set({
-      config: updatedConfig,
-      ...(payload.is_enabled !== undefined ? { isEnabled: payload.is_enabled } : {}),
-      updatedAt: now,
-    })
-    .where(eq(tools.name, name))
-    .returning();
+  if (enabled !== undefined) {
+    await client.execute({
+      sql: "UPDATE tools SET config = ?, is_enabled = ?, updated_at = ? WHERE name = ?",
+      args: [updatedConfig, enabled, now, name],
+    });
+  } else {
+    await client.execute({
+      sql: "UPDATE tools SET config = ?, updated_at = ? WHERE name = ?",
+      args: [updatedConfig, now, name],
+    });
+  }
 
-  return maskSensitiveFields(updated);
+  const updated = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
+  if (!updated.rows[0]) throw new HttpError(500, "INTERNAL", "update failed");
+  return maskSensitiveFields(updated.rows[0]);
 }

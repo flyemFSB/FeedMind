@@ -14,7 +14,6 @@ const ROUTE_TO_PLATFORM: Record<string, string> = {
   dy: "douyin",
   xhs: "xiaohongshu",
   zh: "zhihu",
-  ks: "kuaishou",
 };
 
 // ─── 辅助函数 ───────────────────────────────────────────────────

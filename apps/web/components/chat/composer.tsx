@@ -5,7 +5,7 @@
  */
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -14,23 +14,19 @@ import {
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Plus, Square } from "lucide-react";
+import { Paperclip, X } from "lucide-react";
 
 interface ComposerProps {
   className?: string;
   textareaClassName?: string;
 }
 
-/**
- * Composer — 聊天输入框
- * - Enter 发送，Shift+Enter 换行
- * - IME 安全性（中文输入法候选词期间不回车上屏）
- * - 流式时显示停止按钮
- */
 export function Composer({ className, textareaClassName }: ComposerProps) {
   const { sendMessage, status, stop } = useChatContext();
   const { t } = useTranslation();
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isComposingRef = useRef(false);
   const isLoading = status === "streaming" || status === "submitted";
 
@@ -38,16 +34,46 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
     if (!text.trim() || isLoading) return;
     sendMessage({ text: text.trim() });
     setInput("");
+    setFiles([]);
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    setFiles((prev) => [...prev, ...selected]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
     <div
       className={cn(
-        "rounded-[28px] border border-editorial-hairline bg-editorial-surface-card p-4 shadow-[0_18px_50px_rgba(0,0,0,0.12)] dark:shadow-[0_18px_50px_rgba(0,0,0,0.6)]",
+        "rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 shadow-sm",
         className,
       )}
     >
       <PromptInput onSubmit={(message) => handleSubmit(message.text)} className="space-y-3">
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {files.map((file, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-1 rounded-md border border-editorial-hairline bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
+              >
+                <span className="max-w-[120px] truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(i)}
+                  className="ml-1 text-editorial-ink-muted hover:text-editorial-semantic-error"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <PromptInputTextarea
           value={input}
           onChange={(e) => {
@@ -72,22 +98,25 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
           className={cn("min-h-[64px]", textareaClassName)}
         />
         <div className="flex items-center justify-between mt-3">
-          <button
-            type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-editorial-ink-soft hover:text-editorial-ink hover:bg-editorial-surface-soft transition-colors"
-            title={t("common.attach")}
-          >
-            <Plus size={21} strokeWidth={1.8} />
-          </button>
-          {isLoading ? (
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileChange}
+            />
             <button
               type="button"
-              onClick={() => stop()}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-editorial-surface-soft text-editorial-ink hover:bg-editorial-surface-strong transition-colors"
-              title={t("common.stop")}
+              onClick={() => fileInputRef.current?.click()}
+              className="flex h-8 w-8 items-center justify-center rounded-full text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-soft transition-colors"
+              title={t("chat.addAttachment")}
             >
-              <Square size={16} fill="currentColor" />
+              <Paperclip size={15} />
             </button>
+          </div>
+          {isLoading ? (
+            <PromptInputSubmit status="streaming" onClick={() => stop()} className="h-10 w-10" />
           ) : (
             <PromptInputSubmit status="ready" disabled={!input.trim()} className="h-10 w-10" />
           )}

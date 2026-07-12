@@ -1,11 +1,10 @@
-import { db, remoteConnections } from "@feedmind/db";
-import { eq } from "drizzle-orm";
+import { client } from "@feedmind/db";
 import { randomUUID } from "node:crypto";
 import { Client, AppType, EventDispatcher, WSClient, LoggerLevel } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 
-let client: Client | null = null;
+let sdkClient: Client | null = null;
 let wsClient: WSClient | null = null;
 let healthCheckTimer: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -18,11 +17,11 @@ const RECONNECT_MAX_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 
 async function getConfig() {
-  const conn = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, "feishu"))
-    .get();
+  const result = await client.execute({
+    sql: "SELECT * FROM remote_connections WHERE platform = ?",
+    args: ["feishu"],
+  });
+  const conn = result.rows[0] as any;
   if (!conn?.config) return null;
   try {
     return { ...JSON.parse(conn.config), connId: conn.id };
@@ -32,22 +31,19 @@ async function getConfig() {
 }
 
 function ensureClient(cfg: { appId: string; appSecret: string }): Client {
-  // 若缓存 client 存在且凭据匹配则复用，否则重建
-  if (client) {
-    const cached = client as any;
-    if (cached.appId === cfg.appId && cached.appSecret === cfg.appSecret) return client;
+  if (sdkClient) {
+    const cached = sdkClient as any;
+    if (cached.appId === cfg.appId && cached.appSecret === cfg.appSecret) return sdkClient;
   }
-  client = new Client({
+  sdkClient = new Client({
     appId: cfg.appId,
     appSecret: cfg.appSecret,
     appType: AppType.SelfBuild,
   });
-  return client;
+  return sdkClient;
 }
 
-/** 构建飞书消息卡片 JSON（JSON 2.0，完整 Markdown 支持） */
 function buildCardJson(markdownContent: string): string {
-  // 单个 markdown 组件最多 4 个表格，超出则按段落分割（\n---\n 分隔章节）
   const MAX_TABLES = 4;
   const tableCount =
     (markdownContent.match(/^\|/gm)?.length ?? 0) > 0
@@ -74,7 +70,6 @@ function buildCardJson(markdownContent: string): string {
   });
 }
 
-/** 发送助手消息到飞书 */
 async function sendReply(client: Client, openId: string, content: string): Promise<void> {
   await client.im.message.create({
     params: { receive_id_type: "open_id" },
@@ -83,28 +78,15 @@ async function sendReply(client: Client, openId: string, content: string): Promi
   logger.info({ openId, contentLen: content.length }, "飞书回复消息");
 }
 
-/** 构建 im.message.receive_v1 事件处理器 */
 function buildMessageHandler() {
   return async (data: any) => {
     const msg = data.message;
     const sender = data.sender;
     if (!msg || !sender) return;
 
-    logger.info(
-      {
-        chatType: msg.chat_type,
-        msgType: msg.message_type,
-        sender: sender.sender_id?.open_id,
-        content: msg.content,
-      },
-      "飞书收到消息",
-    );
-
-    // 只处理单聊文本消息
     if (msg.chat_type !== "p2p" || msg.message_type !== "text" || sender.sender_type !== "user")
       return;
 
-    // 解析用户文本（飞书文本消息 content 格式：{"text":"xxx"}）
     let userText: string;
     try {
       userText = JSON.parse(msg.content).text ?? "";
@@ -113,21 +95,16 @@ function buildMessageHandler() {
     }
     if (!userText.trim()) return;
 
-    // 异步调用 Agent，不阻塞事件回调（飞书长连接 3s 超时限制）
     void (async () => {
       let feishuClient: Client | undefined;
       try {
         const cfg = await getConfig();
-        if (!cfg) {
-          logger.warn({ sender: sender.sender_id?.open_id }, "飞书配置不存在，跳过回复");
-          return;
-        }
+        if (!cfg) return;
 
         feishuClient = ensureClient(cfg);
         const openId = sender.sender_id.open_id;
         const threadId = `feishu:${openId}`;
 
-        // 调用 Agent — Memory 自动加载历史 + 保存 user/assistant 消息
         const stream = await feedmindAgent.stream(userText, {
           memory: { thread: threadId, resource: threadId },
         });
@@ -161,9 +138,6 @@ function buildMessageHandler() {
   };
 }
 
-// ─── 连接管理 ──────────────────────────────────────────
-
-/** 清理所有定时器 */
 function clearConnectionTimers(): void {
   if (healthCheckTimer) {
     clearInterval(healthCheckTimer);
@@ -175,7 +149,6 @@ function clearConnectionTimers(): void {
   }
 }
 
-/** 尝试关闭底层 WebSocket 并清空 wsClient */
 function closeWsClient(): void {
   if (!wsClient) return;
   try {
@@ -183,20 +156,16 @@ function closeWsClient(): void {
     if (ws?.removeAllListeners) ws.removeAllListeners("close");
     if (ws?.removeAllListeners) ws.removeAllListeners("error");
     if (ws?.close) ws.close();
-  } catch {
-    // 关闭阶段的异常无需处理
-  }
+  } catch {}
   wsClient = null;
 }
 
-/** 断线重连（清除旧连接后启动新连接） */
 async function reconnect(): Promise<void> {
   if (isReconnecting || isStopping) return;
   isReconnecting = true;
   try {
     clearConnectionTimers();
     closeWsClient();
-    // 小幅延迟避免立即重连时端口/资源未释放
     await new Promise((r) => setTimeout(r, 200));
     await startLongConnection();
   } finally {
@@ -204,7 +173,6 @@ async function reconnect(): Promise<void> {
   }
 }
 
-/** 指数退避重连调度 */
 function scheduleReconnect(): void {
   if (isStopping || reconnectTimer || isReconnecting) return;
   const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt), RECONNECT_MAX_MS);
@@ -216,25 +184,20 @@ function scheduleReconnect(): void {
   }, delay);
 }
 
-/** 启动连接健康检查（每 30 秒检测 WebSocket 状态） */
 function startHealthCheck(): void {
   clearConnectionTimers();
   healthCheckTimer = setInterval(() => {
     if (isStopping) return;
     try {
       const ws = (wsClient as any)?.ws;
-      // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
       if (ws && ws.readyState === 3) {
         logger.warn("健康检查：飞书 WebSocket 已关闭，准备重连");
         scheduleReconnect();
       }
-    } catch {
-      // 检测异常不影响正常运行
-    }
+    } catch {}
   }, HEALTH_CHECK_INTERVAL_MS);
 }
 
-/** 监听底层 WebSocket 的 close/error 事件 */
 function attachWsEventListeners(): void {
   try {
     const ws = (wsClient as any)?.ws;
@@ -249,16 +212,9 @@ function attachWsEventListeners(): void {
       logger.error({ err }, "飞书 WebSocket 连接错误");
       if (!isStopping) scheduleReconnect();
     });
-  } catch {
-    // 非关键，healthCheck 兜底
-  }
+  } catch {}
 }
 
-// ─── 长连接模式 ──────────────────────────────────────────
-/**
- * 启动 WebSocket 长连接，通过 SDK WSClient 主动连接飞书服务器。
- * 含断线自动重连 + 健康检查，无需公网 IP / 内网穿透。
- */
 export async function startLongConnection(): Promise<void> {
   const cfg = await getConfig();
   if (!cfg?.appId || !cfg?.appSecret) {
@@ -266,11 +222,9 @@ export async function startLongConnection(): Promise<void> {
     return;
   }
 
-  // 若已有连接则清理
   wsClient = null;
   clearConnectionTimers();
 
-  // 长连接模式下事件为明文推送，不需要 encryptKey
   const ed = new EventDispatcher({}).register({
     "im.message.receive_v1": buildMessageHandler(),
   });
@@ -285,10 +239,10 @@ export async function startLongConnection(): Promise<void> {
     await wsClient.start({ eventDispatcher: ed });
     logger.info("飞书 WebSocket 长连接已建立");
 
-    await db
-      .update(remoteConnections)
-      .set({ status: "connected", error: null, updatedAt: new Date().toISOString() })
-      .where(eq(remoteConnections.platform, "feishu"));
+    await client.execute({
+      sql: "UPDATE remote_connections SET status = ?, error = ?, updated_at = ? WHERE platform = ?",
+      args: ["connected", null, new Date().toISOString(), "feishu"],
+    });
 
     reconnectAttempt = 0;
     startHealthCheck();
@@ -296,16 +250,14 @@ export async function startLongConnection(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "飞书长连接启动失败");
     wsClient = null;
-    await db
-      .update(remoteConnections)
-      .set({ status: "error", error: String(err), updatedAt: new Date().toISOString() })
-      .where(eq(remoteConnections.platform, "feishu"));
-
+    await client.execute({
+      sql: "UPDATE remote_connections SET status = ?, error = ?, updated_at = ? WHERE platform = ?",
+      args: ["error", String(err), new Date().toISOString(), "feishu"],
+    });
     scheduleReconnect();
   }
 }
 
-/** 停止长连接（配置变更或服务关闭时调用） */
 export function stopLongConnection(): void {
   isStopping = true;
   clearConnectionTimers();
@@ -313,9 +265,7 @@ export function stopLongConnection(): void {
   logger.info("飞书长连接已断开");
 }
 
-// ─── 保存配置并验证 ──────────────────────────────────────
 export async function saveAndVerify(config: { appId: string; appSecret: string }): Promise<void> {
-  // 用 SDK Client 验证凭证有效性
   const c = new Client({
     appId: config.appId,
     appSecret: config.appSecret,
@@ -330,36 +280,31 @@ export async function saveAndVerify(config: { appId: string; appSecret: string }
     throw new Error(err?.response?.data?.msg ?? "凭证无效", { cause: err });
   }
 
-  // 存入 DB
-  const existing = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, "feishu"))
-    .get();
+  const existing = await client.execute({
+    sql: "SELECT * FROM remote_connections WHERE platform = ?",
+    args: ["feishu"],
+  });
+  const row = existing.rows[0] as any;
   const configJson = JSON.stringify(config);
-  if (existing) {
-    await db
-      .update(remoteConnections)
-      .set({ config: configJson, status: "connected", updatedAt: new Date().toISOString() })
-      .where(eq(remoteConnections.id, existing.id));
+  const now = new Date().toISOString();
+
+  if (row) {
+    await client.execute({
+      sql: "UPDATE remote_connections SET config = ?, status = ?, updated_at = ? WHERE id = ?",
+      args: [configJson, "connected", now, row.id],
+    });
   } else {
-    await db.insert(remoteConnections).values({
-      id: randomUUID(),
-      platform: "feishu",
-      label: "飞书机器人",
-      status: "connected",
-      config: configJson,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    await client.execute({
+      sql: "INSERT INTO remote_connections (id, platform, label, status, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      args: [randomUUID(), "feishu", "飞书机器人", "connected", configJson, now, now],
     });
   }
-  // 配置变更后清除缓存并重启长连接
-  client = null;
+
+  sdkClient = null;
   stopLongConnection();
   await startLongConnection();
 }
 
-// ─── 发送消息 ────────────────────────────────────────────
 export async function sendMessage(
   receiveId: string,
   msgType: string,
@@ -376,7 +321,6 @@ export async function sendMessage(
   logger.info({ receiveId, msgType, contentLen: content.length }, "飞书主动发送消息");
 }
 
-// ─── 获取配置状态 ────────────────────────────────────────
 export async function getFeishuConfig() {
   return getConfig();
 }

@@ -10,7 +10,7 @@ import {
   incrementRetry,
 } from "@feedmind/wiki-core";
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
-import { spaceDir } from "./wiki-utils.js";
+import { getSpaceDir } from "./space-fs/index.js";
 
 export interface QueueStore {
   list(spaceId: string): IngestJob[];
@@ -33,7 +33,7 @@ export interface QueueStore {
 
 export class JsonQueueStore implements QueueStore {
   private queuePath(spaceId: string): string {
-    return path.join(spaceDir(spaceId), ".llm-wiki", "ingest-queue.json");
+    return path.join(getSpaceDir(spaceId), ".llm-wiki", "ingest-queue.json");
   }
 
   private readQueue(spaceId: string): IngestJob[] {

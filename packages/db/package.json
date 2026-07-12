@@ -22,11 +22,11 @@
   "dependencies": {
     "@feedmind/shared": "workspace:*",
     "@libsql/client": "^0.17.3",
-    "dotenv": "^16.4.7",
-    "drizzle-orm": "^0.45.2"
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.1",
-    "typescript": "^6.0.3"
+    "typescript": "catalog:"
   }
 }

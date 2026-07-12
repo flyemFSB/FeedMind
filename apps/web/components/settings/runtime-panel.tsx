@@ -37,10 +37,15 @@ const defaultFields: ConfigFormFields = {
 };
 
 function useDebounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fnRef = useRef(fn);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    fnRef.current = fn;
+  }, [fn]);
+  useEffect(() => () => clearTimeout(timerRef.current), []);
   return (...args: T) => {
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => fn(...args), delay);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => fnRef.current(...args), delay);
   };
 }
 
@@ -87,7 +92,8 @@ export function RuntimePanel() {
   }
 
   const debouncedPersistField = useDebounce(
-    (key: "temperature" | "top_p" | "system_prompt", value: number | string) => persistField(key, value),
+    (key: "temperature" | "top_p" | "system_prompt", value: number | string) =>
+      persistField(key, value),
     600,
   );
 
@@ -186,7 +192,9 @@ export function RuntimePanel() {
       {/* Config fields */}
       <div className="grid min-w-0 grid-cols-2 gap-4">
         <div>
-          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.temperature")}</label>
+          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+            {t("settings.temperature")}
+          </label>
           <div className="flex items-center gap-2">
             <Slider
               aria-label={t("settings.temperature")}
@@ -195,7 +203,7 @@ export function RuntimePanel() {
               step={0.1}
               value={[currentFields.temperature]}
               onValueChange={(value: number | readonly number[]) => {
-                const v = Array.isArray(value) ? value[0] ?? 0 : value;
+                const v = Array.isArray(value) ? (value[0] ?? 0) : value;
                 if (innerTab === "session") {
                   handleSessionFieldChange("temperature", v);
                 } else {
@@ -210,7 +218,9 @@ export function RuntimePanel() {
           </div>
         </div>
         <div>
-          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.topP")}</label>
+          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+            {t("settings.topP")}
+          </label>
           <div className="flex items-center gap-2">
             <Slider
               aria-label={t("settings.topP")}
@@ -219,7 +229,7 @@ export function RuntimePanel() {
               step={0.05}
               value={[currentFields.top_p]}
               onValueChange={(value: number | readonly number[]) => {
-                const v = Array.isArray(value) ? value[0] ?? 1 : value;
+                const v = Array.isArray(value) ? (value[0] ?? 1) : value;
                 if (innerTab === "session") {
                   handleSessionFieldChange("top_p", v);
                 } else {
@@ -237,7 +247,12 @@ export function RuntimePanel() {
 
       {/* System prompt */}
       <div>
-        <label htmlFor="system-prompt-textarea" className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.systemPrompt")}</label>
+        <label
+          htmlFor="system-prompt-textarea"
+          className="text-[12px] text-editorial-ink-muted mb-1.5 block"
+        >
+          {t("settings.systemPrompt")}
+        </label>
         <Textarea
           id="system-prompt-textarea"
           value={currentFields.system_prompt}
@@ -262,11 +277,11 @@ function SessionModelSelectorSection() {
   const { t } = useTranslation();
   return (
     <div>
-      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.sessionModel")}</label>
+      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+        {t("settings.sessionModel")}
+      </label>
       <ModelSelector />
-      <p className="mt-1 text-[11px] text-editorial-ink-muted">
-        {t("settings.sessionModelDesc")}
-      </p>
+      <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
     </div>
   );
 }
@@ -288,8 +303,15 @@ function WikiModelSelectorSection({
 
   return (
     <div>
-      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">{t("settings.wikiModel")}</label>
-      <Select value={hasModels ? selectedId : ""} onValueChange={(v: string | null) => { if (v) onSelect(v); }}>
+      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+        {t("settings.wikiModel")}
+      </label>
+      <Select
+        value={hasModels ? selectedId : ""}
+        onValueChange={(v: string | null) => {
+          if (v) onSelect(v);
+        }}
+      >
         <SelectTrigger
           aria-label={t("settings.selectWikiModel")}
           className="h-10 w-[260px] rounded-xl border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
@@ -322,9 +344,7 @@ function WikiModelSelectorSection({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[11px] text-editorial-ink-muted">
-        {t("settings.wikiModelDesc")}
-      </p>
+      <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("settings.wikiModelDesc")}</p>
     </div>
   );
 }

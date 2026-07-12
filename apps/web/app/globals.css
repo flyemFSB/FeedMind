@@ -254,6 +254,24 @@ body {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
 
+@keyframes collapsible-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--radix-collapsible-content-height); opacity: 1; }
+}
+
+@keyframes collapsible-up {
+  from { height: var(--radix-collapsible-content-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
+.animate-collapsible-down {
+  animation: collapsible-down 0.2s ease-out;
+}
+
+.animate-collapsible-up {
+  animation: collapsible-up 0.2s ease-out;
+}
+
 :root {
   /* ── Editorial palette (light mode — warm editorial) ── */
   --editorial-canvas: oklch(0.965 0.005 70);
@@ -414,6 +432,17 @@ body {
   --sidebar-accent-foreground: var(--editorial-ink);
   --sidebar-border: var(--editorial-hairline);
   --sidebar-ring: oklch(0.52 0.008 290);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer base {

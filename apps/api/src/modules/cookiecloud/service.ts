@@ -86,8 +86,8 @@ export async function saveManualCookies(platform: string, cookies: string): Prom
     });
 }
 
-// 严格对齐 CryptoJS 行为以保证兼容性；
-// CookieCloud 如果改算法这里需要同步更新。
+// 严格对齐 CookieCloud 扩展的加解密逻辑
+// CookieCloud 开源地址: https://github.com/easychen/CookieCloud
 export function decrypt(
   uuid: string,
   encrypted: string,
@@ -97,7 +97,7 @@ export function decrypt(
   const hash = CryptoJS.MD5(uuid + "-" + password).toString();
 
   if (cryptoType === "aes-128-cbc-fixed") {
-    const key = CryptoJS.enc.Utf8.parse(hash.substring(0, 16));
+    const key = CryptoJS.enc.Hex.parse(hash.substring(0, 32));
     const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
     const decrypted = CryptoJS.AES.decrypt(encrypted, key, {
       iv,
@@ -107,10 +107,8 @@ export function decrypt(
     return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
   }
 
-  // legacy: CryptoJS.AES.decrypt(ciphertext, password_string)
-  //   → uses EVP_BytesToKey internally with random salt (Salted__ format)
-  const key = hash.substring(0, 16);
-  const decrypted = CryptoJS.AES.decrypt(encrypted, key);
+  // legacy 协议以 MD5 的前 16 个字符作为 CryptoJS passphrase。
+  const decrypted = CryptoJS.AES.decrypt(encrypted, hash.substring(0, 16));
   return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
 }
 

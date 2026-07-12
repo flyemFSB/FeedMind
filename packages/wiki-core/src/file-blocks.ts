@@ -98,7 +98,7 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
  */
 export function isSafeIngestPath(p: string): boolean {
   if (typeof p !== "string" || p.trim().length === 0) return false;
-  if (/[\x00-\x1f]/.test(p)) return false;
+  if ([...p].some((c) => c < " ")) return false;
   if (isAbsolutePath(p)) return false;
   const normalized = normalizePath(p);
   const segments = normalized.split("/");

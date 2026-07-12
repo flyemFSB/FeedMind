@@ -1,26 +1,45 @@
 /**
  * ai-elements Reasoning — Agent 思考过程展示
  *
- * 流式思考时自动展开并显示动态指示器。
- * 完成后可折叠，保持聊天界面的整洁。
+ * 使用 Collapsible 基元构建，对齐官方 Reasoning 组件结构：
+ *   Reasoning (Collapsible)
+ *     ├─ ReasoningTrigger — "思考过程" + 流式指示器 + 耗时
+ *     └─ ReasoningContent — 思考文本
  *
- * AI SDK v6: part.type === "reasoning"
- * @see https://ai-sdk.dev/docs/ai-sdk-ui/chatbot#reasoning
+ * 行为：
+ * - 流式时自动展开（isStreaming=true）
+ * - 流式结束后 1.2s 自动收起（仅一次）
+ * - 支持受控 open/onOpenChange
+ * - 耗时计时器
+ *
+ * 与官方差异：
+ * - 保留 FeedMind editorial 设计令牌
+ * - 保留中文 i18n
+ * - 使用 motion 动画替代 Radix Collapsible
  */
 "use client";
 
-import { createContext, useContext, useState, useEffect, type HTMLAttributes } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  type ComponentProps,
+  type ReactNode,
+} from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
+import { Brain, ChevronRight } from "lucide-react";
 
-/* -------------------------------------------------------------------------- */
-/* Context */
-/* -------------------------------------------------------------------------- */
+/* ── Context ── */
 interface ReasoningContextValue {
   isStreaming: boolean;
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
+  duration: number | undefined;
 }
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
@@ -31,54 +50,92 @@ export function useReasoning() {
   return ctx;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Thinking Dots */
-/* -------------------------------------------------------------------------- */
+/* ── Types ── */
+export type ReasoningProps = ComponentProps<typeof Collapsible> & {
+  isStreaming?: boolean;
+  duration?: number;
+};
+
+export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
+  getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+};
+
+export type ReasoningContentProps = ComponentProps<typeof CollapsibleContent> & {
+  children: string;
+};
+
+/* ── Constants ── */
+const AUTO_CLOSE_DELAY = 1200;
+
+/* ── Thinking Dots ── */
 function ThinkingDots() {
   return (
     <span className="inline-flex items-center gap-[3px]" aria-label="思考中">
       {[0, 1, 2].map((i) => (
-        <motion.span
+        <span
           key={i}
-          className="inline-block h-1 w-1 rounded-full bg-editorial-ink-muted"
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{
-            duration: 1.4,
-            repeat: Infinity,
-            delay: i * 0.25,
-            ease: "easeInOut",
-          }}
+          className="inline-block h-1 w-1 rounded-full bg-editorial-ink-muted animate-pulse-subtle"
+          style={{ animationDelay: `${i * 0.25}s` }}
         />
       ))}
     </span>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* Reasoning — 可折叠思考容器 */
-/* -------------------------------------------------------------------------- */
-export type ReasoningProps = HTMLAttributes<HTMLDivElement> & {
-  isStreaming?: boolean;
-  defaultOpen?: boolean;
-};
-
+/* ── Reasoning ── */
 export function Reasoning({
   className,
   isStreaming = false,
-  defaultOpen = true,
+  duration: externalDuration,
+  defaultOpen,
   children,
   ...props
 }: ReasoningProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const defaultOpenResolved = defaultOpen ?? isStreaming;
+  const [isOpen, setIsOpen] = useState(defaultOpenResolved);
+  const [duration, setDuration] = useState<number | undefined>(externalDuration);
+  const hasEverStreamed = useRef(false);
+  const [hasAutoClosed, setHasAutoClosed] = useState(false);
+  const startTime = useRef<number | null>(null);
 
-  // 流式进行中时保持展开
   useEffect(() => {
-    if (isStreaming) setIsOpen(true);
+    if (isStreaming) {
+      hasEverStreamed.current = true;
+      if (startTime.current === null) startTime.current = Date.now();
+      setIsOpen(true);
+    } else {
+      if (startTime.current !== null) {
+        setDuration(Math.ceil((Date.now() - startTime.current) / 1000));
+        startTime.current = null;
+      }
+    }
   }, [isStreaming]);
 
+  useEffect(() => {
+    if (hasEverStreamed.current && !isStreaming && isOpen && !hasAutoClosed) {
+      const timer = setTimeout(() => {
+        setIsOpen(false);
+        setHasAutoClosed(true);
+      }, AUTO_CLOSE_DELAY);
+      return () => clearTimeout(timer);
+    }
+  }, [isStreaming, isOpen, hasAutoClosed]);
+
+  const handleOpenChange = useCallback((next: boolean) => {
+    setIsOpen(next);
+    if (next) setHasAutoClosed(false);
+  }, []);
+
+  const ctxValue = useMemo(
+    () => ({ isStreaming, isOpen, setIsOpen: handleOpenChange, duration }),
+    [isStreaming, isOpen, handleOpenChange, duration],
+  );
+
   return (
-    <ReasoningContext.Provider value={{ isStreaming, isOpen, setIsOpen }}>
-      <div
+    <ReasoningContext.Provider value={ctxValue}>
+      <Collapsible
+        open={isOpen}
+        onOpenChange={handleOpenChange}
         className={cn(
           "w-full overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card",
           className,
@@ -86,97 +143,65 @@ export function Reasoning({
         {...props}
       >
         {children}
-      </div>
+      </Collapsible>
     </ReasoningContext.Provider>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* ReasoningTrigger — 展开/折叠标题栏 */
-/* -------------------------------------------------------------------------- */
-export type ReasoningTriggerProps = HTMLAttributes<HTMLButtonElement>;
+/* ── ReasoningTrigger ── */
+const DEFAULT_THINKING_MSG = (isStreaming: boolean, duration?: number) => {
+  if (isStreaming) {
+    return (
+      <>
+        <span>思考过程</span>
+        <span className="ml-auto">
+          <ThinkingDots />
+        </span>
+      </>
+    );
+  }
+  if (duration !== undefined) {
+    return <span>思考过程（{duration} 秒）</span>;
+  }
+  return <span>思考过程</span>;
+};
 
-export function ReasoningTrigger({ className, ...props }: ReasoningTriggerProps) {
-  const { t } = useTranslation();
-  const { isOpen, setIsOpen, isStreaming } = useReasoning();
+export function ReasoningTrigger({
+  className,
+  getThinkingMessage = DEFAULT_THINKING_MSG,
+  ...props
+}: ReasoningTriggerProps) {
+  const { isStreaming, duration } = useReasoning();
 
   return (
-    <button
-      type="button"
-      onClick={() => setIsOpen(!isOpen)}
+    <CollapsibleTrigger
       className={cn(
-        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors",
-        isOpen && "border-b border-editorial-hairline",
+        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors ui-open:border-b ui-open:border-editorial-hairline",
         className,
       )}
       {...props}
     >
-      {/* Chevron icon */}
-      <motion.svg
-        width="12"
-        height="12"
-        viewBox="0 0 12 12"
-        fill="none"
-        animate={{ rotate: isOpen ? 0 : -90 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className="shrink-0 text-editorial-ink-muted"
-      >
-        <path
-          d="M3 4.5L6 7.5L9 4.5"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </motion.svg>
-
-      <span>{t("chat.thinking")}</span>
-
-      {isStreaming && (
-        <span className="ml-auto">
-          <ThinkingDots />
-        </span>
-      )}
-
-      {!isStreaming && isOpen && (
-        <span className="ml-auto text-[11px] text-editorial-ink-muted font-normal">
-          {/* 可选：显示推理行数或时间 */}
-        </span>
-      )}
-    </button>
+      <ChevronRight
+        size={14}
+        className="shrink-0 text-editorial-ink-muted transition-transform duration-200 ui-open:rotate-90"
+      />
+      <Brain size={14} className="shrink-0 text-editorial-ink-muted" />
+      {getThinkingMessage(isStreaming, duration)}
+    </CollapsibleTrigger>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* ReasoningContent — 推理文本区域 */
-/* -------------------------------------------------------------------------- */
-export type ReasoningContentProps = HTMLAttributes<HTMLDivElement>;
-
+/* ── ReasoningContent ── */
 export function ReasoningContent({ className, children }: ReasoningContentProps) {
-  const { isOpen } = useReasoning();
-
   return (
-    <AnimatePresence initial={false}>
-      {isOpen && (
-        <motion.div
-          key="reasoning-panel"
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-          className="overflow-hidden"
-        >
-          <div
-            className={cn(
-              "px-3 py-2.5 text-[13px] leading-[1.65] text-editorial-ink-soft whitespace-pre-wrap font-[450]",
-              "font-mono tracking-[-0.01em]",
-              className,
-            )}
-          >
-            {children}
-          </div>
-        </motion.div>
+    <CollapsibleContent
+      className={cn(
+        "px-3 py-2.5 text-[13px] leading-[1.65] text-editorial-ink-soft whitespace-pre-wrap font-[450]",
+        "font-mono tracking-[-0.01em]",
+        className,
       )}
-    </AnimatePresence>
+    >
+      {children}
+    </CollapsibleContent>
   );
 }

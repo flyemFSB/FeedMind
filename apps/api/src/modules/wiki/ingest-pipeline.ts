@@ -11,7 +11,7 @@ import {
   getFileStem,
 } from "@feedmind/wiki-core";
 import { buildSystemPrompt, buildAnalysisPrompt, buildGenerationPrompt } from "./ingest-prompts.js";
-import { spaceDir } from "./wiki-utils.js";
+import { getSpaceDir } from "./space-fs/index.js";
 
 // ─── 配置 ──────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ import { getRuntimeConfig } from "../models/config-service.js";
 
 function sourceFilePath(spaceId: string, identity: string): string {
   const fileName = identity.endsWith(".md") ? identity : `${identity}.md`;
-  return path.join(spaceDir(spaceId), "raw", "sources", fileName);
+  return path.join(getSpaceDir(spaceId), "raw", "sources", fileName);
 }
 
 // ─── 读取源内容 ───────────────────────────────────────────────────
@@ -80,7 +80,7 @@ interface SpaceContext {
 }
 
 function readSpaceContext(spaceId: string): SpaceContext {
-  const sDir = spaceDir(spaceId);
+  const sDir = getSpaceDir(spaceId);
 
   const purpose =
     readOptionalFile(path.join(sDir, "purpose.md")) ||
@@ -232,7 +232,7 @@ function processFileBlocks(
 ): ProcessBlocksResult {
   const created: string[] = [];
   const updated: string[] = [];
-  const sDir = spaceDir(spaceId);
+  const sDir = getSpaceDir(spaceId);
 
   for (const block of blocks) {
     const safePath = sanitizeIngestedFileContent(block.path);
@@ -297,7 +297,7 @@ function updateIndex(
 ): void {
   if (newPages.length === 0) return;
 
-  const indexPath = path.join(spaceDir(spaceId), "wiki", "index.md");
+  const indexPath = path.join(getSpaceDir(spaceId), "wiki", "index.md");
 
   let content = "";
   if (fs.existsSync(indexPath)) {
@@ -335,7 +335,7 @@ function updateIndex(
 // ─── 更新变更日志 ─────────────────────────────────────────────────
 
 function updateLog(spaceId: string, entry: string): void {
-  const logPath = path.join(spaceDir(spaceId), "wiki", "log.md");
+  const logPath = path.join(getSpaceDir(spaceId), "wiki", "log.md");
 
   let content = "";
   if (fs.existsSync(logPath)) {
@@ -357,7 +357,7 @@ function updateLog(spaceId: string, entry: string): void {
 function updateOverview(spaceId: string, newSummary: string): void {
   if (!newSummary) return;
 
-  const overviewPath = path.join(spaceDir(spaceId), "wiki", "overview.md");
+  const overviewPath = path.join(getSpaceDir(spaceId), "wiki", "overview.md");
 
   let existingFrontmatter: Record<string, unknown> = {};
   let existingBody = "";

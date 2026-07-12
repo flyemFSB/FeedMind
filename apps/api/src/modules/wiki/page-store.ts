@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import { parseFrontmatter, buildPageContent } from "@feedmind/wiki-core";
 import type {
@@ -13,163 +12,34 @@ import {
   dateSortDesc,
   ensureDir,
   nowISO,
-  readDirRecursive,
   safeRename,
   safeUnlink,
   safeWriteFile,
-  spaceDir,
-} from "./wiki-utils.js";
-
-const TYPE_DIR_MAP: Record<string, string> = {
-  entity: "entities",
-  concept: "concepts",
-  source: "sources",
-  overview: "",
-  index: "",
-};
-const DIR_TYPE_MAP: Record<string, string> = Object.fromEntries(
-  Object.entries(TYPE_DIR_MAP).map(([t, d]) => [d, t]),
-);
-
-// ─── 页面文件 slug 缓存（带 TTL） ──────────────────────────────
-
-const CACHE_TTL_MS = 60_000; // 60 秒过期
-const pageFileCache = new Map<string, { data: Map<string, string>; ts: number }>();
-
-function getSlugCache(spaceId: string): Map<string, string> {
-  const entry = pageFileCache.get(spaceId);
-  if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
-  const cache = new Map<string, string>();
-  const dir = path.join(spaceDir(spaceId), "wiki");
-  try {
-    const files = readDirRecursive(dir, (_f, name) => name.endsWith(".md"));
-    for (const f of files) {
-      cache.set(path.basename(f, ".md"), f);
-    }
-  } catch {
-    /* dir not created yet */
-  }
-  pageFileCache.set(spaceId, { data: cache, ts: Date.now() });
-  return cache;
-}
-
-function findPageFile(spaceId: string, slug: string): string | null {
-  return getSlugCache(spaceId).get(slug) ?? null;
-}
-
-export function invalidatePageFileCache(spaceId: string): void {
-  pageFileCache.delete(spaceId);
-}
-
-// ─── 路径辅助函数 ────────────────────────────────────────────────
-
-function normalizePagePath(p: string): string {
-  // 统一反斜杠为正斜杠（Windows 路径穿越防护）
-  const normalized = p.replace(/\\/g, "/");
-  const withExt = normalized.endsWith(".md") ? normalized : `${normalized}.md`;
-  const prefixed = withExt.startsWith("wiki/") ? withExt : `wiki/${withExt}`;
-  const parts = prefixed.split("/");
-  // 拒绝 .. 和 . 以及绝对路径
-  for (const part of parts) {
-    if (part === ".." || part === "." || part.startsWith("/") || part.startsWith("\\")) {
-      throw new HttpError(400, "HTTP_ERROR", "Path must not contain .. or . or be absolute");
-    }
-  }
-  return prefixed;
-}
+  getSpaceDir,
+  invalidatePageCache,
+  findPageBySlug,
+  walkPages,
+  readPage,
+  readPageListItem,
+  readPageRaw,
+  normalizePageRelPath,
+} from "./space-fs/index.js";
 
 function slugFromPath(p: string): string {
   return path.basename(p, ".md");
 }
 
-function inferTypeFromDir(relDir: string): string {
-  const parts = relDir.replace(/\\/g, "/").split("/");
-  const wikiIdx = parts.indexOf("wiki");
-  if (wikiIdx >= 0 && wikiIdx + 1 < parts.length) {
-    const sub = parts[wikiIdx + 1];
-    return DIR_TYPE_MAP[sub] ?? (sub ? "concept" : "overview");
-  }
-  return wikiIdx >= 0 ? "overview" : "concept";
-}
-
-// ─── 页面文件 → DTO 映射 ─────────────────────────────────────────
-
-function pageFileToRead(filePath: string, spaceId: string): WikiPageRead | null {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const { frontmatter, body } = parseFrontmatter(content);
-
-    const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
-    const slug = path.basename(filePath, ".md");
-    const pageType = (frontmatter.type as string) || inferTypeFromDir(relPath) || "concept";
-
-    return {
-      id: slug,
-      space_id: spaceId,
-      path: relPath,
-      slug,
-      type: pageType as WikiPageRead["type"],
-      title: (frontmatter.title as string) ?? slug,
-      content: body.trim(),
-      frontmatter: frontmatter as Record<string, unknown>,
-      sources: (frontmatter.sources as string[]) ?? [],
-      tags: (frontmatter.tags as string[]) ?? [],
-      related: (frontmatter.related as string[]) ?? [],
-      created_at: (frontmatter.created as string) ?? "",
-      updated_at: (frontmatter.updated as string) ?? "",
-    };
-  } catch {
-    return null;
-  }
-}
-
-function pageFileToListItem(filePath: string, spaceId: string): WikiPageListItem | null {
-  const read = pageFileToRead(filePath, spaceId);
-  if (!read) return null;
-  return {
-    id: read.id,
-    space_id: read.space_id,
-    path: read.path,
-    slug: read.slug,
-    type: read.type,
-    title: read.title,
-    tags: read.tags,
-    created_at: read.created_at,
-    updated_at: read.updated_at,
-  };
-}
-
-function walkAllPages(spaceId: string): string[] {
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
-  return readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
-}
-
-function walkScopedPages(spaceId: string, typeFilter?: string): string[] {
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
-  if (typeFilter && TYPE_DIR_MAP[typeFilter] !== undefined) {
-    const sub = TYPE_DIR_MAP[typeFilter];
-    const scanDir = sub ? path.join(wikiDir, sub) : wikiDir;
-    try {
-      return readDirRecursive(scanDir, (_f, name) => name.endsWith(".md"));
-    } catch {
-      return [];
-    }
-  }
-  return walkAllPages(spaceId);
-}
-
-// ─── 公开 API ──────────────────────────────────────────────────
-
 export async function listWikiPages(
   spaceId: string,
   opts?: { type?: string; q?: string; limit?: number; offset?: number },
 ): Promise<{ items: WikiPageListItem[]; total: number }> {
-  const files = walkScopedPages(spaceId, opts?.type);
+  const files = walkPages(spaceId, opts?.type);
   const items: WikiPageListItem[] = [];
 
   for (const filePath of files) {
-    const item = pageFileToListItem(filePath, spaceId);
-    if (!item) continue;
+    const data = readPageListItem(filePath, spaceId);
+    if (!data) continue;
+    const item = data as unknown as WikiPageListItem;
     if (opts?.q) {
       const q = opts.q.toLowerCase();
       if (
@@ -191,24 +61,24 @@ export async function listWikiPages(
 }
 
 export async function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {
-  const filePath = findPageFile(spaceId, pageId);
+  const filePath = findPageBySlug(spaceId, pageId);
   if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
-  const page = pageFileToRead(filePath, spaceId);
-  if (!page) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
+  const data = readPage(filePath, spaceId);
+  if (!data) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
-  return page;
+  return data as unknown as WikiPageRead;
 }
 
 export async function createWikiPage(
   spaceId: string,
   payload: WikiPageCreate,
 ): Promise<WikiPageRead> {
-  const normalizedPath = normalizePagePath(payload.path);
+  const normalizedPath = normalizePageRelPath(payload.path);
   const slug = slugFromPath(normalizedPath);
-  const absPath = path.join(spaceDir(spaceId), normalizedPath);
+  const absPath = path.join(getSpaceDir(spaceId), normalizedPath);
 
-  if (fs.existsSync(absPath)) {
+  if (readPageRaw(absPath) !== null) {
     throw new HttpError(409, "HTTP_ERROR", `Path already exists (${normalizedPath})`);
   }
 
@@ -227,7 +97,7 @@ export async function createWikiPage(
   };
 
   safeWriteFile(absPath, buildPageContent(pageData));
-  invalidatePageFileCache(spaceId);
+  invalidatePageCache(spaceId);
 
   return {
     id: slug,
@@ -251,10 +121,10 @@ export async function updateWikiPage(
   pageId: string,
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
-  const filePath = findPageFile(spaceId, pageId);
+  const filePath = findPageBySlug(spaceId, pageId);
   if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
-  const existing = pageFileToRead(filePath, spaceId);
+  const existing = readPage(filePath, spaceId) as unknown as WikiPageRead | null;
   if (!existing) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
   const now = nowISO();
@@ -270,15 +140,15 @@ export async function updateWikiPage(
   };
 
   if (payload.path && payload.path !== existing.path.replace(/^wiki\//, "")) {
-    const newPath = normalizePagePath(payload.path);
-    const newAbsPath = path.join(spaceDir(spaceId), newPath);
-    if (fs.existsSync(newAbsPath)) {
+    const newPath = normalizePageRelPath(payload.path);
+    const newAbsPath = path.join(getSpaceDir(spaceId), newPath);
+    if (readPageRaw(newAbsPath) !== null) {
       throw new HttpError(409, "HTTP_ERROR", `Target path already exists (${newPath})`);
     }
     ensureDir(path.dirname(newAbsPath));
     safeRename(filePath, newAbsPath);
     safeWriteFile(newAbsPath, buildPageContent(updatedData));
-    invalidatePageFileCache(spaceId);
+    invalidatePageCache(spaceId);
 
     const newSlug = slugFromPath(newPath);
     return {
@@ -299,7 +169,7 @@ export async function updateWikiPage(
   }
 
   safeWriteFile(filePath, buildPageContent(updatedData));
-  invalidatePageFileCache(spaceId);
+  invalidatePageCache(spaceId);
 
   return {
     id: existing.id,
@@ -319,21 +189,21 @@ export async function updateWikiPage(
 }
 
 export async function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
-  const filePath = findPageFile(spaceId, pageId);
+  const filePath = findPageBySlug(spaceId, pageId);
   if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
 
   safeUnlink(filePath);
-  invalidatePageFileCache(spaceId);
+  invalidatePageCache(spaceId);
 }
 
 export async function resolveWikiLink(spaceId: string, target: string): Promise<WikiResolveResult> {
-  const files = walkAllPages(spaceId);
+  const files = walkPages(spaceId);
   const bySlug = new Map<string, WikiPageRead>();
   const slugList: Array<{ slug: string; path: string; title: string }> = [];
 
   for (const filePath of files) {
     const slug = path.basename(filePath, ".md");
-    const page = pageFileToRead(filePath, spaceId);
+    const page = readPage(filePath, spaceId) as unknown as WikiPageRead | null;
     if (!page) continue;
     bySlug.set(slug, page);
     slugList.push({ slug, path: page.path, title: page.title });
@@ -396,14 +266,15 @@ export async function getWikiBacklinks(
   spaceId: string,
   pageId: string,
 ): Promise<Array<{ page_id: string; slug: string; title: string; path: string }>> {
-  const files = walkAllPages(spaceId);
+  const files = walkPages(spaceId);
   const backlinks: Array<{ page_id: string; slug: string; title: string; path: string }> = [];
   const linkPattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
   const targetSlug = pageId.toLowerCase();
 
   for (const filePath of files) {
     try {
-      const content = fs.readFileSync(filePath, "utf-8");
+      const content = readPageRaw(filePath);
+      if (!content) continue;
       const slug = path.basename(filePath, ".md");
       if (slug === pageId) continue;
 
@@ -423,7 +294,7 @@ export async function getWikiBacklinks(
 
       const { frontmatter } = parseFrontmatter(content);
       const title = (frontmatter.title as string) ?? slug;
-      const relPath = path.relative(spaceDir(spaceId), filePath).replace(/\\/g, "/");
+      const relPath = path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/");
       backlinks.push({ page_id: slug, slug, title, path: relPath });
     } catch {
       /* skip unreadable */

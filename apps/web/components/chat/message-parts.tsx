@@ -1,25 +1,20 @@
 /**
- * MessageParts — 将 UIMessage.parts 渲染为可读的 Agent 思考过程
+ * MessageParts — 将 UIMessage.parts 渲染为研究工作台组件
  *
  * 依照 AI SDK v6 消息协议分派每种 part 类型：
  * - text          → MessageResponse (Markdown 流式渲染)
- * - reasoning     → Reasoning (可折叠思考过程)
- * - tool-{name}   → Tool (调用状态 + 参数 + 结果 + 关联思考)
- * - step-start    → 步骤分隔线
- * - source-*      → 来源引用
+ * - reasoning     → 合并为单个 Reasoning (可折叠思考过程)
+ * - tool-{name}   → Tool (Collapsible 结构)
+ * - source-*      → Sources (聚合展示)
  *
- * 关联思考（thought）：每个 tool-* part 之前最近的 reasoning part 文本，
- * 作为该工具调用的思考上下文传递给 Tool 组件，让用户了解模型
- * 在调用工具时的推理过程。
- *
- * @see https://ai-sdk.dev/docs/ai-sdk-ui/chatbot
- * @see https://mastra.ai/reference/ai-sdk/chat-route
+ * 设计目标：
+ * - 可验证证据：回答后紧跟 Sources 折叠区
+ * - 可理解执行过程：工具事件默认折叠，只显示状态摘要
+ * - 克制的推理：不把原始思维链当作主内容
  */
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 import {
   Message,
   MessageContent,
@@ -28,111 +23,24 @@ import {
   MessageAction,
 } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
-import { Tool, type ToolStatus } from "@/components/ai-elements/tool";
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+  type ToolPartState,
+} from "@/components/ai-elements/tool";
+import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/sources";
 import { useChatContext } from "@/lib/chat/chat-context";
-import { Copy, RotateCcw, User, Link as LinkIcon, Brain, ChevronDown } from "lucide-react";
+import { Copy, RotateCcw, User } from "lucide-react";
 import type { UIMessage } from "ai";
 import { useTranslation } from "react-i18next";
 
-/* -------------------------------------------------------------------------- */
-/* Types */
-/* -------------------------------------------------------------------------- */
 interface MessagePartsProps {
   message: UIMessage;
   isLastMessage: boolean;
   isStreaming: boolean;
-}
-
-interface ToolPartInfo {
-  toolName: string;
-  status: ToolStatus;
-  args: string;
-  result: string;
-  isError: boolean;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Helpers */
-/* -------------------------------------------------------------------------- */
-
-/** 将 thinkParts 按原始顺序渲染为 Reasoning + Tool 穿插的 React 节点列表 */
-function renderThinkParts(
-  thinkParts: UIMessage["parts"],
-  isReasoningStreaming: boolean,
-): React.ReactNode[] {
-  let pendingReasoning: string | null = null;
-  const elements: React.ReactNode[] = [];
-  let partIndex = 0;
-
-  for (const part of thinkParts) {
-    if (part.type === "reasoning") {
-      pendingReasoning = (part as { text: string }).text;
-      continue;
-    }
-
-    const toolInfo = parseToolPart(part);
-    if (toolInfo) {
-      if (pendingReasoning !== null) {
-        elements.push(
-          <Reasoning
-            key={`reason-${partIndex}`}
-            isStreaming={isReasoningStreaming}
-            defaultOpen={isReasoningStreaming}
-          >
-            <ReasoningTrigger />
-            <ReasoningContent>{pendingReasoning}</ReasoningContent>
-          </Reasoning>,
-        );
-        pendingReasoning = null;
-      }
-      elements.push(
-        <Tool
-          key={`tool-${partIndex}`}
-          toolName={toolInfo.toolName}
-          status={toolInfo.status}
-          args={toolInfo.args}
-          result={toolInfo.result}
-          isError={toolInfo.isError}
-        />,
-      );
-      partIndex++;
-      continue;
-    }
-
-    if (part.type === "step-start") {
-      pendingReasoning = null;
-      continue;
-    }
-  }
-
-  // 末尾可能还有未消费的 reasoning（模型思考后直接输出文本）
-  if (pendingReasoning !== null && isReasoningStreaming) {
-    elements.push(
-      <Reasoning key={`reason-tail-${partIndex}`} isStreaming={true} defaultOpen={true}>
-        <ReasoningTrigger />
-        <ReasoningContent>{pendingReasoning}</ReasoningContent>
-      </Reasoning>,
-    );
-  }
-
-  return elements;
-}
-
-/** 格式化任意值为可读 JSON 字符串 */
-function formatPayload(value: unknown): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 /** 提取用户消息纯文本 */
@@ -143,176 +51,67 @@ function userText(message: UIMessage): string {
     .join("");
 }
 
-/**
- * 解析 AI SDK v6 的 tool-{toolName} part。
- *
- * ToolUIPart 结构：
- *   type: `tool-${NAME}`
- *   state: "input-streaming" | "input-available" | "output-available" | "output-error"
- *   input: unknown   (工具参数)
- *   output: unknown  (工具结果，仅 output-available 时存在)
- *   errorText: string (仅 output-error 时存在)
- */
-function parseToolPart(part: UIMessage["parts"][number]): ToolPartInfo | null {
-  const type = part.type;
-  if (typeof type !== "string" || !type.startsWith("tool-")) return null;
+/** 提取工具和推理相关的 parts */
+function useAgentParts(message: UIMessage, isLastMessage: boolean, isStreaming: boolean) {
+  return useMemo(() => {
+    const reasoningParts = message.parts.filter(
+      (p): p is { type: "reasoning"; text: string } => p.type === "reasoning",
+    );
+    const consolidatedReasoning = reasoningParts.map((p) => p.text).join("\n\n");
 
-  const toolName = type.slice("tool-".length);
-  const p = part as Record<string, unknown>;
-  const state = p.state as string | undefined;
-  const input = p.input;
-  const output = "output" in p ? p.output : undefined;
-  const errorText = "errorText" in p ? (p.errorText as string) : undefined;
+    const lastPart = message.parts.at(-1);
+    const isReasoningStreaming = isLastMessage && isStreaming && lastPart?.type === "reasoning";
 
-  const status: ToolStatus =
-    state === "output-available"
-      ? "complete"
-      : state === "output-error"
-        ? "error"
-        : state === "input-streaming"
-          ? "streaming"
-          : "running";
+    const stepCount = message.parts.filter((p) => p.type === "step-start").length;
 
-  return {
-    toolName,
-    status,
-    args: input !== undefined ? formatPayload(input) : "",
-    result: output !== undefined ? formatPayload(output) : (errorText ?? ""),
-    isError: state === "output-error",
-  };
+    const toolParts: Array<{
+      part: UIMessage["parts"][number];
+      type: string;
+      state: string;
+      input: unknown;
+      output: unknown;
+      errorText?: string;
+    }> = [];
+    const sourceParts: Array<{ url?: string; title?: string }> = [];
+
+    for (const part of message.parts) {
+      const pType = part.type;
+
+      if (typeof pType === "string" && pType.startsWith("tool-")) {
+        const p = part as Record<string, unknown>;
+        toolParts.push({
+          part,
+          type: pType,
+          state: (p.state as string) ?? "input-streaming",
+          input: p.input,
+          output: "output" in p ? p.output : undefined,
+          errorText: "errorText" in p ? (p.errorText as string) : undefined,
+        });
+        continue;
+      }
+
+      if (pType === "source-url" || pType === "source-document") {
+        const src = part as { url?: string; title?: string };
+        if (src.url || src.title) {
+          sourceParts.push(src);
+        }
+      }
+    }
+
+    return { consolidatedReasoning, isReasoningStreaming, stepCount, toolParts, sourceParts };
+  }, [message.parts, isLastMessage, isStreaming]);
 }
 
-/* -------------------------------------------------------------------------- */
-/* ThinkingProcess — 全量思考过程折叠容器 */
-/* -------------------------------------------------------------------------- */
-
-/**
- * ThinkingProcess 包裹助手消息中的推理 + 工具调用，
- * 提供统一的展开/收起控制。
- *
- * - 流式进行中自动展开
- * - 完成后可手动折叠
- * - 无思考内容时完全隐藏
- */
-function ThinkingProcess({
-  isStreaming,
-  children,
-}: {
-  isStreaming: boolean;
-  children: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(true);
-
-  // 流式时自动展开
-  useEffect(() => {
-    if (isStreaming) setIsOpen(true);
-  }, [isStreaming]);
-
-  return (
-    <div className="w-full overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card">
-      {/* Toggle bar */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex h-8 w-full items-center gap-2 px-2.5 text-left text-[12px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors",
-          isOpen && "border-b border-editorial-hairline",
-        )}
-      >
-        <motion.span
-          animate={{ rotate: isOpen ? 0 : -90 }}
-          transition={{ duration: 0.15 }}
-          className="shrink-0"
-        >
-          <ChevronDown size={14} className="text-editorial-ink-muted" />
-        </motion.span>
-
-        <Brain size={14} className="shrink-0 text-editorial-ink-muted" />
-
-        <span>{t("chat.thinkProcess")}</span>
-
-        {/* Streaming indicator */}
-        {isStreaming && (
-          <span className="ml-auto inline-flex items-center gap-[2px]">
-            {[0, 1, 2].map((i) => (
-              <motion.span
-                key={i}
-                className="inline-block h-1 w-1 rounded-full bg-editorial-primary"
-                animate={{ opacity: [0.3, 1, 0.3] }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  delay: i * 0.2,
-                  ease: "easeInOut",
-                }}
-              />
-            ))}
-          </span>
-        )}
-      </button>
-
-      {/* Content */}
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            key="think-panel"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* MessageParts */
-/* -------------------------------------------------------------------------- */
 export function MessageParts({ message, isLastMessage, isStreaming }: MessagePartsProps) {
   const { t } = useTranslation();
   const { regenerate } = useChatContext();
+  const { consolidatedReasoning, isReasoningStreaming, stepCount, toolParts, sourceParts } =
+    useAgentParts(message, isLastMessage, isStreaming);
 
-  // 区分"思考"和"展示"内容
-  const { thinkParts, displayParts } = useMemo(() => {
-    const think: UIMessage["parts"] = [];
-    const display: UIMessage["parts"] = [];
-    for (const part of message.parts) {
-      if (part.type === "reasoning" || part.type === "step-start" || parseToolPart(part)) {
-        think.push(part);
-      } else {
-        display.push(part);
-      }
-    }
-    return { thinkParts: think, displayParts: display };
-  }, [message.parts]);
-
-  const hasThinking = thinkParts.length > 0;
-  const isThinkingStreaming =
-    isStreaming &&
-    thinkParts.some((p) => {
-      if (p.type === "reasoning") return true;
-      const t = parseToolPart(p);
-      return t && (t.status === "streaming" || t.status === "running");
-    });
-
-  // 判断当前是否处于 reasoning 流式状态（用于 Reasoning 组件的 streaming 指示器）
-  const isReasoningStreaming = useMemo(() => {
-    if (!isLastMessage || !isStreaming) return false;
-    // 如果最后一个非 step-start 的 think part 是 reasoning，表示 reasoning 还在流
-    const lastThink = [...thinkParts].reverse().find((p) => p.type !== "step-start");
-    if (!lastThink) return false;
-    if (lastThink.type === "reasoning") return true;
-    const tool = parseToolPart(lastThink);
-    // 如果最后一个 tool 还在 streaming/running，说明工具调用完成后可能还有 reasoning
-    if (tool && (tool.status === "streaming" || tool.status === "running")) return true;
-    return false;
-  }, [thinkParts, isLastMessage, isStreaming]);
+  const hasReasoning = consolidatedReasoning.length > 0;
+  const hasTools = toolParts.length > 0;
+  const hasSources = sourceParts.length > 0;
+  const hasSteps = stepCount > 0;
 
   /* ---- 用户消息 ---- */
   if (message.role === "user") {
@@ -323,7 +122,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
             <User size={12} className="text-editorial-ink-on-primary" />
           </div>
           <MessageContent>
-            <div className="rounded-2xl rounded-tr-sm bg-editorial-surface-soft px-4 py-3 text-[13px] leading-relaxed text-editorial-ink">
+            <div className="rounded-lg bg-editorial-surface-soft px-4 py-3 text-[13px] leading-relaxed text-editorial-ink">
               {userText(message)}
             </div>
           </MessageContent>
@@ -336,8 +135,8 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   return (
     <Message from="assistant">
       <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-editorial-ink to-editorial-primary-active">
+        {/* Avatar — 纯色 Logo 背景 */}
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-ink">
           <img
             src="/FeedMind-logo.svg"
             alt="FeedMind Agent"
@@ -347,51 +146,80 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
           />
         </div>
 
-        {/* Body */}
-        <div className="min-w-0 flex-1">
+        {/* Body — 最大宽度 70ch 便于长篇阅读 */}
+        <div className="min-w-0 flex-1 max-w-[70ch]">
           <div className="mb-1 flex items-center gap-2">
             <span className="text-[12px] font-semibold text-editorial-ink">FeedMind Agent</span>
           </div>
 
           <MessageContent>
-            {/* ---- 思考过程（推理 + 工具调用，按原始顺序穿插） ---- */}
-            {hasThinking && (
-              <ThinkingProcess isStreaming={isThinkingStreaming}>
-                {renderThinkParts(thinkParts, isReasoningStreaming)}
-              </ThinkingProcess>
+            {/* ---- 步骤进度 ---- */}
+            {hasSteps && (
+              <div className="mb-2 text-[12px] text-editorial-ink-muted font-medium tracking-wide">
+                {t("chat.thinkProcess")} · {stepCount + 1} 步
+              </div>
             )}
 
-            {/* ---- 展示内容（文本、来源引用等） ---- */}
-            {displayParts.map((part, i) => {
-              switch (part.type) {
-                case "text":
-                  return (
-                    <MessageResponse key={`${message.id}-${i}`}>
-                      {(part as { text: string }).text}
-                    </MessageResponse>
-                  );
+            {/* ---- 执行过程（工具调用） ---- */}
+            {hasTools && (
+              <div className="space-y-1 mb-3">
+                {toolParts.map((tp, i) => (
+                  <Tool key={`tool-${i}`} defaultOpen={true}>
+                    <ToolHeader
+                      type={tp.type as `tool-${string}` | "dynamic-tool"}
+                      state={tp.state as ToolPartState}
+                    />
+                    <ToolContent>
+                      <ToolInput input={tp.input} />
+                      {tp.state === "output-error" ? (
+                        <ToolOutput errorText={tp.errorText ?? ""} />
+                      ) : (
+                        <ToolOutput output={formatOutput(tp.output)} />
+                      )}
+                    </ToolContent>
+                  </Tool>
+                ))}
+              </div>
+            )}
 
-                case "source-url":
-                case "source-document": {
-                  const src = part as { url?: string; title?: string };
-                  return (
-                    <div
-                      key={`${message.id}-${i}`}
-                      className="flex items-center gap-1.5 text-[12px] text-editorial-ink-muted"
-                    >
-                      <LinkIcon size={12} className="shrink-0" />
-                      <span className="truncate">{src.title || src.url || t("chat.source")}</span>
-                    </div>
-                  );
-                }
+            {/* ---- 思考过程（可折叠，默认收起） ---- */}
+            {hasReasoning && (
+              <div className="mb-3">
+                <Reasoning isStreaming={isReasoningStreaming} defaultOpen={false}>
+                  <ReasoningTrigger />
+                  <ReasoningContent>{consolidatedReasoning}</ReasoningContent>
+                </Reasoning>
+              </div>
+            )}
 
-                default:
-                  return null;
+            {/* ---- 展示内容（文本） ---- */}
+            {message.parts.map((part, i) => {
+              if (part.type === "text") {
+                return (
+                  <MessageResponse key={`${message.id}-${i}`}>
+                    {(part as { text: string }).text}
+                  </MessageResponse>
+                );
               }
+              return null;
             })}
+
+            {/* ---- 来源引用（可折叠） ---- */}
+            {hasSources && (
+              <div className="mt-3">
+                <Sources defaultOpen={false}>
+                  <SourcesTrigger count={sourceParts.length} />
+                  {sourceParts.map((src, i) => (
+                    <SourcesContent key={`src-${i}`}>
+                      <Source href={src.url ?? "#"} title={src.title} />
+                    </SourcesContent>
+                  ))}
+                </Sources>
+              </div>
+            )}
           </MessageContent>
 
-          {/* Actions bar */}
+          {/* Actions bar — 键盘聚焦也可见 */}
           {isLastMessage && (
             <MessageActions>
               <MessageAction
@@ -401,7 +229,6 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
                     .map((p) => (p as { text: string }).text)
                     .join("");
                   navigator.clipboard.writeText(text).catch(() => {
-                    /* fallback for older browsers */
                     const ta = document.createElement("textarea");
                     ta.value = text;
                     ta.style.position = "fixed";
@@ -425,4 +252,60 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
       </div>
     </Message>
   );
+}
+
+/** 格式化工具输出：优先使用摘要，不展示原始大段 JSON */
+function formatOutput(output: unknown): string {
+  if (output === undefined || output === null) return "";
+  if (typeof output === "string") {
+    try {
+      const parsed = JSON.parse(output);
+      return summarizeOutput(parsed);
+    } catch {
+      return output.length > 200 ? output.slice(0, 200) + "…" : output;
+    }
+  }
+  if (typeof output === "object") {
+    return summarizeOutput(output);
+  }
+  return String(output);
+}
+
+/** 从工具输出提取人类可读摘要 */
+function summarizeOutput(data: unknown): string {
+  if (!data || typeof data !== "object") return String(data ?? "");
+
+  const d = data as Record<string, unknown>;
+
+  // 搜索结果：显示数量
+  if (Array.isArray(d.results) || Array.isArray(d.items)) {
+    const items = (d.results ?? d.items ?? []) as unknown[];
+    return `已检索 ${items.length} 个结果`;
+  }
+  if (Array.isArray(data)) {
+    return `共 ${data.length} 条记录`;
+  }
+
+  // 页面内容：显示标题和摘要
+  if (d.title && typeof d.title === "string") {
+    const snippet = d.snippet ?? d.description ?? d.content ?? "";
+    const snippetStr = typeof snippet === "string" ? snippet.slice(0, 120) : "";
+    return `📄 ${d.title}${snippetStr ? ": " + snippetStr : ""}`;
+  }
+  if (d.url && typeof d.url === "string") {
+    return `🔗 ${d.url}`;
+  }
+
+  // 一般对象：显示键摘要
+  const keys = Object.keys(d);
+  if (keys.length <= 3) {
+    try {
+      return JSON.stringify(data, null, 2);
+    } catch {
+      return String(data);
+    }
+  }
+
+  // 大对象：只显示结构信息
+  return `${keys.length} 个字段`;
 }

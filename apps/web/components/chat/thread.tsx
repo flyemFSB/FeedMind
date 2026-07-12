@@ -24,16 +24,11 @@ interface ThreadProps {
   contentClassName?: string;
 }
 
-/**
- * Thread — 聊天视图容器
- * - 空状态显示品牌提示和建议
- * - 消息流式渲染
- * - 底部固定 Composer
- */
 export function Thread({ className, contentClassName }: ThreadProps) {
-  const { messages, status, isLoadingHistory } = useChatContext();
+  const { messages, status, isLoadingHistory, sendMessage } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
+  const suggestions = [t("chat.suggestion1"), t("chat.suggestion2"), t("chat.suggestion3")];
 
   return (
     <div
@@ -44,7 +39,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
     >
       <Conversation>
         <ConversationContent
-          className={cn("w-full mx-auto px-4 pt-6 pb-[155px] overflow-x-auto", contentClassName)}
+          className={cn("w-full mx-auto px-4 pt-6 pb-[155px]", contentClassName)}
         >
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
@@ -56,7 +51,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
           ) : messages.length === 0 ? (
             <ConversationEmptyState
               icon={
-                <div className="size-14 rounded-2xl bg-gradient-to-br from-editorial-ink to-editorial-primary-active flex items-center justify-center">
+                <div className="size-14 rounded-2xl bg-editorial-ink flex items-center justify-center">
                   <img
                     src="/FeedMind-logo.svg"
                     alt="FeedMind"
@@ -70,17 +65,16 @@ export function Thread({ className, contentClassName }: ThreadProps) {
               description={t("chat.emptyDescription")}
             >
               <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-xl">
-                {[t("chat.suggestion1"), t("chat.suggestion2"), t("chat.suggestion3")].map(
-                  (suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className="px-3 py-2 rounded-xl border border-editorial-hairline text-[13px] text-editorial-ink hover:bg-editorial-surface-soft transition-colors cursor-pointer"
-                    >
-                      {suggestion}
-                    </button>
-                  ),
-                )}
+                {suggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => sendMessage?.({ text: suggestion })}
+                    className="px-3 py-2 rounded-xl border border-editorial-hairline text-[13px] text-editorial-ink hover:bg-editorial-surface-soft transition-colors cursor-pointer"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             </ConversationEmptyState>
           ) : (

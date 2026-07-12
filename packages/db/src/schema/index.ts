@@ -6,3 +6,5 @@ export * from "./wiki.js";
 export * from "./crawler.js";
 export * from "./remote-connection.js";
 export * from "./cookie-store.js";
+export * from "./rss-sources.js";
+export * from "./feeds.js";

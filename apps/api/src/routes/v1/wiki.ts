@@ -48,11 +48,11 @@ import {
 import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
 import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
 import {
-  wikiRootDir,
+  getWikiRootDir,
   readSourceTitle,
   validateSpaceId,
   sha256,
-} from "../../modules/wiki/wiki-utils.js";
+} from "../../modules/wiki/space-fs/index.js";
 
 const sourcePathSchema = z
   .string()
@@ -198,7 +198,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const slug = slugFromName(safeName);
   const sourceFileName = `${slug}.md`;
 
-  const wikiRoot = wikiRootDir();
+  const wikiRoot = getWikiRootDir();
   const sourcesDir = path.join(wikiRoot, spaceId, "raw", "sources");
   fs.mkdirSync(sourcesDir, { recursive: true });
 

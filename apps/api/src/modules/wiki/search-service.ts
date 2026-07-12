@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { searchPages, parseFrontmatter } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { spaceDir } from "./wiki-utils.js";
+import { getSpaceDir } from "./space-fs/index.js";
 
 interface SearchablePage {
   path: string;
@@ -11,7 +11,7 @@ interface SearchablePage {
 }
 
 function loadSearchablePages(spaceId: string): SearchablePage[] {
-  const wikiDir = path.join(spaceDir(spaceId), "wiki");
+  const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
   if (!fs.existsSync(wikiDir)) return [];
 
   const pages: SearchablePage[] = [];
@@ -27,7 +27,7 @@ function loadSearchablePages(spaceId: string): SearchablePage[] {
             const content = fs.readFileSync(fullPath, "utf-8");
             const { frontmatter } = parseFrontmatter(content);
             const title = (frontmatter.title as string) ?? entry.name.replace(/\.md$/, "");
-            const relPath = path.relative(spaceDir(spaceId), fullPath).replace(/\\/g, "/");
+            const relPath = path.relative(getSpaceDir(spaceId), fullPath).replace(/\\/g, "/");
             pages.push({ path: relPath, title, content });
           } catch {
             /* skip unreadable */
