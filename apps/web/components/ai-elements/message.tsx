@@ -22,8 +22,8 @@ export function Message({ className, from, children, ...props }: MessageProps) {
   return (
     <div
       className={cn(
-        "group flex w-full max-w-[85%] min-w-0 flex-col gap-2 animate-fade-in",
-        from === "user" ? "ml-auto items-end" : "items-start",
+        "group flex w-full max-w-full min-w-0 flex-col gap-2 animate-fade-in",
+        from === "user" ? "ml-auto max-w-[85%] items-end" : "items-start",
         className,
       )}
       {...props}
@@ -37,7 +37,7 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
 export function MessageContent({ className, children, ...props }: MessageContentProps) {
   return (
-    <div className={cn("w-full space-y-2", className)} {...props}>
+    <div className={cn("w-full min-w-0 space-y-2", className)} {...props}>
       {children}
     </div>
   );
@@ -61,7 +61,7 @@ export const MessageResponse = memo(function MessageResponse({
         "prose-a:text-editorial-primary prose-a:no-underline hover:prose-a:underline",
         "prose-strong:text-editorial-ink",
         "prose-code:before:content-none prose-code:after:content-none",
-        "prose-pre:bg-transparent prose-pre:p-0",
+        "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:bg-transparent prose-pre:p-0",
         "prose-li:text-editorial-ink-soft",
         className,
       )}

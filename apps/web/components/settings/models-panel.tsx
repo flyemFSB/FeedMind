@@ -208,8 +208,8 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                       </span>
                       {(() => {
                         const info = lookupModelInfo(model.provider, model.modelName);
-                        const context = info?.context ?? model.contextWindow;
-                        const maxOutput = info?.maxOutput ?? model.maxOutput;
+                        const context = model.contextWindow ?? info?.context;
+                        const maxOutput = model.maxOutput ?? info?.maxOutput;
                         if (!context && !maxOutput) return null;
                         return (
                           <span className="flex shrink-0 items-center gap-1">

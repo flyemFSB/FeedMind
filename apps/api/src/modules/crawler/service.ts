@@ -102,7 +102,11 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
     await tx.insert(crawlerTasks).values(rowValues);
   });
 
-  runCrawlerTask(id, input, cookies).catch(() => {});
+  // 任务启动失败（进入 try 块前的异常）不应被静默吞掉
+  runCrawlerTask(id, input, cookies).catch((err) => {
+    logger.warn({ err, taskId: id }, "爬虫任务启动失败");
+  });
+  logger.info({ taskId: id, route: input.route, maxItems: input.max_items }, "爬虫任务已创建");
 
   return toTaskRead(rowValues);
 }
@@ -134,6 +138,7 @@ async function runCrawlerTask(
     const result = await handler(params);
     await store.updateTaskRss(taskId, result.rssXml);
     await store.updateTaskStatus(taskId, "completed");
+    logger.info({ taskId, route: input.route }, "爬虫任务完成");
   } catch (err) {
     logger.error({ err, taskId }, "爬虫任务执行失败");
     try {

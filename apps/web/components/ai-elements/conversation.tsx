@@ -19,7 +19,7 @@ export type ConversationProps = ComponentProps<typeof StickToBottom>;
 export function Conversation({ className, children, ...props }: ConversationProps) {
   return (
     <StickToBottom
-      className={cn("relative flex min-h-0 flex-1 flex-col", className)}
+      className={cn("relative flex min-h-0 min-w-0 flex-1 flex-col", className)}
       {...props}
     >
       {children}
@@ -34,10 +34,7 @@ export type ConversationContentProps = ComponentProps<typeof StickToBottom.Conte
 
 export function ConversationContent({ className, children, ...props }: ConversationContentProps) {
   return (
-    <StickToBottom.Content
-      className={cn("flex flex-col gap-6 p-4", className)}
-      {...props}
-    >
+    <StickToBottom.Content className={cn("flex min-w-0 flex-col gap-6 p-4", className)} {...props}>
       {children}
     </StickToBottom.Content>
   );
@@ -62,20 +59,13 @@ export function ConversationEmptyState({
 }: ConversationEmptyStateProps) {
   return (
     <div
-      className={cn(
-        "flex flex-col items-center justify-center py-16 text-center",
-        className,
-      )}
+      className={cn("flex flex-col items-center justify-center py-16 text-center", className)}
       {...props}
     >
       {icon && <div className="mb-4">{icon}</div>}
-      {title && (
-        <h2 className="text-display-md text-editorial-ink mb-2">{title}</h2>
-      )}
+      {title && <h2 className="text-display-md text-editorial-ink mb-2">{title}</h2>}
       {description && (
-        <p className="text-body-md text-editorial-ink-soft max-w-md mx-auto">
-          {description}
-        </p>
+        <p className="text-body-md text-editorial-ink-soft max-w-md mx-auto">{description}</p>
       )}
       {children}
     </div>

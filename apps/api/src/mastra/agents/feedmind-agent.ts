@@ -17,17 +17,9 @@ import { parseTokenCount } from "../utils/parse-token-count.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
 import { logger } from "../../lib/logger.js";
 
+// Supervisor 架构：所有 subagent 通过 task 工具运行时动态创建，避免编译时注册
 const feedmindWorkspace = createFeedMindWorkspace();
 
-/**
- * FeedMind Agent — Supervisor Agent
- *
- * 面向用户的主 agent，通过 task 工具动态创建 subagent 来执行子任务。
- * 所有 subagent（researcher / extractor / summarizer / browser）均通过
- * task 工具在运行时动态生成，不在编译时注册。
- *
- * 模型解析：支持请求头 x-feedmind-model-id → DB 兜底，带 30s TTL 缓存。
- */
 export const feedmindAgent = new Agent({
   id: "feedmind",
   name: "FeedMind",
@@ -62,6 +54,7 @@ ${getSubagentDescriptions()}
     resolveChatModel(requestContext),
   defaultOptions: async () => {
     try {
+      // resolveModelClient 自带缓存，避免重复 getModelRuntime 查询
       const [cfg, selected] = await Promise.all([
         cachedGet("getConfig:session", () => getConfig("session")),
         cachedGet("getSelectedModel", () => getSelectedModel()),
@@ -69,7 +62,6 @@ ${getSubagentDescriptions()}
 
       let maxTokens: number | undefined;
       if (selected.id) {
-        // resolveModelClient 自带缓存，避免重复 getModelRuntime 查询
         const resolved = await resolveModelClient(selected.id);
         maxTokens = parseTokenCount(resolved.maxOutput);
       }

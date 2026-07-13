@@ -1,17 +1,32 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Pencil } from "lucide-react";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
+import { ArrowLeft, CalendarClock, FileText, Link2, Pencil, Tags } from "lucide-react";
+import { Streamdown } from "streamdown";
+import { cjk } from "@streamdown/cjk";
+import { math } from "@streamdown/math";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { lightweightCode } from "@/components/ai-elements/code-plugin";
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 import { useTranslation } from "react-i18next";
+import "katex/dist/katex.min.css";
+import "streamdown/styles.css";
+import "./wiki-markdown.css";
 
 interface WikiReaderProps {
   spaceId: string;
   pageId: string;
-  onEdit: () => void;
+  onEdit?: () => void;
   onNavigate: (target: string) => void;
 }
 
@@ -32,7 +47,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
         getWikiPage(spaceId, pageId),
         getWikiBacklinks(spaceId, pageId),
       ]);
-      if (loadId !== loadIdRef.current) return; // 请求已过期，丢弃
+      if (loadId !== loadIdRef.current) return;
       setPage(result);
       setBacklinks(links);
     } catch {
@@ -47,186 +62,265 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   }, [loadPage]);
 
   if (loading) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
-          <div className="space-y-1.5">
-            <Skeleton className="h-5 w-48" />
-            <Skeleton className="h-3 w-32" />
-          </div>
-          <Skeleton className="h-7 w-14 rounded-lg" />
-        </div>
-        <div className="flex-1 space-y-3 p-6">
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-5/6" />
-          <Skeleton className="h-3 w-4/6" />
-          <Skeleton className="h-3 w-full" />
-          <Skeleton className="h-3 w-3/4" />
-        </div>
-      </div>
-    );
+    return <WikiReaderSkeleton />;
   }
 
   if (!page) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-editorial-canvas">
         <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
       </div>
     );
   }
 
   const typeColor = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
+  const markdown = toMarkdownWithWikiLinks(page.content);
 
   return (
-    <div className="flex h-full flex-col bg-editorial-surface-card">
-      {/* 工具栏 */}
-      <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h1 className="truncate text-[17px] font-semibold text-editorial-ink">{page.title}</h1>
-            <span
-              className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
-              style={{ backgroundColor: typeColor }}
+    <div className="h-full overflow-y-auto bg-editorial-canvas">
+      <div className="mx-auto w-full max-w-[1040px] px-5 py-5 sm:px-8 sm:py-8">
+        <PageMetadataCard
+          page={page}
+          typeColor={typeColor}
+          onEdit={onEdit}
+          onNavigate={onNavigate}
+        />
+
+        <article className="mx-auto max-w-[760px] px-1 pb-16 pt-10 sm:px-5">
+          <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
+            <Streamdown
+              mode="static"
+              plugins={{ cjk, code: lightweightCode, math }}
+              shikiTheme={["github-light", "github-dark"]}
+              components={{
+                a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
+                  if (href?.startsWith("#wikilink-")) {
+                    const target = decodeURIComponent(href.slice("#wikilink-".length));
+                    return (
+                      <button
+                        type="button"
+                        className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 transition-colors hover:decoration-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                        onClick={() => onNavigate(target)}
+                      >
+                        {children}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 transition-colors hover:decoration-editorial-primary"
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+                table: MarkdownTable,
+              }}
             >
-              {WIKI_TYPE_LABELS[page.type] || page.type}
-            </span>
-          </div>
-          {page.path && <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{page.path}</p>}
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEdit}
-            className="h-8 gap-1.5 rounded-lg px-3 text-[12px] text-editorial-ink hover:bg-editorial-surface-soft"
-          >
-            <Pencil size={13} />
-            {t("common.edit")}
-          </Button>
-        </div>
-      </div>
-
-      {/* 内容区 */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[720px] px-8 py-6">
-          {page.tags && page.tags.length > 0 && (
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {page.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-editorial-surface-soft px-2.5 py-1 text-[10px] text-editorial-ink-soft"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {page.sources && page.sources.length > 0 && (
-            <div className="mb-5 flex items-center gap-2 text-[11px] text-editorial-ink-muted">
-              <span className="font-medium text-editorial-ink">{t("wiki.sources")}</span>
-              {page.sources.map((s, i) => (
-                <span key={i} className="rounded-md bg-editorial-surface-soft px-2 py-0.5">
-                  {s}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* 元信息卡片 */}
-          {page.frontmatter && (
-            <div className="mb-6 rounded-xl border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-3 text-[11px] text-editorial-ink-soft">
-              <div className="flex flex-wrap gap-x-6 gap-y-1">
-                {page.type && (
-                  <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.type")}：</span>{" "}
-                    {WIKI_TYPE_LABELS[page.type] || page.type}
-                  </span>
-                )}
-                {page.sources && page.sources.length > 0 && (
-                  <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.sources")}：</span>{" "}
-                    {page.sources.length}
-                  </span>
-                )}
-                {page.tags && page.tags.length > 0 && (
-                  <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.tags")}：</span>{" "}
-                    {page.tags.length}
-                  </span>
-                )}
-                {page.related && page.related.length > 0 && (
-                  <span>
-                    <span className="font-medium text-editorial-ink">{t("wiki.related")}：</span>{" "}
-                    {page.related.length}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Markdown 内容 */}
-          <div className="prose prose-sm max-w-none text-[14px] leading-relaxed text-editorial-ink">
-            <SimpleMarkdown content={page.content} onWikilinkClick={onNavigate} />
+              {markdown}
+            </Streamdown>
           </div>
 
-          {/* 反向链接 */}
           {backlinks.length > 0 && (
-            <div className="mt-10 rounded-xl border border-editorial-surface-strong bg-editorial-canvas-soft p-4">
-              <h3 className="mb-3 text-[13px] font-semibold text-editorial-ink">
+            <section className="mt-12 border-t border-editorial-hairline pt-6">
+              <h2 className="mb-3 text-[14px] font-semibold text-editorial-ink">
                 {t("wiki.backlinksCount", { count: backlinks.length })}
-              </h3>
-              <div className="space-y-1">
-                {backlinks.map((bl) => (
+              </h2>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {backlinks.map((backlink) => (
                   <button
-                    key={bl.page_id}
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[12px] text-editorial-primary transition-colors hover:bg-editorial-surface-soft"
-                    onClick={() => onNavigate(bl.slug)}
+                    key={backlink.page_id}
+                    type="button"
+                    className="group flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                    onClick={() => onNavigate(backlink.slug)}
                   >
-                    <ArrowLeft size={12} className="shrink-0" />
-                    <span className="truncate font-medium">{bl.title}</span>
-                    <span className="shrink-0 text-[10px] text-editorial-ink-muted">{bl.path}</span>
+                    <ArrowLeft
+                      size={13}
+                      className="shrink-0 text-editorial-ink-muted transition-transform group-hover:-translate-x-0.5"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-editorial-primary">
+                      {backlink.title}
+                    </span>
+                    <span className="truncate text-[10px] text-editorial-ink-muted">
+                      {backlink.path}
+                    </span>
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
           )}
-        </div>
+        </article>
       </div>
     </div>
   );
 }
 
-// ─── 简易 Markdown 渲染器（支持 Wiki 链接）───
-
-function SimpleMarkdown({
-  content,
-  onWikilinkClick,
+function PageMetadataCard({
+  page,
+  typeColor,
+  onEdit,
+  onNavigate,
 }: {
-  content: string;
-  onWikilinkClick: (target: string) => void;
+  page: WikiPageRead;
+  typeColor: string;
+  onEdit?: () => void;
+  onNavigate: (target: string) => void;
 }) {
-  const parts = content.split(/(\[\[[^\]|]+\|?[^\]]*\]\])/g);
-
   return (
-    <>
-      {parts.map((part, i) => {
-        const match = part.match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]$/);
-        if (match) {
-          const target = match[1]!;
-          const alias = match[2];
-          return (
-            <button
-              key={i}
-              className="text-editorial-primary underline decoration-editorial-primary/30 underline-offset-2 hover:decoration-editorial-primary"
-              onClick={() => onWikilinkClick(target)}
+    <section className="rounded-2xl border border-editorial-hairline bg-editorial-surface-card p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="rounded-md px-2 py-1 text-[10px] font-semibold tracking-wide text-white"
+              style={{ backgroundColor: typeColor }}
             >
-              {alias || target}
-            </button>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
+              {WIKI_TYPE_LABELS[page.type] || page.type}
+            </span>
+            <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
+          </div>
+          <h1 className="mt-3 text-balance text-[26px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[30px]">
+            {page.title}
+          </h1>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <div className="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-editorial-ink-muted">
+            <CalendarClock size={13} />
+            <span>更新于 {formatUpdatedAt(page.updated_at)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {onEdit && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-[12px] text-editorial-ink hover:bg-editorial-surface-soft"
+                onClick={onEdit}
+              >
+                <Pencil size={13} />
+                编辑
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-editorial-hairline pt-4">
+        <div className="space-y-3">
+          {page.tags.length > 0 && (
+            <MetadataRow icon={<Tags size={13} />} label="标签">
+              {page.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[11px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </MetadataRow>
+          )}
+
+          {page.sources.length > 0 && (
+            <MetadataRow icon={<FileText size={13} />} label={`来源 · ${page.sources.length}`}>
+              {page.sources.map((source) => (
+                <span
+                  key={source}
+                  className="max-w-full truncate rounded-md border border-editorial-hairline bg-editorial-canvas-soft px-2 py-1 text-[11px] text-editorial-ink-soft"
+                  title={source}
+                >
+                  {source}
+                </span>
+              ))}
+            </MetadataRow>
+          )}
+
+          {page.related.length > 0 && (
+            <MetadataRow icon={<Link2 size={13} />} label={`关联 · ${page.related.length}`}>
+              {page.related.map((related) => (
+                <button
+                  key={related}
+                  type="button"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[11px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                  onClick={() => onNavigate(related)}
+                >
+                  {related} ↗
+                </button>
+              ))}
+            </MetadataRow>
+          )}
+        </div>
+      </div>
+    </section>
   );
+}
+
+function MetadataRow({
+  icon,
+  label,
+  children,
+}: {
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-editorial-ink-muted">
+      <span className="mt-1 shrink-0">{icon}</span>
+      <span className="w-[54px] shrink-0 pt-0.5 text-[11px]">{label}</span>
+      <div className="flex min-w-0 flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
+}
+
+function MarkdownTable({ children, ...props }: { children?: ReactNode; [key: string]: unknown }) {
+  return (
+    <div className="my-6 max-w-full overflow-x-auto rounded-lg border border-editorial-hairline">
+      <table {...props}>{children}</table>
+    </div>
+  );
+}
+
+function WikiReaderSkeleton() {
+  return (
+    <div className="h-full overflow-y-auto bg-editorial-canvas p-5 sm:p-8">
+      <div className="mx-auto max-w-[1040px] rounded-2xl border border-editorial-hairline bg-editorial-surface-card p-6">
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="mt-4 h-9 w-56" />
+        <Skeleton className="mt-6 h-12 w-full" />
+      </div>
+      <div className="mx-auto mt-10 max-w-[720px] space-y-4 px-5">
+        <Skeleton className="h-7 w-36" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-11/12" />
+        <Skeleton className="h-4 w-9/12" />
+      </div>
+    </div>
+  );
+}
+
+function toMarkdownWithWikiLinks(content: string) {
+  return content.replace(
+    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
+    (_match, target: string, alias?: string) => {
+      const resolvedTarget = target.trim();
+      const label = (alias || target).trim();
+      return `[${label}](#wikilink-${encodeURIComponent(resolvedTarget)})`;
+    },
+  );
+}
+
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }

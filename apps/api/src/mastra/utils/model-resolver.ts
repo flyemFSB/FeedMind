@@ -21,13 +21,13 @@ export async function resolveChatModel(requestContext?: {
       const { client, modelName } = await resolveModelClient(Number(modelId));
       return client.chat(modelName);
     } catch {
-      // fall through to fallback
+      // 请求级模型解析失败，回退到已选模型
     }
   }
 
   const selected = await cachedGet("getSelectedModel", () => getSelectedModel());
   if (!selected.id) {
-    throw new Error("No model configured. Please add an LLM model in Settings, then try again.");
+    throw new Error("未配置模型。请在设置中添加一个 LLM 模型后再试。");
   }
 
   const { client, modelName } = await resolveModelClient(selected.id);

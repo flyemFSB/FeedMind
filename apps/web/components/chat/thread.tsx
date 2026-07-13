@@ -33,13 +33,13 @@ export function Thread({ className, contentClassName }: ThreadProps) {
   return (
     <div
       className={cn(
-        "compact-chat relative flex h-full min-h-0 flex-col overflow-hidden bg-editorial-surface-card",
+        "compact-chat relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-editorial-surface-card",
         className,
       )}
     >
       <Conversation>
         <ConversationContent
-          className={cn("w-full mx-auto px-4 pt-6 pb-[155px]", contentClassName)}
+          className={cn("w-full min-w-0 mx-auto px-4 pt-6 pb-[155px]", contentClassName)}
         >
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
@@ -85,6 +85,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="min-w-0"
                 >
                   <MessageParts
                     message={message}

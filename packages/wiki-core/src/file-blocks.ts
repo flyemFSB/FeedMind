@@ -70,19 +70,17 @@ export function parseFileBlocks(text: string): ParseFileBlocksResult {
     }
 
     if (!closed) {
-      warnings.push(
-        `FILE block "${path || "(unnamed)"}" was not closed before end of stream — dropped.`,
-      );
+      warnings.push(`FILE 块 "${path || "(未命名)"}" 在流结束前未关闭 — 已丢弃。`);
       continue;
     }
 
     if (!path) {
-      warnings.push("FILE block with empty path skipped.");
+      warnings.push("路径为空的 FILE 块已跳过。");
       continue;
     }
 
     if (!isSafeIngestPath(path)) {
-      warnings.push(`FILE block with unsafe path "${path}" rejected.`);
+      warnings.push(`路径不安全的 FILE 块 "${path}" 已拒绝。`);
       continue;
     }
 
@@ -104,7 +102,7 @@ export function isSafeIngestPath(p: string): boolean {
   const segments = normalized.split("/");
   if (segments.some((s) => s === ".." || s === ".")) return false;
 
-  // Must live under wiki/
+  // 路径必须在 wiki/ 下
   if (!normalized.startsWith("wiki/")) return false;
 
   return true;

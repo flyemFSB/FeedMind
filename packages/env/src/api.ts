@@ -16,6 +16,8 @@ export const apiEnv = createEnv({
     WIKI_DIR: z.string().optional(),
     /** 爬虫回调 API 地址（反向代理场景覆盖） */
     API_BASE_URL: z.string().optional(),
+    /** Pino 日志最低输出级别 */
+    LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
   },
   runtimeEnv: process.env,
   skipValidation:

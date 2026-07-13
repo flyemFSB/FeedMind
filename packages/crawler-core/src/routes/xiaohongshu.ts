@@ -15,6 +15,63 @@ import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.j
 import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
 const XHS_SALT = "i+X,MqLqFLwG";
+
+/** 小红书笔记数据结构（仅包含实际使用的字段） */
+interface XhsNote {
+  note_id?: string;
+  id?: string;
+  note_card?: XhsNote;
+  type?: string;
+  title?: string;
+  display_title?: string;
+  desc?: string;
+  time?: number;
+  user?: { nickname?: string; nickName?: string };
+  tag_list?: XhsTag[];
+  tagList?: XhsTag[];
+  imageList?: XhsImage[];
+  cover?: { urlDefault?: string };
+  video?: {
+    consumer?: { originVideoKey?: string };
+    media?: { stream?: Record<string, XhsStream[]> };
+  };
+}
+
+/** 小红书标签 */
+interface XhsTag {
+  name?: string;
+}
+
+/** 小红书图片 */
+interface XhsImage {
+  urlDefault?: string;
+  url?: string;
+  livePhoto?: boolean;
+  stream?: Record<string, XhsStream[]>;
+}
+
+/** 小红书视频流 */
+interface XhsStream {
+  masterUrl?: string;
+  backupUrls?: string[];
+}
+
+/** 小红书搜索 API 响应 */
+interface XhsSearchResponse {
+  data?: { items?: XhsNote[] };
+}
+
+/** 小红书 __INITIAL_STATE__ 中用户数据结构 */
+interface XhsInitialState {
+  user?: {
+    notes?: unknown;
+    collect?: unknown;
+  };
+  note?: {
+    noteDetailMap?: Record<string, { note?: XhsNote }>;
+    firstNoteId?: string;
+  };
+}
 const BASE_URL = "https://edith.xiaohongshu.com";
 
 function generateSignature(path: string, body: string, xt: string): string {
@@ -40,11 +97,11 @@ function buildXhsHeaders(path: string, body: string, cookies?: string): Record<s
 
 // ─── 辅助函数 ────────────────────────────────────────────────────
 
-function extractInitialState(html: string): any {
+function extractInitialState(html: string): XhsInitialState | null {
   const $ = load(html);
   const scriptText = $("script")
-    .filter((_i: number, el: any) => {
-      const text = el.children?.[0]?.data || "";
+    .filter((_i, el) => {
+      const text = (el as { children?: { data?: string }[] })?.children?.[0]?.data || "";
       return text.startsWith("window.__INITIAL_STATE__=");
     })
     .text();
@@ -53,18 +110,18 @@ function extractInitialState(html: string): any {
 
   const json = scriptText.slice("window.__INITIAL_STATE__=".length).replaceAll("undefined", "null");
   try {
-    return JSON.parse(json);
+    return JSON.parse(json) as XhsInitialState | null;
   } catch {
     return null;
   }
 }
 
-function extractNotesFromState(state: any): any[] {
+function extractNotesFromState(state: XhsInitialState | null): XhsNote[] {
   const notes = state?.user?.notes ?? [];
   return Array.isArray(notes)
-    ? notes.flat()
-    : Array.isArray(notes._rawValue)
-      ? notes._rawValue
+    ? (notes.flat() as XhsNote[])
+    : Array.isArray((notes as { _rawValue?: unknown[] })?._rawValue)
+      ? (notes as { _rawValue: XhsNote[] })._rawValue
       : [];
 }
 
@@ -72,7 +129,7 @@ function formatText(text: string): string {
   return text.replace(/(\r\n|\r|\n)/g, "<br>").replace("\t", "&emsp;");
 }
 
-function formatTagList(tagList: any[]): string {
+function formatTagList(tagList: XhsTag[] | undefined): string {
   if (!tagList?.length) return "";
   return tagList.map((item) => `#${item.name} `).join("");
 }
@@ -80,7 +137,7 @@ function formatTagList(tagList: any[]): string {
 /**
  * 从笔记详情提取视频流媒体 HTML
  */
-function buildMediaHtml(note: any, displayLivePhoto = false): string {
+function buildMediaHtml(note: XhsNote, displayLivePhoto = false): string {
   let mediaContent = "";
 
   if (note.type === "video") {
@@ -91,10 +148,10 @@ function buildMediaHtml(note: any, displayLivePhoto = false): string {
       videoUrls.push(`http://sns-video-al.xhscdn.com/${originVideoKey}`);
     }
 
-    const streamTypes = ["av1", "h264", "h265", "h266"];
+    const streamTypes = ["av1", "h264", "h265", "h266"] as const;
     for (const type of streamTypes) {
       const streams = note.video?.media?.stream?.[type];
-      if (streams?.length > 0) {
+      if (streams && streams.length > 0) {
         const stream = streams[0];
         if (stream.masterUrl) {
           videoUrls.push(stream.masterUrl);
@@ -114,13 +171,13 @@ function buildMediaHtml(note: any, displayLivePhoto = false): string {
     }
   } else if (note.imageList?.length) {
     mediaContent = note.imageList
-      .map((image: any) => {
+      .map((image: XhsImage) => {
         if (image.livePhoto && displayLivePhoto) {
           const videoUrls: string[] = [];
-          const streamTypes = ["av1", "h264", "h265", "h266"];
+          const streamTypes = ["av1", "h264", "h265", "h266"] as const;
           for (const type of streamTypes) {
             const streams = image.stream?.[type];
-            if (streams?.length > 0) {
+            if (streams && streams.length > 0) {
               if (streams[0].masterUrl) videoUrls.push(streams[0].masterUrl);
               if (streams[0].backupUrls?.length) videoUrls.push(...streams[0].backupUrls);
             }
@@ -140,7 +197,7 @@ function buildMediaHtml(note: any, displayLivePhoto = false): string {
 /**
  * 获取笔记完整内容（含视频流 URL）
  */
-function enrichNoteDescription(note: any): string {
+function enrichNoteDescription(note: XhsNote): string {
   if (!note) return "";
   const mediaHtml = buildMediaHtml(note);
   const tagHtml = formatTagList(note.tag_list || note.tagList);
@@ -148,11 +205,23 @@ function enrichNoteDescription(note: any): string {
   return [mediaHtml, tagHtml, descHtml].filter(Boolean).join("<br><br>");
 }
 
-function noteToRssItem(note: any, tag?: string): any {
+/** 小红书 RSS 条目 */
+interface XhsRssItem {
+  title: string;
+  description: string;
+  link: string;
+  guid: string;
+  pubDate: string;
+  author?: string;
+  category?: string[];
+  image?: string;
+}
+
+function noteToRssItem(note: XhsNote, tag?: string): XhsRssItem | null {
   const noteCard = note.note_card || note;
   if (!noteCard?.note_id && !noteCard?.id) return null;
 
-  const id = noteCard.note_id || noteCard.id;
+  const id = noteCard.note_id || noteCard.id || "";
   const firstImage = noteCard.imageList?.[0]?.urlDefault || noteCard.cover?.urlDefault;
 
   return {
@@ -177,7 +246,7 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let items: any[] = [];
+    let items: XhsRssItem[] = [];
 
     if (cookies) {
       const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
@@ -194,8 +263,8 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
       const notes = extractNotesFromState(state);
       items = notes
         .slice(0, maxItems)
-        .map((n: any) => noteToRssItem(n))
-        .filter(Boolean);
+        .map((n) => noteToRssItem(n))
+        .filter((item): item is XhsRssItem => item !== null);
     } else {
       const browser = await createBrowser();
       try {
@@ -205,9 +274,9 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
         await page.route("**/*", (route) => {
           const type = route.request().resourceType();
           if (["image", "media", "font", "stylesheet"].includes(type)) {
-            route.abort();
+            void route.abort();
           } else {
-            route.continue();
+            void route.continue();
           }
         });
         await injectCookies(page, cookies, ".xiaohongshu.com");
@@ -215,13 +284,15 @@ const userNotesHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
           waitUntil: "domcontentloaded",
           timeout: 30_000,
         });
-        const initialState: any = await page.evaluate("window.__INITIAL_STATE__ || null");
+        const initialState = (await page.evaluate(
+          "window.__INITIAL_STATE__ || null",
+        )) as XhsInitialState | null;
         if (initialState) {
           const notes = extractNotesFromState(initialState);
           items = notes
             .slice(0, maxItems)
-            .map((n: any) => noteToRssItem(n))
-            .filter(Boolean);
+            .map((n) => noteToRssItem(n))
+            .filter((item): item is XhsRssItem => item !== null);
         }
       } finally {
         await closeBrowser();
@@ -253,7 +324,7 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let items: any[] = [];
+    let items: XhsRssItem[] = [];
 
     if (cookies) {
       const url = `https://www.xiaohongshu.com/user/profile/${userId}`;
@@ -268,11 +339,11 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
       const html = await res.text();
       const state = extractInitialState(html);
       const collect = state?.user?.collect ?? [];
-      const collectList = Array.isArray(collect) ? collect : [];
+      const collectList = Array.isArray(collect) ? (collect as XhsNote[]) : [];
       items = collectList
         .slice(0, maxItems)
-        .map((n: any) => noteToRssItem(n))
-        .filter(Boolean);
+        .map((n) => noteToRssItem(n))
+        .filter((item): item is XhsRssItem => item !== null);
     } else {
       const browser = await createBrowser();
       try {
@@ -282,9 +353,9 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
         await page.route("**/*", (route) => {
           const type = route.request().resourceType();
           if (["image", "media", "font", "stylesheet"].includes(type)) {
-            route.abort();
+            void route.abort();
           } else {
-            route.continue();
+            void route.continue();
           }
         });
         await injectCookies(page, cookies, ".xiaohongshu.com");
@@ -298,7 +369,7 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
         const hasTab = await page.$(tabSelector);
         if (hasTab) {
           const responsePromise = page.waitForResponse(
-            (res: any) => {
+            (res) => {
               const req = res.request();
               return (
                 req.url().includes("/api/sns/web/v2/note/collect/page") && req.method() === "GET"
@@ -310,14 +381,16 @@ const userCollectHandler: RouteHandler = async ({ params, cookies, abortSignal, 
           await responsePromise; // 等待接口返回
         }
 
-        const initialState: any = await page.evaluate("window.__INITIAL_STATE__ || null");
+        const initialState = (await page.evaluate(
+          "window.__INITIAL_STATE__ || null",
+        )) as XhsInitialState | null;
         if (initialState) {
           const collect = initialState?.user?.collect ?? [];
-          const collectList = Array.isArray(collect) ? collect : [];
+          const collectList = Array.isArray(collect) ? (collect as XhsNote[]) : [];
           items = collectList
             .slice(0, maxItems)
-            .map((n: any) => noteToRssItem(n))
-            .filter(Boolean);
+            .map((n) => noteToRssItem(n))
+            .filter((item): item is XhsRssItem => item !== null);
         }
       } finally {
         await closeBrowser();
@@ -349,7 +422,7 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let noteData: any = null;
+    let noteData: XhsNote | null = null;
 
     if (cookies) {
       const url = `https://www.xiaohongshu.com/explore/${noteId}`;
@@ -365,7 +438,7 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
       const state = extractInitialState(html);
       const detailMap = state?.note?.noteDetailMap ?? {};
       const firstNoteId = state?.note?.firstNoteId;
-      noteData = detailMap[firstNoteId]?.note ?? null;
+      noteData = firstNoteId ? (detailMap[firstNoteId]?.note ?? null) : null;
     } else {
       const browser = await createBrowser();
       try {
@@ -375,9 +448,9 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
         await page.route("**/*", (route) => {
           const type = route.request().resourceType();
           if (["image", "media", "font", "stylesheet"].includes(type)) {
-            route.abort();
+            void route.abort();
           } else {
-            route.continue();
+            void route.continue();
           }
         });
         await injectCookies(page, cookies, ".xiaohongshu.com");
@@ -385,11 +458,13 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
           waitUntil: "domcontentloaded",
           timeout: 30_000,
         });
-        const initialState: any = await page.evaluate("window.__INITIAL_STATE__ || null");
+        const initialState = (await page.evaluate(
+          "window.__INITIAL_STATE__ || null",
+        )) as XhsInitialState | null;
         if (initialState) {
           const detailMap = initialState?.note?.noteDetailMap ?? {};
           const firstNoteId = initialState?.note?.firstNoteId;
-          noteData = detailMap[firstNoteId]?.note ?? null;
+          noteData = firstNoteId ? (detailMap[firstNoteId]?.note ?? null) : null;
         }
       } finally {
         await closeBrowser();
@@ -460,13 +535,13 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
       throw new Error(`XHS API ${res.status}: ${res.statusText}`);
     }
 
-    const json = (await res.json()) as any;
+    const json = (await res.json()) as XhsSearchResponse;
     const notes = json?.data?.items ?? [];
     const items = notes
-      .filter((n: any) => n.note_card)
+      .filter((n) => n.note_card)
       .slice(0, maxItems)
-      .map((n: any) => noteToRssItem(n.note_card, keyword))
-      .filter(Boolean);
+      .map((n) => noteToRssItem(n.note_card!, keyword))
+      .filter((item): item is XhsRssItem => item !== null);
 
     return {
       rssXml: buildRssXml({

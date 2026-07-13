@@ -156,7 +156,9 @@ function closeWsClient(): void {
     if (ws?.removeAllListeners) ws.removeAllListeners("close");
     if (ws?.removeAllListeners) ws.removeAllListeners("error");
     if (ws?.close) ws.close();
-  } catch {}
+  } catch {
+    /* closeWsClient 尽力而为 */
+  }
   wsClient = null;
 }
 
@@ -180,7 +182,7 @@ function scheduleReconnect(): void {
   logger.info({ delay, attempt: reconnectAttempt }, "飞书计划重连");
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
-    reconnect();
+    void reconnect();
   }, delay);
 }
 
@@ -194,7 +196,9 @@ function startHealthCheck(): void {
         logger.warn("健康检查：飞书 WebSocket 已关闭，准备重连");
         scheduleReconnect();
       }
-    } catch {}
+    } catch {
+      /* 健康检查尽力而为 */
+    }
   }, HEALTH_CHECK_INTERVAL_MS);
 }
 
@@ -212,7 +216,9 @@ function attachWsEventListeners(): void {
       logger.error({ err }, "飞书 WebSocket 连接错误");
       if (!isStopping) scheduleReconnect();
     });
-  } catch {}
+  } catch {
+    /* attachWsEventListeners 尽力而为 */
+  }
 }
 
 export async function startLongConnection(): Promise<void> {

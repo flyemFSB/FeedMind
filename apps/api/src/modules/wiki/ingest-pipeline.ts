@@ -11,7 +11,8 @@ import {
   getFileStem,
 } from "@feedmind/wiki-core";
 import { buildSystemPrompt, buildAnalysisPrompt, buildGenerationPrompt } from "./ingest-prompts.js";
-import { getSpaceDir } from "./space-fs/index.js";
+import { getSpaceDir, isSystemFile } from "./space-fs/index.js";
+import { logger } from "../../lib/logger.js";
 
 // ─── 配置 ──────────────────────────────────────────────────────
 
@@ -40,7 +41,7 @@ function readSourceContent(
 } {
   const fPath = sourceFilePath(spaceId, sourceIdentity);
   if (!fs.existsSync(fPath)) {
-    throw new Error(`Source file not found: ${fPath}`);
+    throw new Error(`源文件未找到: ${fPath}`);
   }
 
   const raw = fs.readFileSync(fPath, "utf-8");
@@ -60,8 +61,7 @@ function readSourceContent(
   // 截断超长内容
   if (content.length > MAX_SOURCE_CHARS) {
     content =
-      content.slice(0, MAX_SOURCE_CHARS) +
-      `\n\n[... content truncated at ${MAX_SOURCE_CHARS} characters ...]`;
+      content.slice(0, MAX_SOURCE_CHARS) + `\n\n[... 内容在 ${MAX_SOURCE_CHARS} 字符处截断 ...]`;
   }
 
   return {
@@ -101,7 +101,7 @@ function readSpaceContext(spaceId: string): SpaceContext {
 
       for (const entry of mdFiles) {
         const slug = entry.name.replace(/\.md$/, "");
-        if (slug === "index" || slug === "log" || slug === "overview") continue;
+        if (isSystemFile(entry.name)) continue;
 
         const fullPath = path.join(dir, entry.name);
         try {
@@ -172,10 +172,9 @@ async function stage1Analysis(
       { role: "system", content: systemPrompt },
       { role: "user", content: analysisPrompt },
     ],
-    { responseFormat: "json", maxTokens: 4096 },
+    { responseFormat: "json" },
   );
 
-  // 尝试解析 JSON 响应，失败时抛出详细错误
   try {
     const parsed = JSON.parse(raw);
 
@@ -188,7 +187,7 @@ async function stage1Analysis(
     };
   } catch (err) {
     throw new Error(
-      `Failed to parse analysis JSON from LLM response: ${err instanceof Error ? err.message : String(err)}\nRaw: ${raw.slice(0, 300)}`,
+      `LLM 响应的分析 JSON 解析失败: ${err instanceof Error ? err.message : String(err)}\nRaw: ${raw.slice(0, 300)}`,
       { cause: err },
     );
   }
@@ -209,6 +208,7 @@ async function stage2Generation(
     sourceIdentity,
   );
 
+  // stage2 生成阶段需要更多 token 空间以输出完整的 Wiki 页面内容
   return llmClient.chat(
     [
       { role: "system", content: systemPrompt },
@@ -305,10 +305,10 @@ function updateIndex(
   }
 
   if (!content.trim()) {
-    content = "# Page Index\n\nAuto-managed index of all wiki pages.\n\n";
+    content = "# Page Index\n\nWiki 页面索引（自动维护）。\n\n";
   }
 
-  // Group new pages by type
+  // 按类型分组新页面
   const byType = new Map<string, Array<{ path: string; title: string }>>();
   for (const page of newPages) {
     const t = page.type || "concept";
@@ -317,7 +317,7 @@ function updateIndex(
     byType.set(t, list);
   }
 
-  // Append new entries under type headers
+  // 在类型标题下追加新条目
   let additions = "";
   for (const [type, pages] of byType) {
     additions += `\n### ${type}\n`;
@@ -427,6 +427,7 @@ export async function runIngest(
     model: runtime.model_name,
   });
   addLog(`Wiki LLM: ${runtime.model_name}`);
+  logger.info({ model: runtime.model_name }, "Wiki 导入开始");
 
   // 步骤 1：读取源内容
   const sourceIdentity = extractIdentity(sourcePath);
@@ -437,7 +438,7 @@ export async function runIngest(
     reportProgress(`读取源文件: ${sourceIdentity} (${sourceContent.length} 字符)`, 1);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to read source: ${msg}`, { cause: err });
+    throw new Error(`读取源文件失败: ${msg}`, { cause: err });
   }
 
   // 步骤 2：读取空间上下文
@@ -450,8 +451,9 @@ export async function runIngest(
   try {
     analysis = await stage1Analysis(sourceContent, context, llmClient);
     addLog(
-      `分析完成: ${analysis.keyEntities.length} 个实体, ` + `${analysis.keyConcepts.length} 个概念`,
+      `分析完成: ${analysis.keyEntities.length} 个实体, ${analysis.keyConcepts.length} 个概念`,
     );
+    logger.info({ spaceId, entityCount: analysis.keyEntities.length }, "阶段一分析完成");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`阶段一（分析）失败: ${msg}`, { cause: err });
@@ -467,7 +469,8 @@ export async function runIngest(
       sourceIdentity,
       llmClient,
     );
-    addLog(`生成完成 (${generationText.length} 字符)`);
+    addLog(`阶段二生成完成 (${generationText.length} 字符)`);
+    logger.info({ spaceId, charCount: generationText.length }, "阶段二生成完成");
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`阶段二（生成）失败: ${msg}`, { cause: err });
@@ -477,20 +480,20 @@ export async function runIngest(
   const { blocks, warnings: parseWarnings } = parseFileBlocks(generationText);
   for (const w of parseWarnings) {
     warnings.push(w);
-    addLog(`Warning: ${w}`);
+    addLog(`警告: ${w}`);
   }
-  addLog(`Parsed ${blocks.length} FILE blocks`);
+  addLog(`解析到 ${blocks.length} 个 FILE 块`);
 
   if (blocks.length === 0) {
-    warnings.push("No valid FILE blocks generated by LLM");
-    addLog("Warning: No valid FILE blocks generated");
+    warnings.push("LLM 未生成有效的 FILE 块");
+    addLog("警告: LLM 未生成有效的 FILE 块");
     return { pagesCreated: 0, pagesUpdated: 0, warnings, log };
   }
 
   // 步骤 5：写入页面
   reportProgress("正在写入页面...", 4);
   const { created, updated } = processFileBlocks(spaceId, blocks, sourceIdentity);
-  addLog(`Written: ${created.length} created, ${updated.length} updated`);
+  addLog(`写入完成: ${created.length} 个新建, ${updated.length} 个更新`);
 
   // 更新 index.md
   const newPageEntries = [...created, ...updated].map((p) => ({
@@ -503,7 +506,7 @@ export async function runIngest(
   // 更新 log.md
   updateLog(
     spaceId,
-    `Ingested "${sourceIdentity}": ${created.length} pages created, ${updated.length} updated`,
+    `已导入 "${sourceIdentity}": ${created.length} 个页面新建, ${updated.length} 个更新`,
   );
 
   // 用源摘要更新 overview.md
@@ -512,6 +515,10 @@ export async function runIngest(
   }
 
   reportProgress("导入完成", 5);
+  logger.info(
+    { spaceId, pagesCreated: created.length, pagesUpdated: updated.length },
+    "Wiki 导入完成",
+  );
 
   return {
     pagesCreated: created.length,

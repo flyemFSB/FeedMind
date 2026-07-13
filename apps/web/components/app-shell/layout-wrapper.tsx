@@ -1,14 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
+import type { ReactNode } from "react";
 import { Topbar } from "./topbar";
 
 interface LayoutWrapperProps {
-  children: React.ReactNode;
-  title: React.ReactNode;
+  children: ReactNode;
+  title: ReactNode;
   subtitle?: string;
   showModelSelector?: boolean;
-  topRightContent?: React.ReactNode;
+  topRightContent?: ReactNode;
 }
 
 /**
@@ -24,7 +25,7 @@ export function LayoutWrapper({
   topRightContent,
 }: LayoutWrapperProps) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card">
       <Topbar
         title={title}
         subtitle={subtitle}
@@ -37,7 +38,7 @@ export function LayoutWrapper({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
-          className="min-w-0 flex-1 overflow-y-auto h-full"
+          className="h-full min-h-0 min-w-0 flex-1 overflow-y-auto"
         >
           {children}
         </motion.main>

@@ -1,25 +1,25 @@
 /**
- * Core types for the route handler pattern.
+ * 路由处理器参数与结果类型定义。
  *
- * Replaces the old ContentModel/CreatorModel/CrawlerStore pattern.
- * Each route handler is a standalone async function with a consistent signature.
+ * 替代旧的 ContentModel/CreatorModel/CrawlerStore 模式，
+ * 每个路由处理器是具有一致签名的独立异步函数。
  */
 
 export interface RouteHandlerParams {
-  /** Route-specific parameters (e.g. { user_id: "..." }) */
+  /** 路由特定参数（如 { user_id: "..." }） */
   params: Record<string, unknown>;
-  /** Optional cookies for authenticated requests */
+  /** 可选的认证 Cookie */
   cookies?: string;
-  /** AbortSignal for task cancellation */
+  /** 任务取消信号 */
   abortSignal: AbortSignal;
-  /** Maximum number of items to return in RSS feed */
+  /** RSS 输出的最大条目数 */
   maxItems: number;
 }
 
 export interface RouteHandlerResult {
-  /** RSS 2.0 XML string */
+  /** RSS 2.0 XML 字符串 */
   rssXml: string;
-  /** Optional metadata for logging */
+  /** 可选的日志元数据 */
   metadata?: {
     itemCount: number;
     platform: string;

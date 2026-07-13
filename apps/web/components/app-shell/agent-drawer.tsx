@@ -151,7 +151,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         </div>
 
         {/* 聊天线程 */}
-        <div className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1">
           <Thread className="bg-editorial-surface-card" />
         </div>
       </div>

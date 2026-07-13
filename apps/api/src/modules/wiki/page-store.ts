@@ -1,5 +1,5 @@
 import path from "node:path";
-import { parseFrontmatter, buildPageContent } from "@feedmind/wiki-core";
+import { buildPageContent, normalizeWikilinkTarget, parseFrontmatter } from "@feedmind/wiki-core";
 import type {
   WikiPageCreate,
   WikiPageListItem,
@@ -221,9 +221,14 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
     };
   }
 
-  const normalized = target.toLowerCase().replace(/\s+/g, "-");
+  const normalized = normalizeWikilinkTarget(target.replace(/\\/g, "/").replace(/\.md$/i, ""));
+  const pathTarget = normalized.replace(/^wiki\//, "");
   const matches = slugList.filter(
-    (s) => s.slug.toLowerCase() === normalized || s.slug.toLowerCase() === target.toLowerCase(),
+    (s) =>
+      normalizeWikilinkTarget(s.slug) === normalized ||
+      normalizeWikilinkTarget(s.title) === normalized ||
+      normalizeWikilinkTarget(s.path.replace(/\.md$/i, "")) === normalized ||
+      normalizeWikilinkTarget(s.path.replace(/^wiki\//, "").replace(/\.md$/i, "")) === pathTarget,
   );
 
   if (matches.length === 1) {

@@ -118,7 +118,7 @@ export type ToolOutputProps = ComponentProps<"div"> & {
 export function Tool({ className, defaultOpen, ...props }: ToolProps) {
   return (
     <Collapsible
-      className={cn("w-full", className)}
+      className={cn("w-full min-w-0", className)}
       defaultOpen={defaultOpen ?? false}
       {...props}
     />
@@ -165,7 +165,9 @@ export function ToolHeader({
 
 /* ── ToolContent ── */
 export function ToolContent({ className, ...props }: ToolContentProps) {
-  return <CollapsibleContent className={cn("px-3 pb-2 pt-1 space-y-2", className)} {...props} />;
+  return (
+    <CollapsibleContent className={cn("min-w-0 px-3 pb-2 pt-1 space-y-2", className)} {...props} />
+  );
 }
 
 /* ── ToolInput — 格式化参数展示 ── */
@@ -177,11 +179,11 @@ export function ToolInput({ className, input, ...props }: ToolInputProps) {
   if (!formatted || formatted === "{}" || formatted === '""') return null;
 
   return (
-    <div className={cn(className)} {...props}>
+    <div className={cn("min-w-0", className)} {...props}>
       <div className="mb-0.5 text-[11px] font-medium text-editorial-ink-muted tracking-wide uppercase">
         {t("chat.toolArgs")}
       </div>
-      <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/50 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-ink-soft font-mono [scrollbar-gutter:stable]">
+      <pre className="w-full max-w-full max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/50 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-ink-soft font-mono [scrollbar-gutter:stable]">
         {formatted}
       </pre>
     </div>
@@ -194,7 +196,7 @@ export function ToolOutput({ className, output, errorText, ...props }: ToolOutpu
   if (!output && !errorText) return null;
 
   return (
-    <div className={cn(className)} {...props}>
+    <div className={cn("min-w-0", className)} {...props}>
       <div
         className={cn(
           "mb-0.5 text-[11px] font-medium tracking-wide uppercase",
@@ -205,13 +207,13 @@ export function ToolOutput({ className, output, errorText, ...props }: ToolOutpu
       </div>
 
       {errorText && (
-        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-semantic-error/20 bg-editorial-semantic-error/5 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-semantic-error font-mono [scrollbar-gutter:stable]">
+        <pre className="w-full max-w-full max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-semantic-error/20 bg-editorial-semantic-error/5 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-semantic-error font-mono [scrollbar-gutter:stable]">
           {errorText}
         </pre>
       )}
 
       {output && typeof output === "string" && (
-        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/50 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-ink-soft font-mono [scrollbar-gutter:stable]">
+        <pre className="w-full max-w-full max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/50 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-ink-soft font-mono [scrollbar-gutter:stable]">
           {output}
         </pre>
       )}

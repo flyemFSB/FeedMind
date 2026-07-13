@@ -1,9 +1,8 @@
 /**
- * AgentBrowser singleton factory and lifecycle management.
+ * AgentBrowser 单例工厂与生命周期管理。
  *
- * Provides a shared AgentBrowser instance for route handlers that
- * need browser automation. Each handler should call createBrowser()
- * at the start of execution and closeBrowser() in cleanup.
+ * 为需要浏览器自动化路由处理器提供共享实例。
+ * 处理器在执行开始时调用 createBrowser()，清理时调用 closeBrowser()。
  */
 import { AgentBrowser } from "@mastra/agent-browser";
 
@@ -11,10 +10,7 @@ let _browserInstance: AgentBrowser | null = null;
 let _refCount = 0;
 let _pendingCreate: Promise<AgentBrowser> | null = null;
 
-/**
- * Get or create the shared AgentBrowser instance.
- * Uses single-flight 模式确保并发调用只创建一个实例。
- */
+/** 获取或创建共享的 AgentBrowser 实例。并发调用只创建一个实例（single-flight）。 */
 export async function createBrowser(): Promise<AgentBrowser> {
   if (_browserInstance) {
     _refCount++;
@@ -46,10 +42,7 @@ export async function createBrowser(): Promise<AgentBrowser> {
   return _pendingCreate;
 }
 
-/**
- * Release a reference to the shared browser.
- * When all references are released, the browser is closed.
- */
+/** 释放共享浏览器引用，所有引用释放后自动关闭浏览器。 */
 export async function closeBrowser(): Promise<void> {
   _refCount--;
   if (_refCount <= 0 && _browserInstance) {
@@ -68,6 +61,7 @@ export async function closeBrowser(): Promise<void> {
  * @param domain - Cookie 所属域名，例如 ".bilibili.com"
  */
 export async function injectCookies(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Playwright Page 类型未直接导入
   page: any,
   cookieStr: string | undefined,
   domain: string,

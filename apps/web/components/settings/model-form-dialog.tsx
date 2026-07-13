@@ -86,8 +86,8 @@ export function ModelFormDialog({
           modelId: initialModel.modelId ?? displayNameToModelId(initialModel.modelName),
           baseUrl: initialModel.baseUrl,
           apiKey: "",
-          context: "",
-          maxOutput: "",
+          context: initialModel.contextWindow ?? "",
+          maxOutput: initialModel.maxOutput ?? "",
         }
       : EMPTY_FORM,
   );
@@ -99,8 +99,6 @@ export function ModelFormDialog({
 
   const isCustom = form.provider === CUSTOM_PROVIDER;
   const modelList = !isCustom ? (PROVIDER_MODELS[form.provider] ?? []) : [];
-  const selectedModelInfo = lookupModelInfo(form.provider, form.modelName);
-
   function handleProviderChange(value: string | null) {
     if (!value) return;
     setForm((current) => ({
@@ -351,50 +349,37 @@ export function ModelFormDialog({
               </button>
             </div>
           </div>
-          {isCustom ? (
-            <>
-              <div className="col-span-2 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-                    上下文窗口（KB）{" "}
-                    <span className="font-normal text-[10px] text-editorial-ink-muted">
-                      1M = 1000K
-                    </span>
-                  </label>
-                  <Input
-                    type="number"
-                    value={form.context}
-                    onChange={(e) => setForm((c) => ({ ...c, context: e.target.value }))}
-                    placeholder="例如: 128"
-                    className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-                    最大输出（KB）
-                  </label>
-                  <Input
-                    type="number"
-                    value={form.maxOutput}
-                    onChange={(e) => setForm((c) => ({ ...c, maxOutput: e.target.value }))}
-                    placeholder="例如: 32"
-                    className="h-10 rounded-xl border-editorial-hairline text-[13px]"
-                  />
-                </div>
-              </div>
-            </>
-          ) : selectedModelInfo ? (
-            <div className="col-span-2 flex items-center gap-3 text-[12px] text-editorial-ink-muted">
-              <span className="flex items-center gap-1">
-                <span className="font-medium text-editorial-ink-soft">上下文窗口:</span>
-                <span>{formatKB(selectedModelInfo.context)}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="font-medium text-editorial-ink-soft">最大输出:</span>
-                <span>{formatKB(selectedModelInfo.maxOutput)}</span>
-              </span>
+          <div className="col-span-2 grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+                上下文窗口（KB）{" "}
+                <span className="font-normal text-[10px] text-editorial-ink-muted">1M = 1000K</span>
+              </label>
+              <Input
+                type="number"
+                value={form.context}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, context: event.target.value }))
+                }
+                placeholder="例如: 128"
+                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+              />
             </div>
-          ) : null}
+            <div>
+              <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
+                最大输出（KB）
+              </label>
+              <Input
+                type="number"
+                value={form.maxOutput}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, maxOutput: event.target.value }))
+                }
+                placeholder="例如: 32"
+                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+              />
+            </div>
+          </div>
         </div>
         <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
           <Button onClick={handleClose} variant="ghost" className="rounded-xl px-4 text-[13px]">

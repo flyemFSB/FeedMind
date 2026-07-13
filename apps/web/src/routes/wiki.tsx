@@ -87,17 +87,19 @@ function MyWikiPage() {
   spaceIdRef.current = spaceId;
 
   const handleWikilinkClick = useCallback(
-    async (target: string) => {
+    async (target: string): Promise<string | null> => {
       const currentSpaceId = spaceIdRef.current;
-      if (!currentSpaceId) return;
+      if (!currentSpaceId) return null;
       try {
         const result = await resolveWikiLink(currentSpaceId, target);
         if (result.resolved && result.page_id) {
           handlePageSelect(result.page_id);
+          return result.page_id;
         }
       } catch {
         // handled by apiFetch toast
       }
+      return null;
     },
     [handlePageSelect],
   );
@@ -215,8 +217,8 @@ function MyWikiPage() {
 
   return (
     <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
-      <div className="flex h-full">
-        <div className="flex min-w-0 flex-1">
+      <div className="flex h-full min-h-0">
+        <div className="flex min-h-0 min-w-0 flex-1">
           {activeView === "pages" && (
             <DualPaneLayout
               spaceId={spaceId}
@@ -229,7 +231,11 @@ function MyWikiPage() {
             />
           )}
           {activeView === "graph" && spaceId && (
-            <WikiGraphView spaceId={spaceId} onPageSelect={handlePageSelect} />
+            <WikiGraphView
+              spaceId={spaceId}
+              onPageSelect={handlePageSelect}
+              onNavigate={handleWikilinkClick}
+            />
           )}
           {activeView === "lint" && spaceId && (
             <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
@@ -290,12 +296,12 @@ function DualPaneLayout({
   onWikilinkClick: (target: string) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-1">
-      <aside className="flex w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-editorial-surface-card">
+    <div className="flex min-h-0 min-w-0 flex-1">
+      <aside className="flex h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-editorial-surface-card">
         <WikiPageList spaceId={spaceId} activePageId={activePageId} onPageSelect={onPageSelect} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-editorial-surface-card">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card">
         {activePageId ? (
           isEditing ? (
             <WikiEditor

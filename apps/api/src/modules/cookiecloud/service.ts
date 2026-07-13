@@ -42,6 +42,7 @@ export async function storeEncrypted(
       .insert(cookieCloud)
       .values({ uuid, password: "", encrypted, cryptoType })
       .onConflictDoUpdate({ target: cookieCloud.uuid, set: { encrypted } });
+    logger.info({ cryptoType, decrypted: false }, "CookieCloud 加密数据已接收");
     return;
   }
 
@@ -51,9 +52,12 @@ export async function storeEncrypted(
     try {
       const data = decrypt(uuid, encrypted, config.password, cryptoType);
       await syncCookies(uuid, data as Record<string, any>);
+      logger.info({ cryptoType, decrypted: true }, "CookieCloud Cookie 同步完成");
     } catch (err) {
       logger.warn({ uuid, err }, "CookieCloud 解密失败 — UUID 或密码不匹配");
     }
+  } else {
+    logger.info({ cryptoType, decrypted: false }, "CookieCloud 加密数据已接收");
   }
 }
 

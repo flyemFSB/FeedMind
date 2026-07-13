@@ -42,7 +42,7 @@ export async function runLint(spaceId: string): Promise<LintResult[]> {
 
   const results = runStructuralLint(pages, normalizePath(wikiDir));
 
-  // Cache results
+  // 缓存检查结果
   ensureLlmWikiDir(spaceId);
   fs.writeFileSync(lintPath(spaceId), JSON.stringify(results, null, 2), "utf-8");
 

@@ -24,6 +24,8 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
   const [jobs, setJobs] = useState<IngestJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const hasActive = jobs.some((job) => job.status === "pending" || job.status === "processing");
 
   const loadJobs = useCallback(
     async (signal?: AbortSignal) => {
@@ -47,9 +49,7 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
 
   // Poll for active jobs
   useEffect(() => {
-    if (!open) return;
-    const hasActive = jobs.some((j) => j.status === "pending" || j.status === "processing");
-    if (!hasActive) return;
+    if (!open || !hasActive) return;
 
     const abortController = new AbortController();
     const interval = setInterval(async () => {
@@ -59,7 +59,14 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
       clearInterval(interval);
       abortController.abort();
     };
-  }, [open, jobs, loadJobs]);
+  }, [open, hasActive, loadJobs]);
+
+  useEffect(() => {
+    if (!open || !hasActive) return;
+    setNow(Date.now());
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [open, hasActive]);
 
   const handleCancel = async (jobId: string) => {
     setCancelling(jobId);
@@ -129,6 +136,7 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
                 <ActiveJobCard
                   key={job.id}
                   job={job}
+                  now={now}
                   onCancel={handleCancel}
                   cancelling={cancelling === job.id}
                 />
@@ -138,7 +146,7 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
         )}
 
         {/* History */}
-        <div className={`${activeJobs.length > 0 ? "pt-4" : "pt-5"} px-6 pb-4`}>
+        <div className={`${activeJobs.length > 0 ? "pt-4" : "pt-5"} min-w-0 px-6 pb-4`}>
           <h3 className="mb-2 text-[12px] font-semibold text-editorial-ink-muted">
             {t("wiki.completedCount", { count: historyJobs.length })}
           </h3>
@@ -179,18 +187,20 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
 
 function ActiveJobCard({
   job,
+  now,
   onCancel,
   cancelling,
 }: {
   job: IngestJob;
+  now: number;
   onCancel: (id: string) => void;
   cancelling: boolean;
 }) {
   const { t } = useTranslation();
   const displayName = job.source_title || job.source_path.split("/").pop() || job.source_path;
   const elapsed = job.started_at
-    ? formatDuration(Date.now() - job.started_at)
-    : formatDuration(Date.now() - job.added_at);
+    ? formatDuration(now - job.started_at)
+    : formatDuration(now - job.added_at);
 
   const progress = job.progress;
   const statusText = progress

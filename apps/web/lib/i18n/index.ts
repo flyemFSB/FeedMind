@@ -22,6 +22,8 @@ i18n
     supportedLngs: SUPPORTED_LANGUAGES,
     interpolation: {
       escapeValue: false, // React 已处理 XSS
+      prefix: "{",
+      suffix: "}",
     },
     detection: {
       // 语言检测策略：localStorage > cookie > 浏览器设置

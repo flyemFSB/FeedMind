@@ -1,19 +1,16 @@
 import fs from "node:fs";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- graphology 是动态导入的 JS 库
 let _Graph: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _Louvain: any = null;
 async function ensureGraphLibs() {
   if (!_Graph) _Graph = (await import("graphology")).default;
   if (!_Louvain) _Louvain = (await import("graphology-communities-louvain")).default;
 }
-import {
-  buildWikiGraph,
-  findSurprisingConnections,
-  detectKnowledgeGaps,
-  normalizePath,
-} from "@feedmind/wiki-core";
+import { buildWikiGraph, normalizePath } from "@feedmind/wiki-core";
 import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";
-import { getWikiDir, collectFileEntries } from "./space-fs/index.js";
+import { getWikiDir, collectFileEntries, isSystemFile } from "./space-fs/index.js";
 
 export async function getWikiGraph(
   spaceId: string,
@@ -23,7 +20,9 @@ export async function getWikiGraph(
     return { nodes: [], edges: [], communities: [] };
   }
 
-  const mdFiles = collectFileEntries(wikiDir).filter((f) => !f.is_dir && f.name.endsWith(".md"));
+  const mdFiles = collectFileEntries(wikiDir).filter(
+    (f) => !f.is_dir && f.name.endsWith(".md") && !isSystemFile(f.name),
+  );
 
   const { nodes, edges } = await buildWikiGraph(
     async (filePath: string) => fs.readFileSync(filePath, "utf-8"),
@@ -112,9 +111,10 @@ async function detectCommunities(
   communities.sort((a, b) => b.nodeCount - a.nodeCount);
 
   const idRemap = new Map<number, number>();
-  communities.forEach((c, idx) => {
-    idRemap.set(c.id, idx);
-    c.id = idx;
+  // 将社区 ID 从大到小映射为 0, 1, 2...
+  communities.forEach((comm, idx) => {
+    idRemap.set(comm.id, idx);
+    comm.id = idx;
   });
 
   const remappedAssignments = new Map<string, number>();
@@ -127,6 +127,7 @@ async function detectCommunities(
 
 export async function getWikiGraphInsights(spaceId: string) {
   const { nodes, edges, communities } = await getWikiGraph(spaceId);
+  const { findSurprisingConnections, detectKnowledgeGaps } = await import("@feedmind/wiki-core");
   const surprising = findSurprisingConnections(nodes, edges, communities, 5);
   const gaps = detectKnowledgeGaps(nodes, edges, communities);
   return { surprising, gaps, nodeCount: nodes.length, edgeCount: edges.length };

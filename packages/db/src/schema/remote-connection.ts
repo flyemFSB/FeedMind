@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ─── 远程连接配置 ──────────────────────────────────────────────
-// Stores per-platform connection config: OAuth tokens, cookies, bot webhook.
+// 存储各平台连接配置：OAuth token、Cookie、Bot webhook 等
 export const remoteConnections = sqliteTable(
   "remote_connections",
   {

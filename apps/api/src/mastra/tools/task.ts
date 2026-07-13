@@ -11,7 +11,7 @@ import { browserTemplate } from "../subagents/builtins/browser.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
 
 /* -------------------------------------------------------------------------- */
-/*  Types                                                                    */
+/*  类型定义                                                                  */
 /* -------------------------------------------------------------------------- */
 
 export type SubagentType = "researcher" | "extractor" | "summarizer" | "browser";
@@ -40,7 +40,7 @@ export interface TaskToolResult {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Subagent registry                                                         */
+/*  Subagent 注册表                                                          */
 /* -------------------------------------------------------------------------- */
 
 const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
@@ -140,7 +140,7 @@ export function getSubagentDescriptions(): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Task tool                                                                 */
+/*  Task 工具                                                                 */
 /* -------------------------------------------------------------------------- */
 
 let taskCounter = 0;
@@ -192,7 +192,7 @@ export const taskTool = createTool({
     // 1. 查找 subagent 模板
     const template = subagentRegistry[type];
     if (!template) {
-      throw new Error(`Unknown subagent type: ${type}`);
+      throw new Error(`未知的 subagent 类型: ${type}`);
     }
 
     // 2. 构造完整的 prompt（附加 context）

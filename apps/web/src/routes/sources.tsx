@@ -1,19 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Plus,
-  Trash2,
-  Rss,
-  Globe,
-  Cookie,
-  Upload,
-  Bookmark,
-  User,
-  Eye,
-  EyeOff,
-  RefreshCw,
-} from "lucide-react";
+import { Plus, Trash2, Rss, Globe, Cookie, User, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
@@ -62,7 +50,9 @@ function parseSocialUrl(url: string): SocialInfo | null {
       if (qm && qm[1])
         return { platform: "zhihu", route: "zh/answers", params: { question_id: qm[1] } };
     }
-  } catch {}
+  } catch {
+    return null;
+  }
   return null;
 }
 
@@ -76,10 +66,10 @@ const PLATFORM_ICONS: Record<string, React.ElementType> = {
 };
 
 const PLATFORM_LABELS: Record<string, string> = {
-  bilibili: "B站",
-  douyin: "抖音",
-  xiaohongshu: "小红书",
-  zhihu: "知乎",
+  bilibili: "feeds.platformBilibili",
+  douyin: "feeds.platformDouyin",
+  xiaohongshu: "feeds.platformXiaohongshu",
+  zhihu: "feeds.platformZhihu",
 };
 
 // ─── API ─────────────────────────────────────────────────────
@@ -109,17 +99,17 @@ async function addSource(body: object): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error("添加失败");
+  if (!res.ok) throw new Error("addFailed");
 }
 
 async function removeSource(id: string): Promise<void> {
   const res = await fetch(`/api/v1/rss-sources/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("删除失败");
+  if (!res.ok) throw new Error("deleteFailed");
 }
 
 async function syncAllFeeds(): Promise<void> {
   const res = await fetch("/api/v1/feeds/sync", { method: "POST" });
-  if (!res.ok) throw new Error("同步失败");
+  if (!res.ok) throw new Error("syncFailed");
 }
 
 // ─── 页面 ────────────────────────────────────────────────────
@@ -147,7 +137,9 @@ function SourcesPage() {
     try {
       const data = await fetchSources();
       setSources(data);
-    } catch {}
+    } catch {
+      return;
+    }
   }, []);
 
   useEffect(() => {
@@ -205,9 +197,9 @@ function SourcesPage() {
       }
       setNewUrl("");
       await loadSources();
-      toast.success("订阅源已添加");
+      toast.success(t("feeds.addSuccess"));
     } catch {
-      toast.error("添加失败");
+      toast.error(t("feeds.addError"));
     }
   };
 
@@ -215,9 +207,9 @@ function SourcesPage() {
     try {
       await removeSource(id);
       await loadSources();
-      toast.success("已删除");
+      toast.success(t("feeds.deleteSuccess"));
     } catch {
-      toast.error("删除失败");
+      toast.error(t("feeds.deleteError"));
     }
   };
 
@@ -225,16 +217,13 @@ function SourcesPage() {
     setSyncing(true);
     try {
       await syncAllFeeds();
-      toast.success("同步完成");
+      toast.success(t("feeds.syncSuccess"));
     } catch {
-      toast.error("同步失败");
+      toast.error(t("feeds.syncError"));
     } finally {
       setSyncing(false);
     }
   };
-
-  const socialSources = sources.filter((s) => s.type === "social");
-  const rssSources = sources.filter((s) => s.type === "rss");
 
   return (
     <LayoutWrapper title={t("feeds.sourceManagement")}>
@@ -253,7 +242,7 @@ function SourcesPage() {
                   </h2>
                 </div>
                 <p className="mt-1 text-[12px] text-editorial-ink-muted">
-                  粘贴链接添加 RSS 或社交平台订阅
+                  {t("feeds.pasteLinkHint")}
                 </p>
               </div>
               <Button
@@ -263,7 +252,7 @@ function SourcesPage() {
                 className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
               >
                 <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-                同步订阅
+                {t("feeds.sync")}
               </Button>
             </div>
 
@@ -273,7 +262,7 @@ function SourcesPage() {
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                placeholder="粘贴 RSS 链接或社交平台主页链接"
+                placeholder={t("feeds.inputPlaceholder")}
                 className="min-w-0 flex-1 rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
               />
               <Button
@@ -283,7 +272,7 @@ function SourcesPage() {
                 className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-[12px]"
               >
                 <Plus size={14} />
-                添加
+                {t("feeds.add")}
               </Button>
             </div>
 
@@ -291,7 +280,7 @@ function SourcesPage() {
             {sources.length === 0 ? (
               <div className="flex flex-col items-center rounded-xl border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-10 text-center">
                 <Globe size={22} className="mb-2 text-editorial-ink-muted" />
-                <p className="text-[13px] text-editorial-ink-muted">暂无订阅，粘贴链接添加</p>
+                <p className="text-[13px] text-editorial-ink-muted">{t("feeds.noSubscriptions")}</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -313,14 +302,20 @@ function SourcesPage() {
                           </span>
                           {source.type === "social" && source.platform && (
                             <span className="shrink-0 rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[10px] text-editorial-ink-muted">
-                              {PLATFORM_LABELS[source.platform] ?? source.platform}
+                              {t(PLATFORM_LABELS[source.platform] ?? source.platform)}
                             </span>
                           )}
                         </div>
                         <p className="truncate text-[11px] text-editorial-ink-muted">
                           {source.type === "social" ? source.url : source.url}
                           {source.last_synced_at && (
-                            <> · 同步于 {new Date(source.last_synced_at).toLocaleString("zh-CN")}</>
+                            <>
+                              {" "}
+                              ·{" "}
+                              {t("feeds.syncedAt", {
+                                time: new Date(source.last_synced_at).toLocaleString(),
+                              })}
+                            </>
                           )}
                         </p>
                       </div>
@@ -353,26 +348,26 @@ function SourcesPage() {
                 <h2 className="text-[15px] font-semibold text-editorial-ink">CookieCloud</h2>
               </div>
               <p className="mt-1 text-[12px] text-editorial-ink-muted">
-                通过 CookieCloud 浏览器扩展自动同步 Cookie
+                {t("feeds.cookieCloudDesc")}
               </p>
             </div>
             <div className="rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 transition-all duration-150 ease-out hover:border-editorial-hairline-strong hover:shadow-sm">
               <div className="flex flex-col gap-3">
                 <div>
                   <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
-                    用户 KEY · UUID
+                    {t("feeds.cookieUuidLabel")}
                   </label>
                   <input
                     value={cookiecloudUuid}
                     onChange={(e) => setCookiecloudUuid(e.target.value)}
                     readOnly={hasConfig}
-                    placeholder={hasConfig ? "" : "输入 CookieCloud UUID"}
+                    placeholder={hasConfig ? "" : t("feeds.cookieUuidPlaceholder")}
                     className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted read-only:text-editorial-ink-muted read-only:cursor-not-allowed"
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
-                    端对端加密密码
+                    {t("feeds.cookiePasswordLabel")}
                   </label>
                   <div className="relative">
                     <input

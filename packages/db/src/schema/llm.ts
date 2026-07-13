@@ -12,9 +12,7 @@ export const llm = sqliteTable(
     encryptedApiKey: text("encrypted_api_key").notNull().default(""),
     contextWindow: text("context_window"),
     maxOutput: text("max_output"),
-    isSelected: integer("is_selected", { mode: "boolean" })
-      .notNull()
-      .default(false),
+    isSelected: integer("is_selected", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at")
       .notNull()
       .default(sql`(current_timestamp)`),

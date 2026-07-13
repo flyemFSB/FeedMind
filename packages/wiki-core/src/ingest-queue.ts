@@ -104,3 +104,12 @@ export function pruneQueue(queue: IngestJob[], olderThan: number): IngestJob[] {
       (j.completed_at && j.completed_at > olderThan),
   );
 }
+
+/** 进程重启后没有执行中的 worker，遗留 processing 任务可安全恢复为待处理。 */
+export function restoreQueue(queue: IngestJob[]): IngestJob[] {
+  return queue.map((job) =>
+    job.status === "processing"
+      ? { ...job, status: "pending" as IngestJobStatus, progress: null, started_at: null }
+      : job,
+  );
+}

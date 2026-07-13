@@ -1,0 +1,103 @@
+/* Wiki 阅读器：让文档保持可读密度，且不把 Streamdown 的通用样式带入页面层级。 */
+.wiki-markdown > :first-child {
+  margin-top: 0;
+}
+
+.wiki-markdown :where(h1, h2, h3, h4) {
+  color: var(--editorial-ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.wiki-markdown h1 {
+  margin: 2.75rem 0 1.25rem;
+  font-size: 1.875rem;
+  line-height: 1.2;
+}
+
+.wiki-markdown h2 {
+  margin: 2.5rem 0 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--editorial-hairline);
+  font-size: 1.4rem;
+  line-height: 1.3;
+}
+
+.wiki-markdown h3 {
+  margin: 2rem 0 0.75rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.wiki-markdown p,
+.wiki-markdown li {
+  color: var(--editorial-ink-soft);
+  line-height: 1.85;
+}
+
+.wiki-markdown p {
+  margin: 1rem 0;
+}
+
+.wiki-markdown ul,
+.wiki-markdown ol {
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.wiki-markdown li + li {
+  margin-top: 0.45rem;
+}
+
+.wiki-markdown blockquote {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border-inline-start: 2px solid var(--editorial-hairline-strong);
+  background: var(--editorial-canvas-soft);
+  color: var(--editorial-ink-soft);
+}
+
+.wiki-markdown :where(code:not(pre code)) {
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  background: var(--editorial-surface-soft);
+  color: var(--editorial-ink);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.wiki-markdown pre {
+  margin: 1.5rem 0;
+  border: 1px solid var(--editorial-hairline);
+  border-radius: 0.75rem;
+}
+
+.wiki-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.wiki-markdown th,
+.wiki-markdown td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--editorial-hairline);
+  text-align: start;
+}
+
+.wiki-markdown th {
+  background: var(--editorial-surface-soft);
+  color: var(--editorial-ink);
+  font-weight: 600;
+}
+
+.wiki-markdown tr:last-child td {
+  border-bottom: 0;
+}
+
+.wiki-markdown .katex-display {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

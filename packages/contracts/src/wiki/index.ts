@@ -22,11 +22,7 @@ export const wikiSpaceCreateSchema = z.object({
   template: wikiTemplateSchema.default("general"),
   purpose: z.string().default(""),
   schema: z.string().default(""),
-  settings: wikiSpaceSettingsSchema.default({
-    language: "zh-CN",
-    enabledPageTypes: ["entity", "concept", "source", "overview"],
-    extraDirs: [],
-  }),
+  settings: wikiSpaceSettingsSchema,
 });
 export type WikiSpaceCreate = z.infer<typeof wikiSpaceCreateSchema>;
 
@@ -190,10 +186,10 @@ export const wikiBacklinkSchema = z.object({
 export type WikiBacklink = z.infer<typeof wikiBacklinkSchema>;
 
 // ─── Wiki 解析 ─────────────────────────────────────────────────
-export const wikiResolveQuery = z.object({
+export const wikiResolveQuerySchema = z.object({
   target: z.string().min(1),
 });
-export type WikiResolveQuery = z.infer<typeof wikiResolveQuery>;
+export type WikiResolveQuery = z.infer<typeof wikiResolveQuerySchema>;
 
 export const wikiResolveResultSchema = z.object({
   resolved: z.boolean(),

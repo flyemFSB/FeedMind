@@ -41,27 +41,27 @@ export const PROVIDER_MODELS: ProviderModelsMap = {
   ],
   DeepSeek: [
     { name: "DeepSeek V4 Pro", modelId: "deepseek-v4-pro", context: "1000", maxOutput: "384" },
-    { name: "DeepSeek V4 Flash", modelId: "deepseek-v4-flash", context: "1000", maxOutput: "32" },
+    { name: "DeepSeek V4 Flash", modelId: "deepseek-v4-flash", context: "1000", maxOutput: "384" },
   ],
   Gemini: [
     { name: "Gemini 3.1 Pro", modelId: "gemini-3.1-pro", context: "1000", maxOutput: "64" },
     { name: "Gemini 3.1 Flash", modelId: "gemini-3.1-flash", context: "1000", maxOutput: "64" },
   ],
   GLM: [
-    { name: "GLM 5.1", modelId: "glm-5.1", context: "200", maxOutput: "131" },
+    { name: "GLM 5.1", modelId: "glm-5.1", context: "200", maxOutput: "128" },
     { name: "GLM 5", modelId: "glm-5", context: "200", maxOutput: "32" },
   ],
   Kimi: [
-    { name: "Kimi K2.6", modelId: "kimi-k2.6", context: "256", maxOutput: "长生成" },
-    { name: "Kimi K2.5", modelId: "kimi-k2.5", context: "256", maxOutput: "长生成" },
+    { name: "Kimi K2.6", modelId: "kimi-k2.6", context: "256", maxOutput: "32" },
+    { name: "Kimi K2.5", modelId: "kimi-k2.5", context: "256", maxOutput: "32" },
   ],
   MiniMax: [
     { name: "MiniMax M3", modelId: "minimax-m3", context: "1050", maxOutput: "128" },
-    { name: "MiniMax M2.7", modelId: "minimax-m2.7", context: "200", maxOutput: "131" },
+    { name: "MiniMax M2.7", modelId: "minimax-m2.7", context: "200", maxOutput: "128" },
   ],
   Qwen: [
-    { name: "Qwen 3.7 Plus", modelId: "qwen-3.7-plus", context: "1000", maxOutput: "65" },
-    { name: "Qwen 3.7 Max", modelId: "qwen-3.7-max", context: "1000", maxOutput: "65" },
+    { name: "Qwen 3.7 Plus", modelId: "qwen-3.7-plus", context: "1000", maxOutput: "64" },
+    { name: "Qwen 3.7 Max", modelId: "qwen-3.7-max", context: "1000", maxOutput: "64" },
   ],
 };
 

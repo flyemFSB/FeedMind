@@ -67,7 +67,7 @@ export const webSearchTool = createTool({
           null,
           2,
         );
-      } catch (_error) {
+      } catch {
         // 试下一个引擎，不提前中断
       }
     }

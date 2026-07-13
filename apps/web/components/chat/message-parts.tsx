@@ -51,6 +51,11 @@ function userText(message: UIMessage): string {
     .join("");
 }
 
+/** 从 UIMessage part 中安全提取字段 */
+function partField(part: UIMessage["parts"][number], key: string): unknown {
+  return (part as Record<string, unknown>)[key];
+}
+
 /** 提取工具和推理相关的 parts */
 function useAgentParts(message: UIMessage, isLastMessage: boolean, isStreaming: boolean) {
   return useMemo(() => {
@@ -78,22 +83,22 @@ function useAgentParts(message: UIMessage, isLastMessage: boolean, isStreaming: 
       const pType = part.type;
 
       if (typeof pType === "string" && pType.startsWith("tool-")) {
-        const p = part as Record<string, unknown>;
         toolParts.push({
           part,
           type: pType,
-          state: (p.state as string) ?? "input-streaming",
-          input: p.input,
-          output: "output" in p ? p.output : undefined,
-          errorText: "errorText" in p ? (p.errorText as string) : undefined,
+          state: (partField(part, "state") as string) ?? "input-streaming",
+          input: partField(part, "input"),
+          output: "output" in part ? partField(part, "output") : undefined,
+          errorText: "errorText" in part ? (partField(part, "errorText") as string) : undefined,
         });
         continue;
       }
 
       if (pType === "source-url" || pType === "source-document") {
-        const src = part as { url?: string; title?: string };
-        if (src.url || src.title) {
-          sourceParts.push(src);
+        const url = partField(part, "url") as string | undefined;
+        const title = partField(part, "title") as string | undefined;
+        if (url || title) {
+          sourceParts.push({ url, title });
         }
       }
     }
@@ -134,7 +139,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   /* ---- 助手消息 ---- */
   return (
     <Message from="assistant">
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 w-full items-start gap-3">
         {/* Avatar — 纯色 Logo 背景 */}
         <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-ink">
           <img
@@ -162,7 +167,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
 
             {/* ---- 执行过程（工具调用） ---- */}
             {hasTools && (
-              <div className="space-y-1 mb-3">
+              <div className="min-w-0 space-y-1 mb-3">
                 {toolParts.map((tp, i) => (
                   <Tool key={`tool-${i}`} defaultOpen={true}>
                     <ToolHeader

@@ -17,14 +17,25 @@ const devTransport = isProduction()
     };
 
 export const logger = pino({
-  level: isProduction() ? "info" : "debug",
+  level: apiEnv.LOG_LEVEL ?? (isProduction() ? "info" : "debug"),
   ...devTransport,
   base: {
     service: APP_NAME,
     env: apiEnv.APP_ENV,
   },
   redact: {
-    paths: ["api_key", "apiKey", "password", "cookie", "cookies", "authorization", "Authorization"],
+    paths: [
+      "apiKey",
+      "api_key",
+      "password",
+      "cookies",
+      "authorization",
+      "req.headers.authorization",
+      "req.headers.cookie",
+      "*.apiKey",
+      "*.password",
+      "*.cookies",
+    ],
     censor: "[REDACTED]",
   },
 });

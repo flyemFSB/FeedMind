@@ -8,18 +8,14 @@ export function mergeArrays(existing: string[], incoming: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
 
-  const add = (items: string[]) => {
-    for (const item of items) {
-      const key = item.toLowerCase().trim();
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(item.trim());
-      }
+  for (const item of [...existing, ...incoming]) {
+    const value = item.trim();
+    const key = value.toLowerCase();
+    if (value && !seen.has(key)) {
+      seen.add(key);
+      result.push(value);
     }
-  };
-
-  add(existing);
-  add(incoming);
+  }
 
   return result;
 }
@@ -42,7 +38,7 @@ export function mergePageContent(
   const title = (existingFm.title as string) ?? (incomingFm.title as string) ?? "";
   const created = (existingFm.created as string) ?? (incomingFm.created as string) ?? nowDate();
 
-  // Merge array fields
+  // 合并数组字段
   const tags = mergeArrays(
     (existingFm.tags as string[]) ?? [],
     (incomingFm.tags as string[]) ?? [],

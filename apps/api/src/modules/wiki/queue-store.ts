@@ -8,6 +8,7 @@ import {
   nextJob,
   updateJobStatus,
   incrementRetry,
+  restoreQueue,
 } from "@feedmind/wiki-core";
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
 import { getSpaceDir } from "./space-fs/index.js";
@@ -38,7 +39,8 @@ export class JsonQueueStore implements QueueStore {
 
   private readQueue(spaceId: string): IngestJob[] {
     try {
-      return loadQueue(fs.readFileSync(this.queuePath(spaceId), "utf-8"));
+      const queue = restoreQueue(loadQueue(fs.readFileSync(this.queuePath(spaceId), "utf-8")));
+      return queue;
     } catch {
       return [];
     }

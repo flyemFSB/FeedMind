@@ -30,15 +30,15 @@ export function cleanRelatedField(content: string, deletedKeys: Set<string>): st
 export function cleanPageReferences(content: string, deletedKeys: Set<string>): string | null {
   let updated = content;
 
-  // Clean index listing
+  // 清理索引列表中的已删除页面
   const indexCleaned = cleanIndexListing(updated, deletedKeys);
   if (indexCleaned !== updated) updated = indexCleaned;
 
-  // Strip wikilinks to deleted pages
+  // 移除指向已删除页面的 wikilinks
   const wikilinkCleaned = stripDeletedWikilinks(updated, deletedKeys);
   if (wikilinkCleaned !== updated) updated = wikilinkCleaned;
 
-  // Clean related field
+  // 清理 related 字段中的已删除页面引用
   const relatedCleaned = cleanRelatedField(updated, deletedKeys);
   if (relatedCleaned !== null) updated = relatedCleaned;
 

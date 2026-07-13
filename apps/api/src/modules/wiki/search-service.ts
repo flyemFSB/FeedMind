@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { searchPages, parseFrontmatter } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { getSpaceDir } from "./space-fs/index.js";
+import { getSpaceDir, isSystemFile } from "./space-fs/index.js";
 
 interface SearchablePage {
   path: string;
@@ -22,7 +22,7 @@ function loadSearchablePages(spaceId: string): SearchablePage[] {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           loadDir(fullPath);
-        } else if (entry.name.endsWith(".md")) {
+        } else if (entry.name.endsWith(".md") && !isSystemFile(entry.name)) {
           try {
             const content = fs.readFileSync(fullPath, "utf-8");
             const { frontmatter } = parseFrontmatter(content);
@@ -49,7 +49,6 @@ export async function searchWiki(
 ): Promise<{ results: WikiSearchResult[]; mode: string; totalHits: number }> {
   const pages = loadSearchablePages(spaceId);
   const results = searchPages(pages, query, topK);
-
   return {
     results,
     mode: "keyword",

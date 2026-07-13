@@ -12,4 +12,9 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
   source: "来源",
   overview: "概览",
   index: "索引",
+  query: "查询",
+  thesis: "论点",
+  finding: "发现",
+  methodology: "方法论",
+  event: "事件",
 };

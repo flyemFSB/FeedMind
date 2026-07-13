@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
+import {
+  buildDeletedKeys,
+  cleanPageReferences,
+  formatFrontmatter,
+  parseFrontmatter,
+} from "@feedmind/wiki-core";
 import type { WikiSourceCreate, WikiSourceListItem, WikiSourceRead } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
 import {
@@ -168,6 +173,22 @@ export async function deleteWikiSource(
       if (cleaned.length > 0) fs.writeFileSync(indexPath, cleaned.join("\n"), "utf-8");
     } catch {
       /* skip */
+    }
+  }
+
+  if (deletedSlugs.length > 0) {
+    const pageRefDeletedKeys = buildDeletedKeys(
+      deletedSlugs.map((slug) => ({ slug, title: slug })),
+    );
+    for (const wikiFile of wikiFiles) {
+      if (!fs.existsSync(wikiFile)) continue;
+      try {
+        const content = fs.readFileSync(wikiFile, "utf-8");
+        const cleaned = cleanPageReferences(content, pageRefDeletedKeys);
+        if (cleaned !== null) safeWriteFile(wikiFile, cleaned);
+      } catch {
+        /* 无法清理的页面不影响来源删除 */
+      }
     }
   }
 

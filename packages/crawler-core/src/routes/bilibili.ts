@@ -18,6 +18,47 @@ import {
 } from "../core/wbi-sign.js";
 import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
+/** B站 API 通用响应结构 */
+interface BiliApiResponse<T = unknown> {
+  code: number;
+  message?: string;
+  data: T;
+}
+
+/** B站视频列表项 */
+interface BiliVideo {
+  bvid?: string;
+  aid?: number;
+  title?: string;
+  description?: string;
+  author?: string;
+  pic?: string;
+  created?: number;
+  pubdate?: number;
+  tag?: string;
+}
+
+/** B站视频详情 */
+interface BiliVideoDetail {
+  bvid?: string;
+  title?: string;
+  desc?: string;
+  pic?: string;
+  pubdate?: number;
+  owner?: { name?: string };
+}
+
+/** B站搜索结果项 */
+interface BiliSearchResult {
+  bvid?: string;
+  title?: string;
+  description?: string;
+  author?: string;
+  pubdate?: number;
+  tag?: string;
+  pic?: string;
+}
+
 const API_BASE = "https://api.bilibili.com";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
@@ -55,14 +96,14 @@ async function biliFetch<T>(
   const res = await fetch(url, { headers, signal });
   if (!res.ok) throw new Error(`BILI API ${res.status}`);
 
-  const json = (await res.json()) as any;
+  const json = (await res.json()) as BiliApiResponse<T>;
   if (json.code === -352) {
     throw new BiliCaptchaError();
   }
   if (json.code !== 0) {
     throw new Error(`BILI API error: ${json.code} - ${json.message || "unknown"}`);
   }
-  return json as T;
+  return json.data;
 }
 
 /**
@@ -72,7 +113,7 @@ async function biliBrowserFetch(
   url: string,
   evaluateScript: string,
   cookies?: string,
-): Promise<any> {
+): Promise<unknown> {
   const browser = await createBrowser();
   try {
     await browser.ensureReady();
@@ -82,9 +123,9 @@ async function biliBrowserFetch(
     await page.route("**/*", (route) => {
       const type = route.request().resourceType();
       if (["image", "media", "font", "stylesheet"].includes(type)) {
-        route.abort();
+        void route.abort();
       } else {
-        route.continue();
+        void route.continue();
       }
     });
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -104,16 +145,16 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let vlist: any[] = [];
+    let vlist: BiliVideo[] = [];
 
     try {
-      const json = await biliFetch<any>(
+      const json = await biliFetch<{ list?: { vlist?: BiliVideo[] } }>(
         "/x/space/wbi/arc/search",
         { mid: uid, ps: String(Math.min(maxItems, 50)), pn: "1" },
         cookies,
         controller.signal,
       );
-      vlist = json?.data?.list?.vlist ?? [];
+      vlist = json?.list?.vlist ?? [];
     } catch (err) {
       if (err instanceof BiliCaptchaError) {
         // 降级到浏览器：导航到空间页，提取视频列表
@@ -128,12 +169,12 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
       }
     }
 
-    const items = vlist.slice(0, maxItems).map((v: any) => ({
+    const items = vlist.slice(0, maxItems).map((v: BiliVideo) => ({
       title: v.title || "",
       description: v.description || "",
       link: `https://www.bilibili.com/video/${v.bvid}`,
       guid: buildGuid("bili", v.bvid || String(v.aid)),
-      pubDate: fromUnixTimestamp(v.created),
+      pubDate: v.created ? fromUnixTimestamp(v.created) : new Date().toUTCString(),
       author: v.author,
       image: v.pic,
     }));
@@ -163,23 +204,23 @@ const videoHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let videoData: any = null;
+    let videoData: BiliVideoDetail | null = null;
 
     try {
-      const json = await biliFetch<any>(
+      const json = await biliFetch<BiliVideoDetail>(
         "/x/web-interface/view",
         { bvid },
         cookies,
         controller.signal,
       );
-      videoData = json?.data;
+      videoData = json;
     } catch (err) {
       if (err instanceof BiliCaptchaError) {
-        videoData = await biliBrowserFetch(
+        videoData = (await biliBrowserFetch(
           `https://www.bilibili.com/video/${bvid}`,
           "window.__INITIAL_STATE__ ? window.__INITIAL_STATE__.videoData : null",
           cookies,
-        );
+        )) as BiliVideoDetail | null;
       } else {
         throw err;
       }
@@ -224,16 +265,16 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    let results: any[] = [];
+    let results: BiliSearchResult[] = [];
 
     try {
-      const json = await biliFetch<any>(
+      const json = await biliFetch<{ result?: BiliSearchResult[] }>(
         "/x/web-interface/search/type",
         { search_type: "video", keyword, page: "1", page_size: String(Math.min(maxItems, 50)) },
         cookies,
         controller.signal,
       );
-      results = json?.data?.result ?? [];
+      results = json?.result ?? [];
     } catch (err) {
       if (err instanceof BiliCaptchaError) {
         // 降级到浏览器：搜索页面 HTML 解析
@@ -242,9 +283,9 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
           "document.documentElement.outerHTML",
           cookies,
         );
-        const $ = load(html);
+        const $ = load(html as string);
         results = [];
-        $(".video-list .video-item").each((_i: number, el: any) => {
+        $(".video-list .video-item").each((_i, el) => {
           const titleEl = $(el).find(".title");
           const link = titleEl.attr("href") || "";
           const bvidMatch = link.match(/video\/(BV\w+)/);
@@ -262,13 +303,13 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
     }
 
     const items = results
-      .filter((r: any) => r.bvid)
+      .filter((r) => r.bvid)
       .slice(0, maxItems)
-      .map((r: any) => ({
+      .map((r) => ({
         title: (r.title || "").replace(/<[^>]+>/g, ""),
         description: r.description || "",
         link: `https://www.bilibili.com/video/${r.bvid}`,
-        guid: buildGuid("bili", r.bvid),
+        guid: buildGuid("bili", r.bvid!),
         pubDate: r.pubdate ? fromUnixTimestamp(r.pubdate) : new Date().toUTCString(),
         author: r.author,
         category: r.tag ? [r.tag] : undefined,

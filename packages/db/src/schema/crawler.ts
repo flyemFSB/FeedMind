@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 // ─── 爬虫任务 ───────────────────────────────────────────────────
-// Each row represents an async crawl task that produces an RSS 2.0 XML output.
+// 每行代表一个异步爬取任务，产出 RSS 2.0 XML
 export const crawlerTasks = sqliteTable(
   "crawler_tasks",
   {

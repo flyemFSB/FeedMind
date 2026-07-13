@@ -48,8 +48,11 @@ import {
 import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
 import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
 import {
+  ensureDir,
   getWikiRootDir,
   readSourceTitle,
+  safeUnlink,
+  safeWriteFile,
   validateSpaceId,
   sha256,
 } from "../../modules/wiki/space-fs/index.js";
@@ -179,13 +182,13 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const contentType = c.req.header("Content-Type") ?? "";
 
   if (!contentType.includes("multipart/form-data")) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type must be multipart/form-data");
+    return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type 必须为 multipart/form-data");
   }
 
   const formData = await c.req.parseBody();
   const file = formData["file"];
   if (!file || !(file instanceof File)) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "File field is required");
+    return jsonError(c, 400, "VALIDATION_ERROR", "缺少 file 字段");
   }
 
   const byteArray = new Uint8Array(await file.arrayBuffer());
@@ -200,7 +203,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
 
   const wikiRoot = getWikiRootDir();
   const sourcesDir = path.join(wikiRoot, spaceId, "raw", "sources");
-  fs.mkdirSync(sourcesDir, { recursive: true });
+  ensureDir(sourcesDir);
 
   const now = new Date().toISOString();
   const textExts = new Set([
@@ -232,11 +235,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       updated: now,
       import_ext: ext,
     };
-    fs.writeFileSync(
-      path.join(sourcesDir, sourceFileName),
-      formatFrontmatter(fm) + "\n" + text,
-      "utf-8",
-    );
+    safeWriteFile(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text);
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
       c,
@@ -277,14 +276,10 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       docMime = doc.mimeType;
       warnings = doc.warnings;
     } catch (err) {
-      extractedText = `[Extraction failed: ${err instanceof Error ? err.message : String(err)}]`;
+      extractedText = `[提取失败: ${err instanceof Error ? err.message : String(err)}]`;
     } finally {
       // 无论提取成功与否，都清理临时二进制文件
-      try {
-        fs.unlinkSync(binPath);
-      } catch {
-        /* best-effort */
-      }
+      safeUnlink(binPath);
     }
 
     const fm = {
@@ -299,10 +294,9 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       updated: now,
       import_ext: ext,
     };
-    fs.writeFileSync(
+    safeWriteFile(
       path.join(sourcesDir, sourceFileName),
       formatFrontmatter(fm) + "\n" + extractedText,
-      "utf-8",
     );
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
@@ -332,7 +326,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   if (imageExts.has(ext)) {
     // 图片保存到 raw/assets/，同时在 sources 创建引用 .md
     const assetsDir = path.join(wikiRoot, spaceId, "raw", "assets");
-    fs.mkdirSync(assetsDir, { recursive: true });
+    ensureDir(assetsDir);
     const assetPath = path.join(assetsDir, safeName);
     fs.writeFileSync(assetPath, Buffer.from(byteArray));
 
@@ -359,10 +353,9 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       updated: now,
       import_ext: ext,
     };
-    fs.writeFileSync(
+    safeWriteFile(
       path.join(sourcesDir, sourceFileName),
       formatFrontmatter(fm) + "\n" + imageMarkdown,
-      "utf-8",
     );
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
@@ -389,7 +382,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     );
   }
 
-  return jsonError(c, 400, "HTTP_ERROR", `Unsupported file type: .${ext}`);
+  return jsonError(c, 400, "HTTP_ERROR", `不支持的文件类型: .${ext}`);
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId", async (c) =>
   jsonOk(c, await getWikiSource(c.req.param("spaceId"), c.req.param("sourceId"))),
@@ -402,14 +395,13 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/sources/:sourceId", async (c) => {
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId/delete-impact", async (c) =>
   jsonOk(c, await previewDeleteImpact(c.req.param("spaceId"), c.req.param("sourceId"))),
 );
-
 // ─── 导入（直接）─────────────────────────────────────────────────
 wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await parseJson(c, ingestBodySchema);
   const sourcePath = body.sourcePath;
 
-  // Extract source title from file for import history display
+  // 获取源标题用于导入历史展示
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
 
   // 记录任务以展示导入历史

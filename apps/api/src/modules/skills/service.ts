@@ -72,7 +72,7 @@ export async function listSkills(): Promise<SkillRead[]> {
         size: await getDirSize(skillDir),
       });
     } catch {
-      // skip malformed entries
+      // 跳过格式异常的目录
     }
   }
 
@@ -96,13 +96,13 @@ async function getDirSize(dir: string): Promise<number> {
 /** 安装技能压缩包：解压到 skills/<name>/ */
 export async function installSkill(rawName: string, buffer: Buffer): Promise<SkillRead> {
   const name = sanitizeName(rawName);
-  if (!name) throw new Error("Invalid skill name after sanitization.");
+  if (!name) throw new Error("技能名称净化后为空。");
 
   await ensureSkillsDir();
   const targetDir = path.join(SKILLS_DIR, name);
 
   if (fs.existsSync(targetDir)) {
-    throw new Error(`Skill "${name}" already exists. Delete it first to reinstall.`);
+    throw new Error(`技能 "${name}" 已存在，请先删除再重新安装。`);
   }
 
   await fsp.mkdir(targetDir, { recursive: true });
@@ -118,9 +118,7 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
         timeout: 30_000,
       });
     } catch {
-      throw new Error(
-        "Unzip failed. Ensure 'unzip' is available on the system or add the 'adm-zip' package.",
-      );
+      throw new Error("解压失败。请确保系统已安装 'unzip' 命令，或添加 'adm-zip' 包。");
     } finally {
       await fsp.unlink(tmpPath).catch(() => {});
     }
@@ -148,7 +146,7 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
 
     if (!fs.existsSync(path.join(targetDir, "SKILL.md"))) {
       await fsp.rm(targetDir, { recursive: true, force: true });
-      throw new Error("Invalid skill archive: missing SKILL.md at root.");
+      throw new Error("无效的技能包：根目录缺少 SKILL.md 文件。");
     }
 
     const meta = parseSkillMeta(await fsp.readFile(path.join(targetDir, "SKILL.md"), "utf-8"));
@@ -171,14 +169,14 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
 /** 删除技能 */
 export async function deleteSkill(rawName: string): Promise<void> {
   const name = sanitizeName(rawName);
-  if (!name) throw new Error("Invalid skill name.");
+  if (!name) throw new Error("无效的技能名称。");
 
   const targetDir = path.resolve(SKILLS_DIR, name);
   if (!isInsideSkillsDir(targetDir)) {
-    throw new Error("Skill name is invalid.");
+    throw new Error("技能名称不合法。");
   }
   if (!fs.existsSync(targetDir)) {
-    throw new Error(`Skill "${name}" not found.`);
+    throw new Error(`技能 "${name}" 未找到。`);
   }
   await fsp.rm(targetDir, { recursive: true, force: true });
 }

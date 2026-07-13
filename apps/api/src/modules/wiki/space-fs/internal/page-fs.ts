@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseFrontmatter } from "@feedmind/wiki-core";
-import { readDirRecursive, readFileSafe } from "./io.js";
+import { readDirRecursive, readFileSafe, isSystemFile } from "./io.js";
 import { getWikiDir, getSpaceDir, getScopedWikiDir, TYPE_DIR_MAP } from "./paths.js";
 
 const CACHE_TTL_MS = 60_000;
@@ -12,7 +12,10 @@ function getSlugCache(spaceId: string): Map<string, string> {
   if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
   const cache = new Map<string, string>();
   try {
-    const files = readDirRecursive(getWikiDir(spaceId), (_f, name) => name.endsWith(".md"));
+    const files = readDirRecursive(
+      getWikiDir(spaceId),
+      (_f, name) => name.endsWith(".md") && !isSystemFile(name),
+    );
     for (const f of files) {
       cache.set(path.basename(f, ".md"), f);
     }
@@ -44,7 +47,11 @@ function inferTypeFromDir(relDir: string): string {
 export function walkPages(spaceId: string, typeFilter?: string): string[] {
   const scanDir = getScopedWikiDir(spaceId, typeFilter);
   try {
-    return readDirRecursive(scanDir, (_f, name) => name.endsWith(".md"));
+    return readDirRecursive(scanDir, (_filePath, name) => {
+      if (!name.endsWith(".md")) return false;
+      if (isSystemFile(name)) return false;
+      return true;
+    });
   } catch {
     return [];
   }

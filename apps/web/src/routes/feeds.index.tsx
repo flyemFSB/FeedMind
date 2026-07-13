@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Rss, Globe, Heart, MessageCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { Rss, Globe, ExternalLink, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
-import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
+import { useTranslation, Trans } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -97,11 +97,11 @@ function FeedsIndexPage() {
     const date = new Date(dateStr);
     const diff = Date.now() - date.getTime();
     const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "刚刚";
-    if (minutes < 60) return `${minutes} 分钟前`;
+    if (minutes < 1) return t("time.justNow");
+    if (minutes < 60) return t("time.minutesAgo", { n: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} 小时前`;
-    return `${Math.floor(hours / 24)} 天前`;
+    if (hours < 24) return t("time.hoursAgo", { n: hours });
+    return t("time.daysAgo", { n: Math.floor(hours / 24) });
   };
 
   const sourceFor = (feed: FeedItem): SourceInfo | undefined => sources.get(feed.source_id);
@@ -118,7 +118,7 @@ function FeedsIndexPage() {
     <div className="h-full p-6 max-sm:p-4 overflow-y-auto">
       <div className="mx-auto max-w-[900px]">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold text-editorial-ink">信息流</h2>
+          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("feeds.title")}</h2>
           <Button
             onClick={handleSync}
             disabled={refreshing}
@@ -126,7 +126,7 @@ function FeedsIndexPage() {
             className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
           >
             <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? "同步中..." : "同步订阅"}
+            {refreshing ? t("feeds.syncing") : t("feeds.sync")}
           </Button>
         </div>
 
@@ -134,11 +134,13 @@ function FeedsIndexPage() {
           <div className="flex flex-col items-center rounded-xl border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-16 text-center">
             <Globe size={24} className="mb-3 text-editorial-ink-muted" />
             <p className="text-[13px] text-editorial-ink-muted">
-              暂无内容，前往{" "}
-              <a href="/sources" className="text-editorial-primary underline">
-                订阅管理
-              </a>{" "}
-              添加订阅后点击同步
+              <Trans i18nKey="feeds.empty">
+                暂无内容，前往{" "}
+                <a href="/sources" className="text-editorial-primary underline">
+                  订阅管理
+                </a>{" "}
+                添加订阅后点击同步
+              </Trans>
             </p>
           </div>
         ) : (
@@ -172,7 +174,7 @@ function FeedsIndexPage() {
                       )}
                     >
                       {src?.type === "rss" ? <Rss size={10} /> : null}
-                      {src?.title || "未知来源"}
+                      {src?.title || t("feeds.unknownSource")}
                     </span>
                     {item.author && (
                       <span className="text-[11px] text-editorial-ink-muted">{item.author}</span>

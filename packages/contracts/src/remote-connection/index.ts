@@ -16,7 +16,7 @@ export const feishuConfigSchema = z.object({
   // OAuth tokens
   tenantAccessToken: z.string().optional(),
   tokenExpiresAt: z.number().optional(),
-  // User binding
+  // 用户绑定
   feishuUserId: z.string().optional(),
   feishuOpenId: z.string().optional(),
   feishuUnionId: z.string().optional(),
@@ -27,14 +27,14 @@ export const feishuConfigSchema = z.object({
 });
 export type FeishuConfig = z.infer<typeof feishuConfigSchema>;
 
-// ─── Social media cookie config ────────────────────────────────
+// ─── 社交平台 Cookie 配置 ────────────────────────────────────
 export const cookieConfigSchema = z.object({
   cookies: z.string().optional(),
   proxyUrl: z.string().optional(),
 });
 export type CookieConfig = z.infer<typeof cookieConfigSchema>;
 
-// ─── Unified remote connection schema ──────────────────────────
+// ─── 统一远程连接 schema ──────────────────────────────────
 export const remoteConnectionSchema = z.object({
   id: z.string(),
   platform: PlatformId,

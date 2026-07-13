@@ -92,18 +92,6 @@
   --radius-4xl: calc(var(--radius) * 2.4);
 }
 
-html {
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-body {
-  font-family: var(--font-sans);
-  line-height: 1.55;
-  letter-spacing: 0.01em;
-}
-
 /* Custom scrollbar for editorial feel */
 ::-webkit-scrollbar {
   width: 8px;
@@ -449,10 +437,14 @@ body {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
     @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
+    line-height: 1.55;
+    letter-spacing: 0.01em;
   }
 }

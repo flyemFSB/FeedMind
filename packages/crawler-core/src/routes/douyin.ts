@@ -9,14 +9,43 @@ import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
 import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
 
-async function waitForResponse(page: any, urlPattern: string, timeout = 60_000): Promise<any> {
+/** 抖音视频作品 */
+interface DouyinPost {
+  aweme_id?: string;
+  desc?: string;
+  create_time?: number;
+  author?: { nickname?: string };
+  video_tag?: { tag_name?: string }[];
+  video?: { cover?: { url_list?: string[] } };
+}
+
+/** 最小化的 Playwright Page 接口（避免直接依赖 playwright-core） */
+interface MinimalPage {
+  on(event: string, handler: (response: MinimalResponse) => void): void;
+}
+
+/** 最小化的 Playwright Response 接口 */
+interface MinimalResponse {
+  ok(): boolean;
+  url(): string;
+  json(): Promise<unknown>;
+}
+
+async function waitForResponse(
+  page: MinimalPage,
+  urlPattern: string,
+  timeout = 60_000,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`等待 ${urlPattern} 超时`)), timeout);
-    page.on("response", async (response: any) => {
+    page.on("response", (response: MinimalResponse) => {
       try {
         if (response.ok() && response.url().includes(urlPattern)) {
-          clearTimeout(timer);
-          resolve(await response.json());
+          // async 解析 JSON 后 resolve
+          void response.json().then((data) => {
+            clearTimeout(timer);
+            resolve(data);
+          });
         }
       } catch {
         // ignore parse errors on non-JSON responses
@@ -45,13 +74,12 @@ const userHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItem
       await page.route("**/*", (route) => {
         const type = route.request().resourceType();
         if (["image", "media", "font", "stylesheet"].includes(type)) {
-          route.abort();
+          void route.abort();
         } else {
-          route.continue();
+          void route.continue();
         }
       });
 
-      // 注入 cookie 再导航
       await injectCookies(page, cookies, ".douyin.com");
 
       // 并发等待拦截响应和导航完成
@@ -63,17 +91,18 @@ const userHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItem
         }),
       ]);
 
-      const awemeList = postData?.aweme_list ?? [];
+      const awemeList = (postData as { aweme_list?: DouyinPost[] })?.aweme_list ?? [];
       const author = awemeList[0]?.author;
 
-      const items = awemeList.slice(0, maxItems).map((post: any) => ({
+      const items = awemeList.slice(0, maxItems).map((post: DouyinPost) => ({
         title: (post.desc || "").split("\n", 1)[0] || "",
         description: post.desc || "",
         link: `https://www.douyin.com/video/${post.aweme_id}`,
-        guid: buildGuid("douyin", post.aweme_id),
+        guid: buildGuid("douyin", post.aweme_id || ""),
         pubDate: post.create_time ? fromUnixTimestamp(post.create_time) : new Date().toUTCString(),
         author: author?.nickname,
-        category: post.video_tag?.map((t: any) => t.tag_name) || undefined,
+        category:
+          post.video_tag?.map((t) => t.tag_name).filter((t): t is string => !!t) || undefined,
         image: post.video?.cover?.url_list?.[0],
       }));
 
@@ -114,9 +143,9 @@ const detailHandler: RouteHandler = async ({ params, cookies, abortSignal }) => 
       await page.route("**/*", (route) => {
         const type = route.request().resourceType();
         if (["image", "media", "font", "stylesheet"].includes(type)) {
-          route.abort();
+          void route.abort();
         } else {
-          route.continue();
+          void route.continue();
         }
       });
 
@@ -130,7 +159,7 @@ const detailHandler: RouteHandler = async ({ params, cookies, abortSignal }) => 
         }),
       ]);
 
-      const awemeDetail = detailData?.aweme_detail;
+      const awemeDetail = (detailData as { aweme_detail?: DouyinPost })?.aweme_detail;
 
       return {
         rssXml: buildRssXml({
@@ -144,7 +173,7 @@ const detailHandler: RouteHandler = async ({ params, cookies, abortSignal }) => 
                   title: (awemeDetail.desc || "").split("\n", 1)[0] || "",
                   description: awemeDetail.desc || "",
                   link: `https://www.douyin.com/video/${awemeDetail.aweme_id}`,
-                  guid: buildGuid("douyin", awemeDetail.aweme_id),
+                  guid: buildGuid("douyin", awemeDetail.aweme_id || ""),
                   pubDate: awemeDetail.create_time
                     ? fromUnixTimestamp(awemeDetail.create_time)
                     : new Date().toUTCString(),
@@ -183,9 +212,9 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
       await page.route("**/*", (route) => {
         const type = route.request().resourceType();
         if (["image", "media", "font", "stylesheet"].includes(type)) {
-          route.abort();
+          void route.abort();
         } else {
-          route.continue();
+          void route.continue();
         }
       });
 
@@ -199,9 +228,9 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
         }),
       ]);
 
-      const awemeList = searchData?.aweme_list ?? [];
+      const awemeList = (searchData as { aweme_list?: DouyinPost[] })?.aweme_list ?? [];
 
-      const items = awemeList.slice(0, maxItems).map((post: any) => ({
+      const items = awemeList.slice(0, maxItems).map((post: DouyinPost) => ({
         title: (post.desc || "").split("\n", 1)[0] || "",
         description: post.desc || "",
         link: `https://www.douyin.com/video/${post.aweme_id}`,

@@ -18,7 +18,6 @@ export class OpenAiLlmClient implements LlmClient {
     const baseUrl = this.config.baseUrl.replace(/\/$/, "");
     const model = this.config.model;
     const maxTokens = opts.maxTokens ?? 4096;
-
     const response = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
@@ -51,7 +50,7 @@ export class OpenAiLlmClient implements LlmClient {
     };
     const content: string | undefined = data.choices?.[0]?.message?.content;
     if (content === undefined || content === null) {
-      throw new Error("LLM returned empty response");
+      throw new Error("LLM 返回了空响应");
     }
     return content;
   }

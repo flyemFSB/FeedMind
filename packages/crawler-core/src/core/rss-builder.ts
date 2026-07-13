@@ -1,8 +1,8 @@
 /**
- * RSS 2.0 XML builder utility
+ * RSS 2.0 XML 构建工具
  *
- * Produces valid RSS 2.0 XML from structured data.
- * Follows RSS 2.0 spec: https://validator.w3.org/feed/docs/rss2.html
+ * 从结构化数据生成合法的 RSS 2.0 XML。
+ * 遵循 RSS 2.0 规范: https://validator.w3.org/feed/docs/rss2.html
  */
 
 export interface RssItem {
@@ -32,7 +32,7 @@ const DEFAULT_LANGUAGE = "zh-CN";
 const DEFAULT_TTL = 60;
 
 /**
- * Escape text for XML. Replaces <, >, &, ", ' with entities.
+ * XML 特殊字符转义（<, >, &, ", ' → 实体引用）。
  */
 function escapeXml(text: string): string {
   return text
@@ -44,18 +44,17 @@ function escapeXml(text: string): string {
 }
 
 /**
- * Wraps text in CDATA section if it contains HTML or special chars.
- * For RSS <description> which supports HTML, CDATA is preferred.
+ * 用 CDATA 包裹文本，适用于 RSS <description> 中含 HTML 的场景。
  */
 function cdata(text: string): string {
-  // Escape CDATA close marker ]]> if present
+  // 转义 CDATA 关闭标记 ]]>，防止提前截断
   const safe = text.replace(/]]>/g, "]]]]><![CDATA[>");
   return `<![CDATA[${safe}]]>`;
 }
 
 /**
- * Formats a date as RFC 2822 string (required by RSS 2.0 pubDate).
- * Accepts ISO 8601 string, Unix timestamp (seconds or milliseconds), or Date.
+ * 格式化日期为 RFC 2822 字符串（RSS 2.0 pubDate 要求）。
+ * 支持 ISO 8601、Unix 时间戳（秒/毫秒）、Date 对象。
  */
 export function toRfc2822(date: string | number | Date): string {
   const d = typeof date === "string" ? new Date(date) : new Date(date);
@@ -66,14 +65,14 @@ export function toRfc2822(date: string | number | Date): string {
 }
 
 /**
- * Format a Unix timestamp (seconds) as RFC 2822.
+ * Unix 时间戳（秒）转 RFC 2822 格式。
  */
 export function fromUnixTimestamp(seconds: number): string {
   return toRfc2822(seconds * 1000);
 }
 
 /**
- * Build an RSS 2.0 XML string from structured feed data.
+ * 从结构化数据构建 RSS 2.0 XML 字符串。
  */
 export function buildRssXml(feed: RssFeed): string {
   const lang = feed.language ?? DEFAULT_LANGUAGE;
@@ -121,7 +120,7 @@ ${itemsXml}
 }
 
 /**
- * Build platform-prefixed GUID.
+ * 构建带平台前缀的 GUID。
  */
 export function buildGuid(platform: string, contentId: string): string {
   return `${platform}:${contentId}`;

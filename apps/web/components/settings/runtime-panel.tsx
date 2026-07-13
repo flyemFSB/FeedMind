@@ -38,7 +38,7 @@ const defaultFields: ConfigFormFields = {
 
 function useDebounce<T extends unknown[]>(fn: (...args: T) => void, delay: number) {
   const fnRef = useRef(fn);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     fnRef.current = fn;
   }, [fn]);
