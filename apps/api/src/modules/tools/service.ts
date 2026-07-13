@@ -1,10 +1,12 @@
+import { eq } from "drizzle-orm";
 import type { ToolConfigUpdate, ToolRead, ConfigField } from "@feedmind/contracts";
-import { client } from "@feedmind/db";
+import { db, tools } from "@feedmind/db";
+import type { ToolRow } from "@feedmind/db";
 import { encryptValue, decryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-function maskSensitiveFields(row: any): ToolRead {
-  const fields = JSON.parse(row.config_fields) as ConfigField[];
+function maskSensitiveFields(row: ToolRow): ToolRead {
+  const fields = JSON.parse(row.configFields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   const passwordSet: Record<string, boolean> = {};
   for (const f of fields) {
@@ -16,19 +18,19 @@ function maskSensitiveFields(row: any): ToolRead {
   return {
     name: row.name,
     category: row.category,
-    display_name: row.display_name,
+    display_name: row.displayName,
     description: row.description ?? null,
     icon: row.icon ?? null,
     config_fields: fields,
     config,
     password_set: passwordSet,
-    is_enabled: !!row.is_enabled,
-    sort_order: row.sort_order,
+    is_enabled: row.isEnabled,
+    sort_order: row.sortOrder,
   };
 }
 
-function decryptRow(row: any): ToolRead {
-  const fields = JSON.parse(row.config_fields) as ConfigField[];
+function decryptRow(row: ToolRow): ToolRead {
+  const fields = JSON.parse(row.configFields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   const passwordSet: Record<string, boolean> = {};
   for (const f of fields) {
@@ -40,38 +42,37 @@ function decryptRow(row: any): ToolRead {
   return {
     name: row.name,
     category: row.category,
-    display_name: row.display_name,
+    display_name: row.displayName,
     description: row.description ?? null,
     icon: row.icon ?? null,
     config_fields: fields,
     config,
     password_set: passwordSet,
-    is_enabled: !!row.is_enabled,
-    sort_order: row.sort_order,
+    is_enabled: row.isEnabled,
+    sort_order: row.sortOrder,
   };
 }
 
 export async function listTools(): Promise<ToolRead[]> {
-  const result = await client.execute("SELECT * FROM tools ORDER BY sort_order");
-  return result.rows.map(maskSensitiveFields);
+  const rows = await db.select().from(tools).orderBy(tools.sortOrder);
+  return rows.map(maskSensitiveFields);
 }
 
 export async function listToolsRuntime(): Promise<ToolRead[]> {
-  const result = await client.execute("SELECT * FROM tools ORDER BY sort_order");
-  return result.rows.map(decryptRow);
+  const rows = await db.select().from(tools).orderBy(tools.sortOrder);
+  return rows.map(decryptRow);
 }
 
 export async function getTool(name: string): Promise<ToolRead> {
-  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
-  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
-  return maskSensitiveFields(result.rows[0]);
+  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  return maskSensitiveFields(row);
 }
 
 export async function getToolRuntime(name: string): Promise<{ config: Record<string, unknown> }> {
-  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
-  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
-  const row = result.rows[0] as any;
-  const fields = JSON.parse(row.config_fields) as ConfigField[];
+  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  const fields = JSON.parse(row.configFields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   for (const f of fields) {
     if (f.type === "password" && typeof config[f.key] === "string" && config[f.key]) {
@@ -82,11 +83,10 @@ export async function getToolRuntime(name: string): Promise<{ config: Record<str
 }
 
 export async function updateToolConfig(name: string, payload: ToolConfigUpdate): Promise<ToolRead> {
-  const result = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
-  if (!result.rows[0]) throw new HttpError(404, "HTTP_ERROR", "tool not found");
-  const row = result.rows[0] as any;
+  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
+  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
 
-  const fields = JSON.parse(row.config_fields) as ConfigField[];
+  const fields = JSON.parse(row.configFields) as ConfigField[];
   const currentConfig = JSON.parse(row.config) as Record<string, unknown>;
 
   const passwordKeys = new Set(fields.filter((f) => f.type === "password").map((f) => f.key));
@@ -98,23 +98,17 @@ export async function updateToolConfig(name: string, payload: ToolConfigUpdate):
     }
   }
 
-  const updatedConfig = JSON.stringify(currentConfig);
-  const now = new Date().toISOString();
-  const enabled = payload.is_enabled !== undefined ? (payload.is_enabled ? 1 : 0) : undefined;
-
-  if (enabled !== undefined) {
-    await client.execute({
-      sql: "UPDATE tools SET config = ?, is_enabled = ?, updated_at = ? WHERE name = ?",
-      args: [updatedConfig, enabled, now, name],
-    });
-  } else {
-    await client.execute({
-      sql: "UPDATE tools SET config = ?, updated_at = ? WHERE name = ?",
-      args: [updatedConfig, now, name],
-    });
+  const updateValues: Partial<typeof tools.$inferInsert> = {
+    config: JSON.stringify(currentConfig),
+    updatedAt: new Date().toISOString(),
+  };
+  if (payload.is_enabled !== undefined) {
+    updateValues.isEnabled = payload.is_enabled;
   }
 
-  const updated = await client.execute({ sql: "SELECT * FROM tools WHERE name = ?", args: [name] });
-  if (!updated.rows[0]) throw new HttpError(500, "INTERNAL", "update failed");
-  return maskSensitiveFields(updated.rows[0]);
+  await db.update(tools).set(updateValues).where(eq(tools.name, name));
+
+  const [updated] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
+  if (!updated) throw new HttpError(500, "INTERNAL", "update failed");
+  return maskSensitiveFields(updated);
 }

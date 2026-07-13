@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { client } from "@feedmind/db";
+import { eq } from "drizzle-orm";
+import { db, remoteConnections } from "@feedmind/db";
+import type { RemoteConnectionRow } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
 import type {
   PlatformId,
@@ -7,20 +9,6 @@ import type {
   RemoteConnection,
   RemoteConnectionUpsert,
 } from "@feedmind/contracts";
-
-function toRow(r: any): RemoteConnection {
-  return {
-    id: r.id,
-    platform: r.platform as PlatformId,
-    label: r.label,
-    status: r.status as ConnectionStatus,
-    config: r.config ? safeParseJson(r.config) : null,
-    extra: r.extra ? safeParseJson(r.extra) : null,
-    error: r.error ?? null,
-    createdAt: r.created_at,
-    updatedAt: r.updated_at,
-  };
-}
 
 function safeParseJson(s: string): Record<string, unknown> | null {
   try {
@@ -30,66 +18,93 @@ function safeParseJson(s: string): Record<string, unknown> | null {
   }
 }
 
+function rowToObj(row: RemoteConnectionRow): RemoteConnection {
+  return {
+    id: row.id,
+    platform: row.platform as PlatformId,
+    label: row.label,
+    status: row.status as ConnectionStatus,
+    config: row.config ? safeParseJson(row.config) : null,
+    extra: row.extra ? safeParseJson(row.extra) : null,
+    error: row.error ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
 export async function listConnections(platform?: string): Promise<RemoteConnection[]> {
-  const sql = platform
-    ? "SELECT * FROM remote_connections WHERE platform = ? ORDER BY created_at"
-    : "SELECT * FROM remote_connections ORDER BY created_at";
-  const result = platform
-    ? await client.execute({ sql, args: [platform] })
-    : await client.execute(sql);
-  return result.rows.map(toRow);
+  const rows = platform
+    ? await db
+        .select()
+        .from(remoteConnections)
+        .where(eq(remoteConnections.platform, platform))
+        .orderBy(remoteConnections.createdAt)
+    : await db.select().from(remoteConnections).orderBy(remoteConnections.createdAt);
+  return rows.map(rowToObj);
 }
 
 export async function getConnection(id: string): Promise<RemoteConnection> {
-  const result = await client.execute({
-    sql: "SELECT * FROM remote_connections WHERE id = ?",
-    args: [id],
-  });
-  if (!result.rows[0]) throw new HttpError(404, "NOT_FOUND", "连接不存在");
-  return toRow(result.rows[0]);
+  const [row] = await db
+    .select()
+    .from(remoteConnections)
+    .where(eq(remoteConnections.id, id))
+    .limit(1);
+  if (!row) throw new HttpError(404, "NOT_FOUND", "连接不存在");
+  return rowToObj(row);
 }
 
 export async function getConnectionByPlatform(
   platform: PlatformId,
 ): Promise<RemoteConnection | null> {
-  const result = await client.execute({
-    sql: "SELECT * FROM remote_connections WHERE platform = ?",
-    args: [platform],
-  });
-  return result.rows[0] ? toRow(result.rows[0]) : null;
+  const [row] = await db
+    .select()
+    .from(remoteConnections)
+    .where(eq(remoteConnections.platform, platform))
+    .limit(1);
+  return row ? rowToObj(row) : null;
 }
 
 export async function upsertConnection(
   platform: PlatformId,
   payload: RemoteConnectionUpsert,
 ): Promise<RemoteConnection> {
-  const existing = await client.execute({
-    sql: "SELECT * FROM remote_connections WHERE platform = ?",
-    args: [platform],
-  });
-  const now = new Date().toISOString();
-  const configJson = payload.config ? JSON.stringify(payload.config) : undefined;
+  const [existing] = await db
+    .select()
+    .from(remoteConnections)
+    .where(eq(remoteConnections.platform, platform))
+    .limit(1);
 
-  if (existing.rows[0]) {
-    const row = existing.rows[0] as any;
-    await client.execute({
-      sql: "UPDATE remote_connections SET label = ?, config = ?, updated_at = ? WHERE id = ?",
-      args: [payload.label, configJson ?? row.config, now, row.id],
-    });
-    return getConnection(row.id);
+  const configJson = payload.config ? JSON.stringify(payload.config) : undefined;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await db
+      .update(remoteConnections)
+      .set({
+        label: payload.label,
+        config: configJson ?? existing.config,
+        updatedAt: now,
+      })
+      .where(eq(remoteConnections.id, existing.id));
+    return getConnection(existing.id);
   }
 
   const id = randomUUID();
-  await client.execute({
-    sql: "INSERT INTO remote_connections (id, platform, label, status, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    args: [id, platform, payload.label, "disconnected", configJson ?? null, now, now],
+  await db.insert(remoteConnections).values({
+    id,
+    platform,
+    label: payload.label,
+    status: "disconnected",
+    config: configJson ?? null,
+    createdAt: now,
+    updatedAt: now,
   });
   return getConnection(id);
 }
 
 export async function deleteConnection(id: string): Promise<void> {
   await getConnection(id);
-  await client.execute({ sql: "DELETE FROM remote_connections WHERE id = ?", args: [id] });
+  await db.delete(remoteConnections).where(eq(remoteConnections.id, id));
 }
 
 export async function updateConnectionStatus(
@@ -98,24 +113,32 @@ export async function updateConnectionStatus(
   extra?: Record<string, unknown>,
   error?: string,
 ): Promise<void> {
-  const now = new Date().toISOString();
-  const existing = await client.execute({
-    sql: "SELECT extra, config FROM remote_connections WHERE id = ?",
-    args: [id],
-  });
-  const row = existing.rows[0] as any;
-  await client.execute({
-    sql: "UPDATE remote_connections SET status = ?, extra = ?, error = ?, updated_at = ? WHERE id = ?",
-    args: [status, extra ? JSON.stringify(extra) : (row?.extra ?? null), error ?? null, now, id],
-  });
+  const [existing] = await db
+    .select({ extra: remoteConnections.extra })
+    .from(remoteConnections)
+    .where(eq(remoteConnections.id, id))
+    .limit(1);
+
+  await db
+    .update(remoteConnections)
+    .set({
+      status,
+      extra: extra ? JSON.stringify(extra) : (existing?.extra ?? null),
+      error: error ?? null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(remoteConnections.id, id));
 }
 
 export async function updateConnectionConfig(
   id: string,
   config: Record<string, unknown>,
 ): Promise<void> {
-  await client.execute({
-    sql: "UPDATE remote_connections SET config = ?, updated_at = ? WHERE id = ?",
-    args: [JSON.stringify(config), new Date().toISOString(), id],
-  });
+  await db
+    .update(remoteConnections)
+    .set({
+      config: JSON.stringify(config),
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(remoteConnections.id, id));
 }

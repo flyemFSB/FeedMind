@@ -1,4 +1,5 @@
-import { client } from "@feedmind/db";
+import { eq } from "drizzle-orm";
+import { db, remoteConnections } from "@feedmind/db";
 import { randomUUID } from "node:crypto";
 import { Client, AppType, EventDispatcher, WSClient, LoggerLevel } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
@@ -17,11 +18,11 @@ const RECONNECT_MAX_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 
 async function getConfig() {
-  const result = await client.execute({
-    sql: "SELECT * FROM remote_connections WHERE platform = ?",
-    args: ["feishu"],
-  });
-  const conn = result.rows[0] as any;
+  const [conn] = await db
+    .select()
+    .from(remoteConnections)
+    .where(eq(remoteConnections.platform, "feishu"))
+    .limit(1);
   if (!conn?.config) return null;
   try {
     return { ...JSON.parse(conn.config), connId: conn.id };
@@ -245,10 +246,10 @@ export async function startLongConnection(): Promise<void> {
     await wsClient.start({ eventDispatcher: ed });
     logger.info("飞书 WebSocket 长连接已建立");
 
-    await client.execute({
-      sql: "UPDATE remote_connections SET status = ?, error = ?, updated_at = ? WHERE platform = ?",
-      args: ["connected", null, new Date().toISOString(), "feishu"],
-    });
+    await db
+      .update(remoteConnections)
+      .set({ status: "connected", error: null, updatedAt: new Date().toISOString() })
+      .where(eq(remoteConnections.platform, "feishu"));
 
     reconnectAttempt = 0;
     startHealthCheck();
@@ -256,10 +257,10 @@ export async function startLongConnection(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "飞书长连接启动失败");
     wsClient = null;
-    await client.execute({
-      sql: "UPDATE remote_connections SET status = ?, error = ?, updated_at = ? WHERE platform = ?",
-      args: ["error", String(err), new Date().toISOString(), "feishu"],
-    });
+    await db
+      .update(remoteConnections)
+      .set({ status: "error", error: String(err), updatedAt: new Date().toISOString() })
+      .where(eq(remoteConnections.platform, "feishu"));
     scheduleReconnect();
   }
 }
@@ -286,23 +287,29 @@ export async function saveAndVerify(config: { appId: string; appSecret: string }
     throw new Error(err?.response?.data?.msg ?? "凭证无效", { cause: err });
   }
 
-  const existing = await client.execute({
-    sql: "SELECT * FROM remote_connections WHERE platform = ?",
-    args: ["feishu"],
-  });
-  const row = existing.rows[0] as any;
+  const [existing] = await db
+    .select()
+    .from(remoteConnections)
+    .where(eq(remoteConnections.platform, "feishu"))
+    .limit(1);
+
   const configJson = JSON.stringify(config);
   const now = new Date().toISOString();
 
-  if (row) {
-    await client.execute({
-      sql: "UPDATE remote_connections SET config = ?, status = ?, updated_at = ? WHERE id = ?",
-      args: [configJson, "connected", now, row.id],
-    });
+  if (existing) {
+    await db
+      .update(remoteConnections)
+      .set({ config: configJson, status: "connected", updatedAt: now })
+      .where(eq(remoteConnections.id, existing.id));
   } else {
-    await client.execute({
-      sql: "INSERT INTO remote_connections (id, platform, label, status, config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      args: [randomUUID(), "feishu", "飞书机器人", "connected", configJson, now, now],
+    await db.insert(remoteConnections).values({
+      id: randomUUID(),
+      platform: "feishu",
+      label: "飞书机器人",
+      status: "connected",
+      config: configJson,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 

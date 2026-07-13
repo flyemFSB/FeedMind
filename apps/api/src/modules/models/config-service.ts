@@ -1,27 +1,23 @@
+import { eq } from "drizzle-orm";
 import type { RuntimeConfigRead, RuntimeConfigUpdate } from "@feedmind/contracts";
-import { client } from "@feedmind/db";
+import { db, llm, runtimeConfig } from "@feedmind/db";
+import type { RuntimeConfigRow } from "@feedmind/db";
 import { decryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 
-interface ConfigRow {
-  id: number;
-  runtime: string;
-  llm_id: number | null;
-  temperature: number;
-  top_p: number;
-  system_prompt: string;
-  updated_at: string;
-}
-
-function configToRead(row: ConfigRow, modelName?: string, provider?: string): RuntimeConfigRead {
+function toConfigRead(
+  row: RuntimeConfigRow,
+  modelName?: string,
+  provider?: string,
+): RuntimeConfigRead {
   return {
     runtime: row.runtime,
-    llm_id: row.llm_id,
+    llm_id: row.llmId,
     model_name: modelName,
     provider,
     temperature: row.temperature,
-    top_p: row.top_p,
-    system_prompt: row.system_prompt,
+    top_p: row.topP,
+    system_prompt: row.systemPrompt,
   };
 }
 
@@ -29,138 +25,90 @@ async function resolveModelName(
   llmId: number | null,
 ): Promise<{ modelName?: string; provider?: string }> {
   if (!llmId) return {};
-  const result = await client.execute({
-    sql: "SELECT model_name, provider FROM llm WHERE id = ?",
-    args: [llmId],
-  });
-  const row = result.rows[0] as any;
-  return row ? { modelName: row.model_name, provider: row.provider } : {};
+  const [row] = await db
+    .select({ modelName: llm.modelName, provider: llm.provider })
+    .from(llm)
+    .where(eq(llm.id, llmId))
+    .limit(1);
+  return row ? { modelName: row.modelName, provider: row.provider } : {};
 }
 
+/** session 场景在 UI 层面不存自己的 llm_id，直接读 llm 表的选中模型 */
 async function resolveSelectedModel(): Promise<{
   llmId: number | null;
   modelName?: string;
   provider?: string;
 }> {
-  const result = await client.execute(
-    "SELECT id, model_name, provider FROM llm WHERE is_selected = 1 LIMIT 1",
-  );
-  const row = result.rows[0] as any;
+  const [row] = await db
+    .select({ id: llm.id, modelName: llm.modelName, provider: llm.provider })
+    .from(llm)
+    .where(eq(llm.isSelected, true))
+    .limit(1);
   return row
-    ? { llmId: row.id, modelName: row.model_name, provider: row.provider }
+    ? { llmId: row.id, modelName: row.modelName, provider: row.provider }
     : { llmId: null };
 }
 
 export async function getAllConfigs(): Promise<RuntimeConfigRead[]> {
-  const result = await client.execute(
-    "SELECT c.*, m.model_name, m.provider FROM runtime_config c LEFT JOIN llm m ON c.llm_id = m.id",
-  );
+  const rows = await db
+    .select({
+      config: runtimeConfig,
+      modelName: llm.modelName,
+      provider: llm.provider,
+    })
+    .from(runtimeConfig)
+    .leftJoin(llm, eq(runtimeConfig.llmId, llm.id));
+
   const selected = await resolveSelectedModel();
 
-  return result.rows.map((r: any) => {
-    const config: ConfigRow = {
-      id: r.id,
-      runtime: r.runtime,
-      llm_id: r.llm_id,
-      temperature: r.temperature,
-      top_p: r.top_p,
-      system_prompt: r.system_prompt,
-      updated_at: r.updated_at,
-    };
+  return rows.map(({ config, modelName, provider }) => {
     if (config.runtime === "session") {
-      return configToRead(config, selected.modelName, selected.provider);
+      return toConfigRead(config, selected.modelName, selected.provider);
     }
-    return configToRead(config, r.model_name ?? undefined, r.provider ?? undefined);
+    return toConfigRead(config, modelName ?? undefined, provider ?? undefined);
   });
 }
 
 export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
-  const result = await client.execute({
-    sql: "SELECT * FROM runtime_config WHERE runtime = ?",
-    args: [runtime],
-  });
-  const row = result.rows[0] as any;
+  const [row] = await db
+    .select()
+    .from(runtimeConfig)
+    .where(eq(runtimeConfig.runtime, runtime))
+    .limit(1);
   if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
-
-  const config: ConfigRow = {
-    id: row.id,
-    runtime: row.runtime,
-    llm_id: row.llm_id,
-    temperature: row.temperature,
-    top_p: row.top_p,
-    system_prompt: row.system_prompt,
-    updated_at: row.updated_at,
-  };
 
   if (runtime === "session") {
     const selected = await resolveSelectedModel();
-    return configToRead(config, selected.modelName, selected.provider);
+    return toConfigRead(row, selected.modelName, selected.provider);
   }
 
-  const resolved = await resolveModelName(config.llm_id);
-  return configToRead(config, resolved.modelName, resolved.provider);
+  const resolved = await resolveModelName(row.llmId);
+  return toConfigRead(row, resolved.modelName, resolved.provider);
 }
 
 export async function updateConfig(
   runtime: string,
   payload: RuntimeConfigUpdate,
 ): Promise<RuntimeConfigRead> {
-  const sets: string[] = ["updated_at = ?"];
-  const binds: any[] = [new Date().toISOString()];
-  const cols: string[] = [];
-
-  if (payload.llm_id !== undefined && runtime !== "session") {
-    sets.push("llm_id = ?");
-    binds.push(payload.llm_id);
-    cols.push("llm_id");
-  }
-  if (payload.temperature !== undefined) {
-    sets.push("temperature = ?");
-    binds.push(payload.temperature);
-    cols.push("temperature");
-  }
-  if (payload.top_p !== undefined) {
-    sets.push("top_p = ?");
-    binds.push(payload.top_p);
-    cols.push("top_p");
-  }
-  if (payload.system_prompt !== undefined) {
-    sets.push("system_prompt = ?");
-    binds.push(payload.system_prompt);
-    cols.push("system_prompt");
-  }
-
-  binds.push(runtime);
-
-  const before = await client.execute({
-    sql: "SELECT id FROM runtime_config WHERE runtime = ?",
-    args: [runtime],
-  });
-  if (!before.rows[0]) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
-
-  await client.execute({
-    sql: `UPDATE runtime_config SET ${sets.join(", ")} WHERE runtime = ?`,
-    args: binds,
-  });
-
-  const result = await client.execute({
-    sql: "SELECT * FROM runtime_config WHERE runtime = ?",
-    args: [runtime],
-  });
-  const row = result.rows[0] as any;
-  if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
-
-  const config: ConfigRow = {
-    id: row.id,
-    runtime: row.runtime,
-    llm_id: row.llm_id,
-    temperature: row.temperature,
-    top_p: row.top_p,
-    system_prompt: row.system_prompt,
-    updated_at: row.updated_at,
+  const values: Partial<RuntimeConfigRow> = {
+    updatedAt: new Date().toISOString(),
   };
-  const resolved = await resolveModelName(config.llm_id);
-  return configToRead(config, resolved.modelName, resolved.provider);
+  // session 运行配置不存储自己的 llm_id，忽略该字段
+  if (payload.llm_id !== undefined && runtime !== "session") values.llmId = payload.llm_id;
+  if (payload.temperature !== undefined) values.temperature = payload.temperature;
+  if (payload.top_p !== undefined) values.topP = payload.top_p;
+  if (payload.system_prompt !== undefined) values.systemPrompt = payload.system_prompt;
+
+  const [updated] = await db
+    .update(runtimeConfig)
+    .set(values)
+    .where(eq(runtimeConfig.runtime, runtime))
+    .returning();
+
+  if (!updated) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
+
+  const resolved = await resolveModelName(updated.llmId);
+  return toConfigRead(updated, resolved.modelName, resolved.provider);
 }
 
 export async function getRuntimeConfig(runtime: string): Promise<{
@@ -171,11 +119,11 @@ export async function getRuntimeConfig(runtime: string): Promise<{
   top_p: number;
   system_prompt: string;
 }> {
-  const result = await client.execute({
-    sql: "SELECT * FROM runtime_config WHERE runtime = ?",
-    args: [runtime],
-  });
-  const row = result.rows[0] as any;
+  const [row] = await db
+    .select()
+    .from(runtimeConfig)
+    .where(eq(runtimeConfig.runtime, runtime))
+    .limit(1);
   if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
 
   let modelName = "";
@@ -183,23 +131,18 @@ export async function getRuntimeConfig(runtime: string): Promise<{
   let apiKey = "";
 
   if (runtime === "session") {
-    const sel = await client.execute("SELECT * FROM llm WHERE is_selected = 1 LIMIT 1");
-    const model = sel.rows[0] as any;
+    const [model] = await db.select().from(llm).where(eq(llm.isSelected, true)).limit(1);
     if (model) {
-      modelName = model.model_name;
-      baseUrl = model.base_url;
-      apiKey = model.encrypted_api_key ? decryptValue(model.encrypted_api_key) : "";
+      modelName = model.modelName;
+      baseUrl = model.baseUrl;
+      apiKey = model.encryptedApiKey ? decryptValue(model.encryptedApiKey) : "";
     }
-  } else if (row.llm_id) {
-    const modelResult = await client.execute({
-      sql: "SELECT * FROM llm WHERE id = ?",
-      args: [row.llm_id],
-    });
-    const model = modelResult.rows[0] as any;
+  } else if (row.llmId) {
+    const [model] = await db.select().from(llm).where(eq(llm.id, row.llmId)).limit(1);
     if (model) {
-      modelName = model.model_name;
-      baseUrl = model.base_url;
-      apiKey = model.encrypted_api_key ? decryptValue(model.encrypted_api_key) : "";
+      modelName = model.modelName;
+      baseUrl = model.baseUrl;
+      apiKey = model.encryptedApiKey ? decryptValue(model.encryptedApiKey) : "";
     }
   }
 
@@ -223,7 +166,7 @@ export async function getRuntimeConfig(runtime: string): Promise<{
     base_url: baseUrl,
     api_key: apiKey,
     temperature: row.temperature,
-    top_p: row.top_p,
-    system_prompt: row.system_prompt,
+    top_p: row.topP,
+    system_prompt: row.systemPrompt,
   };
 }
