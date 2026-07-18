@@ -92,13 +92,13 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
       <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Input
-            className="h-7 border-0 bg-transparent px-0 text-[17px] font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-0"
+            className="h-7 border-0 bg-transparent px-0 text-[16px] font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-0"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("wiki.pageTitlePlaceholder")}
           />
           <Input
-            className="h-5 border-0 bg-transparent px-0 text-[11px] text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-0"
+            className="h-5 border-0 bg-transparent px-0 text-[12px] text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-0"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="wiki/path/to/page.md"

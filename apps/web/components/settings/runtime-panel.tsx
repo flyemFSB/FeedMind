@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
-import { useLLMModels } from "@/lib/hooks/use-llms";
+import { useModels } from "@/lib/hooks/use-models";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -54,7 +54,7 @@ export function RuntimePanel() {
   const [innerTab, setInnerTab] = useState<InnerTab>("session");
   const { data: configs = [], isLoading } = useRuntimeConfigs({ enabled: true });
   const updateConfig = useUpdateRuntimeConfig();
-  const { data: models = [] } = useLLMModels();
+  const { data: models = [] } = useModels("chat");
 
   const sessionConfig = configs.find((c) => c.runtime === "session");
   const wikiConfig = configs.find((c) => c.runtime === "wiki");
@@ -145,7 +145,7 @@ export function RuntimePanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.runtime")}</h3>
+          <h3 className="text-[14px] font-semibold text-editorial-ink">{t("settings.runtime")}</h3>
           <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("settings.runtimeDescription")}
           </p>
@@ -264,7 +264,7 @@ export function RuntimePanel() {
             }
           }}
           rows={4}
-          className="w-full px-4 py-3 rounded-xl border border-editorial-hairline text-[13px] text-editorial-ink resize-none focus:outline-none focus:border-editorial-primary"
+          className="w-full px-4 py-3 rounded-md border border-editorial-hairline text-[13px] text-editorial-ink resize-none focus:outline-none focus:border-editorial-primary"
         />
       </div>
     </div>
@@ -281,7 +281,7 @@ function SessionModelSelectorSection() {
         {t("settings.sessionModel")}
       </label>
       <ModelSelector />
-      <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
+      <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
     </div>
   );
 }
@@ -314,7 +314,7 @@ function WikiModelSelectorSection({
       >
         <SelectTrigger
           aria-label={t("settings.selectWikiModel")}
-          className="h-10 w-[260px] rounded-xl border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
+          className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
           disabled={!hasModels}
         >
           <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")}>
@@ -331,7 +331,7 @@ function WikiModelSelectorSection({
             }}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent align="end" className="rounded-xl border-editorial-hairline">
+        <SelectContent align="end" className="rounded-md border-editorial-hairline">
           <SelectGroup>
             {models.map((model) => (
               <SelectItem key={model.id} value={model.id}>
@@ -344,7 +344,7 @@ function WikiModelSelectorSection({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("settings.wikiModelDesc")}</p>
+      <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("settings.wikiModelDesc")}</p>
     </div>
   );
 }

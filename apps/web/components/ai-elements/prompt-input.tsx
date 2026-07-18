@@ -73,7 +73,7 @@ export function PromptInputTextarea({
       disabled={disabled}
       rows={2}
       className={cn(
-        "block min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent text-[15px] text-editorial-ink placeholder:text-editorial-ink-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
+        "block min-h-[64px] max-h-[220px] w-full resize-none border-0 bg-transparent text-[14px] text-editorial-ink placeholder:text-editorial-ink-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -103,7 +103,7 @@ export function PromptInputSubmit({
       type="submit"
       size="icon"
       className={cn(
-        "rounded-full",
+        "rounded-md",
         isStreaming
           ? "bg-editorial-surface-soft text-editorial-ink hover:bg-editorial-surface-strong"
           : "bg-primary text-primary-foreground hover:bg-primary/80",

@@ -4,6 +4,7 @@ export const runtimeConfigReadSchema = z.object({
   runtime: z.string(),
   llm_id: z.number().int().positive().nullable(),
   model_name: z.string().optional(),
+  model_id: z.string().optional(),
   provider: z.string().optional(),
   temperature: z.number(),
   top_p: z.number(),

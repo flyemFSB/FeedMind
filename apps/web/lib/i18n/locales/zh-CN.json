@@ -339,7 +339,14 @@
     "skillDeleted": "技能已删除",
     "skillDeleteConfirm": "确认删除技能 {name} 吗？",
     "skillZipOnly": "仅支持 .zip 格式的技能包",
-    "deleteFailed": "删除失败"
+    "deleteFailed": "删除失败",
+    "chatModels": "会话模型",
+    "embeddingModels": "嵌入模型",
+    "embeddingModelsDescription": "配置嵌入模型用于向量化。需要填写 Base URL、API Key 和模型名称。",
+    "embeddingModelName": "模型名称",
+    "embeddingFormIncomplete": "请填写所有字段",
+    "embeddingModelSaved": "嵌入模型保存成功",
+    "embeddingModelSaveFailed": "保存失败"
   },
   "remoteConnection": {
     "title": "远程连接",

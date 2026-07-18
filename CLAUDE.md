@@ -41,9 +41,8 @@ pnpm run build:packages        # 仅构建共享包
 pnpm run typecheck             # 全仓库 TypeScript 类型检查
 pnpm run lint                  # 全仓库 ESLint 检查
 pnpm run test                  # 运行所有测试（vitest）
-pnpm run db:init               # 初始化 SQLite 数据库
-pnpm run db:generate           # 生成 Drizzle 迁移
-pnpm run db:migrate            # 执行 Drizzle 迁移
+pnpm run db:push               # 用 drizzle-kit push 同步 schema 到数据库（开发期每次改 schema 后执行）
+pnpm run db:init               # 写入种子数据（工具配置、默认运行配置，首次使用或重置后执行）
 pnpm run web:dev               # 仅前端（http://localhost:13790）
 pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790）
 ```
@@ -161,7 +160,7 @@ apps/api/src/
 packages/
   contracts/    Zod schema + TypeScript types（契约单一数据源）
   shared/       纯工具函数、加密、常量
-  db/           数据库 schema + 客户端初始化 + 迁移
+  db/           数据库 schema + 客户端初始化
   wiki-core/    Wiki 文件系统引擎
   crawler-core/ 爬虫引擎（core + platforms）
 ```

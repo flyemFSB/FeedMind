@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Plus, Trash2, X } from "lucide-react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { ChevronDown, GripVertical, Plus, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +20,7 @@ import {
 import { Thread } from "@/components/chat/thread";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useChatSessions, useDeleteChatSession } from "@/lib/hooks/use-chats";
-import { useLLMModels, useSelectedLLMModel, useSetSelectedLLMModel } from "@/lib/hooks/use-llms";
+import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/use-models";
 import { persistSelectedFeedMindModel, setSelectedFeedMindModelId } from "@/lib/api/agent";
 import { ProviderIcon } from "@/components/settings/provider-icon";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,57 +31,136 @@ interface AgentDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/**
- * AgentDrawer — 右侧划出的竖向聊天抽屉
- * - 不使用 Sheet/modal 遮罩，而是通过动画宽度挤占主内容区
- * - 宽度 420px，适合并排阅读 Wiki + 对话
- * - 标题栏提供会话切换 + 模型选择 + 新建会话 + 关闭按钮
- * - Escape 键关闭
- */
 export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const { t } = useTranslation();
   const { createNewSession, switchSession, activeThreadId, clearSession } = useChatContext();
   const { data: sessions = [] } = useChatSessions();
   const deleteMutation = useDeleteChatSession();
   const drawerRef = useRef<HTMLDivElement>(null);
+  const [instantClose, setInstantClose] = useState(false);
+
+  const [isDesktop, setIsDesktop] = useState(true);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const [drawerWidth, setDrawerWidth] = useState(() => {
+    try {
+      const saved = localStorage.getItem("feedmind:agent-drawer-width");
+      if (saved) {
+        const n = Number(saved);
+        return Math.min(Math.max(n, 320), 640);
+      }
+    } catch {
+      /* ignore */
+    }
+    return 400;
+  });
+  const drawerWidthRef = useRef(drawerWidth);
+  drawerWidthRef.current = drawerWidth;
+
+  useEffect(() => {
+    localStorage.setItem("feedmind:agent-drawer-width", String(drawerWidth));
+  }, [drawerWidth]);
+
+  const handleResizePointerDown = useCallback((e: PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = drawerWidthRef.current;
+
+    const handlePointerMove = (event: globalThis.PointerEvent) => {
+      const newWidth = startWidth - (event.clientX - startX);
+      const clamped = Math.min(Math.max(newWidth, 320), 640);
+      setDrawerWidth(clamped);
+    };
+
+    const handlePointerUp = () => {
+      document.removeEventListener("pointermove", handlePointerMove);
+      document.removeEventListener("pointerup", handlePointerUp);
+      document.removeEventListener("pointercancel", handlePointerUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("pointermove", handlePointerMove);
+    document.addEventListener("pointerup", handlePointerUp);
+    document.addEventListener("pointercancel", handlePointerUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
 
   const currentSession = sessions.find((s) => s.agent_thread_id === activeThreadId);
   const currentLabel = currentSession?.title || t("common.newChat");
 
-  // Escape 键关闭
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key === "Escape") {
+        setInstantClose(true);
+        onOpenChange(false);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, onOpenChange]);
 
-  // 失去焦点时聚焦抽屉以便 Escape 生效
+  useEffect(() => {
+    if (!instantClose) return;
+    const frame = requestAnimationFrame(() => setInstantClose(false));
+    return () => cancelAnimationFrame(frame);
+  }, [instantClose]);
+
   useEffect(() => {
     if (open) drawerRef.current?.focus();
   }, [open]);
 
   return (
-    <motion.div
+    <div
       ref={drawerRef}
       tabIndex={-1}
-      animate={{ width: open ? 520 : 0 }}
-      initial={false}
-      transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
-      className="overflow-hidden border-l border-editorial-hairline bg-editorial-surface-card outline-none"
+      data-island="agent"
+      data-state={open ? "open" : "closed"}
+      aria-hidden={!open}
+      inert={!open}
+      style={{
+        width: open ? `min(${isDesktop ? drawerWidth : 400}px, calc(100vw - 48px))` : "0px",
+      }}
+      className={`relative shrink-0 overflow-hidden border bg-editorial-surface-soft outline-none transition-[width,margin,border-color,box-shadow] duration-300 ease-out max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-0 max-lg:z-40 max-lg:w-[min(400px,calc(100vw-48px))] max-lg:max-w-[calc(100vw-48px)] ${
+        open
+          ? "my-2 mr-2 rounded-xl border-editorial-hairline shadow-[0_1px_3px_rgba(55,53,45,0.06)] max-lg:my-0 max-lg:mr-0 max-lg:rounded-l-xl max-lg:border-r-0 max-lg:shadow-[-8px_0_18px_-14px_rgba(55,53,45,0.18)]"
+          : "pointer-events-none my-0 mr-0 rounded-none border-transparent shadow-none"
+      }`}
     >
-      <div className="flex h-full w-[min(520px,100vw)] flex-col">
-        {/* 标题栏 */}
-        <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-editorial-hairline pl-3 pr-2">
-          {/* 会话切换 */}
+      {open && (
+        <button
+          type="button"
+          className="absolute left-1 top-1/2 z-50 hidden h-11 w-6 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-md border border-editorial-hairline bg-editorial-surface-card text-editorial-ink-muted opacity-70 transition-[background-color,color,opacity] duration-150 hover:bg-editorial-surface-strong hover:text-editorial-ink hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent lg:flex"
+          onPointerDown={handleResizePointerDown}
+          onDoubleClick={() => setDrawerWidth(400)}
+          aria-label="拖动调整 Agent 面板宽度，双击恢复默认宽度"
+          title="拖动调整宽度 · 双击恢复默认"
+        >
+          <GripVertical size={14} strokeWidth={1.8} />
+        </button>
+      )}
+      <div
+        data-instant-close={instantClose ? "true" : undefined}
+        className={`flex h-full w-full max-w-[calc(100vw-48px)] flex-col overflow-hidden ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex min-w-0 max-w-[120px] items-center gap-1 rounded-md px-1.5 py-0.5 text-editorial-ink transition-colors hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong">
+            <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink transition-colors duration-150 hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
               <span className="truncate text-[13px] font-medium leading-tight">{currentLabel}</span>
               <ChevronDown size={12} className="shrink-0 text-editorial-ink-muted" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[220px] rounded-xl p-1.5">
+            <DropdownMenuContent align="start" className="w-[220px] p-1.5">
               {sessions.length === 0 ? (
                 <div className="px-3 py-2 text-[12px] text-editorial-ink-muted">
                   {t("chat.noSessions")}
@@ -92,7 +170,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                   <DropdownMenuItem
                     key={session.agent_thread_id}
                     onClick={() => switchSession(session.agent_thread_id)}
-                    className="group flex items-center rounded-lg p-0 text-[12px]"
+                    className="group flex items-center rounded-md p-0 text-[12px]"
                   >
                     <span className="flex-1 truncate px-2 py-1.5">
                       {session.title || t("chat.sessionTitleDefault")}
@@ -105,7 +183,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                         }
                         deleteMutation.mutate(session.agent_thread_id);
                       }}
-                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-all duration-150 ease-out hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted transition-colors duration-150 opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                       title={t("common.delete")}
                     >
                       <Trash2 size={12} />
@@ -116,7 +194,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => createNewSession()}
-                className="flex items-center gap-2 rounded-lg text-[12px] text-editorial-ink"
+                className="flex items-center gap-2 rounded-md text-[12px] text-editorial-ink"
               >
                 <Plus size={14} />
                 {t("common.newChat")}
@@ -124,50 +202,33 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* 右侧：模型选择 + 操作按钮 */}
           <div className="ml-auto flex items-center gap-0.5">
             <CompactModelSelector />
-            <motion.button
+            <button
               type="button"
               onClick={() => createNewSession()}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-soft transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-editorial-ink-soft transition-colors duration-150 hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
               aria-label={t("common.newChat")}
               title={t("common.newChat")}
             >
               <Plus size={14} strokeWidth={2} />
-            </motion.button>
-            <motion.button
-              type="button"
-              onClick={() => onOpenChange(false)}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-soft transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
-              aria-label={t("common.close")}
-              title={t("common.close")}
-            >
-              <X size={14} strokeWidth={2} />
-            </motion.button>
+            </button>
           </div>
         </div>
 
-        {/* 聊天线程 */}
         <div className="flex min-h-0 min-w-0 flex-1">
           <Thread className="bg-editorial-surface-card" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
-/**
- * CompactModelSelector — 紧凑型模型选择器
- * 用于 Agent 抽屉标题栏，占用空间小
- */
 function CompactModelSelector() {
   const { t } = useTranslation();
-  const { data: models = [], isLoading } = useLLMModels();
-  const { data: selectedModelId = "" } = useSelectedLLMModel();
-  const setSelectedMutation = useSetSelectedLLMModel();
+  const { data: models = [], isLoading } = useModels("chat");
+  const { data: selectedModelId = "" } = useSelectedModel("chat");
+  const setSelectedMutation = useSetSelectedModel("chat");
   const [selectedModel, setSelectedModel] = useState("");
 
   useEffect(() => {
@@ -187,7 +248,7 @@ function CompactModelSelector() {
   };
 
   if (isLoading) {
-    return <Skeleton className="h-7 w-[100px] rounded-lg" />;
+    return <Skeleton className="h-7 w-[100px] rounded-md" />;
   }
 
   const hasModels = models.length > 0;
@@ -197,7 +258,7 @@ function CompactModelSelector() {
     <Select value={hasModels ? selectedModel : ""} onValueChange={handleChange}>
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
-        className="h-7 max-w-[130px] rounded-lg border-editorial-hairline bg-editorial-surface-card px-2 text-[11px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"
+        className="h-7 max-w-[130px] rounded-md border-editorial-hairline bg-editorial-surface-card px-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"
         disabled={!hasModels}
       >
         <SelectValue placeholder={t("settings.noModels")}>
@@ -213,7 +274,7 @@ function CompactModelSelector() {
           }
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="end" className="rounded-xl border-editorial-hairline min-w-[160px]">
+      <SelectContent align="end" className="border-editorial-hairline min-w-[160px]">
         <SelectGroup>
           {models.map((model) => (
             <SelectItem key={model.id} value={model.id} className="text-[12px]">

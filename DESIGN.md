@@ -1,515 +1,310 @@
 ---
 name: FeedMind
-description: 任务驱动的趋势研究 Agent 系统
+description: A task-driven trend-research agent system — silent, editorial, local-first.
 colors:
-  canvas: "#f5f5f0"
-  canvas-soft: "#fafaf7"
-  canvas-deep: "#292524"
+  primary: "#37352d"
+  primary-active: "#2b2a25"
+  accent: "#37352d"
+  accent-soft: "#efefef"
+  ink: "#37352d"
+  ink-soft: "#9b9a97"
+  ink-muted: "#bfbdb8"
+  canvas: "#ffffff"
+  canvas-soft: "#f7f6f3"
   surface-card: "#ffffff"
-  surface-soft: "#f0efec"
-  surface-strong: "#e7e5e2"
-  surface-dark: "#292524"
-  surface-dark-elevated: "#1c1917"
-  ink: "#292524"
-  ink-soft: "#57534e"
-  ink-muted: "#a8a29e"
-  ink-on-dark: "#ffffff"
-  ink-on-dark-soft: "#a8a29e"
-  ink-on-primary: "#ffffff"
-  primary: "#292524"
-  primary-active: "#1c1917"
-  hairline: "#e7e5e2"
+  surface-soft: "#f7f6f3"
+  surface-strong: "#efefef"
+  hairline: "#e9e9e7"
   hairline-soft: "#f0efec"
-  hairline-strong: "#d6d3d0"
-  gradient-mint: "#a7e5d3"
-  gradient-peach: "#f4c5a8"
-  gradient-lavender: "#c8b8e0"
-  gradient-sky: "#a8c8e8"
-  gradient-rose: "#e8b8c4"
-  gradient-warm: "#f5d0c0"
-  semantic-success: "#16a34a"
-  semantic-error: "#dc2626"
-  semantic-warning: "#d97706"
-  semantic-info: "#2563eb"
-  scrollbar-thumb: "#d6d3d0"
-
+  hairline-strong: "#d1d0cc"
+  semantic-success: "oklch(0.55 0.18 145)"
+  semantic-error: "oklch(0.55 0.23 25)"
+  semantic-warning: "oklch(0.65 0.16 85)"
+  semantic-info: "oklch(0.55 0.16 250)"
+  dark-primary: "#ffffff"
+  dark-primary-active: "#e0e0e0"
+  dark-accent: "#ffffff"
+  dark-accent-soft: "#2e2e2e"
+  dark-ink: "#ffffff"
+  dark-ink-soft: "#cdcdcd"
+  dark-ink-muted: "#9b9a97"
+  dark-canvas: "#191919"
+  dark-canvas-soft: "#111111"
+  dark-surface-card: "#191919"
+  dark-surface-soft: "#111111"
+  dark-surface-strong: "#2e2e2e"
+  dark-hairline: "#2e2e2e"
+  dark-hairline-soft: "#1f1f1f"
+  dark-hairline-strong: "#454545"
 typography:
-  display-mega:
-    fontFamily: "SF Pro Display, system-ui, sans-serif"
-    fontSize: "clamp(2rem, 5vw, 3.5rem)"
-    fontWeight: 400
-    lineHeight: 1.08
-    letterSpacing: -0.02em
-  display-xl:
-    fontFamily: "SF Pro Display, system-ui, sans-serif"
-    fontSize: "clamp(1.75rem, 4vw, 2.75rem)"
-    fontWeight: 400
-    lineHeight: 1.1
-    letterSpacing: -0.01em
-  display-lg:
-    fontFamily: "SF Pro Display, system-ui, sans-serif"
-    fontSize: "clamp(1.5rem, 3vw, 2.25rem)"
-    fontWeight: 400
-    lineHeight: 1.15
-    letterSpacing: -0.005em
-  display-md:
-    fontFamily: "SF Pro Display, system-ui, sans-serif"
-    fontSize: "clamp(1.25rem, 2.5vw, 1.75rem)"
-    fontWeight: 400
-    lineHeight: 1.2
-    letterSpacing: 0
-  display-sm:
-    fontFamily: "SF Pro Display, system-ui, sans-serif"
-    fontSize: "clamp(1.125rem, 2vw, 1.5rem)"
-    fontWeight: 400
-    lineHeight: 1.25
-    letterSpacing: 0
-  title-lg:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(1rem, 1.5vw, 1.25rem)"
-    fontWeight: 500
-    lineHeight: 1.3
-    letterSpacing: 0
-  title-md:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.9375rem, 1.25vw, 1.0625rem)"
-    fontWeight: 500
-    lineHeight: 1.35
-    letterSpacing: 0
-  title-sm:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.875rem, 1vw, 0.9375rem)"
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: 0.01em
-  body-lg:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.9375rem, 1.25vw, 1.0625rem)"
-    fontWeight: 400
-    lineHeight: 1.6
-    letterSpacing: 0.01em
-  body-md:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.875rem, 1vw, 0.9375rem)"
-    fontWeight: 400
-    lineHeight: 1.55
-    letterSpacing: 0.01em
-  body-sm:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
+  display:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif"
+    fontSize: "14px"
+    fontWeight: 600
+    lineHeight: 1.5
+  body:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif"
+    fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: 0.01em
-  caption:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.75rem, 0.8vw, 0.8125rem)"
-    fontWeight: 400
-    lineHeight: 1.4
-    letterSpacing: 0.02em
-  caption-uppercase:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.6875rem, 0.7vw, 0.75rem)"
+  label:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif"
+    fontSize: "12px"
     fontWeight: 500
-    lineHeight: 1.3
-    letterSpacing: 0.08em
-    textTransform: uppercase
-  button:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
-    fontWeight: 500
-    lineHeight: 1
-    letterSpacing: 0.01em
-  nav:
-    fontFamily: "system-ui, -apple-system, sans-serif"
-    fontSize: "clamp(0.8125rem, 0.9vw, 0.875rem)"
-    fontWeight: 450
     lineHeight: 1.4
-    letterSpacing: 0.01em
   mono:
-    fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace"
-    fontSize: "clamp(0.75rem, 0.8vw, 0.8125rem)"
+    fontFamily: "'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Menlo, monospace"
+    fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.5
-    letterSpacing: 0
-
 rounded:
-  none: 0px
-  xs: 4px
-  sm: 6px
-  md: 8px
-  lg: 12px
-  xl: 16px
-  xxl: 20px
-  pill: 9999px
-
+  sm: "4px"
+  md: "6px"
+  lg: "8px"
+  xl: "10px"
 spacing:
-  xxs: 4px
-  xs: 8px
-  sm: 12px
-  base: 16px
-  md: 20px
-  lg: 24px
-  xl: 32px
-  xxl: 48px
-  section: 80px
-
+  xs: "4px"
+  sm: "8px"
+  md: "16px"
+  lg: "24px"
+  xl: "32px"
 components:
-  sidebar:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.nav}"
-    width: 260px
-  sidebar-collapsed:
-    backgroundColor: "{colors.canvas}"
-    width: 60px
-  topbar:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-sm}"
-    height: 56px
-    border: 1px "{colors.hairline}"
   button-primary:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.ink-on-primary}"
-    typography: "{typography.button}"
-    rounded: "{rounded.pill}"
-    padding: "10px 20px"
-    height: 38px
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
+    padding: "10px 12px"
   button-primary-hover:
-    backgroundColor: "{colors.primary-active}"
-  button-outline:
-    backgroundColor: transparent
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-    rounded: "{rounded.pill}"
-    padding: "9px 19px"
-    height: 38px
-    border: 1px "{colors.hairline-strong}"
+    backgroundColor: "{colors.primary}"
+    textColor: "#ffffff"
+    rounded: "{rounded.md}"
   button-ghost:
-    backgroundColor: transparent
+    backgroundColor: "transparent"
     textColor: "{colors.ink-soft}"
-    typography: "{typography.button}"
     rounded: "{rounded.md}"
-    padding: "8px 12px"
-    height: 36px
-  card:
-    backgroundColor: "{colors.surface-card}"
+    padding: "8px 10px"
+  button-ghost-hover:
+    backgroundColor: "{colors.hairline}"
     textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-    rounded: "{rounded.lg}"
-    padding: "20px"
-  card-elevated:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-    rounded: "{rounded.lg}"
-    padding: "24px"
-  text-input:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
     rounded: "{rounded.md}"
-    padding: "10px 14px"
-    height: 40px
-    border: 1px "{colors.hairline-strong}"
-  message-user:
-    backgroundColor: "{colors.surface-soft}"
+  input-default:
+    backgroundColor: "#ffffff"
     textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-    rounded: "{rounded.lg}"
-    padding: "12px 16px"
-  message-assistant:
-    backgroundColor: transparent
+    rounded: "{rounded.md}"
+    padding: "8px 10px"
+    borderColor: "{colors.hairline}"
+  input-focus:
+    backgroundColor: "#ffffff"
     textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-  composer:
-    backgroundColor: "{colors.surface-card}"
-    rounded: "{rounded.xl}"
-    padding: "12px 16px"
-    border: 1px "{colors.hairline}"
-  badge:
-    backgroundColor: "{colors.surface-strong}"
-    textColor: "{colors.ink-soft}"
-    typography: "{typography.caption-uppercase}"
-    rounded: "{rounded.pill}"
-    padding: "3px 10px"
-  tag:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.ink}"
-    typography: "{typography.caption}"
-    rounded: "{rounded.pill}"
-    padding: "4px 10px"
-  dialog:
+    rounded: "{rounded.md}"
+    ringColor: "{colors.hairline-strong}"
+  card-default:
     backgroundColor: "{colors.surface-card}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.xl}"
-    padding: "24px"
-  tooltip:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.ink-on-dark}"
-    typography: "{typography.body-sm}"
-    rounded: "{rounded.sm}"
-    padding: "6px 10px"
-  nav-item:
-    backgroundColor: transparent
-    textColor: "{colors.ink-soft}"
-    typography: "{typography.nav}"
     rounded: "{rounded.md}"
-    padding: "8px 12px"
-  nav-item-active:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.ink}"
-    typography: "{typography.nav}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
+    padding: "16px"
+    borderColor: "{colors.hairline}"
 ---
 
 # Design System: FeedMind
 
 ## 1. Overview
 
-**Creative North Star: "The Quiet Research Studio"**
+**Creative North Star: "The Quiet Research Companion"**
 
-FeedMind 的设计语言从 ElevenLabs 的编辑式品牌美学出发，将其克制、温暖、印刷杂志般的视觉气质，适配到一个以对话和知识管理为核心功能的产品中。这里没有 SaaS 产品的常见套路——没有霓虹色的 CTA、没有花哨的渐变按钮、没有开发者工具的暗色终端风格。取而代之的是一本安静的工作笔记本：暖米色的纸面画布、深棕墨色的文字、衬线字体书写的标题、以及偶尔出现的柔和渐变光晕——像是翻页时瞥见的一抹书签色彩。
+FeedMind is a locally-run trend-research agent that moves through three stages — collect, discuss, and organize — in a single, distraction-free workspace. The design disappears into the task. Every pixel serves the content: chat transcripts, wiki pages, and source feeds are the real interface. Chrome, toolbars, and decorative flourishes recede to near-invisibility.
 
-这是一个**为长时间阅读和思考而设计**的系统。聊天记录的每一段文字、Wiki 页面的每一条笔记，都应该像印在纸上一样舒适。UI 框架退到幕后——边框细如发丝、阴影近乎不可见、色彩饱和度被刻意压低。功能性的操作元素（按钮、输入框、导航）保持清晰但不抢眼，用墨色填充的 pill 形状作为主要操作入口。
+The system is **editorial in spirit, not SaaS**. It rejects the visual grammar of cloud productivity tools (gradients, heavy shadows, brand-colored sidebars, animated logos) in favor of the conventions that make tools like Notion, iA Writer, and Linear feel trustworthy: flat surfaces, subtle borders, single-family typography at a tight scale, and interaction feedback that never competes with content.
 
 **Key Characteristics:**
-- 暖米色画布（`#f5f5f0`），深棕墨色（`#292524`）文字。没有纯白、没有纯黑。
-- 系统无衬线字体（-apple-system）作为统一字族。不再使用衬线显示字体，避免额外字体加载开销。
-- Inter 承载正文、导航、标签——清晰、现代、不喧宾夺主。
-- 主要操作为墨色 pill 按钮。仅此一种 CTA 颜色。
-- 柔和渐变光晕（薄荷、桃色、薰衣草、天空、玫瑰、暖杏）作为纯装饰性氛围元素。
-- 细发丝边框（`#e7e5e2`）代替厚重阴影。卡片几乎不浮起。
-- 16px（`rounded.lg`）作为卡片和容器的默认圆角，pill 形状用于按钮和标签。
 
-## 2. Colors: The Warm Editorial Palette
+- **Silent hierarchy.** Depth comes from tonal layering (background color shifts of ~10–15 L%), not shadows. The canvas is pure white (#ffffff), the sidebar is warm off-white (#f7f6f3), and the workspace island is white — a single step of tonal separation.
+- **Monochrome-first.** The entire palette is neutral gray on white. The primary "color" is text (#37352d, a warm near-black). There is no brand color, no accent color beyond what selection highlights and focus rings provide. The product's visual identity is typography and spacing.
+- **Restrained motion.** Transitions exist only to communicate state (hover, focus, open/close). Duration is 150ms. No page-load choreography, no parallax, no entrance animations. Motion conveys state, not personality.
+- **Local-first confidence.** The UI doesn't announce itself. No onboarding tours, no feature callouts, no empty-state illustrations. Empty states teach the interface in a single line of text.
 
-整个色彩系统围绕「暖米色 + 深棕色」的核心对比展开，饱和度被刻意压低。没有蓝色品牌色、没有霓虹点缀。
+## 2. Colors: The Monochrome Neutral Palette
 
-### Primary
-- **Ink** (`#292524` / `oklch(27% 0.015 50)`): 唯一的主要操作色。用于主要按钮填充、重要文字、深色画布背景。使用量控制在 10% 以下。
-- **Ink Active** (`#1c1917` / `oklch(20% 0.015 50)`): Ink 的按下状态。
+The palette is a measured gray scale with a barely-warm lean (chroma ≈ 0.003 toward 60° hue on the lightest tones). The warmth is imperceptible as color but prevents the clinical cold of pure gray. Dark mode inverses the scale with the same logic: the canvas is a deep warm-gray (#191919) rather than pure black.
 
-### Neutral
-- **Canvas** (`#f5f5f0` / `oklch(96.5% 0.005 70)`): 页面底色。暖米色——不是纯白，不是 SaaS 灰色。所有页面、侧边栏、顶栏都以此为基础。
-- **Canvas Soft** (`#fafaf7` / `oklch(98% 0.004 70)`): 更浅的画布变体，用于次要区域或交替分段。
-- **Canvas Deep** (`#292524`): 同 Ink——用于深色面板、对话框背景。
-- **Surface Card** (`#ffffff`): 纯白卡片——在暖米色画布上，纯白已经足够区分。
-- **Surface Soft** (`#f0efec` / `oklch(94% 0.004 70)`): 次要表面——消息气泡背景、hover 状态。
-- **Surface Strong** (`#e7e5e2` / `oklch(91% 0.005 70)`): 标签底色、分隔线区域。
+### Light Mode
 
-### Text
-- **Ink** (`#292524`): 标题、主要文字。
-- **Ink Soft** (`#57534e` / `oklch(45% 0.015 50)`): 正文。在中性米色背景上保持 ≥8:1 对比度。
-- **Ink Muted** (`#a8a29e` / `oklch(72% 0.015 50)`): 次级说明文字、禁用状态。
-- **Ink On Dark** (`#ffffff`): 深色画布上的文字。
-- **Ink On Primary** (`#ffffff`): Ink 按钮上的白色文字。
+- **Primary / Accent** (`#37352d`): Text and interactive elements. This warm near-black is the strongest color in the system. Used for body text, active labels, and primary button backgrounds. It replaces what would be a brand accent in conventional product UIs.
+- **Accent Soft** (`#efefef`): The hover and selected-state background for interactive elements. A very light gray (L ≈ 94%) that sits one step above the canvas soft.
+- **Canvas** (`#ffffff`): The main workspace background. Pure white for maximum contrast with text.
+- **Canvas Soft** (`#f7f6f3`): The sidebar and secondary panel background. A barely-warm off-white (L ≈ 97%) that creates the tonal layer beneath the canvas.
+- **Surface Strong** (`#efefef`): For hover states and subtle dividers. The most prominent gray before text.
+- **Ink** (`#37352d`): Primary text. Contrast ratio 14:1 against white canvas.
+- **Ink Soft** (`#9b9a97`): Secondary text, metadata, helper text. Contrast ratio 4.5:1 against white canvas — WCAG AA compliant for body text.
+- **Ink Muted** (`#bfbdb8`): Placeholder text and disabled labels. Contrast ratio 3:1 against white.
+- **Hairline** (`#e9e9e7`): Borders between surfaces. A very light gray (L ≈ 92%) that defines structure without competing with content.
+- **Hairline Strong** (`#d1d0cc`): The focus ring color. Used for `focus-visible` outlines and keyboard navigation indicators.
 
-### Hairlines
-- **Hairline** (`#e7e5e2`): 默认分割线、卡片描边。
-- **Hairline Soft** (`#f0efec`): 更浅的分割线——侧边栏项之间。
-- **Hairline Strong** (`#d6d3d0`): 输入框边框、强调分割线。
+### Dark Mode
 
-### Atmospheric Gradient (Signature)
-- **Gradient Mint** (`#a7e5d3`): 薄荷绿光晕。
-- **Gradient Peach** (`#f4c5a8`): 蜜桃色光晕。
-- **Gradient Lavender** (`#c8b8e0`): 薰衣草紫光晕。
-- **Gradient Sky** (`#a8c8e8`): 天空蓝光晕。
-- **Gradient Rose** (`#e8b8c4`): 玫瑰粉光晕。
-- **Gradient Warm** (`#f5d0c0`): 暖杏色光晕。
+The same scale inverted:
 
-> *这些渐变仅作为 `radial-gradient` 氛围光晕出现在空状态、欢迎页和品牌区域。永不作为按钮填充、文字颜色或组件背景。*
-
-### Semantic
-- **Success** (`#16a34a`): 成功确认。
-- **Error** (`#dc2626`): 错误提示。
-- **Warning** (`#d97706`): 警告信息。
-- **Info** (`#2563eb`): 信息提示。
-
-### Dark Mode (Apple HIG 设计系统适配)
-
-深色模式基于 Apple Human Interface Guidelines (HIG) 色彩系统构建。这不是简单的亮度反转——HIG 定义了一套独立的光学层级（luminance hierarchy），确保暗色背景上的可读性和视觉秩序。
-
-#### Background 层级 (颜色深度递减)
-
-| Token | Value | HIG 对应 | 使用场景 |
-|-------|-------|----------|----------|
-| `canvas` | `#000000` | `systemBackground` | 页面底色、最底层 |
-| `canvas-soft` / `surface-card` / `surface-dark` | `#1C1C1E` | `secondarySystemBackground` | 卡片、侧边栏、表面容器 |
-| `surface-soft` | `#2C2C2E` | `tertiarySystemBackground` | 次级表面、hover 状态、分组内层 |
-| `surface-strong` | `#3A3A3C` | `systemGray4` | 强调表面、标签底色 |
-
-**Elevation 规则**: 浮起层级越高，背景越亮。popover、modal 等前景元素自动使用比当前层级更亮的表面色（e.g.，在 canvas 上的 modal 使用 `#1C1C1E`）。
-
-#### Text 层级 (对比度递减)
-
-| Token | Value | HIG 对应 | Alpha | 对比度 (vs `#000000`) |
-|-------|-------|----------|-------|----------------------|
-| `ink` (primary) | `#FFFFFF` | `label` | 100% | 21:1 (AAA) |
-| `ink-soft` (secondary) | `#A6A6A8` | `secondaryLabel` 偏亮 | ~65%等效 | ~13:1 (AAA) |
-| `ink-muted` (tertiary) | `#6B6B6D` | `tertiaryLabel` 偏亮 | ~42%等效 | ~6:1 (AA) |
-
-所有 label 颜色以 `#EBEBF5` 为基色，层级通过 alpha 通道控制。CSS 变量预计算了在黑色背景上的混合结果，以 OKLCH 色空间存储。
-
-#### Separator / Fill 参考
-
-| Token | Value | HIG 对应 |
-|-------|-------|----------|
-| `hairline` | `#3A3A3C` | 接近 `separator` (rgba(84,84,88,0.6)) |
-| `scrollbar-thumb` | `#3A3A3C` | 系统滚动条滑块 |
-
-#### 设计原则
-
-1. **避免纯白疲劳**: 纯黑画布 (`#000000`) 配合 OLED 省电，同时让白色文字有最高对比度。
-2. **文本层级必须清晰**: 从纯白到中灰到深灰的三级阶梯，取代扁平的单色文字。
-3. **表面不要纯黑**: 卡片和容器永远比画布亮一级，通过 `#1C1C1E` / `#2C2C2E` 建立视觉分层。
-4. **色相偏移**: 暗色模式整体向冷色偏移（hue 290），与暖色 (hue 50~70) 的亮色模式形成昼夜对比。
+- **Canvas** (`#191919`): Workspace background. A warm deep-gray (L ≈ 10%), not pure black, to avoid FALD blooming on OLED text rendering.
+- **Canvas Soft** (`#111111`): Sidebar background (L ≈ 7%).
+- **Surface Strong** (`#2e2e2e`): Hover states and elevated surfaces.
+- **Ink** (`#ffffff`): Text on dark.
+- **Ink Soft** (`#cdcdcd`): Secondary text (contrast ≈ 7:1 against #191919).
+- **Ink Muted** (`#9b9a97`): Placeholder text.
+- **Hairline** (`#2e2e2e`): Borders in dark mode.
+- **Hairline Strong** (`#454545`): Focus rings in dark mode.
 
 ### Named Rules
 
-**The Ink Voice Rule.** Ink（`#292524`）是系统唯一的声音色。按钮、链接、活动状态——所有需要「操作感」的地方都用同一种深棕色。不引入蓝色品牌色、不添加第二个动作色。Ink 的稀缺性是其力量。
+**The One-Step Rule.** No surface should be more than one tonal step away from its parent. The sidebar (canvas-soft, L ≈ 97%) sits directly on the canvas (L 100%). The workspace island is the same white as the canvas; only the border separates them. Two steps create a hole; zero steps create ambiguity.
 
-**The No-Neon Rule.** 禁止任何饱和的荧光色（霓虹绿、电光蓝、亮橙）。渐变光晕是系统中饱和度最高的元素，但它们从不作为操作指示。
+**The Warm Near-Black Rule.** The darkest color in the system (#37352d) is not pure black. Its slight warmth (RGB 55,53,45) prevents the dead-flatness of `#000000` text on white while remaining neutral enough to not register as a tint. The same principle applies in dark mode: backgrounds are warm deep-gray, not black.
+
+**The No-Brand-Color Doctrine.** There is no brand blue, no brand red, no brand anything. The product's identity is carried by typography, spacing, and content. Color exists only to separate surfaces, grade information, and indicate state. This is non-negotiable.
+
+### Semantic Colors
+
+- **Success** (`oklch(0.55 0.18 145)`): A muted green for connected indicators and confirmation states.
+- **Error** (`oklch(0.55 0.23 25)`): A desaturated red for destructive actions and validation errors.
+- **Warning** (`oklch(0.65 0.16 85)`): An amber for attention signals.
+- **Info** (`oklch(0.55 0.16 250)`): A neutral blue for informational indicators.
+
+These appear on ≤1% of any screen. Their rarity is the point.
 
 ## 3. Typography
 
-**Display Font:** system-ui（回退 `'Times New Roman', serif`）— 400 字重。
-**Body Font:** Inter（回退 `'SF Pro Display', 'Helvetica Neue', sans-serif`）— 400/500 字重。
-**Mono Font:** JetBrains Mono（回退 `'SF Mono', 'Fira Code', monospace`）— 用于代码块、工具调用参数。
+**Font Stack:** System-native sans-serif (`-apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif`). No custom fonts, no web font loading. The system stack loads instantly, matches the OS chrome, and supports CJK natively. **Mono Stack:** `'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Menlo, monospace` — for code blocks and inline code in the wiki reader and chat messages.
 
-**Character:** 统一使用系统无衬线字体，减少首屏加载的额外字体请求——比 ElevenLabs 原版 Waldenburg 更有人文气息，适合中文语境下的长文阅读。Inter 作为正文字体，保证信息密度的清晰和 UI 元素的可扫描性。两者的组合是「古典标题 + 现代正文」——既不像传统杂志那样繁复，也不像通用 SaaS 那样乏味。
+**Character:** Single-family utilitarian sans. There is no display/body pairing because product UIs don't need one. A well-tuned sans at multiple weights carries the entire interface. The voice is quiet: normal tracking, normal case, no uppercase eyebrows. Information is conveyed by position and weight, not decoration.
 
 ### Hierarchy
-- **Display Mega** (400, clamp(2rem, 5vw, 3.5rem), 1.08, -0.02em): 欢迎页主标题、品牌展示区域。最大 56px。
-- **Display XL** (400, clamp(1.75rem, 4vw, 2.75rem), 1.1, -0.01em): 页面级标题、Wiki 页面标题。
-- **Display LG** (400, clamp(1.5rem, 3vw, 2.25rem), 1.15): 区域标题、对话框标题。
-- **Display MD** (400, clamp(1.25rem, 2.5vw, 1.75rem), 1.2): 卡片标题、面板标题。
-- **Title LG** (500, clamp(1rem, 1.5vw, 1.25rem), 1.3): 会话列表中对话标题、侧边栏分组标题。
-- **Title MD** (500, clamp(0.9375rem, 1.25vw, 1.0625rem), 1.35): 导航项文字、设置项标签。
-- **Body MD** (400, clamp(0.875rem, 1vw, 0.9375rem), 1.55, +0.01em): 默认正文、聊天气泡文字。最长行宽限制 70ch。
-- **Body SM** (400, clamp(0.8125rem, 0.9vw, 0.875rem), 1.5): 次要说明文字、时间戳。
-- **Caption** (400, clamp(0.75rem, 0.8vw, 0.8125rem), 1.4): 标签内文字、提示文字。
-- **Caption Uppercase** (500, 0.75rem, 1.3, +0.08em): 分类标签、徽章。
-- **Button** (500, 0.875rem, 1, +0.01em): 所有按钮文字。
-- **Mono** (400, 0.8125rem, 1.5): 代码块、工具调用参数、JSON 预览。
+
+- **Topbar Title** (600 weight, 14px, 1.5 line-height): Section labels in the workspace top bar. Single line, truncated.
+- **Body** (400 weight, 14px, 1.5 line-height): Chat messages, wiki page content, form labels, lists. Prose blocks cap at 65–75 characters per line via max-width.
+- **Small / Secondary** (400 weight, 12–13px, 1.4 line-height): Tab labels, metadata, timestamps, source names, helper text.
+- **Button / Label** (500 weight, 12–13px, 1.4 line-height): Buttons, pills, tags, and compact UI labels.
+- **Headers (wiki content)** (600 weight, variable 16–24px line-height 1.3): The rich-text hierarchy inside the wiki reader and editor, set by markdown heading levels.
+- **Mono** (400 weight, 13px, 1.5 line-height): Inline code, code blocks, and technical data views.
 
 ### Named Rules
 
-**The Weight Rule.** 显示字重不超过 500（系统字体的常规字重）。标题用衬线体的默认粗细即可——不用 bold、不用 light。正文 Inter 保持在 400/500，不用 300。
+**The Single Stack Rule.** No second font family enters the system. Not for display headings, not for pull quotes, not for branding. The system font stack is the only font stack. Custom fonts are forbidden — they delay first paint, mismatch the OS, and compete with the editorial quiet the product promises.
 
-**The Line Length Rule.** 正文最长 70 字符（`max-width: 70ch`）。聊天消息、Wiki 正文、设置说明——所有可读内容块都遵守此限制。让用户在舒适的行宽内阅读，不需要左右摆头。
+**The No-Eyebrow Rule.** Tiny uppercase tracked labels ("NAVIGATION", "SETTINGS", "PAGES") are prohibited. Section hierarchy is conveyed through position, not typographic casing. All UI labels are sentence-case.
 
 ## 4. Elevation
 
-系统采用**近乎扁平**的层次策略。深度不通过阴影表达，而是通过色彩和发丝边框来建立视觉层次。
+This system does not use shadows for depth. Depth is conveyed exclusively through tonal layering — a one-step background color shift from canvas to canvas-soft, or from surface to surface-strong. Surfaces that need visual separation receive a `border-editorial-hairline` (1px solid, 91% gray) on the edge shared with the adjacent surface.
 
-- 页面画布（Canvas）是最底层。所有组件都直接放在画布上。
-- 卡片（Card）使用纯白表面 + 1px 发丝边框（`hairline`），与画布区分。
-- 交互元素（悬浮、聚焦）不发散阴影，而是通过背景色调变化（从 `surface-card` 变为 `surface-soft`）来表达。
-- 唯一例外：浮动 composer 输入框使用单层软阴影（`0 8px 30px rgba(41,37,36,0.08)`），表明它是键盘交互的焦点。
-- 对话框/弹出层使用 `canvas-deep` 背景 + 发丝边框 + 极淡阴影（`0 12px 40px rgba(41,37,36,0.12)`）。
+The only exception is the Agent Drawer on narrow screens, which deploys a `shadow-sm` (`0 1px 2px 0 rgba(0,0,0,0.05)`) to lift the floating panel above the workspace content. This is a response to viewport constraints, not a depth system.
 
-| 层级 | 处理方式 | 使用场景 |
-|------|---------|---------|
-| 画布 | Canvas 底色 | 页面、侧边栏、顶栏 |
-| 表面 | 纯白 + 1px 发丝边框 | 卡片、面板、对话框 |
-| 交互 | 背景色加深（surface-soft） | Hover、选中状态 |
-| 浮动 | 软阴影（8px blur） | 浮动输入框 |
-| 模态 | 深色背景 + 发丝边框 + 阴影（12px blur） | 对话框、下拉菜单 |
+- **Z-layer 0:** Canvas (workspace background)
+- **Z-layer 1:** Sidebar, drawer, workspace island (separated by border, not shadow)
+- **Z-layer 2:** Dropdown, popover, dialog, tooltip (separated by `shadow-sm` + `ring-1 ring-foreground/10`)
+- **Z-layer 3:** Toast, tooltip (always on top, `shadow-sm`)
+
+### Named Rules
+
+**The Flat-By-Default Rule.** Every surface is flat at rest. Shadows appear only as a response to state: a floating drawer when the viewport is narrow, a dropdown menu when opened, a dialog when modal. No surface ever has a resting shadow.
 
 ## 5. Components
 
-### Sidebar
-- **宽度:** 260px（展开）/ 60px（收起）
-- **底色:** Canvas（`#f5f5f0`），无边框（右侧以顶栏的 hairline 为界）
-- **导航项:** 14px Inter 450，padding 8px 12px，hover 时变 Surface Soft 背景
-- **活跃项:** Surface Soft 背景 + Ink 文字
-- **「新会话」按钮:** Ink pill，38px 高，圆角 pill，白色文字
-
-### Top Bar
-- **高度:** 56px
-- **底色:** Canvas，底部 1px Hairline 分割
-- **布局:** 左侧标题 + 中间（可选） + 右侧模型选择器
-
 ### Buttons
-- **Primary (Ink Pill):** Ink 填充（`#292524`），白色文字，38px 高，pill 圆角。Hover 变 `primary-active`（`#1c1917`）。不用阴影、不用边框。
-- **Outline:** 透明背景，1px `hairline-strong` 边框，Ink 文字。Hover 时背景变 `surface-soft`。
-- **Ghost:** 透明，Ink Muted 文字。Hover 时 Ink 文字 + `surface-soft` 背景。
-- **Icon (Square):** 36×36px，ghost 风格，rounded md（8px）。
 
-### Cards
-- **样式:** 纯白背景，1px hairline 边框，12px（`rounded.lg`）圆角。无阴影。
-- **内边距:** 20px（`spacing.base`）。
-- **Hover:** 边框加深至 `hairline-strong`。
+- **Shape:** Rounded-md (6px). No pill shapes, no square buttons.
+- **Padding:** 10px 12px (default), 8px 10px (icon-only).
+- **Height:** 32px (h-8) for default, 28px (h-7) for small, 24px (h-6) for extra-small.
+- **Typography:** 13px, 500 weight, system font, sentence-case.
+- **Transition:** `background-color 150ms ease-out`, no transform.
+- **States:**
+  - **Primary:** Background `--editorial-primary` (#37352d light / #ffffff dark). Text white / dark-canvas. Hover: opacity 80%.
+  - **Outline:** Transparent background, `--editorial-hairline` border. Hover: fills to `--editorial-hairline`.
+  - **Ghost:** Transparent, no border. Hover: fills to `--editorial-hairline`.
+  - **Destructive:** Transparent, text `--editorial-semantic-error`. Hover: fills to 10% error with border.
+  - **Disabled:** Opacity 50%, no pointer events.
 
-### Text Inputs / Textareas
-- **样式:** 纯白背景，1px `hairline-strong` 边框，8px（`rounded.md`）圆角，40px 高。
-- **内边距:** 10px 14px。
-- **Focus:** 边框变为 2px Ink（`#292524`）。无 glow、无 ring。
-- **Disabled:** 背景变为 `surface-soft`，文字变为 `ink-muted`。
-- **Placeholder:** `ink-muted` 颜色。
+### Inputs & Textareas
 
-### Messages (Chat)
-- **用户消息:** Surface Soft（`#f0efec`）背景气泡，12px 圆角，12px 16px 内边距。靠右对齐。
-- **助理消息:** 透明背景，无气泡——IM 风格纯文字，靠左对齐。头像使用 FeedMind logo（28x28px）。
-- **时间戳:** Caption 字号，Ink Muted 色。
-- **思考/推理:** 可折叠面板。1px hairline 边框，12px 圆角。标题「思考过程」，展开/折叠图标。
+- **Shape:** Rounded-md (6px). No pill inputs.
+- **Background:** White (light) / transparent (dark).
+- **Border:** 1px solid `--editorial-hairline` (#e9e9e7 light / #2e2e2e dark).
+- **Typography:** 14px body, 12px placeholder.
+- **Padding:** 8px 10px (h-8).
+- **Focus:** `focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50`.
+- **Transition:** `150ms ease-out`.
+- **States:**
+  - **Placeholder:** `--editorial-ink-muted` (#bfbdb8 light / #9b9a97 dark).
+  - **Disabled:** `opacity 50%`, `cursor: not-allowed`, `background: --editorial-hairline/50`.
+  - **Invalid:** `aria-invalid` toggles destructive border color + ring.
 
-### Composer (Chat Input)
-- **容器:** 纯白背景，1px hairline 边框，16px（`rounded.xl`）圆角，12px 16px 内边距。
-- **阴影:** `0 8px 30px rgba(41,37,36,0.08)`。
-- **输入区:** 无边框 textarea，15px Inter 400，自适应高度（最小 2 行，最大 8 行）。
-- **操作区:** 左侧附件按钮（ghost icon），右侧发送/停止按钮（Ink pill）。
+### Navigation (Sidebar)
 
-### Thread List
-- **项:** 无背景/边框，10px 圆角。Hover 变 `surface-soft`。
-- **活跃项:** `surface-soft` 背景。
-- **标题:** Title MD（17px Inter 500），单行截断。
-- **操作菜单:** 点击 `MoreHorizontal` 图标弹出菜单——重命名、固定、删除。
+- **Shape:** Rounded-md (6px) on individual icon buttons.
+- **Icon container:** 36×36px.
+- **Icons:** Lucide, stroke-width 1.6 (default) / 2 (active), size 18px.
+- **Typography:** Tooltip only (no labels).
+- **States:**
+  - **Default:** `--editorial-ink-soft` (#9b9a97).
+  - **Hover:** Background `--editorial-surface-strong` (#efefef), text `--editorial-ink`.
+  - **Active:** Background `--editorial-accent-soft` (#efefef), text `--editorial-ink`.
+  - **Focus:** Ring `--editorial-hairline-strong` (#d1d0cc).
 
-### Dialog / Modal
-- **容器:** 纯白，20px（`rounded.xxl`）圆角，24px 内边距。
-- **阴影:** `0 12px 40px rgba(41,37,36,0.12)`。
-- **遮罩层:** Ink 色 40% 透明度。
-- **标题:** Display MD（1.25rem）。
-- **关闭按钮:** Icon ghost。
+### Cards & Containers
+
+- **Shape:** Rounded-md (6px) for small containers, rounded-lg (8px) for dialogs.
+- **Background:** `--editorial-surface-card` (#ffffff light / #191919 dark).
+- **Border:** 1px solid `--editorial-hairline` (#e9e9e7 light / #2e2e2e dark).
+- **Shadow:** None at rest. Dialog and popover containers get `shadow-sm`.
+- **Padding:** 16px (p-4) as default internal padding.
+
+### Dialog / Popover
+
+- **Shape:** Rounded-lg (8px).
+- **Background:** `--color-popover` (#ffffff light / #191919 dark).
+- **Ring:** 1px `--color-foreground/10` to define the edge on light backgrounds.
+- **Shadow:** `shadow-sm` (`0 1px 2px 0 rgba(0,0,0,0.05)`).
+- **Overlay:** `rgba(0,0,0,0.10)` (light) / `rgba(0,0,0,0.40)` (dark), with optional `backdrop-blur-xs`.
+- **Close button:** Ghost variant, positioned top-right.
 
 ### Tabs
-- **样式:** 底部 1px hairline 分割线。活跃标签使用 2px Ink 下划线 + Ink 文字。
-- **非活跃:** `ink-muted` 文字，hover 变 `ink-soft`。
 
-### Badges / Tags
-- **Badge:** Surface Strong 背景，Caption Uppercase 文字，pill 圆角，3px 10px 内边距。
-- **Tag:** Surface Soft 背景，Caption 文字，pill 圆角，4px 10px 内边距。
+- **Shape:** Rounded-md (6px) on the list container; individual tabs have no visible border.
+- **List Background:** `--editorial-surface-soft` (#f7f6f3).
+- **Tab states:**
+  - **Default:** `color: --foreground/60`, no background.
+  - **Hover:** `color: --foreground`.
+  - **Active:** White background, `color: --foreground`, inherits the tab list's rounded-md to create a "raised pill" effect.
+- **Line variant (optional):** No background on the list. Active tab gets a 2px underline via pseudo-element.
 
-### Scrollbar
-- **宽度:** 8px
-- **轨道:** 透明
-- **滑块:** `scrollbar-thumb`（`#d6d3d0`），4px 圆角。Hover 加深至 `#c0bcb8`。
+### Badges & Tags
+
+- **Shape:** Rounded-md (4px). No pill shapes.
+- **Height:** 20px (h-5).
+- **Typography:** 12px, 500 weight.
+- **Default variant:** `--color-primary/60` background with `--color-primary-foreground` text and a `border-primary/30`.
+- **Outline variant:** `--color-border` border, `--color-foreground` text.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** 使用 Ink（`#292524`）作为唯一的主要操作色。所有主要按钮、链接、活动指示器使用同一种深棕色。
-- **Do** 使用 系统字体作为正文和标题的统一字族。避免加载第三方字体加重首屏负担。
-- **Do** 使用 Inter 作为正文，保持 +0.01em 字间距——略带宽松的编辑感。
-- **Do** 使用暖米色画布（`#f5f5f0`）作为页面底色。所有页面以此为基准。
-- **Do** 使用 pill 形状（`rounded.pill`）作为按钮和标签的统一形状。
-- **Do** 使用发丝级边框（`hairline` / `hairline-soft`）代替阴影来表达层次。
-- **Do** 使用柔和渐变光晕（mint/peach/lavender/sky/rose/warm）作为纯装饰氛围，仅限空状态和品牌区域。
-- **Do** 保持正文行宽 ≤70ch，让长文本易于阅读。
-- **Do** 使用 `text-wrap: balance` 优化标题换行。
+
+- **Do** use tonal layering (background color shifts of 3–10 L%) to separate surfaces instead of shadows. The sidebar is `#f7f6f3` against a `#ffffff` canvas; that single step is enough.
+- **Do** keep all interactive element transitions to `150ms ease-out` with `transition-colors` only. No transform, no scale, no translate on hover or active states.
+- **Do** use `rounded-md` (6px) for buttons, inputs, and navigation items. Use `rounded-lg` (8px) for dialogs and large containers.
+- **Do** use the system font stack exclusively. No @font-face, no web font loading.
+- **Do** make body text contrast ≥ 4.5:1 against its background. The ink-soft (#9b9a97) on white is exactly 4.5:1 — this is the floor. Placeholder text must match the same ratio.
+- **Do** prefer inline form validation and progressive disclosure over modals.
 
 ### Don't:
-- **Don't** 引入蓝色（`#0071e3`）或其他饱和品牌色作为操作色。Ink 是唯一的 CTA 颜色。
-- **Don't** 使用渐变作为按钮填充、文字颜色或组件背景。渐变仅限于氛围光晕。
-- **Don't** 使用厚重阴影（`box-shadow` blur > 12px）。卡片不发散阴影。
-- **Don't** 使用暗色终端风格、霓虹色、玻璃拟态。不要像开发者工具。
-- **Don't** 显示字重超过 600。标题保持 400-500 字重。
-- **Don't** 使用小于 8px 的圆角作为卡片和容器的默认值。
-- **Don't** 使用纯白（`#ffffff`）作为页面底色——Canvas（`#f5f5f0`）才是基准。
-- **Don't** 使用 `border-left` / `border-right` 大于 1px 的彩色条纹作为装饰。
-- **Don't** 使用全大写或 wide tracking 作为正文样式。
-- **Don't** 在 SaaS/产品功能区使用「英雄指标」布局（大数字 + 小标签）。
 
+- **Don't** use any blue, brand color, or accent color anywhere in the UI. The entire palette is neutral gray. The darkest color (#37352d) serves as the primary, accent, and text color. Only semantic indicators (success/error/warning/info) carry hue, and they appear on ≤1% of any screen.
+- **Don't** use `rounded-2xl`, `rounded-3xl`, or `rounded-full` on buttons, cards, inputs, badges, or containers. Reserved exclusively for avatars, radio buttons, and switch handles.
+- **Don't** use `shadow-md`, `shadow-lg`, `shadow-xl`, or `shadow-2xl`. The only acceptable shadow is `shadow-sm` (`0 1px 2px 0 rgba(0,0,0,0.05)`), used only on floating elements (dropdowns, dialogs, narrow-screen drawers).
+- **Don't** use `hover:-translate-y-1`, `active:scale-95`, or any transform-based interaction on interactive elements. Notion-style UIs are flat and don't float.
+- **Don't** use gradients — not for backgrounds, not for text, not for overlays. The `bg-gradient-*` family is forbidden.
+- **Don't** use `border-left` or `border-right` as colored accent stripes on any element. Use full borders or background tints instead.
+- **Don't** use glassmorphism (backdrop-filter blur on semi-transparent surfaces) as a default treatment.
+- **Don't** use tiny uppercase tracked labels ("eyebrows") above section headings. Section hierarchy comes from position, not typographic casing.
+- **Don't** use numbered section markers (01 / 02 / 03) as default scaffolding. Numbers earn their place only when the section is a genuine sequence.
+- **Don't** nest cards. A card inside a card is always wrong.
+- **Don't** use skeleton screens or spinner animations for loading. Use inline skeleton spans that match the text dimensions.
+- **Don't** pair `border: 1px solid` with `box-shadow` blur ≥ 16px on the same element. Pick one.

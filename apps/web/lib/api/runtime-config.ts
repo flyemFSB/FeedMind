@@ -4,6 +4,7 @@ export interface RuntimeConfig {
   runtime: string;
   llm_id: number | null;
   model_name?: string;
+  model_id?: string;
   provider?: string;
   temperature: number;
   top_p: number;

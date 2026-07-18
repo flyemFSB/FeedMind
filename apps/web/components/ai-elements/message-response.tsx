@@ -24,12 +24,6 @@ export const MessageResponseContent = memo(function MessageResponseContent({
   return (
     <Streamdown
       mode="streaming"
-      animated={{
-        sep: "char",
-        stagger: 12,
-        duration: 120,
-        animation: "fadeIn",
-      }}
       className={cn(className)}
       plugins={{ cjk, code }}
       shikiTheme={["github-light", "github-dark"]}

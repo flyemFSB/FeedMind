@@ -1,6 +1,6 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronDown, Import, Plus } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, Import, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
@@ -140,7 +140,7 @@ function MyWikiPage() {
       <LayoutWrapper title={t("wiki.title")}>
         <div className="flex h-full items-center justify-center">
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
               <BookOpen size={20} className="text-editorial-ink-soft" />
             </div>
             <p className="text-sm text-editorial-ink-soft">{t("wiki.noSpace")}</p>
@@ -173,19 +173,15 @@ function MyWikiPage() {
   const spaceTitle = spaceId ? (
     <DropdownMenu open={showSpaceMenu} onOpenChange={setShowSpaceMenu}>
       <DropdownMenuTrigger
-        className="flex items-center gap-1.5 text-[17px] font-semibold text-editorial-ink transition-colors hover:text-editorial-primary cursor-pointer"
+        className="flex cursor-pointer items-center gap-1.5 text-[16px] font-semibold text-editorial-ink transition-colors hover:text-editorial-primary"
         aria-label={t("wiki.switchSpace")}
       >
         <span>{spaceName}</span>
         <ChevronDown size={14} className="text-editorial-ink-muted" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[200px] rounded-xl p-1.5">
+      <DropdownMenuContent align="start" className="w-[200px] p-1.5">
         {spaces.map((s) => (
-          <DropdownMenuItem
-            key={s.id}
-            onClick={() => handleSpaceSelect(s)}
-            className="rounded-lg text-[13px]"
-          >
+          <DropdownMenuItem key={s.id} onClick={() => handleSpaceSelect(s)} className="text-[13px]">
             {s.name}
           </DropdownMenuItem>
         ))}
@@ -225,6 +221,10 @@ function MyWikiPage() {
               activePageId={activePageId}
               isEditing={isEditing}
               onPageSelect={handlePageSelect}
+              onClearPage={() => {
+                setActivePageId(null);
+                setIsEditing(false);
+              }}
               onEdit={() => setIsEditing(true)}
               onCancelEdit={() => setIsEditing(false)}
               onWikilinkClick={handleWikilinkClick}
@@ -283,6 +283,7 @@ function DualPaneLayout({
   activePageId,
   isEditing,
   onPageSelect,
+  onClearPage,
   onEdit,
   onCancelEdit,
   onWikilinkClick,
@@ -291,17 +292,38 @@ function DualPaneLayout({
   activePageId: string | null;
   isEditing: boolean;
   onPageSelect: (pageId: string) => void;
+  onClearPage: () => void;
   onEdit: () => void;
   onCancelEdit: () => void;
   onWikilinkClick: (target: string) => void;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
-      <aside className="flex h-full min-h-0 w-[260px] shrink-0 flex-col border-r border-editorial-surface-strong bg-editorial-surface-card">
+      <aside
+        className={`h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-editorial-hairline bg-editorial-surface-soft/60 ${
+          activePageId ? "flex max-md:hidden" : "flex max-md:w-full"
+        }`}
+      >
         <WikiPageList spaceId={spaceId} activePageId={activePageId} onPageSelect={onPageSelect} />
       </aside>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card">
+      <div
+        className={`min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card ${
+          activePageId ? "flex" : "flex max-md:hidden"
+        }`}
+      >
+        {activePageId && (
+          <div className="hidden h-10 shrink-0 items-center border-b border-editorial-hairline px-2 max-md:flex">
+            <button
+              type="button"
+              onClick={onClearPage}
+              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+            >
+              <ArrowLeft size={14} />
+              页面
+            </button>
+          </div>
+        )}
         {activePageId ? (
           isEditing ? (
             <WikiEditor
@@ -333,10 +355,10 @@ function WikiEmptyState() {
   return (
     <div className="flex h-full flex-1 items-center justify-center">
       <div className="mx-auto max-w-[280px] text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
           <BookOpen size={20} className="text-editorial-ink-soft" />
         </div>
-        <h3 className="mb-1 text-[15px] font-semibold text-editorial-ink">
+        <h3 className="mb-1 text-[16px] font-semibold text-editorial-ink">
           {t("wiki.selectPage")}
         </h3>
         <p className="text-xs leading-relaxed text-editorial-ink-soft">

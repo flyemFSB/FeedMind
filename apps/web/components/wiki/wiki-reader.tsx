@@ -86,8 +86,8 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
           onNavigate={onNavigate}
         />
 
-        <article className="mx-auto max-w-[760px] px-1 pb-16 pt-10 sm:px-5">
-          <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
+        <article className="mx-auto max-w-[760px] px-1 pb-16 pt-8 sm:px-5">
+          <div className="wiki-markdown text-[14px] leading-7 text-editorial-ink">
             <Streamdown
               mode="static"
               plugins={{ cjk, code: lightweightCode, math }}
@@ -135,17 +135,17 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
                   <button
                     key={backlink.page_id}
                     type="button"
-                    className="group flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                    className="motion-hover-group group flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
                     onClick={() => onNavigate(backlink.slug)}
                   >
                     <ArrowLeft
                       size={13}
-                      className="shrink-0 text-editorial-ink-muted transition-transform group-hover:-translate-x-0.5"
+                      className="motion-hover-arrow shrink-0 text-editorial-ink-muted transition-transform [transition-duration:var(--motion-fast)] [transition-timing-function:var(--ease-out)]"
                     />
                     <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-editorial-primary">
                       {backlink.title}
                     </span>
-                    <span className="truncate text-[10px] text-editorial-ink-muted">
+                    <span className="truncate text-[12px] text-editorial-ink-muted">
                       {backlink.path}
                     </span>
                   </button>
@@ -171,25 +171,25 @@ function PageMetadataCard({
   onNavigate: (target: string) => void;
 }) {
   return (
-    <section className="rounded-2xl border border-editorial-hairline bg-editorial-surface-card p-5 sm:p-6">
+    <section className="px-1 pb-6 pt-2 sm:px-5 sm:pt-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className="rounded-md px-2 py-1 text-[10px] font-semibold tracking-wide text-white"
+              className="rounded-md px-2 py-1 text-[12px] font-semibold tracking-wide text-white"
               style={{ backgroundColor: typeColor }}
             >
               {WIKI_TYPE_LABELS[page.type] || page.type}
             </span>
             <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
           </div>
-          <h1 className="mt-3 text-balance text-[26px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[30px]">
+          <h1 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
             {page.title}
           </h1>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <div className="flex items-center gap-1.5 whitespace-nowrap text-[11px] text-editorial-ink-muted">
+          <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-editorial-ink-muted">
             <CalendarClock size={13} />
             <span>更新于 {formatUpdatedAt(page.updated_at)}</span>
           </div>
@@ -217,7 +217,7 @@ function PageMetadataCard({
               {page.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[11px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong"
                 >
                   #{tag}
                 </span>
@@ -230,7 +230,7 @@ function PageMetadataCard({
               {page.sources.map((source) => (
                 <span
                   key={source}
-                  className="max-w-full truncate rounded-md border border-editorial-hairline bg-editorial-canvas-soft px-2 py-1 text-[11px] text-editorial-ink-soft"
+                  className="max-w-full truncate rounded-md border border-editorial-hairline bg-editorial-canvas-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
                   title={source}
                 >
                   {source}
@@ -245,7 +245,7 @@ function PageMetadataCard({
                 <button
                   key={related}
                   type="button"
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[11px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
                   onClick={() => onNavigate(related)}
                 >
                   {related} ↗
@@ -271,7 +271,7 @@ function MetadataRow({
   return (
     <div className="flex items-start gap-2 text-editorial-ink-muted">
       <span className="mt-1 shrink-0">{icon}</span>
-      <span className="w-[54px] shrink-0 pt-0.5 text-[11px]">{label}</span>
+      <span className="w-[54px] shrink-0 pt-0.5 text-[12px]">{label}</span>
       <div className="flex min-w-0 flex-wrap gap-1.5">{children}</div>
     </div>
   );
@@ -288,7 +288,7 @@ function MarkdownTable({ children, ...props }: { children?: ReactNode; [key: str
 function WikiReaderSkeleton() {
   return (
     <div className="h-full overflow-y-auto bg-editorial-canvas p-5 sm:p-8">
-      <div className="mx-auto max-w-[1040px] rounded-2xl border border-editorial-hairline bg-editorial-surface-card p-6">
+      <div className="mx-auto max-w-[1040px] px-5 py-6">
         <Skeleton className="h-3 w-32" />
         <Skeleton className="mt-4 h-9 w-56" />
         <Skeleton className="mt-6 h-12 w-full" />

@@ -14,7 +14,7 @@ import {
 import { Menu } from "@base-ui/react/menu";
 import { toast } from "sonner";
 import type { LLMModel } from "@/lib/types";
-import { getLLMModelRuntime } from "@/lib/api/llms";
+import { getModelRuntime } from "@/lib/api/models";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -31,7 +31,7 @@ import { useTranslation } from "react-i18next";
 const iconButtonClass =
   "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
 const menuItemClass =
-  "flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-editorial-ink outline-none hover:bg-editorial-surface-soft data-highlighted:bg-editorial-surface-soft";
+  "flex cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-left text-editorial-ink outline-none hover:bg-editorial-surface-soft data-highlighted:bg-editorial-surface-soft";
 
 function VisibilityIcon({ visible, size }: { visible: boolean; size: number }) {
   const Icon = visible ? EyeOff : Eye;
@@ -62,12 +62,19 @@ function getApiKeyTooltip(
 
 interface ModelsPanelProps {
   models: LLMModel[];
+  title?: string;
   onAddModel: () => void;
   onEditModel: (model: LLMModel) => void;
   onDeleteModel: (model: LLMModel) => void;
 }
 
-export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: ModelsPanelProps) {
+export function ModelsPanel({
+  models,
+  title,
+  onAddModel,
+  onEditModel,
+  onDeleteModel,
+}: ModelsPanelProps) {
   const { t } = useTranslation();
   const ALL_FILTER = "__all__";
   const [providerFilter, setProviderFilter] = useState(ALL_FILTER);
@@ -98,7 +105,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
   function loadApiKey(model: LLMModel): Promise<string> {
     const cached = apiKeyCache[model.id];
     if (cached != null) return Promise.resolve(cached);
-    return getLLMModelRuntime(model.id).then((runtime) => {
+    return getModelRuntime(model.id).then((runtime) => {
       setApiKeyCache((prev) => ({ ...prev, [model.id]: runtime.api_key }));
       return runtime.api_key;
     });
@@ -129,14 +136,16 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.models")}</h3>
+          <h3 className="text-[14px] font-semibold text-editorial-ink">
+            {title ?? t("settings.models")}
+          </h3>
           <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("settings.modelsDescription")}
           </p>
         </div>
         <Button
           onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 transition-colors"
         >
           <Plus size={14} />
           <span>{t("settings.addModel")}</span>
@@ -150,9 +159,9 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
             onClick={() => setProviderFilter(p)}
             variant={providerFilter === p ? "default" : "secondary"}
             size="sm"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
               providerFilter === p
-                ? "bg-editorial-ink text-editorial-ink-on-primary"
+                ? "bg-editorial-surface-strong text-editorial-ink"
                 : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
             }`}
           >
@@ -162,23 +171,23 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
         ))}
       </div>
 
-      <div className="max-w-full overflow-hidden rounded-xl border border-editorial-hairline">
+      <div className="max-w-full overflow-hidden rounded-lg border border-editorial-hairline">
         <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft">
-              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[18%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableProvider")}
               </TableHead>
-              <TableHead className="w-[28%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[32%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableModel")}
               </TableHead>
-              <TableHead className="w-[22%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[20%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableEndpoint")}
               </TableHead>
-              <TableHead className="w-[22%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[16%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableApiKey")}
               </TableHead>
-              <TableHead className="w-[14%] px-4 py-3 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead className="w-[14%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
                 {t("settings.tableActions")}
               </TableHead>
             </TableRow>
@@ -189,9 +198,9 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                 key={model.id}
                 className="group/model-row border-b border-editorial-surface-soft last:border-0 hover:bg-editorial-surface-soft"
               >
-                <TableCell className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <ProviderIcon provider={model.provider} />
+                <TableCell className="px-3 py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <ProviderIcon provider={model.provider} size={14} />
                     <span
                       className="truncate text-[13px] text-editorial-ink"
                       title={model.provider}
@@ -200,7 +209,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                     </span>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[13px] text-editorial-ink">
+                <TableCell className="px-3 py-2.5 text-[13px] text-editorial-ink">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="truncate" title={model.modelName}>
@@ -212,14 +221,14 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                         const maxOutput = model.maxOutput ?? info?.maxOutput;
                         if (!context && !maxOutput) return null;
                         return (
-                          <span className="flex shrink-0 items-center gap-1">
+                          <span className="flex shrink-0 items-center gap-0.5">
                             {context ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-[11px] font-medium text-editorial-ink-muted leading-none">
                                 {formatKB(context)}
                               </span>
                             ) : null}
                             {maxOutput ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-[11px] font-medium text-editorial-ink-muted leading-none">
                                 {formatKB(maxOutput)}
                               </span>
                             ) : null}
@@ -240,8 +249,8 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[12px] text-editorial-ink-soft">
-                  <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
+                <TableCell className="px-3 py-2.5 text-[12px] text-editorial-ink-soft">
+                  <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-1">
                     <span
                       className="truncate font-mono"
                       title={model.baseUrl || t("settings.noApiKey")}
@@ -260,8 +269,8 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-[12px] text-editorial-ink-soft">
-                  <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-2">
+                <TableCell className="px-3 py-2.5 text-[12px] text-editorial-ink-soft">
+                  <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-1">
                     <span
                       className="truncate font-mono"
                       title={getApiKeyTooltip(
@@ -306,7 +315,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-left">
+                <TableCell className="px-3 py-2.5 text-left">
                   <Menu.Root>
                     <Menu.Trigger
                       className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
@@ -316,7 +325,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-[60]">
-                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-xl border border-editorial-hairline bg-editorial-surface-card p-1 text-[12px] shadow-lg outline-none">
+                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-md border border-editorial-hairline bg-editorial-surface-card p-1 text-[12px] shadow-sm outline-none">
                           <Menu.Item className={menuItemClass}>
                             <FlaskConical size={14} strokeWidth={1.6} />
                             <span>{t("settings.testModel")}</span>
@@ -327,7 +336,7 @@ export function ModelsPanel({ models, onAddModel, onEditModel, onDeleteModel }: 
                           </Menu.Item>
                           <Menu.Item
                             onClick={() => onDeleteModel(model)}
-                            className="flex cursor-default items-center gap-2 rounded-lg px-2.5 py-2 text-left text-destructive outline-none hover:bg-destructive/10 data-highlighted:bg-destructive/10"
+                            className="flex cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-left text-destructive outline-none hover:bg-destructive/10 data-highlighted:bg-destructive/10"
                           >
                             <Trash2 size={14} strokeWidth={1.6} />
                             <span>{t("common.delete")}</span>

@@ -50,7 +50,7 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
   return (
     <div
       className={cn(
-        "rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 shadow-sm",
+        "rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card p-3",
         className,
       )}
     >
@@ -95,7 +95,7 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
           }}
           placeholder={t("chat.placeholder")}
           disabled={isLoading}
-          className={cn("min-h-[64px]", textareaClassName)}
+          className={cn("min-h-[56px]", textareaClassName)}
         />
         <div className="flex items-center justify-between mt-3">
           <div>
@@ -109,7 +109,7 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-8 w-8 items-center justify-center rounded-full text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-soft transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
               title={t("chat.addAttachment")}
             >
               <Paperclip size={15} />

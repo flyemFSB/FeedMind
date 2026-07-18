@@ -33,14 +33,12 @@ export function Thread({ className, contentClassName }: ThreadProps) {
   return (
     <div
       className={cn(
-        "compact-chat relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-editorial-surface-card",
+        "compact-chat relative flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-editorial-surface-card",
         className,
       )}
     >
-      <Conversation>
-        <ConversationContent
-          className={cn("w-full min-w-0 mx-auto px-4 pt-6 pb-[155px]", contentClassName)}
-        >
+      <Conversation className="w-full overflow-y-hidden">
+        <ConversationContent className={cn("w-full min-w-0 px-4 pt-6 pb-6", contentClassName)}>
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
               <div className="flex flex-col items-center gap-3 text-editorial-ink-muted">
@@ -51,13 +49,13 @@ export function Thread({ className, contentClassName }: ThreadProps) {
           ) : messages.length === 0 ? (
             <ConversationEmptyState
               icon={
-                <div className="size-14 rounded-2xl bg-editorial-ink flex items-center justify-center">
+                <div className="flex size-12 items-center justify-center">
                   <img
                     src="/FeedMind-logo.svg"
                     alt="FeedMind"
-                    width={56}
-                    height={56}
-                    className="size-14 rounded-2xl object-cover"
+                    width={48}
+                    height={48}
+                    className="size-12 rounded-lg object-cover"
                   />
                 </div>
               }
@@ -70,7 +68,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                     key={suggestion}
                     type="button"
                     onClick={() => sendMessage?.({ text: suggestion })}
-                    className="px-3 py-2 rounded-xl border border-editorial-hairline text-[13px] text-editorial-ink hover:bg-editorial-surface-soft transition-colors cursor-pointer"
+                    className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
                   >
                     {suggestion}
                   </button>
@@ -82,9 +80,9 @@ export function Thread({ className, contentClassName }: ThreadProps) {
               {messages.map((message, idx) => (
                 <motion.div
                   key={`${message.id}-${idx}`}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
                   className="min-w-0"
                 >
                   <MessageParts
@@ -102,10 +100,8 @@ export function Thread({ className, contentClassName }: ThreadProps) {
         </ConversationScrollButton>
       </Conversation>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pt-16 pb-2">
-        <div className="relative z-10 pointer-events-auto w-full mx-auto">
-          <Composer />
-        </div>
+      <div className="relative z-10 w-full shrink-0 px-4 pb-2 pt-4">
+        <Composer className="w-full" />
       </div>
     </div>
   );

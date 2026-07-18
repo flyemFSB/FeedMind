@@ -14,8 +14,7 @@
     "lint": "eslint src drizzle.config.ts --ext .ts",
     "test": "vitest run --pass-with-no-tests",
     "typecheck": "tsc -b --pretty false",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
     "db:init": "tsx src/init.ts",
     "db:reset": "tsx src/reset.ts"
   },
@@ -26,7 +25,8 @@
     "drizzle-orm": "catalog:"
   },
   "devDependencies": {
-    "drizzle-kit": "1.0.0-rc.1",
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.20.6",
     "typescript": "catalog:"
   }
 }

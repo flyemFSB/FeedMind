@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { chatRoutes } from "./chats.js";
-import { llmRoutes } from "./llms.js";
+import { modelRoutes } from "./models.js";
 import { runtimeConfigRoutes } from "./runtime-config.js";
 import { toolsRoutes } from "./tools.js";
 import { wikiRoutes } from "./wiki.js";
@@ -13,7 +13,7 @@ import { feedRoutes } from "./feeds.js";
 
 export const v1Router = new Hono();
 
-v1Router.route("/", llmRoutes);
+v1Router.route("/", modelRoutes);
 v1Router.route("/", chatRoutes);
 v1Router.route("/", runtimeConfigRoutes);
 v1Router.route("/", toolsRoutes);

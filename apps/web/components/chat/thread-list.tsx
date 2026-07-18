@@ -65,7 +65,7 @@ export function AssistantThreadList() {
                 }
                 deleteMutation.mutate(session.agent_thread_id);
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-all duration-150 ease-out hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-[opacity,background-color,color] [transition-duration:var(--motion-fast)] [transition-timing-function:var(--ease-out)] hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
               title={t("common.delete")}
             >
               <Trash2 size={14} />

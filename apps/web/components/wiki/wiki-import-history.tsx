@@ -103,7 +103,7 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
     >
       <DialogContent
         showCloseButton={false}
-        className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
+        className="max-w-lg gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-4">
@@ -154,18 +154,18 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
             {loading && jobs.length === 0 ? (
               <div className="space-y-2">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                  <Skeleton key={i} className="h-14 w-full rounded-md" />
                 ))}
               </div>
             ) : historyJobs.length === 0 && activeJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-editorial-surface-soft">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
                   <Clock size={18} className="text-editorial-ink-muted" />
                 </div>
                 <p className="text-[13px] font-medium text-editorial-ink">
                   {t("wiki.noImportHistory")}
                 </p>
-                <p className="mt-1 text-[11px] text-editorial-ink-muted">
+                <p className="mt-1 text-[12px] text-editorial-ink-muted">
                   {t("wiki.noImportHistoryDesc")}
                 </p>
               </div>
@@ -210,12 +210,12 @@ function ActiveJobCard({
       : t("wiki.statusPending");
 
   return (
-    <div className="rounded-xl border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-3">
+    <div className="rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-3">
       <div className="flex items-center gap-3">
         <Loader2 size={16} className="shrink-0 animate-spin text-editorial-primary" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium text-editorial-ink">{displayName}</p>
-          <p className="text-[11px] text-editorial-ink-muted">
+          <p className="text-[12px] text-editorial-ink-muted">
             {statusText}
             {" · "}
             {elapsed}
@@ -240,14 +240,14 @@ function ActiveJobCard({
               return (
                 <div
                   key={i}
-                  className={`h-1.5 flex-1 rounded-full transition-colors ${
+                  className={`h-1.5 flex-1 rounded-md transition-colors duration-150 ${
                     filled ? "bg-editorial-primary" : "bg-editorial-surface-strong"
                   }`}
                 />
               );
             })}
           </div>
-          <p className="text-[10px] text-editorial-ink-muted">
+          <p className="text-[12px] text-editorial-ink-muted">
             {t("wiki.stepDetail", {
               step: progress.step,
               total: progress.totalSteps,
@@ -282,11 +282,11 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
       : formatTime(job.added_at);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-4 py-2.5 transition-colors hover:bg-editorial-canvas-soft">
+    <div className="flex items-center gap-3 rounded-lg px-4 py-2.5 transition-colors hover:bg-editorial-canvas-soft">
       {icon}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-editorial-ink">{displayName}</p>
-        <p className="text-[11px] text-editorial-ink-muted">
+        <p className="text-[12px] text-editorial-ink-muted">
           {job.status === "done" && (
             <>
               {t("wiki.done")} · {job.pages_created ?? 0} {t("wiki.pagesCreated")}，
@@ -305,13 +305,13 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
           )}
         </p>
         {job.status === "failed" && job.error && (
-          <p className="mt-0.5 truncate text-[10px] text-editorial-semantic-error">{job.error}</p>
+          <p className="mt-0.5 truncate text-[12px] text-editorial-semantic-error">{job.error}</p>
         )}
       </div>
       {job.status === "failed" && (
         <button
           onClick={() => onRetry(job.id)}
-          className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[11px] font-medium text-editorial-primary transition-colors hover:bg-editorial-primary/10"
+          className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium text-editorial-primary transition-colors hover:bg-editorial-primary/10"
         >
           <RefreshCw size={11} />
           {t("wiki.retry")}

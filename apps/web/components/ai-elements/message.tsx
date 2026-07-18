@@ -22,7 +22,7 @@ export function Message({ className, from, children, ...props }: MessageProps) {
   return (
     <div
       className={cn(
-        "group flex w-full max-w-full min-w-0 flex-col gap-2 animate-fade-in",
+        "group flex w-full max-w-full min-w-0 flex-col gap-2",
         from === "user" ? "ml-auto max-w-[85%] items-end" : "items-start",
         className,
       )}
@@ -46,14 +46,26 @@ export function MessageContent({ className, children, ...props }: MessageContent
 export type MessageResponseProps = {
   className?: string;
   children?: string;
+  isAnimating?: boolean;
+};
+
+const STREAM_ANIMATION = {
+  animation: "fadeIn" as const,
+  duration: 90,
+  easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+  sep: "char" as const,
+  stagger: 4,
 };
 
 export const MessageResponse = memo(function MessageResponse({
   className,
+  isAnimating = false,
   ...props
 }: MessageResponseProps) {
   return (
     <MessageResponseContent
+      animated={STREAM_ANIMATION}
+      isAnimating={isAnimating}
       className={cn(
         "prose prose-sm max-w-none",
         "prose-headings:text-editorial-ink prose-headings:font-display",
@@ -107,8 +119,8 @@ export function MessageAction({
       variant={variant}
       size={size}
       className={cn("text-editorial-ink-muted hover:text-editorial-ink", className)}
-      aria-label={label || tooltip || ""}
-      title={tooltip || label || ""}
+      aria-label={label ?? tooltip ?? ""}
+      title={tooltip ?? label ?? ""}
       {...props}
     >
       {children}

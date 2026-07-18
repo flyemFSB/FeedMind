@@ -1,10 +1,11 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
-export const llm = sqliteTable(
-  "llm",
+export const model = sqliteTable(
+  "model",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    type: text("type").notNull().default("chat"),
     provider: text("provider").notNull(),
     modelName: text("model_name").notNull(),
     modelId: text("model_id").notNull().default(""),
@@ -21,7 +22,8 @@ export const llm = sqliteTable(
       .default(sql`(current_timestamp)`),
   },
   (table) => ({
-    modelUniq: unique("uq_llm_model_endpoint_key").on(
+    modelUniq: unique("uq_model_type_endpoint_key").on(
+      table.type,
       table.modelId,
       table.baseUrl,
       table.encryptedApiKey,
@@ -29,5 +31,5 @@ export const llm = sqliteTable(
   }),
 );
 
-export type LLMRow = typeof llm.$inferSelect;
-export type LLMInsert = typeof llm.$inferInsert;
+export type ModelRow = typeof model.$inferSelect;
+export type ModelInsert = typeof model.$inferInsert;

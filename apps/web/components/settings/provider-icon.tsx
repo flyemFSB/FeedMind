@@ -37,11 +37,7 @@ export function ProviderIcon({ provider, size = 24 }: ProviderIconProps) {
 
   if (Icon) {
     return (
-      <span
-        className={iconClassName}
-        style={{ height: size, width: size }}
-        aria-hidden="true"
-      >
+      <span className={iconClassName} style={{ height: size, width: size }} aria-hidden="true">
         <Icon size={size} />
       </span>
     );
@@ -49,7 +45,7 @@ export function ProviderIcon({ provider, size = 24 }: ProviderIconProps) {
 
   return (
     <span
-      className="grid shrink-0 place-items-center rounded-md bg-editorial-surface-soft text-[10px] font-semibold leading-none text-editorial-ink"
+      className="grid shrink-0 place-items-center rounded-md bg-editorial-surface-soft text-[12px] font-semibold leading-none text-editorial-ink"
       style={{ height: size, width: size }}
       aria-hidden="true"
     >

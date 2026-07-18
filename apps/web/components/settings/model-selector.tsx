@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useLLMModels, useSelectedLLMModel, useSetSelectedLLMModel } from "@/lib/hooks/use-llms";
+import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/use-models";
 import {
   onSelectedFeedMindModelChange,
   persistSelectedFeedMindModel,
@@ -22,9 +22,9 @@ import { useTranslation } from "react-i18next";
 export function ModelSelector() {
   const { t } = useTranslation();
   // Use TanStack Query for data fetching — auto-refreshes on cache invalidation
-  const { data: models = [], isLoading, isError } = useLLMModels();
-  const { data: selectedModelId = "" } = useSelectedLLMModel();
-  const setSelectedMutation = useSetSelectedLLMModel();
+  const { data: models = [], isLoading, isError } = useModels("chat");
+  const { data: selectedModelId = "" } = useSelectedModel("chat");
+  const setSelectedMutation = useSetSelectedModel("chat");
 
   // Local state for the dropdown, synced with both server selection and external changes
   const [selectedModel, setSelectedModel] = useState("");
@@ -63,7 +63,7 @@ export function ModelSelector() {
   };
 
   if (isLoading) {
-    return <Skeleton className="h-10 w-[260px] rounded-xl" />;
+    return <Skeleton className="h-10 w-[260px] rounded-md" />;
   }
 
   const options =
@@ -81,7 +81,7 @@ export function ModelSelector() {
     <Select value={hasModels ? selectedModel : ""} onValueChange={handleChange}>
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
-        className="h-10 w-[260px] rounded-xl border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
+        className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
         disabled={!hasModels || options.length === 0}
       >
         <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")}>
@@ -98,7 +98,7 @@ export function ModelSelector() {
           }}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent align="end" className="rounded-xl border-editorial-hairline">
+      <SelectContent align="end" className="border-editorial-hairline">
         <SelectGroup>
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>

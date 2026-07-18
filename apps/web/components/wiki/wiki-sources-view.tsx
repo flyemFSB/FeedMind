@@ -69,13 +69,13 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     switch (status) {
       case "ready":
         return (
-          <Badge variant="default" className="text-[10px] bg-editorial-semantic-success">
+          <Badge variant="default" className="text-[12px] bg-editorial-semantic-success">
             {t("wiki.sourceReady")}
           </Badge>
         );
       case "failed":
         return (
-          <Badge variant="destructive" className="text-[10px]">
+          <Badge variant="destructive" className="text-[12px]">
             {t("wiki.sourceFailed")}
           </Badge>
         );
@@ -83,14 +83,14 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         return (
           <Badge
             variant="secondary"
-            className="text-[10px] bg-editorial-semantic-warning text-white"
+            className="text-[12px] bg-editorial-semantic-warning text-white"
           >
             {t("wiki.sourceIngesting")}
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="text-[10px]">
+          <Badge variant="outline" className="text-[12px]">
             {status}
           </Badge>
         );
@@ -102,10 +102,10 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-editorial-ink">
+          <h2 className="text-[14px] font-semibold text-editorial-ink">
             {t("wiki.sourceManagement")}
           </h2>
-          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("wiki.sourceDescription")}
           </p>
         </div>
@@ -128,10 +128,10 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
           </div>
         ) : sources.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-editorial-surface-soft">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
               <FileText size={20} className="text-editorial-ink-muted" />
             </div>
-            <p className="text-[15px] font-medium text-editorial-ink">{t("wiki.noSources")}</p>
+            <p className="text-[14px] font-medium text-editorial-ink">{t("wiki.noSources")}</p>
             <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
           </div>
         ) : (
@@ -146,14 +146,14 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   <p className="truncate text-[13px] font-medium text-editorial-ink">
                     {source.title}
                   </p>
-                  <p className="text-[11px] text-editorial-ink-muted">
+                  <p className="text-[12px] text-editorial-ink-muted">
                     {source.original_name ?? source.identity}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {statusBadge(source.status)}
                   {source.page_count > 0 && (
-                    <span className="text-[11px] text-editorial-ink-muted">
+                    <span className="text-[12px] text-editorial-ink-muted">
                       {t("wiki.pageCount", { count: source.page_count })}
                     </span>
                   )}

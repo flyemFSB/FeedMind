@@ -40,7 +40,9 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
     }
   }, [spaceId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const handleRunLint = async () => {
     setRunning(true);
@@ -60,9 +62,13 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
     <div className="flex h-full flex-col bg-editorial-surface-card">
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-editorial-ink">{t("wiki.lintTitle")}</h2>
-          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
-            {t("wiki.lintSummary", { total: items.length, warnings: warnings.length, infos: infos.length })}
+          <h2 className="text-[14px] font-semibold text-editorial-ink">{t("wiki.lintTitle")}</h2>
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+            {t("wiki.lintSummary", {
+              total: items.length,
+              warnings: warnings.length,
+              infos: infos.length,
+            })}
           </p>
         </div>
         <Button
@@ -80,7 +86,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
         {loading ? (
           <div className="space-y-3 p-6">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="rounded-xl border p-4">
+              <div key={i} className="rounded-lg border p-4">
                 <Skeleton className="mb-1 h-3 w-32" />
                 <Skeleton className="h-3 w-full" />
               </div>
@@ -90,7 +96,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
           <div className="flex h-full flex-col items-center justify-center py-24 text-center">
             <Info size={32} className="mb-3 text-editorial-semantic-success" />
             <p className="text-[13px] font-medium text-editorial-ink">{t("wiki.noLintIssues")}</p>
-            <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.runLintHint")}</p>
+            <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.runLintHint")}</p>
           </div>
         ) : (
           <div className="space-y-2 p-6">
@@ -101,7 +107,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
               return (
                 <div
                   key={i}
-                  className="flex items-start gap-3 rounded-xl border border-editorial-surface-strong p-3 transition-colors hover:bg-editorial-canvas-soft"
+                  className="flex items-start gap-3 rounded-lg border border-editorial-surface-strong p-3 transition-colors hover:bg-editorial-canvas-soft"
                 >
                   <Icon size={14} style={{ color }} className="mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -114,16 +120,18 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
                           {item.page}
                         </button>
                       ) : (
-                        <span className="text-[12px] font-medium text-editorial-ink">{item.page}</span>
+                        <span className="text-[12px] font-medium text-editorial-ink">
+                          {item.page}
+                        </span>
                       )}
                       <span
-                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-medium text-white"
+                        className="shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-medium text-white"
                         style={{ backgroundColor: color }}
                       >
                         {item.type}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-editorial-ink-muted">{item.detail}</p>
+                    <p className="mt-0.5 text-[12px] text-editorial-ink-muted">{item.detail}</p>
                   </div>
                 </div>
               );

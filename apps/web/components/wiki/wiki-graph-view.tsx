@@ -235,7 +235,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
     <div className="relative flex h-full min-w-0 flex-1 flex-col bg-editorial-surface-card">
       {/* Toolbar */}
       <div className="flex items-center gap-3 border-b border-editorial-surface-strong px-6 py-3">
-        <span className="text-[15px] font-semibold text-editorial-ink">{t("wiki.graph")}</span>
+        <span className="text-[14px] font-semibold text-editorial-ink">{t("wiki.graph")}</span>
         <div className="relative">
           <Search
             size={13}
@@ -249,7 +249,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           />
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          <span className="text-[11px] text-editorial-ink-muted">
+          <span className="text-[12px] text-editorial-ink-muted">
             {t("wiki.nodeEdgeCount", { nodes: filteredNodes.length, edges: filteredEdges.length })}
           </span>
           <ToggleGroup
@@ -262,14 +262,14 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           >
             <ToggleGroupItem
               value="type"
-              className="gap-1 px-2 text-[11px]"
+              className="gap-1 px-2 text-[12px]"
               aria-label={t("wiki.colorByType")}
             >
               <Type size={13} /> {t("wiki.type")}
             </ToggleGroupItem>
             <ToggleGroupItem
               value="community"
-              className="gap-1 px-2 text-[11px]"
+              className="gap-1 px-2 text-[12px]"
               aria-label={t("wiki.colorByCommunity")}
             >
               <Layers size={13} /> {t("wiki.community")}
@@ -283,7 +283,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               loadInsights();
               setShowInsights(!showInsights);
             }}
-            className="h-8 gap-1 rounded-lg px-2 text-[11px]"
+            className="h-8 gap-1 rounded-lg px-2 text-[12px]"
           >
             <Lightbulb size={13} /> {t("wiki.insights")}
           </Button>
@@ -398,7 +398,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       className="inline-block h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="text-[11px] text-editorial-ink-soft">
+                    <span className="text-[12px] text-editorial-ink-soft">
                       {WIKI_TYPE_LABELS[type] || type}
                     </span>
                   </div>
@@ -412,7 +412,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       className="inline-block h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: COMMUNITY_COLORS[c.id % COMMUNITY_COLORS.length] }}
                     />
-                    <span className="text-[11px] text-editorial-ink-soft">
+                    <span className="text-[12px] text-editorial-ink-soft">
                       {c.topNodes[0] ?? `${t("wiki.community")} ${c.id}`} ({c.nodeCount})
                     </span>
                   </div>
@@ -424,7 +424,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
 
         {/* Insights Panel */}
         {showInsights && insights && (
-          <div className="w-80 shrink-0 border-l bg-editorial-surface-card overflow-y-auto p-4">
+          <div className="motion-panel w-80 shrink-0 border-l bg-editorial-surface-card overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
               <span className="text-[13px] font-semibold text-editorial-ink">
                 {t("wiki.insightsTitle")}
@@ -450,7 +450,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                     <div className="font-medium text-xs mb-1">
                       {conn.source.label} ↔ {conn.target.label}
                     </div>
-                    <p className="text-[11px] text-editorial-ink-muted">
+                    <p className="text-[12px] text-editorial-ink-muted">
                       {conn.reasons.join(", ")}
                     </p>
                   </div>
@@ -466,8 +466,8 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                 {insights.gaps.map((gap, i: number) => (
                   <div key={i} className="rounded-lg border p-3 mb-2">
                     <div className="font-medium text-xs mb-1">{gap.title}</div>
-                    <p className="text-[11px] text-editorial-ink-muted mb-1">{gap.description}</p>
-                    <p className="text-[11px] italic text-editorial-ink-muted">{gap.suggestion}</p>
+                    <p className="text-[12px] text-editorial-ink-muted mb-1">{gap.description}</p>
+                    <p className="text-[12px] italic text-editorial-ink-muted">{gap.suggestion}</p>
                   </div>
                 ))}
               </div>
@@ -476,7 +476,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
         )}
 
         {selectedNodeId && (
-          <aside className="flex w-[min(560px,45vw)] shrink-0 flex-col border-l border-editorial-hairline bg-editorial-surface-card">
+          <aside className="motion-panel flex w-[min(560px,45vw)] shrink-0 flex-col border-l border-editorial-hairline bg-editorial-surface-card">
             <div className="flex h-12 shrink-0 items-center justify-between border-b border-editorial-hairline px-4">
               <span className="text-[13px] font-medium text-editorial-ink">页面预览</span>
               <Button

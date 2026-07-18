@@ -57,7 +57,7 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
               {title}
             </SheetTitle>
             {(preview?.source || preview?.url) && (
-              <SheetDescription className="truncate text-left text-[11px] text-editorial-ink-muted">
+              <SheetDescription className="truncate text-left text-[12px] text-editorial-ink-muted">
                 {preview?.source || preview?.url}
               </SheetDescription>
             )}
@@ -85,7 +85,7 @@ export function PreviewPanel({ onOpenChange }: PreviewPanelProps) {
             />
           ) : (
             <div className="h-full overflow-auto p-5">
-              <pre className="whitespace-pre-wrap rounded-xl bg-editorial-surface-card p-4 text-[12px] leading-6 text-editorial-ink">
+              <pre className="whitespace-pre-wrap rounded-lg bg-editorial-surface-card p-4 text-[12px] leading-6 text-editorial-ink">
                 {preview?.content || t("preview.noContent")}
               </pre>
             </div>

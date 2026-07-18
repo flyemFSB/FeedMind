@@ -154,7 +154,7 @@ export function ToolHeader({
         <>
           <Icon size={14} className={cn("shrink-0", iconClass)} />
           <span className="flex-1 truncate font-medium text-editorial-ink">{displayName}</span>
-          <span className="shrink-0 text-[11px] text-editorial-ink-muted font-normal">
+          <span className="shrink-0 text-[12px] text-editorial-ink-muted font-normal">
             {getStatusLabel(state)}
           </span>
         </>
@@ -180,7 +180,7 @@ export function ToolInput({ className, input, ...props }: ToolInputProps) {
 
   return (
     <div className={cn("min-w-0", className)} {...props}>
-      <div className="mb-0.5 text-[11px] font-medium text-editorial-ink-muted tracking-wide uppercase">
+      <div className="mb-0.5 text-[12px] font-medium text-editorial-ink-muted tracking-wide uppercase">
         {t("chat.toolArgs")}
       </div>
       <pre className="w-full max-w-full max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-editorial-hairline bg-editorial-surface-soft/50 px-2.5 py-2 text-[12px] leading-[1.5] text-editorial-ink-soft font-mono [scrollbar-gutter:stable]">
@@ -199,7 +199,7 @@ export function ToolOutput({ className, output, errorText, ...props }: ToolOutpu
     <div className={cn("min-w-0", className)} {...props}>
       <div
         className={cn(
-          "mb-0.5 text-[11px] font-medium tracking-wide uppercase",
+          "mb-0.5 text-[12px] font-medium tracking-wide uppercase",
           errorText ? "text-editorial-semantic-error" : "text-editorial-ink-muted",
         )}
       >

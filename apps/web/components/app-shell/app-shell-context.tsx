@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 interface AppShellContextValue {
   /** Agent 对话抽屉是否展开 */
@@ -32,9 +40,20 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
  * 管理 Agent 抽屉与设置弹窗的开关，供左侧导航栏与各页面顶栏共享。
  */
 export function AppShellProvider({ children }: { children: ReactNode }) {
-  const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
+  const [agentDrawerOpen, setAgentDrawerOpen] = useState(
+    () => window.matchMedia("(min-width: 1025px)").matches,
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
+
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1025px)");
+    const syncDrawerWithViewport = () => setAgentDrawerOpen(desktop.matches);
+
+    syncDrawerWithViewport();
+    desktop.addEventListener("change", syncDrawerWithViewport);
+    return () => desktop.removeEventListener("change", syncDrawerWithViewport);
+  }, []);
 
   const openAgentDrawer = useCallback(() => setAgentDrawerOpen(true), []);
   const closeAgentDrawer = useCallback(() => setAgentDrawerOpen(false), []);

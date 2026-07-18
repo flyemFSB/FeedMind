@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "motion/react";
 import { X, Smartphone, Loader2 } from "lucide-react";
 import { Feishu } from "@/components/icons/remote-connection-icons";
 import { useTranslation } from "react-i18next";
@@ -75,16 +74,16 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
       >
         <DialogContent
           showCloseButton={false}
-          className="w-full max-w-[420px] gap-0 overflow-hidden rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink shadow-lg ring-1 ring-black/5"
+          className="w-full max-w-[420px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink shadow-sm"
         >
           {/* 弹窗头部 */}
           <div className="flex items-center justify-between border-b border-editorial-hairline px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-editorial-ink">
-                <Smartphone size={16} className="text-editorial-ink-on-primary" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-editorial-surface-strong">
+                <Smartphone size={16} className="text-editorial-ink" />
               </div>
               <div>
-                <DialogTitle className="text-[15px] font-semibold leading-tight text-editorial-ink">
+                <DialogTitle className="text-[14px] font-semibold leading-tight text-editorial-ink">
                   {t("remoteConnection.title")}
                 </DialogTitle>
                 <p className="mt-0.5 text-[12px] leading-tight text-editorial-ink-muted">
@@ -96,7 +95,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
               onClick={onClose}
               variant="ghost"
               size="icon"
-              className="rounded-lg hover:bg-editorial-surface-soft"
+              className="rounded-md hover:bg-editorial-surface-soft"
             >
               <X size={16} className="text-editorial-ink-muted" />
             </Button>
@@ -125,7 +124,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
 
           {/* 底部说明 */}
           <div className="border-t border-editorial-hairline px-5 py-3">
-            <p className="text-center text-[11px] leading-tight text-editorial-ink-muted">
+            <p className="text-center text-[12px] leading-tight text-editorial-ink-muted">
               {t("remoteConnection.footer")}
             </p>
           </div>
@@ -152,14 +151,11 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
   const { id, nameKey, descriptionKey, icon: Icon } = platform;
 
   return (
-    <motion.button
+    <button
       type="button"
-      layout
       onClick={() => onConnect(id)}
-      whileTap={{ scale: 0.985 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
       className={cn(
-        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150",
+        "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors duration-150",
         "hover:bg-editorial-surface-soft",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong focus-visible:ring-offset-1 focus-visible:ring-offset-editorial-surface-card",
       )}
@@ -168,7 +164,7 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
 
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-medium text-editorial-ink">{t(nameKey)}</div>
-        <div className="mt-0.5 truncate text-[11px] leading-tight text-editorial-ink-muted">
+        <div className="mt-0.5 truncate text-[12px] leading-tight text-editorial-ink-muted">
           {t(descriptionKey)}
         </div>
       </div>
@@ -176,7 +172,7 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
       <div className="shrink-0">
         <span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all duration-500 ease-out",
+            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors duration-150",
             connected
               ? "bg-editorial-semantic-success/10 text-editorial-semantic-success"
               : "bg-editorial-surface-soft text-editorial-ink-muted",
@@ -184,13 +180,13 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
         >
           <span
             className={cn(
-              "h-[5px] w-[5px] rounded-full transition-all duration-500 ease-out",
+              "h-[5px] w-[5px] rounded-full transition-colors duration-150",
               connected ? "bg-editorial-semantic-success" : "bg-editorial-ink-muted",
             )}
           />
           {connected ? t("remoteConnection.connected") : t("remoteConnection.disconnected")}
         </span>
       </div>
-    </motion.button>
+    </button>
   );
 }

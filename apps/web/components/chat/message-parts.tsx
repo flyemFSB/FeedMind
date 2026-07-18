@@ -117,14 +117,18 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   const hasTools = toolParts.length > 0;
   const hasSources = sourceParts.length > 0;
   const hasSteps = stepCount > 0;
+  const lastTextPartIndex = message.parts.reduce(
+    (lastIndex, part, index) => (part.type === "text" ? index : lastIndex),
+    -1,
+  );
 
   /* ---- 用户消息 ---- */
   if (message.role === "user") {
     return (
       <Message from="user">
         <div className="flex flex-row-reverse items-center gap-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-primary">
-            <User size={12} className="text-editorial-ink-on-primary" />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-surface-strong">
+            <User size={12} className="text-editorial-ink" />
           </div>
           <MessageContent>
             <div className="rounded-lg bg-editorial-surface-soft px-4 py-3 text-[13px] leading-relaxed text-editorial-ink">
@@ -141,7 +145,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
     <Message from="assistant">
       <div className="flex min-w-0 w-full items-start gap-3">
         {/* Avatar — 纯色 Logo 背景 */}
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-ink">
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-editorial-surface-strong">
           <img
             src="/FeedMind-logo.svg"
             alt="FeedMind Agent"
@@ -201,7 +205,10 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
             {message.parts.map((part, i) => {
               if (part.type === "text") {
                 return (
-                  <MessageResponse key={`${message.id}-${i}`}>
+                  <MessageResponse
+                    key={`${message.id}-${i}`}
+                    isAnimating={isLastMessage && isStreaming && i === lastTextPartIndex}
+                  >
                     {(part as { text: string }).text}
                   </MessageResponse>
                 );

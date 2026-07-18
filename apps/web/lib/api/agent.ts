@@ -1,4 +1,4 @@
-import { setSelectedLLMModel } from "@/lib/api/llms";
+import { setSelectedModel } from "@/lib/api/models";
 
 const selectedModelStorageKey = "feedmind:selected-model";
 const selectedModelIdStorageKey = "feedmind:selected-model-id";
@@ -47,7 +47,7 @@ export async function persistSelectedFeedMindModel(model: string): Promise<void>
   const previousModel = getSelectedFeedMindModel();
   setSelectedFeedMindModel(model);
   try {
-    const selectedModel = await setSelectedLLMModel(model);
+    const selectedModel = await setSelectedModel(model, "chat");
     setSelectedFeedMindModel(selectedModel);
   } catch (error) {
     setSelectedFeedMindModel(previousModel);

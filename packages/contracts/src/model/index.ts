@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-export const llmModelCreateSchema = z.object({
+export const modelCreateSchema = z.object({
+  type: z.enum(["chat", "embedding"]).default("chat"),
   provider: z.string().min(1).max(64),
   model_name: z.string().min(1).max(128),
   model_id: z.string().max(256).default(""),
@@ -10,9 +11,9 @@ export const llmModelCreateSchema = z.object({
   max_output: z.string().nullable().optional(),
 });
 
-export const llmModelUpdateSchema = llmModelCreateSchema.partial();
+export const modelUpdateSchema = modelCreateSchema.partial();
 
-export const llmModelReadSchema = llmModelCreateSchema.omit({ api_key: true }).extend({
+export const modelReadSchema = modelCreateSchema.omit({ api_key: true }).extend({
   id: z.number().int().positive(),
   has_api_key: z.boolean(),
   is_selected: z.boolean().default(false),
@@ -26,7 +27,7 @@ export const selectedModelReadSchema = z.object({
   id: z.number().int().positive().nullable(),
 });
 
-export const llmModelRuntimeReadSchema = z.object({
+export const modelRuntimeReadSchema = z.object({
   model_name: z.string(),
   model_id: z.string().nullable(),
   base_url: z.string(),
@@ -35,9 +36,9 @@ export const llmModelRuntimeReadSchema = z.object({
   max_output: z.string().nullable(),
 });
 
-export type LLMModelCreate = z.infer<typeof llmModelCreateSchema>;
-export type LLMModelUpdate = z.infer<typeof llmModelUpdateSchema>;
-export type LLMModelRead = z.infer<typeof llmModelReadSchema>;
+export type ModelCreate = z.infer<typeof modelCreateSchema>;
+export type ModelUpdate = z.infer<typeof modelUpdateSchema>;
+export type ModelRead = z.infer<typeof modelReadSchema>;
 export type SelectedModelUpdate = z.infer<typeof selectedModelUpdateSchema>;
 export type SelectedModelRead = z.infer<typeof selectedModelReadSchema>;
-export type LLMModelRuntimeRead = z.infer<typeof llmModelRuntimeReadSchema>;
+export type ModelRuntimeRead = z.infer<typeof modelRuntimeReadSchema>;

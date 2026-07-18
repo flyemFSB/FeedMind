@@ -424,10 +424,10 @@ export async function runIngest(
   const llmClient: LlmClient = new OpenAiLlmClient({
     apiKey: runtime.api_key,
     baseUrl: runtime.base_url,
-    model: runtime.model_name,
+    model: runtime.model_id || runtime.model_name,
   });
-  addLog(`Wiki LLM: ${runtime.model_name}`);
-  logger.info({ model: runtime.model_name }, "Wiki 导入开始");
+  addLog(`Wiki LLM: ${runtime.model_id || runtime.model_name}`);
+  logger.info({ model: runtime.model_id || runtime.model_name }, "Wiki 导入开始");
 
   // 步骤 1：读取源内容
   const sourceIdentity = extractIdentity(sourcePath);

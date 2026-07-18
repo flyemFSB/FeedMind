@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { getModelRuntime } from "../../modules/llms/service.js";
+import { getModelRuntime } from "../../modules/models/service.js";
 import { createSanitizedFetch } from "./sanitized-fetch.js";
 
 export interface ResolvedModel {

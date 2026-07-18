@@ -339,7 +339,14 @@
     "skillDeleted": "Skill deleted",
     "skillDeleteConfirm": "Are you sure you want to delete skill {name}?",
     "skillZipOnly": "Only .zip archives are supported",
-    "deleteFailed": "Delete failed"
+    "deleteFailed": "Delete failed",
+    "chatModels": "Chat Models",
+    "embeddingModels": "Embedding Models",
+    "embeddingModelsDescription": "Configure embedding model for vector search. Requires Base URL, API Key, and model name.",
+    "embeddingModelName": "Model Name",
+    "embeddingFormIncomplete": "Please fill in all fields",
+    "embeddingModelSaved": "Embedding model saved",
+    "embeddingModelSaveFailed": "Save failed"
   },
   "remoteConnection": {
     "title": "Remote Connection",

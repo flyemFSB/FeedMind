@@ -95,7 +95,7 @@ export function Source({ className, href, title, children, ...props }: SourcePro
     >
       <ExternalLink size={12} className="shrink-0 text-editorial-ink-muted" />
       <span className="flex-1 truncate">{children ?? title ?? href}</span>
-      <span className="shrink-0 text-[11px] text-editorial-ink-muted truncate max-w-[160px]">
+      <span className="shrink-0 text-[12px] text-editorial-ink-muted truncate max-w-[160px]">
         {extractDomain(href)}
       </span>
     </a>

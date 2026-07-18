@@ -1,12 +1,8 @@
 import "dotenv/config";
-import { migrate } from "drizzle-orm/libsql/migrator";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { client, closeDb, db } from "./client.js";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { client, closeDb } from "./client.js";
 import { dbLogger } from "./logger.js";
-
-const thisDir = dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = resolve(thisDir, "..", "drizzle");
 
 const SEED_TOOLS = [
   {
@@ -60,29 +56,9 @@ const SEED_TOOLS = [
 ];
 
 export async function initDatabase(): Promise<void> {
-  await migrate(db, { migrationsFolder });
-
-  // cookie_cloud: CookieCloud 加密数据
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS cookie_cloud (
-      uuid text PRIMARY KEY NOT NULL,
-      password text NOT NULL,
-      encrypted text NOT NULL,
-      crypto_type text NOT NULL DEFAULT 'legacy'
-    )`,
-  );
-  // cookie_store: 各平台明文 cookie
-  await client.execute(
-    `CREATE TABLE IF NOT EXISTS cookie_store (
-      uuid text NOT NULL,
-      platform text NOT NULL,
-      cookies text NOT NULL,
-      PRIMARY KEY (uuid, platform)
-    )`,
-  );
+  // 注意：表结构由 `pnpm run db:push`（drizzle-kit push）同步，本脚本仅负责种子数据
 
   for (const tool of SEED_TOOLS) {
-    // 首次写入：insert or ignore 按 name 主键去重
     await client.execute({
       sql: `insert or ignore into tools (name, category, display_name, description, config_fields, is_enabled, sort_order) values (?, ?, ?, ?, ?, ?, ?)`,
       args: [
@@ -96,14 +72,12 @@ export async function initDatabase(): Promise<void> {
       ],
     });
 
-    // 已有行更新：仅刷新 config_fields 和 description，不触碰 config（用户已设的 API Key）
     await client.execute({
       sql: `update tools set config_fields = ?, description = ? where name = ?`,
       args: [tool.config_fields, tool.description, tool.name],
     });
   }
 
-  // 确保默认运行配置行存在
   for (const runtime of ["session", "wiki"]) {
     await client.execute({
       sql: `insert or ignore into runtime_config (runtime, temperature, top_p, system_prompt) values (?, ?, ?, ?)`,
@@ -111,7 +85,7 @@ export async function initDatabase(): Promise<void> {
     });
   }
 
-  dbLogger.info("数据库初始化完成（迁移已应用，种子数据已写入）");
+  dbLogger.info("数据库种子数据写入完成（表结构请先执行 pnpm run db:push）");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

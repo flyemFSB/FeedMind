@@ -99,9 +99,9 @@ export function SkillsPanel() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-24 w-full rounded-xl" />
-        <Skeleton className="h-16 w-full rounded-xl" />
-        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" />
       </div>
     );
   }
@@ -111,7 +111,7 @@ export function SkillsPanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-editorial-ink">{t("settings.skills")}</h3>
+          <h3 className="text-[14px] font-semibold text-editorial-ink">{t("settings.skills")}</h3>
           <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("settings.skillsDescription")}
           </p>
@@ -127,7 +127,7 @@ export function SkillsPanel() {
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
           dragOver
             ? "border-editorial-primary bg-editorial-primary/5"
             : "border-editorial-hairline hover:border-editorial-primary/40 hover:bg-editorial-surface-soft"
@@ -140,14 +140,14 @@ export function SkillsPanel() {
           className="hidden"
           onChange={handleFileSelect}
         />
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-editorial-surface-soft">
+        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
           <Upload size={18} className="text-editorial-ink-muted" />
         </div>
         <div className="text-center">
           <p className="text-[13px] font-medium text-editorial-ink">
             {installing ? t("settings.skillInstalling") : t("settings.skillDropzone")}
           </p>
-          <p className="mt-0.5 text-[11px] text-editorial-ink-muted">
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
             {t("settings.skillDropzoneHint")}
           </p>
         </div>
@@ -155,12 +155,12 @@ export function SkillsPanel() {
 
       {/* Installed skills */}
       {skills.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-editorial-hairline px-6 py-10 text-center">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-editorial-hairline px-6 py-10 text-center">
           <Package size={28} className="text-editorial-ink-muted" />
           <p className="text-[13px] text-editorial-ink-muted">{t("settings.skillEmpty")}</p>
         </div>
       ) : (
-        <div className="divide-y divide-editorial-hairline overflow-hidden rounded-xl border border-editorial-hairline">
+        <div className="divide-y divide-editorial-hairline overflow-hidden rounded-lg border border-editorial-hairline">
           {skills.map((skill) => (
             <SkillRow
               key={skill.name}
@@ -197,7 +197,7 @@ function SkillRow({
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium text-editorial-ink">{skill.name}</span>
           {skill.version && (
-            <span className="rounded-md bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] text-editorial-ink-muted">
+            <span className="rounded-md bg-editorial-surface-soft px-1.5 py-0.5 text-[12px] text-editorial-ink-muted">
               v{skill.version}
             </span>
           )}
@@ -205,7 +205,7 @@ function SkillRow({
         {skill.description && (
           <p className="mt-0.5 text-[12px] text-editorial-ink-muted">{skill.description}</p>
         )}
-        <div className="mt-1.5 flex items-center gap-3 text-[11px] text-editorial-ink-muted">
+        <div className="mt-1.5 flex items-center gap-3 text-[12px] text-editorial-ink-muted">
           <span>{formatSize(skill.size)}</span>
           {skill.author && <span>{skill.author}</span>}
           <span>{formatDate(skill.installed_at)}</span>

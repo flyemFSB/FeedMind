@@ -1,5 +1,6 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { MotionConfig } from "motion/react";
 import { useState } from "react";
 import { ChatProvider } from "@/lib/chat/chat-context";
 import { ErrorBoundary } from "@/components/app-shell/error-boundary";
@@ -17,7 +18,7 @@ function App() {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <ErrorBoundary>
         <ThemeProvider>
           <I18nProvider>
@@ -33,7 +34,7 @@ function App() {
         </ThemeProvider>
       </ErrorBoundary>
       <Toaster richColors closeButton position="top-center" />
-    </>
+    </MotionConfig>
   );
 }
 

@@ -22,11 +22,7 @@ interface CreateWikiSpaceDialogProps {
   onCreated: (spaceId: string, spaceName: string) => void;
 }
 
-export function CreateWikiSpaceDialog({
-  open,
-  onClose,
-  onCreated,
-}: CreateWikiSpaceDialogProps) {
+export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSpaceDialogProps) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -59,15 +55,27 @@ export function CreateWikiSpaceDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent showCloseButton={false} className="max-w-md gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-md">
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        className="max-w-md gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-md"
+      >
         <DialogHeader className="flex h-[72px] shrink-0 flex-row items-center justify-between border-b border-editorial-hairline px-6">
-          <DialogTitle className="text-[17px] font-semibold">{t("wiki.createWikiSpace")}</DialogTitle>
+          <DialogTitle className="text-[16px] font-semibold">
+            {t("wiki.createWikiSpace")}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 p-6">
           <div className="space-y-1.5">
-            <Label htmlFor="space-name" className="text-[13px] font-medium">{t("wiki.name")}</Label>
+            <Label htmlFor="space-name" className="text-[13px] font-medium">
+              {t("wiki.name")}
+            </Label>
             <Input
               id="space-name"
               placeholder={t("wiki.spaceNamePlaceholder")}
@@ -78,7 +86,9 @@ export function CreateWikiSpaceDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="space-purpose" className="text-[13px] font-medium">{t("wiki.description")}</Label>
+            <Label htmlFor="space-purpose" className="text-[13px] font-medium">
+              {t("wiki.description")}
+            </Label>
             <Textarea
               id="space-purpose"
               placeholder={t("wiki.descriptionPlaceholder")}
@@ -88,12 +98,10 @@ export function CreateWikiSpaceDialog({
             />
           </div>
 
-          <div className="text-[11px] text-editorial-ink-muted">
-            {t("wiki.spaceNameNote")}
-          </div>
+          <div className="text-[12px] text-editorial-ink-muted">{t("wiki.spaceNameNote")}</div>
         </div>
 
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-editorial-surface-card px-6 py-4">
+        <DialogFooter className="mx-0 mb-0 rounded-b-lg border-t border-editorial-hairline bg-editorial-surface-card px-6 py-4">
           <Button variant="outline" size="sm" onClick={onClose}>
             {t("common.cancel")}
           </Button>

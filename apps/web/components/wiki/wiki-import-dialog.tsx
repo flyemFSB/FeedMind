@@ -33,14 +33,14 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
     >
       <DialogContent
         showCloseButton={false}
-        className="max-w-lg gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
+        className="max-w-lg gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
       >
         {/* Header row — no border, kept clean */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
           >
             <X size={16} />
           </button>
@@ -59,7 +59,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <FileText size={15} strokeWidth={1.6} />
             {t("wiki.uploadFile")}
             {tab === "file" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-md" />
             )}
           </button>
           <button
@@ -73,7 +73,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <Globe size={15} strokeWidth={1.6} />
             {t("wiki.pasteLink")}
             {tab === "url" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-full" />
+              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-md" />
             )}
           </button>
         </div>
@@ -169,7 +169,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
           dragOver
             ? "border-editorial-primary bg-editorial-primary/10"
             : "border-editorial-hairline bg-editorial-canvas-soft hover:border-editorial-ink-muted"
@@ -184,7 +184,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
           <p className="text-[13px] font-medium text-editorial-ink">
             {uploading ? t("wiki.uploading") : t("wiki.dropFiles")}
           </p>
-          <p className="mt-1 text-[11px] text-editorial-ink-muted">{t("wiki.supportedFormats")}</p>
+          <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.supportedFormats")}</p>
         </div>
         <input
           ref={inputRef}
@@ -215,7 +215,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
               )}
               <span className="truncate font-medium">{r.name}</span>
               {r.message && (
-                <span className="ml-auto shrink-0 text-[10px] text-editorial-ink-muted">
+                <span className="ml-auto shrink-0 text-[12px] text-editorial-ink-muted">
                   {r.message}
                 </span>
               )}
@@ -301,16 +301,16 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           {t("wiki.urlLabel")}
         </label>
         <textarea
-          className="min-h-[100px] w-full resize-none rounded-xl border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
+          className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
         />
         {hasError && (
-          <p className="mt-1 text-[11px] text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>
+          <p className="mt-1 text-[12px] text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>
         )}
         {urlList.length > 0 && (
-          <p className="mt-1 text-[11px] text-editorial-ink-muted">
+          <p className="mt-1 text-[12px] text-editorial-ink-muted">
             {t("wiki.urlCount", { count: urlList.length, valid: validUrls.length })}
           </p>
         )}
@@ -318,7 +318,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
 
       <div className="flex items-center justify-end gap-3">
         {urlList.length > 0 && (
-          <span className="text-[11px] text-editorial-ink-muted">
+          <span className="text-[12px] text-editorial-ink-muted">
             {t("wiki.willCreate", { count: validUrls.length })}
           </span>
         )}
@@ -326,7 +326,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           size="sm"
           onClick={handleSubmit}
           disabled={processing || validUrls.length === 0}
-          className="h-9 gap-2 rounded-lg bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
+          className="h-9 gap-2 rounded-md bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
         >
           {processing ? (
             <>

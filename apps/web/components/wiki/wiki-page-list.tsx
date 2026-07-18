@@ -60,7 +60,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           />
           <Input
             ref={searchInputRef}
-            className="h-8 rounded-lg border-editorial-surface-strong pl-8 text-[12px] placeholder:text-editorial-ink-muted focus:border-editorial-primary"
+            className="h-8 rounded-md border-editorial-hairline-strong bg-editorial-surface-card pl-8 text-[12px] placeholder:text-editorial-ink-muted focus:border-editorial-accent"
             placeholder={t("wiki.searchPages")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -100,13 +100,13 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           </div>
         ) : filteredPages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-editorial-surface-soft">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
               <FileText size={16} className="text-editorial-ink-muted" />
             </div>
             <p className="text-[13px] font-medium text-editorial-ink">
               {search || typeFilter ? t("wiki.noMatch") : t("wiki.noPageTitle")}
             </p>
-            <p className="mt-1 text-[11px] text-editorial-ink-muted">
+            <p className="mt-1 text-[12px] text-editorial-ink-muted">
               {search || typeFilter ? t("wiki.noMatchHint") : t("wiki.autoGenerateHint")}
             </p>
           </div>
@@ -167,10 +167,10 @@ function CategorizedPageList({
                 backgroundColor: WIKI_TYPE_COLORS[type] || "var(--color-editorial-ink-muted)",
               }}
             />
-            <span className="text-[11px] font-medium text-editorial-ink-muted">
+            <span className="text-[12px] font-medium text-editorial-ink-muted">
               {typeLabels[type] || type}
             </span>
-            <span className="text-[10px] text-editorial-hairline">{grouped[type].length}</span>
+            <span className="text-[12px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
           {grouped[type].map((page) => (
             <PageListItem
@@ -198,9 +198,9 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
-      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors ${
+      className={`shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
         active
-          ? "bg-editorial-surface-strong text-editorial-ink"
+          ? "bg-editorial-accent-soft text-editorial-accent"
           : "bg-transparent text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink-soft"
       }`}
     >
@@ -223,24 +223,17 @@ function PageListItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors ${
-        active ? "bg-editorial-primary/10" : "hover:bg-editorial-surface-soft"
+      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent ${
+        active
+          ? "bg-editorial-accent-soft text-editorial-accent"
+          : "text-editorial-ink hover:bg-editorial-surface-strong"
       }`}
     >
-      <FileText size={14} className="shrink-0 text-editorial-ink-muted" strokeWidth={1.5} />
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       <div className="min-w-0 flex-1">
-        <span
-          className={`block truncate text-[13px] ${
-            active ? "font-medium text-editorial-primary" : "text-editorial-ink"
-          }`}
-        >
-          {page.title}
-        </span>
+        <span className="block truncate text-[13px] font-medium">{page.title}</span>
       </div>
-      <span
-        className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-medium text-white"
-        style={{ backgroundColor: color }}
-      >
+      <span className="shrink-0 text-[12px] text-editorial-ink-muted">
         {WIKI_TYPE_LABELS[page.type] || page.type}
       </span>
     </button>

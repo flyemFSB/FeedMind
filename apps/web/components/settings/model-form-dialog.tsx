@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import type { LLMModel } from "@/lib/types";
-import { useCreateLLMModel, useUpdateLLMModel } from "@/lib/hooks/use-llms";
+import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
 import {
   PROVIDER_MODELS,
   CUSTOM_PROVIDER,
@@ -64,7 +64,7 @@ interface ModelFormDialogProps {
 
 function ModelSpecBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-editorial-ink-muted leading-none">
+    <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[12px] font-medium text-editorial-ink-muted leading-none">
       {label}
     </span>
   );
@@ -93,8 +93,8 @@ export function ModelFormDialog({
   );
   const [showKey, setShowKey] = useState(false);
 
-  const createMutation = useCreateLLMModel();
-  const updateMutation = useUpdateLLMModel();
+  const createMutation = useCreateModel();
+  const updateMutation = useUpdateModel();
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const isCustom = form.provider === CUSTOM_PROVIDER;
@@ -169,9 +169,9 @@ export function ModelFormDialog({
         if (!value) handleClose();
       }}
     >
-      <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink">
+      <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-[15px] font-semibold">
+          <DialogTitle className="text-[14px] font-semibold">
             {isEditing ? t("settings.editModel") : t("settings.addModel")}
           </DialogTitle>
           <DialogDescription className="text-[12px] text-editorial-ink-muted">
@@ -187,18 +187,18 @@ export function ModelFormDialog({
               {t("settings.provider")}
             </label>
             <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
-              <div className="grid h-10 w-10 place-items-center rounded-xl border border-editorial-hairline bg-editorial-canvas-soft">
+              <div className="grid h-10 w-10 place-items-center rounded-lg border border-editorial-hairline bg-editorial-canvas-soft">
                 <ProviderIcon provider={form.provider} size={24} />
               </div>
               <Select value={form.provider} onValueChange={handleProviderChange}>
                 <SelectTrigger
                   id="model-provider-select"
                   aria-label={t("settings.selectProvider")}
-                  className="h-10 min-h-10 w-full rounded-xl border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
+                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
                 >
                   <SelectValue placeholder={t("settings.selectProvider")} />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-editorial-hairline">
+                <SelectContent className="rounded-md border-editorial-hairline">
                   <SelectGroup>
                     {PROVIDERS.map((provider) => (
                       <SelectItem key={provider} value={provider}>
@@ -230,7 +230,7 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelId: val, modelName: val }));
                 }}
                 placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             ) : (
               <Input
@@ -240,7 +240,7 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelId: event.target.value }))
                 }
                 placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             )}
           </div>
@@ -260,18 +260,18 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelName: event.target.value }));
                 }}
                 placeholder="根据调用名称自动生成"
-                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             ) : (
               <Select value={form.modelName} onValueChange={handleModelChange}>
                 <SelectTrigger
                   id="model-name-select"
                   aria-label={t("settings.selectModel")}
-                  className="h-10 min-h-10 w-full rounded-xl border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
+                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
                 >
                   <SelectValue placeholder={t("settings.selectModel")} />
                 </SelectTrigger>
-                <SelectContent className="rounded-xl border-editorial-hairline">
+                <SelectContent className="rounded-md border-editorial-hairline">
                   <SelectGroup>
                     {modelList.length > 0 ? (
                       modelList.map((model) => (
@@ -309,7 +309,7 @@ export function ModelFormDialog({
                 setForm((current) => ({ ...current, baseUrl: event.target.value }))
               }
               placeholder={t("settings.endpointPlaceholder")}
-              className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+              className="h-10 rounded-md border-editorial-hairline text-[13px]"
             />
           </div>
           <div className="col-span-2">
@@ -332,7 +332,7 @@ export function ModelFormDialog({
                     : t("settings.apiKeyPlaceholderNew")
                 }
                 type={showKey ? "text" : "password"}
-                className="h-10 rounded-xl border-editorial-hairline pr-10 text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline pr-10 text-[13px]"
               />
               <button
                 type="button"
@@ -353,7 +353,7 @@ export function ModelFormDialog({
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
                 上下文窗口（KB）{" "}
-                <span className="font-normal text-[10px] text-editorial-ink-muted">1M = 1000K</span>
+                <span className="font-normal text-[12px] text-editorial-ink-muted">1M = 1000K</span>
               </label>
               <Input
                 type="number"
@@ -362,7 +362,7 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, context: event.target.value }))
                 }
                 placeholder="例如: 128"
-                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             </div>
             <div>
@@ -376,19 +376,19 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, maxOutput: event.target.value }))
                 }
                 placeholder="例如: 32"
-                className="h-10 rounded-xl border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             </div>
           </div>
         </div>
         <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={handleClose} variant="ghost" className="rounded-xl px-4 text-[13px]">
+          <Button onClick={handleClose} variant="ghost" className="px-4 text-[13px]">
             {t("common.cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!form.modelName || isPending}
-            className="rounded-xl bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-hairline"
+            className="bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
           >
             {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>

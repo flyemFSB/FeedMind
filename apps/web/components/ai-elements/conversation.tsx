@@ -95,7 +95,7 @@ export function ConversationScrollButton({
       variant="outline"
       size="icon"
       className={cn(
-        "absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-editorial-surface-card shadow-md",
+        "absolute bottom-4 left-1/2 -translate-x-1/2 rounded-md bg-editorial-surface-card shadow-sm",
         className,
       )}
       onClick={handleScroll}

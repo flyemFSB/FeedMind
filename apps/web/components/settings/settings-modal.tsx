@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { X, Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
-import { useLLMModels } from "@/lib/hooks/use-llms";
+import { useModels } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,7 @@ import { SystemPanel } from "./system-panel";
 import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
+import { EmbeddingModelSection } from "./embedding-model-section";
 import { useTranslation } from "react-i18next";
 
 interface Tab {
@@ -44,7 +45,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
 
   // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
-  const { data: models = [] } = useLLMModels({ enabled: open });
+  const { data: chatModels = [] } = useModels("chat", { enabled: open });
 
   function handleModelSaved() {
     setShowModelForm(false);
@@ -64,22 +65,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     >
       <DialogContent
         showCloseButton={false}
-        className="max-w-[calc(100vw-16px)] w-full h-[calc(100dvh-16px)] sm:max-w-[calc(100vw-32px)] sm:h-[calc(100dvh-32px)] md:max-w-[740px] md:h-[620px] lg:max-w-[880px] lg:h-[680px] grid-rows-[auto_1fr] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink overflow-hidden"
+        className="h-[calc(100dvh-16px)] w-full max-w-[calc(100vw-16px)] grid-rows-[auto_1fr] gap-0 overflow-hidden rounded-xl border-editorial-hairline bg-editorial-surface-card p-0 text-editorial-ink sm:h-[calc(100dvh-32px)] sm:max-w-[calc(100vw-32px)] md:h-[620px] md:max-w-[740px] lg:h-[680px] lg:max-w-[880px]"
       >
         {/* Custom horizontal header bar with DialogTitle for a11y */}
-        <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-editorial-hairline px-6">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-editorial-hairline px-5">
           <div className="flex items-center gap-3">
             <div>
               <DialogTitle className="text-[16px] font-semibold text-editorial-ink">
                 {t("settings.title")}
               </DialogTitle>
-              <p className="text-[11px] text-editorial-ink-muted">{t("settings.description")}</p>
+              <p className="text-[12px] text-editorial-ink-muted">{t("settings.description")}</p>
             </div>
           </div>
           <Button
             onClick={onClose}
             variant="ghost"
             size="icon"
+            aria-label={t("common.close")}
+            title={t("common.close")}
             className="rounded-lg hover:bg-editorial-surface-soft"
           >
             <X size={18} className="text-editorial-ink-muted" />
@@ -94,21 +97,21 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           }}
           className="flex min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <aside className="w-[180px] shrink-0 overflow-y-auto bg-editorial-surface-soft p-3">
+          <aside className="w-[150px] shrink-0 overflow-y-auto border-r border-editorial-hairline bg-editorial-surface-soft p-2.5 max-sm:w-[52px]">
             <TabsList className="w-full flex-col items-stretch gap-0.5 rounded-none bg-transparent p-0">
               {TABS.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
                   className={
-                    "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors text-left " +
+                    "flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-[13px] font-medium transition-colors max-sm:justify-center max-sm:px-0 " +
                     (activeTab === tab.id
-                      ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
-                      : "text-editorial-ink-soft hover:bg-editorial-surface-card/50")
+                      ? "bg-editorial-accent-soft text-editorial-accent"
+                      : "text-editorial-ink-soft hover:bg-editorial-surface-card")
                   }
                 >
                   <tab.icon size={16} strokeWidth={1.5} />
-                  <span>{t(tab.labelKey)}</span>
+                  <span className="max-sm:hidden">{t(tab.labelKey)}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -116,18 +119,22 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
           <div className="min-w-0 flex-1 overflow-y-auto p-6">
             {activeTab === "models" && (
-              <ModelsPanel
-                models={models}
-                onAddModel={() => {
-                  setEditingModel(null);
-                  setShowModelForm(true);
-                }}
-                onEditModel={(m) => {
-                  setEditingModel(m);
-                  setShowModelForm(true);
-                }}
-                onDeleteModel={setDeletingModel}
-              />
+              <div className="space-y-8">
+                <ModelsPanel
+                  models={chatModels}
+                  title={t("settings.chatModels")}
+                  onAddModel={() => {
+                    setEditingModel(null);
+                    setShowModelForm(true);
+                  }}
+                  onEditModel={(m) => {
+                    setEditingModel(m);
+                    setShowModelForm(true);
+                  }}
+                  onDeleteModel={setDeletingModel}
+                />
+                <EmbeddingModelSection />
+              </div>
             )}
             {activeTab === "tools" && <ToolsPanel />}
             {activeTab === "skills" && <SkillsPanel />}

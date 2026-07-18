@@ -3,8 +3,10 @@ import type { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "./model-cache.js";
-import { getSelectedModel } from "../../modules/llms/service.js";
+import { getSelectedModel } from "../../modules/models/service.js";
 import { getConfig } from "../../modules/models/config-service.js";
+import { getVectorStore } from "../vector-store.js";
+import { lazyEmbedder } from "../utils/lazy-embedder.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
@@ -17,7 +19,6 @@ import { parseTokenCount } from "../utils/parse-token-count.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
 import { logger } from "../../lib/logger.js";
 
-// Supervisor 架构：所有 subagent 通过 task 工具运行时动态创建，避免编译时注册
 const feedmindWorkspace = createFeedMindWorkspace();
 
 export const feedmindAgent = new Agent({
@@ -54,7 +55,6 @@ ${getSubagentDescriptions()}
     resolveChatModel(requestContext),
   defaultOptions: async () => {
     try {
-      // resolveModelClient 自带缓存，避免重复 getModelRuntime 查询
       const [cfg, selected] = await Promise.all([
         cachedGet("getConfig:session", () => getConfig("session")),
         cachedGet("getSelectedModel", () => getSelectedModel()),
@@ -79,7 +79,17 @@ ${getSubagentDescriptions()}
       return {};
     }
   },
-  memory: new Memory(),
+  memory: new Memory({
+    vector: getVectorStore(),
+    embedder: lazyEmbedder as any,
+    options: {
+      observationalMemory: {
+        temporalMarkers: true,
+        activateAfterIdle: "auto",
+        retrieval: { vector: true },
+      },
+    },
+  }),
   tools: {
     askClarificationTool,
     webFetchTool,
@@ -91,7 +101,6 @@ ${getSubagentDescriptions()}
   workspace: feedmindWorkspace,
 });
 
-/** 供外部调用以在模型选择变更时清理缓存 */
 export function clearConfigCache(): void {
   clearCache();
 }

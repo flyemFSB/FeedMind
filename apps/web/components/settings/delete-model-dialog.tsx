@@ -2,7 +2,7 @@
 
 import { toast } from "sonner";
 import type { LLMModel } from "@/lib/types";
-import { useDeleteLLMModel } from "@/lib/hooks/use-llms";
+import { useDeleteModel } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,7 +22,7 @@ interface DeleteModelDialogProps {
 
 export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDialogProps) {
   const { t } = useTranslation();
-  const deleteMutation = useDeleteLLMModel();
+  const deleteMutation = useDeleteModel();
 
   function handleDelete() {
     if (!model) return;
@@ -42,9 +42,11 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
         if (!value) onClose();
       }}
     >
-      <DialogContent className="max-w-[420px] gap-0 rounded-2xl bg-editorial-surface-card p-0 text-editorial-ink">
+      <DialogContent className="max-w-[420px] gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-[15px] font-semibold">{t("settings.deleteModel")}</DialogTitle>
+          <DialogTitle className="text-[14px] font-semibold">
+            {t("settings.deleteModel")}
+          </DialogTitle>
           <DialogDescription className="text-[12px] text-editorial-ink-muted">
             {t("settings.deleteModelDesc")}
           </DialogDescription>
@@ -52,14 +54,14 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
         <div className="px-5 py-5 text-[13px] text-editorial-ink">
           {t("settings.confirmDeleteModel", { modelName: model?.modelName })}
         </div>
-        <DialogFooter className="mx-0 mb-0 rounded-b-2xl border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
-          <Button onClick={onClose} variant="ghost" className="rounded-xl px-4 text-[13px]">
+        <DialogFooter className="mx-0 mb-0 rounded-b-lg border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
+          <Button onClick={onClose} variant="ghost" className="px-4 text-[13px]">
             {t("common.cancel")}
           </Button>
           <Button
             onClick={handleDelete}
             disabled={deleteMutation.isPending}
-            className="rounded-xl bg-destructive px-4 text-[13px] text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="bg-destructive px-4 text-[13px] text-destructive-foreground hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t("settings.confirmDelete")}
           </Button>
