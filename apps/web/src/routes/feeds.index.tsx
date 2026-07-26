@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { Rss, Globe, ExternalLink, RefreshCw } from "lucide-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useTranslation, Trans } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { fadeSlideVariants, listContainerVariants, listItemVariants } from "@/lib/motion";
 
 export const Route = createFileRoute("/feeds/")({
   component: FeedsIndexPage,
@@ -109,132 +112,158 @@ function FeedsIndexPage() {
   return (
     <div className="h-full overflow-y-auto p-6 max-sm:p-4">
       <div className="mx-auto max-w-[900px]">
-        {loading ? (
-          <div className="motion-content space-y-3">
-            <Skeleton className="ml-auto h-8 w-24" />
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="space-y-2 border-b border-editorial-hairline py-4">
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-full" />
+        <AnimatePresence mode="wait" initial={false}>
+          {loading ? (
+            <motion.div
+              key="loading"
+              className="space-y-3"
+              variants={fadeSlideVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <Skeleton className="ml-auto h-8 w-24" />
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="space-y-2 border-b border-editorial-hairline py-4">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="content"
+              variants={fadeSlideVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              <div className="mb-3 flex items-center justify-end">
+                <Button
+                  onClick={handleSync}
+                  disabled={refreshing}
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
+                >
+                  {refreshing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
+                  {refreshing ? t("feeds.syncing") : t("feeds.sync")}
+                </Button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="motion-content">
-            <div className="mb-3 flex items-center justify-end">
-              <Button
-                onClick={handleSync}
-                disabled={refreshing}
-                size="sm"
-                className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
-              >
-                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-                {refreshing ? t("feeds.syncing") : t("feeds.sync")}
-              </Button>
-            </div>
 
-            {feeds.length === 0 ? (
-              <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-16 text-center">
-                <Globe size={24} className="mb-3 text-editorial-ink-muted" />
-                <p className="text-[13px] text-editorial-ink-muted">
-                  <Trans i18nKey="feeds.empty">
-                    暂无内容，前往{" "}
-                    <a href="/sources" className="text-editorial-primary underline">
-                      订阅管理
-                    </a>{" "}
-                    添加订阅后点击同步
-                  </Trans>
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-editorial-hairline border-y border-editorial-hairline">
-                {feeds.map((item) => {
-                  const src = sourceFor(item);
-                  return (
-                    <article
-                      key={item.id}
-                      className={cn(
-                        "group cursor-pointer px-1 py-4 transition-colors hover:bg-editorial-surface-soft",
-                        item.is_read && "opacity-70",
-                      )}
-                      onClick={() => {
-                        if (!item.is_read) handleMarkRead(item.id);
-                        if (item.link) window.open(item.link, "_blank");
-                      }}
-                    >
-                      <div className="mb-2 flex items-center gap-2">
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[12px] font-medium",
-                            src?.type === "social"
-                              ? "bg-editorial-accent-soft text-editorial-accent"
-                              : "bg-editorial-surface-soft",
-                          )}
-                        >
-                          {src?.type === "rss" ? <Rss size={10} /> : null}
-                          {src?.title || t("feeds.unknownSource")}
-                        </span>
-                        {item.author && (
-                          <span className="text-[12px] text-editorial-ink-muted">
-                            {item.author}
-                          </span>
+              {feeds.length === 0 ? (
+                <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-16 text-center">
+                  <Globe size={24} className="mb-3 text-editorial-ink-muted" />
+                  <p className="text-[13px] text-editorial-ink-muted">
+                    <Trans i18nKey="feeds.empty">
+                      暂无内容，前往{" "}
+                      <a href="/sources" className="text-editorial-primary underline">
+                        订阅管理
+                      </a>{" "}
+                      添加订阅后点击同步
+                    </Trans>
+                  </p>
+                </div>
+              ) : (
+                <motion.div
+                  className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
+                  variants={listContainerVariants}
+                  initial="initial"
+                  animate="animate"
+                >
+                  {feeds.map((item) => {
+                    const src = sourceFor(item);
+                    return (
+                      <motion.article
+                        key={item.id}
+                        layout
+                        variants={listItemVariants}
+                        animate={{ opacity: item.is_read ? 0.7 : 1 }}
+                        whileTap={{ scale: 0.995 }}
+                        className={cn(
+                          "group cursor-pointer px-1 py-4 hover:bg-editorial-surface-soft",
                         )}
-                      </div>
-
-                      <h3 className="mb-1 text-[14px] font-medium leading-snug text-editorial-ink transition-colors line-clamp-2">
-                        {item.title}
-                      </h3>
-
-                      <p className="mb-2 text-[12px] leading-relaxed text-editorial-ink-soft line-clamp-2">
-                        {item.description
-                          ? item.description.replace(/<[^>]+>/g, "").substring(0, 300)
-                          : ""}
-                      </p>
-
-                      {item.image && (
-                        <img
-                          src={item.image}
-                          alt=""
-                          className="mb-2 h-32 w-full rounded-lg object-cover"
-                          loading="lazy"
-                        />
-                      )}
-
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-[12px] text-editorial-ink-muted">
-                          <span>{formatTime(item.pub_date || item.fetched_at)}</span>
+                        onClick={() => {
+                          if (!item.is_read) handleMarkRead(item.id);
+                          if (item.link) window.open(item.link, "_blank");
+                        }}
+                      >
+                        <div className="mb-2 flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[12px] font-medium",
+                              src?.type === "social"
+                                ? "bg-editorial-accent-soft text-editorial-accent"
+                                : "bg-editorial-surface-soft",
+                            )}
+                          >
+                            {src?.type === "rss" ? <Rss size={10} /> : null}
+                            {src?.title || t("feeds.unknownSource")}
+                          </span>
+                          {item.author && (
+                            <span className="text-[12px] text-editorial-ink-muted">
+                              {item.author}
+                            </span>
+                          )}
                         </div>
-                        <ExternalLink size={12} className="text-editorial-ink-muted" />
-                      </div>
 
-                      {item.category &&
-                        (() => {
-                          try {
-                            const cats = JSON.parse(item.category);
-                            return Array.isArray(cats) && cats.length > 0 ? (
-                              <div className="mt-2 flex gap-1.5">
-                                {cats.slice(0, 3).map((c: string) => (
-                                  <span
-                                    key={c}
-                                    className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[12px] text-editorial-ink-muted"
-                                  >
-                                    {c}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : null;
-                          } catch {
-                            return null;
-                          }
-                        })()}
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+                        <h3 className="mb-1 text-[14px] font-medium leading-snug text-editorial-ink line-clamp-2">
+                          {item.title}
+                        </h3>
+
+                        <p className="mb-2 text-[12px] leading-relaxed text-editorial-ink-soft line-clamp-2">
+                          {item.description
+                            ? item.description.replace(/<[^>]+>/g, "").substring(0, 300)
+                            : ""}
+                        </p>
+
+                        {item.image && (
+                          <motion.img
+                            src={item.image}
+                            alt=""
+                            className="mb-2 h-32 w-full rounded-lg object-cover"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.24 }}
+                            loading="lazy"
+                          />
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-[12px] text-editorial-ink-muted">
+                            <span>{formatTime(item.pub_date || item.fetched_at)}</span>
+                          </div>
+                          <ExternalLink size={12} className="text-editorial-ink-muted" />
+                        </div>
+
+                        {item.category &&
+                          (() => {
+                            try {
+                              const cats = JSON.parse(item.category);
+                              return Array.isArray(cats) && cats.length > 0 ? (
+                                <div className="mt-2 flex gap-1.5">
+                                  {cats.slice(0, 3).map((c: string) => (
+                                    <span
+                                      key={c}
+                                      className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[12px] text-editorial-ink-muted"
+                                    >
+                                      {c}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : null;
+                            } catch {
+                              return null;
+                            }
+                          })()}
+                      </motion.article>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

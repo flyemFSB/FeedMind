@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { ChevronDown, GripVertical, Plus, Trash2 } from "lucide-react";
+import { motion } from "motion/react";
+import { ChevronDown, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +25,12 @@ import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/us
 import { persistSelectedFeedMindModel, setSelectedFeedMindModelId } from "@/lib/api/agent";
 import { ProviderIcon } from "@/components/settings/provider-icon";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  drawerVariants,
+  motionInstant,
+  motionLayoutTransition,
+  motionPressTransition,
+} from "@/lib/motion";
 import { useTranslation } from "react-i18next";
 
 interface AgentDrawerProps {
@@ -119,44 +126,51 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
     if (open) drawerRef.current?.focus();
   }, [open]);
 
+  const expandedWidth = isDesktop
+    ? drawerWidth
+    : Math.min(400, Math.max((typeof window === "undefined" ? 400 : window.innerWidth) - 48, 0));
+
   return (
-    <div
+    <motion.div
       ref={drawerRef}
       tabIndex={-1}
       data-island="agent"
       data-state={open ? "open" : "closed"}
       aria-hidden={!open}
       inert={!open}
-      style={{
-        width: open ? `min(${isDesktop ? drawerWidth : 400}px, calc(100vw - 48px))` : "0px",
-      }}
-      className={`relative shrink-0 overflow-hidden border bg-editorial-surface-soft outline-none transition-[width,margin,border-color,box-shadow] duration-300 ease-out max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-0 max-lg:z-40 max-lg:w-[min(400px,calc(100vw-48px))] max-lg:max-w-[calc(100vw-48px)] ${
+      initial={false}
+      animate={{ width: open ? expandedWidth : 0 }}
+      transition={instantClose ? motionInstant : motionLayoutTransition}
+      className={`relative shrink-0 overflow-hidden border bg-editorial-surface-soft outline-none max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-0 max-lg:z-40 max-lg:max-w-[calc(100vw-48px)] ${
         open
           ? "my-2 mr-2 rounded-xl border-editorial-hairline shadow-[0_1px_3px_rgba(55,53,45,0.06)] max-lg:my-0 max-lg:mr-0 max-lg:rounded-l-xl max-lg:border-r-0 max-lg:shadow-[-8px_0_18px_-14px_rgba(55,53,45,0.18)]"
           : "pointer-events-none my-0 mr-0 rounded-none border-transparent shadow-none"
       }`}
     >
       {open && (
-        <button
+        <motion.button
           type="button"
-          className="absolute left-1 top-1/2 z-50 hidden h-11 w-6 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-md border border-editorial-hairline bg-editorial-surface-card text-editorial-ink-muted opacity-70 transition-[background-color,color,opacity] duration-150 hover:bg-editorial-surface-strong hover:text-editorial-ink hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent lg:flex"
+          whileHover={{ scale: 1.04, opacity: 1 }}
+          whileTap={{ scale: 0.96 }}
+          className="absolute left-1 top-1/2 z-50 hidden h-11 w-6 -translate-y-1/2 cursor-col-resize items-center justify-center rounded-md border border-editorial-hairline bg-editorial-surface-card text-editorial-ink-muted opacity-70 hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent lg:flex"
           onPointerDown={handleResizePointerDown}
           onDoubleClick={() => setDrawerWidth(400)}
           aria-label="拖动调整 Agent 面板宽度，双击恢复默认宽度"
           title="拖动调整宽度 · 双击恢复默认"
         >
           <GripVertical size={14} strokeWidth={1.8} />
-        </button>
+        </motion.button>
       )}
-      <div
+      <motion.div
         data-instant-close={instantClose ? "true" : undefined}
-        className={`flex h-full w-full max-w-[calc(100vw-48px)] flex-col overflow-hidden ${
-          open ? "opacity-100" : "opacity-0"
-        }`}
+        className="flex h-full w-full max-w-[calc(100vw-48px)] flex-col overflow-hidden"
+        initial="closed"
+        animate={open ? "open" : "closed"}
+        variants={drawerVariants}
       >
         <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink transition-colors duration-150 hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
+            <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
               <span className="truncate text-[13px] font-medium leading-tight">{currentLabel}</span>
               <ChevronDown size={12} className="shrink-0 text-editorial-ink-muted" />
             </DropdownMenuTrigger>
@@ -183,7 +197,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                         }
                         deleteMutation.mutate(session.agent_thread_id);
                       }}
-                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted transition-colors duration-150 opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+                      className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                       title={t("common.delete")}
                     >
                       <Trash2 size={12} />
@@ -202,25 +216,30 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div className="ml-auto flex items-center gap-0.5">
+          <div className="ml-auto flex items-center">
             <CompactModelSelector />
-            <button
-              type="button"
-              onClick={() => createNewSession()}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-editorial-ink-soft transition-colors duration-150 hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
-              aria-label={t("common.newChat")}
-              title={t("common.newChat")}
-            >
-              <Plus size={14} strokeWidth={2} />
-            </button>
+            {!isDesktop && (
+              <motion.button
+                type="button"
+                onClick={() => onOpenChange(false)}
+                whileHover={{ scale: 1.04, opacity: 1 }}
+                whileTap={{ scale: 0.94 }}
+                transition={motionPressTransition}
+                className="ml-1 flex size-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-80 hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+                aria-label="关闭 Agent 面板"
+                title="关闭 Agent 面板"
+              >
+                <X size={15} />
+              </motion.button>
+            )}
           </div>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1">
           <Thread className="bg-editorial-surface-card" />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

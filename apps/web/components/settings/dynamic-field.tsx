@@ -93,7 +93,7 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
 }
 
 const iconBtnClass =
-  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-soft transition-colors disabled:opacity-30 disabled:pointer-events-none";
+  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-soft disabled:opacity-30 disabled:pointer-events-none";
 
 function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldProps) {
   const { t } = useTranslation();

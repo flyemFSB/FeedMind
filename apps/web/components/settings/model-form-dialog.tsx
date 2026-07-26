@@ -337,7 +337,7 @@ export function ModelFormDialog({
               <button
                 type="button"
                 onClick={() => setShowKey((value) => !value)}
-                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
                 aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
                 title={showKey ? t("settings.hideKey") : t("settings.showKey")}
               >

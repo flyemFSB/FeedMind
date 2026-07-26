@@ -4,9 +4,11 @@ import * as React from "react";
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
 import { type VariantProps } from "class-variance-authority";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { toggleVariants } from "@/components/ui/toggle";
+import { motionPressTransition } from "@/lib/motion";
 
 const ToggleGroupContext = React.createContext<
   VariantProps<typeof toggleVariants> & {
@@ -65,6 +67,15 @@ function ToggleGroupItem({
 
   return (
     <TogglePrimitive
+      render={(elementProps, state) => (
+        <motion.button
+          {...elementProps}
+          animate={{ scale: state.pressed ? 0.98 : 1 }}
+          whileHover={{ scale: 1.015 }}
+          whileTap={{ scale: 0.96 }}
+          transition={motionPressTransition}
+        />
+      )}
       data-slot="toggle-group-item"
       data-variant={context.variant || variant}
       data-size={context.size || size}

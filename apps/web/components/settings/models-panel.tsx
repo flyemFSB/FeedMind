@@ -29,7 +29,7 @@ import { lookupModelInfo, formatKB } from "@/lib/constants/provider-models";
 import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
-  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
+  "flex h-6 w-6 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-soft hover:text-editorial-ink focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30 disabled:pointer-events-none disabled:opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100";
 const menuItemClass =
   "flex cursor-default items-center gap-2 rounded-md px-2.5 py-2 text-left text-editorial-ink outline-none hover:bg-editorial-surface-soft data-highlighted:bg-editorial-surface-soft";
 
@@ -145,7 +145,7 @@ export function ModelsPanel({
         </div>
         <Button
           onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80"
         >
           <Plus size={14} />
           <span>{t("settings.addModel")}</span>
@@ -159,7 +159,7 @@ export function ModelsPanel({
             onClick={() => setProviderFilter(p)}
             variant={providerFilter === p ? "default" : "secondary"}
             size="sm"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium ${
               providerFilter === p
                 ? "bg-editorial-surface-strong text-editorial-ink"
                 : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
@@ -318,7 +318,7 @@ export function ModelsPanel({
                 <TableCell className="px-3 py-2.5 text-left">
                   <Menu.Root>
                     <Menu.Trigger
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
                       title={t("settings.moreActions")}
                     >
                       <MoreHorizontal size={15} strokeWidth={1.8} />

@@ -2,10 +2,12 @@
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { XIcon } from "lucide-react";
+import { backdropVariants, dialogVariants } from "@/lib/motion";
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -27,6 +29,14 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   return (
     <DialogPrimitive.Backdrop
       forceRender
+      render={(elementProps, state) => (
+        <motion.div
+          {...elementProps}
+          initial="closed"
+          animate={state.open ? "open" : "closed"}
+          variants={backdropVariants}
+        />
+      )}
       data-slot="dialog-overlay"
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs dark:bg-black/40",
@@ -49,9 +59,18 @@ function DialogContent({
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
+        render={(elementProps, state) => (
+          <motion.div
+            {...elementProps}
+            style={{ translate: "-50% -50%" }}
+            initial="closed"
+            animate={state.open ? "open" : "closed"}
+            variants={dialogVariants}
+          />
+        )}
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg bg-popover p-4 text-sm text-popover-foreground shadow-sm outline-none sm:max-w-sm",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] gap-4 rounded-lg bg-popover p-4 text-sm text-popover-foreground shadow-sm outline-none sm:max-w-sm",
           className,
         )}
         {...props}

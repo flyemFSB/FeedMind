@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { motion } from "motion/react";
 import { FileText, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
-import { wikiPageTypeSchema } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 import { useTranslation } from "react-i18next";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
 const TYPE_COLORS = WIKI_TYPE_COLORS;
 
@@ -35,8 +36,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
   });
 
   const filterTypes = () => {
-    const types = new Set(pages.map((p) => p.type));
-    return wikiPageTypeSchema.options.filter((t) => types.has(t));
+    return [...new Set(pages.map((page) => page.type))].sort((a, b) => a.localeCompare(b, "zh-CN"));
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -131,15 +131,6 @@ function CategorizedPageList({
   activePageId: string | null;
   onPageSelect: (pageId: string) => void;
 }) {
-  const typeOrder = ["entity", "concept", "source", "overview", "index"];
-  const typeLabels: Record<string, string> = {
-    entity: "实体",
-    concept: "概念",
-    source: "来源",
-    overview: "概览",
-    index: "索引",
-  };
-
   const grouped = pages.reduce<Record<string, WikiPageListItem[]>>((acc, page) => {
     const t = page.type || "other";
     if (!acc[t]) acc[t] = [];
@@ -147,19 +138,17 @@ function CategorizedPageList({
     return acc;
   }, {});
 
-  const sortedTypes = Object.keys(grouped).sort((a, b) => {
-    const ia = typeOrder.indexOf(a);
-    const ib = typeOrder.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
-    return a.localeCompare(b, "zh-CN");
-  });
+  const sortedTypes = Object.keys(grouped).sort((a, b) => a.localeCompare(b, "zh-CN"));
 
   return (
-    <div className="px-2 py-1">
+    <motion.div
+      className="px-2 py-1"
+      variants={listContainerVariants}
+      initial="initial"
+      animate="animate"
+    >
       {sortedTypes.map((type) => (
-        <div key={type} className="mb-4">
+        <motion.div key={type} layout className="mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
             <span
               className="inline-block h-2 w-2 rounded-full shrink-0"
@@ -168,7 +157,7 @@ function CategorizedPageList({
               }}
             />
             <span className="text-[12px] font-medium text-editorial-ink-muted">
-              {typeLabels[type] || type}
+              {WIKI_TYPE_LABELS[type] || type}
             </span>
             <span className="text-[12px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
@@ -180,9 +169,9 @@ function CategorizedPageList({
               onClick={() => onPageSelect(page.id)}
             />
           ))}
-        </div>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 }
 
@@ -196,16 +185,17 @@ function FilterChip({
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors duration-150 ${
+      whileTap={{ scale: 0.96 }}
+      className={`shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium ${
         active
           ? "bg-editorial-accent-soft text-editorial-accent"
           : "bg-transparent text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink-soft"
       }`}
     >
       {label}
-    </button>
+    </motion.button>
   );
 }
 
@@ -221,9 +211,13 @@ function PageListItem({
   const color = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
 
   return (
-    <button
+    <motion.button
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent ${
+      layout
+      variants={listItemVariants}
+      whileHover={{ x: 2 }}
+      whileTap={{ scale: 0.99 }}
+      className={`flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent ${
         active
           ? "bg-editorial-accent-soft text-editorial-accent"
           : "text-editorial-ink hover:bg-editorial-surface-strong"
@@ -236,6 +230,6 @@ function PageListItem({
       <span className="shrink-0 text-[12px] text-editorial-ink-muted">
         {WIKI_TYPE_LABELS[page.type] || page.type}
       </span>
-    </button>
+    </motion.button>
   );
 }

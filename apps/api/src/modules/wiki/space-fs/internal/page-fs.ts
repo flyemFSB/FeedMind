@@ -1,83 +1,82 @@
 import fs from "node:fs";
 import path from "node:path";
-import { parseFrontmatter } from "@feedmind/wiki-core";
+import {
+  conceptIdFromPath,
+  extractString,
+  extractStringArray,
+  normalizeConceptId,
+  parseFrontmatter,
+} from "@feedmind/wiki-core";
 import { readDirRecursive, readFileSafe, isSystemFile } from "./io.js";
-import { getWikiDir, getSpaceDir, getScopedWikiDir, TYPE_DIR_MAP } from "./paths.js";
+import { getWikiDir } from "./paths.js";
 
 const CACHE_TTL_MS = 60_000;
 const pageFileCache = new Map<string, { data: Map<string, string>; ts: number }>();
 
-function getSlugCache(spaceId: string): Map<string, string> {
+function getPageIndex(spaceId: string): Map<string, string> {
   const entry = pageFileCache.get(spaceId);
   if (entry && Date.now() - entry.ts < CACHE_TTL_MS) return entry.data;
-  const cache = new Map<string, string>();
-  try {
-    const files = readDirRecursive(
-      getWikiDir(spaceId),
-      (_f, name) => name.endsWith(".md") && !isSystemFile(name),
-    );
-    for (const f of files) {
-      cache.set(path.basename(f, ".md"), f);
-    }
-  } catch {
-    /* dir not created yet */
+
+  const index = new Map<string, string>();
+  const wikiDir = getWikiDir(spaceId);
+  const files = readDirRecursive(
+    wikiDir,
+    (_filePath, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
+  for (const filePath of files) {
+    const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
+    index.set(conceptIdFromPath(relativePath), filePath);
   }
-  pageFileCache.set(spaceId, { data: cache, ts: Date.now() });
-  return cache;
+
+  pageFileCache.set(spaceId, { data: index, ts: Date.now() });
+  return index;
 }
 
 export function invalidatePageCache(spaceId: string): void {
   pageFileCache.delete(spaceId);
 }
 
-export function findPageBySlug(spaceId: string, slug: string): string | null {
-  return getSlugCache(spaceId).get(slug) ?? null;
-}
-
-function inferTypeFromDir(relDir: string): string {
-  const parts = relDir.replace(/\\/g, "/").split("/");
-  const wikiIdx = parts.indexOf("wiki");
-  if (wikiIdx >= 0 && wikiIdx + 1 < parts.length) {
-    const sub = parts[wikiIdx + 1];
-    return TYPE_DIR_MAP[sub] ?? (sub ? "concept" : "overview");
-  }
-  return wikiIdx >= 0 ? "overview" : "concept";
-}
-
-export function walkPages(spaceId: string, typeFilter?: string): string[] {
-  const scanDir = getScopedWikiDir(spaceId, typeFilter);
+export function findPageById(spaceId: string, conceptId: string): string | null {
+  let decoded = conceptId;
   try {
-    return readDirRecursive(scanDir, (_filePath, name) => {
-      if (!name.endsWith(".md")) return false;
-      if (isSystemFile(name)) return false;
-      return true;
-    });
+    decoded = decodeURIComponent(conceptId);
   } catch {
-    return [];
+    /* 路由参数不是编码值时直接使用原文。 */
   }
+  return getPageIndex(spaceId).get(normalizeConceptId(decoded)) ?? null;
+}
+
+export function walkPages(spaceId: string): string[] {
+  return readDirRecursive(
+    getWikiDir(spaceId),
+    (_filePath, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
 }
 
 export function readPage(filePath: string, spaceId: string): Record<string, unknown> | null {
   try {
-    const content = fs.readFileSync(filePath, "utf-8");
-    const { frontmatter, body } = parseFrontmatter(content);
-    const relPath = path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/");
-    const slug = path.basename(filePath, ".md");
-    const pageType = (frontmatter.type as string) || inferTypeFromDir(relPath) || "concept";
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const { frontmatter, body } = parseFrontmatter(raw);
+    const wikiDir = getWikiDir(spaceId);
+    const bundlePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
+    const conceptId = conceptIdFromPath(bundlePath);
+    const slug = conceptId.split("/").at(-1) ?? conceptId;
+    const timestamp = extractString(frontmatter, "timestamp") ?? "";
+
     return {
-      id: slug,
+      id: conceptId,
       space_id: spaceId,
-      path: relPath,
+      path: bundlePath,
+      concept_id: conceptId,
       slug,
-      type: pageType,
-      title: (frontmatter.title as string) ?? slug,
+      type: extractString(frontmatter, "type") ?? "Reference",
+      title: extractString(frontmatter, "title") ?? slug,
+      description: extractString(frontmatter, "description") ?? "",
+      resource: extractString(frontmatter, "resource") ?? null,
       content: body.trim(),
-      frontmatter: frontmatter as Record<string, unknown>,
-      sources: (frontmatter.sources as string[]) ?? [],
-      tags: (frontmatter.tags as string[]) ?? [],
-      related: (frontmatter.related as string[]) ?? [],
-      created_at: (frontmatter.created as string) ?? "",
-      updated_at: (frontmatter.updated as string) ?? "",
+      frontmatter,
+      tags: extractStringArray(frontmatter, "tags"),
+      timestamp,
     };
   } catch {
     return null;
@@ -88,21 +87,27 @@ export function readPageListItem(
   filePath: string,
   spaceId: string,
 ): Record<string, unknown> | null {
-  const read = readPage(filePath, spaceId);
-  if (!read) return null;
+  const page = readPage(filePath, spaceId);
+  if (!page) return null;
   return {
-    id: read.id,
-    space_id: read.space_id,
-    path: read.path,
-    slug: read.slug,
-    type: read.type,
-    title: read.title,
-    tags: read.tags,
-    created_at: read.created_at,
-    updated_at: read.updated_at,
+    id: page.id,
+    space_id: page.space_id,
+    path: page.path,
+    concept_id: page.concept_id,
+    slug: page.slug,
+    type: page.type,
+    title: page.title,
+    description: page.description,
+    resource: page.resource,
+    tags: page.tags,
+    timestamp: page.timestamp,
   };
 }
 
 export function readPageRaw(filePath: string): string | null {
   return readFileSafe(filePath);
+}
+
+export function getPageConceptId(filePath: string, spaceId: string): string {
+  return conceptIdFromPath(path.relative(getWikiDir(spaceId), filePath).replace(/\\/g, "/"));
 }

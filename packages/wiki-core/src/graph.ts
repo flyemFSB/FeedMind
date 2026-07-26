@@ -1,6 +1,7 @@
 import type { GraphNode, GraphEdge } from "@feedmind/contracts";
-import { extractWikilinks } from "./wikilinks.js";
-import { parseFrontmatter } from "./frontmatter.js";
+import { extractString, parseFrontmatter } from "./frontmatter.js";
+import { conceptIdFromPath, extractConceptLinks } from "./links.js";
+import { getRelativePath, normalizePath } from "./paths.js";
 
 export interface FileNode {
   name: string;
@@ -12,6 +13,7 @@ export interface FileNode {
 export async function buildWikiGraph(
   readFileFn: (path: string) => Promise<string>,
   mdFiles: FileNode[],
+  bundleRoot: string,
 ): Promise<{ nodes: GraphNode[]; edges: GraphEdge[] }> {
   const nodeMap = new Map<
     string,
@@ -19,9 +21,13 @@ export async function buildWikiGraph(
   >();
 
   for (const file of mdFiles) {
-    if (file.is_dir || !file.name.endsWith(".md")) continue;
+    if (file.is_dir || !file.name.toLowerCase().endsWith(".md")) continue;
 
-    const id = fileNameToId(file.name);
+    const relativePath = getRelativePath(normalizePath(file.path), normalizePath(bundleRoot));
+    const fileName = relativePath.split("/").at(-1)?.toLowerCase();
+    if (fileName === "index.md" || fileName === "log.md") continue;
+
+    const id = conceptIdFromPath(relativePath);
     let content: string;
     try {
       content = await readFileFn(file.path);
@@ -29,16 +35,16 @@ export async function buildWikiGraph(
       continue;
     }
 
-    const { frontmatter } = parseFrontmatter(content);
-    const title = (frontmatter.title as string) || fileNameToTitle(file.name);
-    const type = (frontmatter.type as string) || "concept";
+    const { frontmatter, body } = parseFrontmatter(content);
+    const title = extractString(frontmatter, "title") ?? id.split("/").at(-1) ?? id;
+    const type = extractString(frontmatter, "type") ?? "Reference";
 
     nodeMap.set(id, {
       id,
       label: title,
       type,
       path: file.path,
-      links: extractWikilinks(content),
+      links: extractConceptLinks(body, id),
     });
   }
 
@@ -48,7 +54,7 @@ export async function buildWikiGraph(
   const rawEdges: { source: string; target: string }[] = [];
   for (const [sourceId, nodeData] of nodeMap) {
     for (const targetRaw of nodeData.links) {
-      const targetId = resolveTarget(targetRaw, nodeMap);
+      const targetId = nodeMap.has(targetRaw) ? targetRaw : null;
       if (!targetId || targetId === sourceId) continue;
 
       rawEdges.push({ source: sourceId, target: targetId });
@@ -61,8 +67,7 @@ export async function buildWikiGraph(
   const edges: GraphEdge[] = [];
   for (const edge of rawEdges) {
     const key = `${edge.source}:::${edge.target}`;
-    const reverseKey = `${edge.target}:::${edge.source}`;
-    if (!seenEdges.has(key) && !seenEdges.has(reverseKey)) {
+    if (!seenEdges.has(key)) {
       seenEdges.add(key);
       edges.push({
         ...edge,
@@ -80,25 +85,4 @@ export async function buildWikiGraph(
   }));
 
   return { nodes, edges };
-}
-
-function fileNameToId(fileName: string): string {
-  return fileName.replace(/\.md$/, "");
-}
-
-function fileNameToTitle(fileName: string): string {
-  return fileName.replace(/\.md$/, "").replace(/-/g, " ");
-}
-
-function resolveTarget(raw: string, nodeMap: Map<string, { id: string }>): string | null {
-  if (nodeMap.has(raw)) return raw;
-
-  const normalized = raw.toLowerCase().replace(/\s+/g, "-");
-  for (const id of nodeMap.keys()) {
-    if (id.toLowerCase() === normalized) return id;
-    if (id.toLowerCase() === raw.toLowerCase()) return id;
-    if (id.toLowerCase().replace(/\s+/g, "-") === normalized) return id;
-  }
-
-  return null;
 }

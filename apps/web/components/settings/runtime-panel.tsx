@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
 import { useModels } from "@/lib/hooks/use-models";
@@ -19,6 +20,7 @@ import { ProviderIcon } from "./provider-icon";
 import { ModelSelector } from "./model-selector";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { fadeSlideVariants } from "@/lib/motion";
 
 type InnerTab = "session" | "wiki";
 
@@ -154,40 +156,51 @@ export function RuntimePanel() {
 
       {/* Inner tabs: 会话模型 | WIKI 模型 */}
       <div className="flex gap-1 border-b border-editorial-hairline">
-        <button
+        <motion.button
           onClick={() => setInnerTab("session")}
-          className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
+          whileTap={{ scale: 0.98 }}
+          className={`px-4 py-2 text-[13px] font-medium border-b-2 ${
             innerTab === "session"
               ? "border-editorial-primary text-editorial-ink"
               : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
           }`}
         >
           {t("settings.sessionModelTab")}
-        </button>
-        <button
+        </motion.button>
+        <motion.button
           onClick={() => setInnerTab("wiki")}
-          className={`px-4 py-2 text-[13px] font-medium border-b-2 transition-colors ${
+          whileTap={{ scale: 0.98 }}
+          className={`px-4 py-2 text-[13px] font-medium border-b-2 ${
             innerTab === "wiki"
               ? "border-editorial-primary text-editorial-ink"
               : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
           }`}
         >
           {t("settings.wikiModelTab")}
-        </button>
+        </motion.button>
       </div>
 
       {/* Model selector area */}
-      <div className="space-y-4">
-        {innerTab === "session" ? (
-          <SessionModelSelectorSection />
-        ) : (
-          <WikiModelSelectorSection
-            models={models}
-            selectedId={wikiFields.llm_id}
-            onSelect={handleWikiModelSelect}
-          />
-        )}
-      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={innerTab}
+          className="space-y-4"
+          variants={fadeSlideVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+        >
+          {innerTab === "session" ? (
+            <SessionModelSelectorSection />
+          ) : (
+            <WikiModelSelectorSection
+              models={models}
+              selectedId={wikiFields.llm_id}
+              onSelect={handleWikiModelSelect}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Config fields */}
       <div className="grid min-w-0 grid-cols-2 gap-4">

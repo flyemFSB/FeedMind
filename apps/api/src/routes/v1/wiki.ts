@@ -12,13 +12,15 @@ import {
 } from "@feedmind/contracts";
 import { z } from "zod";
 import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
+
+// 集中导入 Wiki 模块
 import {
   listWikiSpaces,
   getWikiSpace,
   createWikiSpace,
   updateWikiSpace,
   deleteWikiSpace,
-} from "../../modules/wiki/space-registry.js";
+} from "../../modules/wiki/index.js";
 import {
   listWikiPages,
   getWikiPage,
@@ -34,6 +36,7 @@ import {
   createWikiSource,
   deleteWikiSource,
   previewDeleteImpact,
+  buildSourceFrontmatter,
 } from "../../modules/wiki/source-store.js";
 import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/graph-service.js";
 import { searchWiki } from "../../modules/wiki/search-service.js";
@@ -144,21 +147,21 @@ wikiRoutes.get("/wiki/spaces/:spaceId/pages/resolve", async (c) => {
     });
   return jsonOk(c, await resolveWikiLink(spaceId, target));
 });
-wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId", async (c) =>
+wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId{.+}/backlinks", async (c) => {
+  const spaceId = c.req.param("spaceId");
+  const pageId = c.req.param("pageId");
+  return jsonOk(c, await getWikiBacklinks(spaceId, pageId));
+});
+wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) =>
   jsonOk(c, await getWikiPage(c.req.param("spaceId"), c.req.param("pageId"))),
 );
-wikiRoutes.put("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
+wikiRoutes.put("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) => {
   const spaceId = c.req.param("spaceId");
   const pageId = c.req.param("pageId");
   const payload = await parseJson(c, wikiPageUpdateSchema);
   return jsonOk(c, await updateWikiPage(spaceId, pageId, payload));
 });
-wikiRoutes.get("/wiki/spaces/:spaceId/pages/:pageId/backlinks", async (c) => {
-  const spaceId = c.req.param("spaceId");
-  const pageId = c.req.param("pageId");
-  return jsonOk(c, await getWikiBacklinks(spaceId, pageId));
-});
-wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId", async (c) => {
+wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) => {
   await deleteWikiPage(c.req.param("spaceId"), c.req.param("pageId"));
   return jsonOk(c, { success: true });
 });
@@ -224,17 +227,14 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   if (textExts.has(ext)) {
     const decoder = new TextDecoder("utf-8", { fatal: false });
     const text = decoder.decode(byteArray);
-    const fm = {
-      title: safeName,
-      kind: "file",
+    const fm = buildSourceFrontmatter(safeName, "file", now, {
+      resource: safeName,
       original_name: safeName,
       original_uri: safeName,
       mime_type: ext === "md" ? "text/markdown" : `text/${ext}`,
       size_bytes: byteArray.length,
-      created: now,
-      updated: now,
       import_ext: ext,
-    };
+    });
     safeWriteFile(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text);
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
@@ -282,18 +282,15 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       safeUnlink(binPath);
     }
 
-    const fm = {
-      title: safeName,
-      kind: "file",
+    const fm = buildSourceFrontmatter(safeName, "file", now, {
+      resource: safeName,
       original_name: safeName,
       original_uri: safeName,
       mime_type: docMime,
       size_bytes: byteArray.length,
       status: "ready",
-      created: now,
-      updated: now,
       import_ext: ext,
-    };
+    });
     safeWriteFile(
       path.join(sourcesDir, sourceFileName),
       formatFrontmatter(fm) + "\n" + extractedText,
@@ -341,18 +338,15 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     const imageMime = imageMimeMap[ext] ?? "application/octet-stream";
 
     const imageMarkdown = `![${safeName}](../assets/${safeName})`;
-    const fm = {
-      title: safeName,
-      kind: "image",
+    const fm = buildSourceFrontmatter(safeName, "image", now, {
+      resource: safeName,
       original_name: safeName,
       original_uri: safeName,
       mime_type: imageMime,
       size_bytes: byteArray.length,
       status: "ready",
-      created: now,
-      updated: now,
       import_ext: ext,
-    };
+    });
     safeWriteFile(
       path.join(sourcesDir, sourceFileName),
       formatFrontmatter(fm) + "\n" + imageMarkdown,
@@ -410,7 +404,13 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   try {
     const result = await runIngest(spaceId, sourcePath);
     // 更新任务完成状态
-    await completeIngestJob(spaceId, job.id, [], result.pagesCreated, result.pagesUpdated);
+    await completeIngestJob(
+      spaceId,
+      job.id,
+      result.writtenFiles,
+      result.pagesCreated,
+      result.pagesUpdated,
+    );
     return jsonOk(c, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

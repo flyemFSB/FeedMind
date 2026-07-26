@@ -9,7 +9,9 @@ import { useChatSessions, useDeleteChatSession } from "@/lib/hooks/use-chats";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { motion } from "motion/react";
+import { MessageSquare, Trash2 } from "lucide-react";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 
 /**
  * AssistantThreadList — 渲染会话列表
@@ -28,7 +30,7 @@ export function AssistantThreadList() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 size={16} className="animate-spin text-editorial-ink-muted" />
+        <MotionSpinner size={16} className="text-editorial-ink-muted" />
       </div>
     );
   }
@@ -39,12 +41,14 @@ export function AssistantThreadList() {
         const isActive = session.agent_thread_id === activeThreadId;
         return (
           <div key={session.id} className="group grid grid-cols-[1fr_32px] items-center rounded-lg">
-            <button
+            <motion.button
               onClick={() => {
                 switchSession(session.agent_thread_id);
                 if (!isChatPage) navigate({ to: "/chat" });
               }}
-              className={`flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition-colors duration-150 ease-out hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong ${
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              className={`flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong ${
                 isActive
                   ? "bg-editorial-surface-strong text-editorial-ink"
                   : "text-editorial-ink-soft"
@@ -57,19 +61,21 @@ export function AssistantThreadList() {
               <span className="min-w-0 flex-1 truncate">
                 {session.title || t("chat.sessionTitleDefault")}
               </span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => {
                 if (session.agent_thread_id === activeThreadId) {
                   clearSession();
                 }
                 deleteMutation.mutate(session.agent_thread_id);
               }}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-[opacity,background-color,color] [transition-duration:var(--motion-fast)] [transition-timing-function:var(--ease-out)] hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
+              whileHover={{ scale: 1.05, opacity: 1 }}
+              whileTap={{ scale: 0.9 }}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
               title={t("common.delete")}
             >
               <Trash2 size={14} />
-            </button>
+            </motion.button>
           </div>
         );
       })}

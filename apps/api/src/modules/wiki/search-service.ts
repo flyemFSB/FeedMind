@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { searchPages, parseFrontmatter } from "@feedmind/wiki-core";
+import { extractString, parseFrontmatter, searchPages } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
 import { getSpaceDir, isSystemFile } from "./space-fs/index.js";
 
@@ -9,6 +9,10 @@ interface SearchablePage {
   title: string;
   content: string;
 }
+
+// 内存缓存：spaceId -> cached pages
+const pageCache = new Map<string, { pages: SearchablePage[]; timestamp: number }>();
+const CACHE_DURATION = 5000; // 5 秒缓存
 
 function loadSearchablePages(spaceId: string): SearchablePage[] {
   const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
@@ -22,12 +26,12 @@ function loadSearchablePages(spaceId: string): SearchablePage[] {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
           loadDir(fullPath);
-        } else if (entry.name.endsWith(".md") && !isSystemFile(entry.name)) {
+        } else if (entry.name.toLowerCase().endsWith(".md") && !isSystemFile(entry.name)) {
           try {
             const content = fs.readFileSync(fullPath, "utf-8");
             const { frontmatter } = parseFrontmatter(content);
-            const title = (frontmatter.title as string) ?? entry.name.replace(/\.md$/, "");
-            const relPath = path.relative(getSpaceDir(spaceId), fullPath).replace(/\\/g, "/");
+            const title = extractString(frontmatter, "title") ?? entry.name.replace(/\.md$/i, "");
+            const relPath = path.relative(wikiDir, fullPath).replace(/\\/g, "/");
             pages.push({ path: relPath, title, content });
           } catch {
             /* skip unreadable */
@@ -47,7 +51,18 @@ export async function searchWiki(
   query: string,
   topK: number = 20,
 ): Promise<{ results: WikiSearchResult[]; mode: string; totalHits: number }> {
+  // 尝试从缓存获取
+  const cacheEntry = pageCache.get(spaceId);
+  if (cacheEntry && Date.now() - cacheEntry.timestamp < CACHE_DURATION) {
+    const pages = cacheEntry.pages;
+    const results = searchPages(pages, query, topK);
+    return { results, mode: "keyword", totalHits: results.length };
+  }
+
+  // 加载并缓存
   const pages = loadSearchablePages(spaceId);
+  pageCache.set(spaceId, { pages, timestamp: Date.now() });
+
   const results = searchPages(pages, query, topK);
   return {
     results,

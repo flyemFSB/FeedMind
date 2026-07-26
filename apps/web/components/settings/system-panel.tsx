@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { motion } from "motion/react";
 import i18n from "@/lib/i18n";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Monitor } from "lucide-react";
@@ -80,11 +81,12 @@ export function SystemPanel() {
             const Icon = item.icon;
             const isActive = (theme ?? "system") === item.value;
             return (
-              <button
+              <motion.button
                 key={item.value}
                 type="button"
                 onClick={() => setTheme(item.value)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                whileTap={{ scale: 0.97 }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium ${
                   isActive
                     ? "bg-editorial-surface-strong text-editorial-ink"
                     : "bg-transparent text-editorial-ink-soft hover:bg-editorial-surface-soft"
@@ -92,7 +94,7 @@ export function SystemPanel() {
               >
                 <Icon size={14} />
                 {item.label}
-              </button>
+              </motion.button>
             );
           })}
         </div>

@@ -1,13 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { WikiPageRead, WikiPageUpdate } from "@feedmind/contracts";
 import { getWikiPage, updateWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { MilkdownEditorHandle } from "./milkdown-editor";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+// 懒加载编辑器，避免只读浏览时加载 Crepe/CodeMirror/Vue 等重依赖
+const MilkdownEditor = lazy(() =>
+  import("./milkdown-editor").then((m) => ({ default: m.MilkdownEditor })),
+);
 
 interface WikiEditorProps {
   spaceId: string;
@@ -17,7 +23,7 @@ interface WikiEditorProps {
 }
 
 export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
@@ -25,6 +31,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
   const [path, setPath] = useState("");
   const [saving, setSaving] = useState(false);
   const loadIdRef = useRef(0);
+  const editorRef = useRef<MilkdownEditorHandle>(null);
 
   const loadPage = useCallback(async () => {
     const loadId = ++loadIdRef.current;
@@ -51,7 +58,9 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
     if (!page) return;
     setSaving(true);
     try {
-      const payload: WikiPageUpdate = { title, content, path };
+      // 同步拉取编辑器最新内容，规避 listener 防抖延迟
+      const latestContent = editorRef.current?.getMarkdown() ?? content;
+      const payload: WikiPageUpdate = { title, content: latestContent, path };
       await updateWikiPage(spaceId, pageId, payload);
       onSave();
     } catch {
@@ -101,7 +110,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
             className="h-5 border-0 bg-transparent px-0 text-[12px] text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-0"
             value={path}
             onChange={(e) => setPath(e.target.value)}
-            placeholder="wiki/path/to/page.md"
+            placeholder="path/to/concept.md"
           />
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -125,14 +134,23 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
         </div>
       </div>
 
-      {/* Editor textarea */}
+      {/* WYSIWYG Markdown 编辑器 */}
       <div className="flex-1 overflow-hidden">
-        <textarea
-          className="flex h-full w-full resize-none border-0 bg-editorial-surface-card p-6 font-mono text-[12px] leading-relaxed text-editorial-ink placeholder:text-editorial-hairline outline-none focus-visible:ring-0"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={t("wiki.editorPlaceholder") + "\n" + t("wiki.wikilinkHint")}
-        />
+        <Suspense
+          fallback={
+            <div className="flex h-full items-center justify-center">
+              <Skeleton className="h-8 w-48 rounded-lg" />
+            </div>
+          }
+        >
+          <MilkdownEditor
+            ref={editorRef}
+            key={`${pageId}-${i18n.language}`}
+            defaultValue={content}
+            onChange={setContent}
+            placeholder={t("wiki.editorPlaceholder")}
+          />
+        </Suspense>
       </div>
     </div>
   );

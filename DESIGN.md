@@ -118,9 +118,9 @@ The system is **editorial in spirit, not SaaS**. It rejects the visual grammar o
 
 **Key Characteristics:**
 
-- **Silent hierarchy.** Depth comes from tonal layering (background color shifts of ~10–15 L%), not shadows. The canvas is pure white (#ffffff), the sidebar is warm off-white (#f7f6f3), and the workspace island is white — a single step of tonal separation.
-- **Monochrome-first.** The entire palette is neutral gray on white. The primary "color" is text (#37352d, a warm near-black). There is no brand color, no accent color beyond what selection highlights and focus rings provide. The product's visual identity is typography and spacing.
-- **Restrained motion.** Transitions exist only to communicate state (hover, focus, open/close). Duration is 150ms. No page-load choreography, no parallax, no entrance animations. Motion conveys state, not personality.
+- **Silent hierarchy.** Depth starts with tonal layering (background color shifts of ~10–15 L%) and may use low-intensity edge shadows at shell and panel boundaries. The canvas is pure white (#ffffff), the sidebar is warm off-white (#f7f6f3), and the workspace island is white — a single step of tonal separation.
+- **Monochrome-first chrome.** The shell, navigation, forms, and primary actions stay neutral gray on white. The primary product "color" is text (#37352d, a warm near-black). Semantic states, concept types, graph categories, and external-service icons may use bounded colors when color carries information rather than decoration.
+- **Motion as structure.** Motion is implemented exclusively with `motion/react`. It clarifies state, spatial relationships, hierarchy, loading, and content changes without delaying task completion.
 - **Local-first confidence.** The UI doesn't announce itself. No onboarding tours, no feature callouts, no empty-state illustrations. Empty states teach the interface in a single line of text.
 
 ## 2. Colors: The Monochrome Neutral Palette
@@ -159,7 +159,7 @@ The same scale inverted:
 
 **The Warm Near-Black Rule.** The darkest color in the system (#37352d) is not pure black. Its slight warmth (RGB 55,53,45) prevents the dead-flatness of `#000000` text on white while remaining neutral enough to not register as a tint. The same principle applies in dark mode: backgrounds are warm deep-gray, not black.
 
-**The No-Brand-Color Doctrine.** There is no brand blue, no brand red, no brand anything. The product's identity is carried by typography, spacing, and content. Color exists only to separate surfaces, grade information, and indicate state. This is non-negotiable.
+**The Neutral-Chrome Doctrine.** FeedMind does not impose a product-wide brand color on its shell. The product's identity is carried by typography, spacing, and content. Color is allowed in semantic indicators, Concept/type labels, graph categories, and third-party provider or platform icons when it identifies state, data, or an external brand.
 
 ### Semantic Colors
 
@@ -168,7 +168,7 @@ The same scale inverted:
 - **Warning** (`oklch(0.65 0.16 85)`): An amber for attention signals.
 - **Info** (`oklch(0.55 0.16 250)`): A neutral blue for informational indicators.
 
-These appear on ≤1% of any screen. Their rarity is the point.
+Semantic state colors stay sparse in ordinary chrome. Category and graph palettes may be more visible inside their dedicated data views, while provider and platform colors remain confined to their icons or connection rows.
 
 ## 3. Typography
 
@@ -193,18 +193,18 @@ These appear on ≤1% of any screen. Their rarity is the point.
 
 ## 4. Elevation
 
-This system does not use shadows for depth. Depth is conveyed exclusively through tonal layering — a one-step background color shift from canvas to canvas-soft, or from surface to surface-strong. Surfaces that need visual separation receive a `border-editorial-hairline` (1px solid, 91% gray) on the edge shared with the adjacent surface.
+This system uses tonal layering first, with restrained edge shadows where the existing shell geometry benefits from a clearer boundary. A one-step background color shift from canvas to canvas-soft, or from surface to surface-strong, remains the primary separation cue. Surfaces that need visual separation receive a `border-editorial-hairline` (1px solid, 91% gray) on the edge shared with the adjacent surface.
 
-The only exception is the Agent Drawer on narrow screens, which deploys a `shadow-sm` (`0 1px 2px 0 rgba(0,0,0,0.05)`) to lift the floating panel above the workspace content. This is a response to viewport constraints, not a depth system.
+The workspace island, navigation boundary, and secondary panels may use localized, low-intensity resting shadows (typically 2–4px and roughly 3–6% opacity). The narrow Agent Drawer may use a slightly broader edge shadow when it overlays workspace content. These shadows clarify panel ownership; they are not decorative elevation.
 
 - **Z-layer 0:** Canvas (workspace background)
-- **Z-layer 1:** Sidebar, drawer, workspace island (separated by border, not shadow)
+- **Z-layer 1:** Sidebar, drawer, workspace island (separated by border and, where the shell uses it, a localized low-intensity edge shadow)
 - **Z-layer 2:** Dropdown, popover, dialog, tooltip (separated by `shadow-sm` + `ring-1 ring-foreground/10`)
 - **Z-layer 3:** Toast, tooltip (always on top, `shadow-sm`)
 
 ### Named Rules
 
-**The Flat-By-Default Rule.** Every surface is flat at rest. Shadows appear only as a response to state: a floating drawer when the viewport is narrow, a dropdown menu when opened, a dialog when modal. No surface ever has a resting shadow.
+**The Tonal-First Rule.** Every surface starts with tonal layering and a hairline border. A workspace, navigation boundary, or panel may retain a localized low-intensity shadow at rest when it makes the shell structure easier to read. Heavy, diffuse, or decorative shadows are never part of the system.
 
 ## 5. Components
 
@@ -214,7 +214,7 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
 - **Padding:** 10px 12px (default), 8px 10px (icon-only).
 - **Height:** 32px (h-8) for default, 28px (h-7) for small, 24px (h-6) for extra-small.
 - **Typography:** 13px, 500 weight, system font, sentence-case.
-- **Transition:** `background-color 150ms ease-out`, no transform.
+- **Motion:** `motion/react` owns press feedback, hover emphasis, and state changes. Use a short spring for direct manipulation and a decelerating ease-out for entrances.
 - **States:**
   - **Primary:** Background `--editorial-primary` (#37352d light / #ffffff dark). Text white / dark-canvas. Hover: opacity 80%.
   - **Outline:** Transparent background, `--editorial-hairline` border. Hover: fills to `--editorial-hairline`.
@@ -230,7 +230,7 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
 - **Typography:** 14px body, 12px placeholder.
 - **Padding:** 8px 10px (h-8).
 - **Focus:** `focus-visible:outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50`.
-- **Transition:** `150ms ease-out`.
+- **Motion:** `motion/react` owns focus feedback where a transition adds clarity; keep the focus indicator visible immediately for keyboard users.
 - **States:**
   - **Placeholder:** `--editorial-ink-muted` (#bfbdb8 light / #9b9a97 dark).
   - **Disabled:** `opacity 50%`, `cursor: not-allowed`, `background: --editorial-hairline/50`.
@@ -253,7 +253,7 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
 - **Shape:** Rounded-md (6px) for small containers, rounded-lg (8px) for dialogs.
 - **Background:** `--editorial-surface-card` (#ffffff light / #191919 dark).
 - **Border:** 1px solid `--editorial-hairline` (#e9e9e7 light / #2e2e2e dark).
-- **Shadow:** None at rest. Dialog and popover containers get `shadow-sm`.
+- **Shadow:** None for ordinary cards. Existing workspace, navigation, and panel containers may use a localized low-intensity edge shadow; dialog and popover containers get `shadow-sm`.
 - **Padding:** 16px (p-4) as default internal padding.
 
 ### Dialog / Popover
@@ -273,7 +273,20 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
   - **Default:** `color: --foreground/60`, no background.
   - **Hover:** `color: --foreground`.
   - **Active:** White background, `color: --foreground`, inherits the tab list's rounded-md to create a "raised pill" effect.
-- **Line variant (optional):** No background on the list. Active tab gets a 2px underline via pseudo-element.
+- **Line variant (optional):** No background on the list. Active tab uses a 2px Motion indicator that follows the selected tab.
+
+### Motion
+
+- **Implementation:** Import animation behavior from `motion/react` only. Prefer the shared durations, easings, springs, and variants in `apps/web/lib/motion.ts`; a component may use a local value when its behavior needs a distinct physical or continuous timing model.
+- **Instant feedback (100–150ms):** Press, tap, focus emphasis, and small status changes.
+- **State changes (180–300ms):** Menus, tooltips, dialogs, tab content, validation, and result messages.
+- **Layout changes (300–500ms):** Drawers, collapsible content, list reordering, and panel resizing. Prefer `layout`/FLIP-style transforms; animate layout dimensions only when the dimension itself communicates the change.
+- **Entrance/exit:** Enter with a decisive ease-out; exit at roughly 75% of the enter duration. Exits must remain interruptible and must not block focus or input.
+- **Shared elements:** Use `layoutId` for indicators and other elements that visibly move between related states. Scope identifiers so unrelated controls cannot animate into each other.
+- **Loading:** Use Motion-driven skeleton opacity or `MotionSpinner`. Skeletons and spinners may keep their component-level continuous timings (currently 1.6s opacity and 0.9s rotation). Infinite motion must stop or become static when reduced motion is requested.
+- **Reduced motion:** The root `MotionConfig` uses `reducedMotion="user"`; components with infinite or opacity-only loops also use `useReducedMotion` to provide a static state.
+- **Performance:** Prefer transform and opacity. Keep blur, shadows, and SVG animation bounded to small surfaces. Keep list stagger short and capped so content is available immediately.
+- **Purpose:** Every animation must communicate feedback, reveal state, preserve spatial continuity, or direct attention. Do not add motion solely to decorate an idle screen.
 
 ### Badges & Tags
 
@@ -282,13 +295,14 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
 - **Typography:** 12px, 500 weight.
 - **Default variant:** `--color-primary/60` background with `--color-primary-foreground` text and a `border-primary/30`.
 - **Outline variant:** `--color-border` border, `--color-foreground` text.
+- **Type and graph labels:** Use the bounded semantic/category palette when the label identifies a Concept type or graph category; do not reuse those hues for generic shell controls.
 
 ## 6. Do's and Don'ts
 
 ### Do:
 
-- **Do** use tonal layering (background color shifts of 3–10 L%) to separate surfaces instead of shadows. The sidebar is `#f7f6f3` against a `#ffffff` canvas; that single step is enough.
-- **Do** keep all interactive element transitions to `150ms ease-out` with `transition-colors` only. No transform, no scale, no translate on hover or active states.
+- **Do** use tonal layering (background color shifts of 3–10 L%) first. When the existing shell or panel layout needs another boundary cue, use a localized low-intensity edge shadow rather than a broad glow.
+- **Do** use the shared Motion tokens and variants. Choose the smallest duration that communicates the change and keep direct manipulation interruptible.
 - **Do** use `rounded-md` (6px) for buttons, inputs, and navigation items. Use `rounded-lg` (8px) for dialogs and large containers.
 - **Do** use the system font stack exclusively. No @font-face, no web font loading.
 - **Do** make body text contrast ≥ 4.5:1 against its background. The ink-soft (#9b9a97) on white is exactly 4.5:1 — this is the floor. Placeholder text must match the same ratio.
@@ -296,15 +310,15 @@ The only exception is the Agent Drawer on narrow screens, which deploys a `shado
 
 ### Don't:
 
-- **Don't** use any blue, brand color, or accent color anywhere in the UI. The entire palette is neutral gray. The darkest color (#37352d) serves as the primary, accent, and text color. Only semantic indicators (success/error/warning/info) carry hue, and they appear on ≤1% of any screen.
+- **Don't** introduce arbitrary accent colors into the shell, navigation, forms, or primary actions. Use the neutral palette there; reserve hue for semantic states, Concept/type labels, graph categories, and external provider or platform identity.
 - **Don't** use `rounded-2xl`, `rounded-3xl`, or `rounded-full` on buttons, cards, inputs, badges, or containers. Reserved exclusively for avatars, radio buttons, and switch handles.
-- **Don't** use `shadow-md`, `shadow-lg`, `shadow-xl`, or `shadow-2xl`. The only acceptable shadow is `shadow-sm` (`0 1px 2px 0 rgba(0,0,0,0.05)`), used only on floating elements (dropdowns, dialogs, narrow-screen drawers).
-- **Don't** use `hover:-translate-y-1`, `active:scale-95`, or any transform-based interaction on interactive elements. Notion-style UIs are flat and don't float.
+- **Don't** use `shadow-md`, `shadow-lg`, `shadow-xl`, or `shadow-2xl`, or add broad high-opacity glows. `shadow-sm` is the default for floating elements; localized low-intensity edge shadows are also allowed on the existing workspace, navigation, and panel boundaries.
+- **Don't** use bounce, elastic, or overshooting easing curves. Avoid large scale changes, long delays, or animation that shifts unrelated content.
 - **Don't** use gradients — not for backgrounds, not for text, not for overlays. The `bg-gradient-*` family is forbidden.
 - **Don't** use `border-left` or `border-right` as colored accent stripes on any element. Use full borders or background tints instead.
 - **Don't** use glassmorphism (backdrop-filter blur on semi-transparent surfaces) as a default treatment.
 - **Don't** use tiny uppercase tracked labels ("eyebrows") above section headings. Section hierarchy comes from position, not typographic casing.
 - **Don't** use numbered section markers (01 / 02 / 03) as default scaffolding. Numbers earn their place only when the section is a genuine sequence.
 - **Don't** nest cards. A card inside a card is always wrong.
-- **Don't** use skeleton screens or spinner animations for loading. Use inline skeleton spans that match the text dimensions.
-- **Don't** pair `border: 1px solid` with `box-shadow` blur ≥ 16px on the same element. Pick one.
+- **Don't** use CSS keyframes, CSS transitions, or a second animation library for interface motion. Use Motion primitives and provide a static reduced-motion state.
+- **Don't** pair a border with a broad, high-opacity shadow. A narrow responsive drawer may combine its border with a localized edge shadow when the negative spread keeps the shadow close to the boundary.

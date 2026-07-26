@@ -28,7 +28,7 @@ export function findSurprisingConnections(
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
   const degreeMap = new Map(nodes.map((n) => [n.id, n.linkCount]));
   const maxDegree = Math.max(...nodes.map((n) => n.linkCount), 1);
-  const STRUCTURAL_IDS = new Set(["index", "log", "overview"]);
+  const STRUCTURAL_IDS = new Set(["index", "log"]);
 
   const scored: SurprisingConnection[] = [];
 
@@ -43,7 +43,7 @@ export function findSurprisingConnections(
 
     if ((source.community ?? 0) !== (target.community ?? 0)) {
       score += 3;
-      reasons.push("crosses community boundary");
+      reasons.push("跨越社区边界");
     }
 
     if (source.type !== target.type) {
@@ -51,10 +51,10 @@ export function findSurprisingConnections(
       const pair = `${source.type}-${target.type}`;
       if (distantPairs.has(pair)) {
         score += 2;
-        reasons.push(`connects ${source.type} to ${target.type}`);
+        reasons.push(`连接${source.type}与${target.type}`);
       } else {
         score += 1;
-        reasons.push("different types");
+        reasons.push("类型不同");
       }
     }
 
@@ -63,7 +63,7 @@ export function findSurprisingConnections(
     const minDeg = Math.min(sourceDeg, targetDeg);
     if (minDeg <= 2 && Math.max(sourceDeg, targetDeg) >= maxDegree * 0.5) {
       score += 2;
-      reasons.push("peripheral node links to hub");
+      reasons.push("边缘节点连接到枢纽");
     }
 
     if (score >= 3 && reasons.length > 0) {
@@ -88,19 +88,17 @@ export function detectKnowledgeGaps(
   const gaps: KnowledgeGap[] = [];
 
   // 1. 孤立节点
-  const isolatedNodes = nodes.filter(
-    (n) => n.linkCount <= 1 && n.type !== "overview" && n.id !== "index" && n.id !== "log",
-  );
+  const isolatedNodes = nodes.filter((n) => n.linkCount <= 1 && n.id !== "index" && n.id !== "log");
   if (isolatedNodes.length > 0) {
     const topIsolated = isolatedNodes.slice(0, 5);
     gaps.push({
       type: "isolated-node",
-      title: `${isolatedNodes.length} isolated page${isolatedNodes.length > 1 ? "s" : ""}`,
+      title: `${isolatedNodes.length} 个孤立页面`,
       description:
         topIsolated.map((n) => n.label).join(", ") +
-        (isolatedNodes.length > 5 ? ` and ${isolatedNodes.length - 5} more` : ""),
+        (isolatedNodes.length > 5 ? `，以及另外 ${isolatedNodes.length - 5} 个` : ""),
       nodeIds: isolatedNodes.map((n) => n.id),
-      suggestion: "Add [[wikilinks]] to related pages, or expand their content.",
+      suggestion: "添加指向相关页面的 Markdown 链接，或补充页面内容。",
     });
   }
 
@@ -109,10 +107,10 @@ export function detectKnowledgeGaps(
     if (comm.cohesion < 0.15 && comm.nodeCount >= 3) {
       gaps.push({
         type: "sparse-community",
-        title: `Sparse cluster: ${comm.topNodes[0] ?? `Community ${comm.id}`}`,
-        description: `${comm.nodeCount} pages with cohesion ${comm.cohesion.toFixed(2)} — weak internal connections.`,
+        title: `稀疏知识簇：${comm.topNodes[0] ?? `社区 ${comm.id}`}`,
+        description: `${comm.nodeCount} 个页面，凝聚度 ${comm.cohesion.toFixed(2)}，内部连接较弱。`,
         nodeIds: nodes.filter((n) => (n.community ?? 0) === comm.id).map((n) => n.id),
-        suggestion: "Add cross-references between these pages.",
+        suggestion: "在这些页面之间补充交叉引用。",
       });
     }
   }
@@ -129,7 +127,7 @@ export function detectKnowledgeGaps(
     }
   }
 
-  const STRUCTURAL_IDS = new Set(["index", "log", "overview"]);
+  const STRUCTURAL_IDS = new Set(["index", "log"]);
   const bridgeNodes = nodes
     .filter((n) => {
       if (STRUCTURAL_IDS.has(n.id)) return false;
@@ -147,10 +145,10 @@ export function detectKnowledgeGaps(
     const commCount = communityNeighbors.get(bridge.id)?.size ?? 0;
     gaps.push({
       type: "bridge-node",
-      title: `Key bridge: ${bridge.label}`,
-      description: `Connects ${commCount} different knowledge clusters.`,
+      title: `关键桥接节点：${bridge.label}`,
+      description: `连接了 ${commCount} 个不同的知识簇。`,
       nodeIds: [bridge.id],
-      suggestion: "Ensure this bridging page is well-maintained.",
+      suggestion: "确保该桥接页面得到持续维护。",
     });
   }
 

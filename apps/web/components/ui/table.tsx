@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
@@ -42,12 +43,14 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
-    <tr
+    <motion.tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors duration-150 hover:bg-editorial-surface-soft has-aria-expanded:bg-editorial-surface-soft data-[state=selected]:bg-editorial-surface-soft",
+        "border-b hover:bg-editorial-surface-soft has-aria-expanded:bg-editorial-surface-soft data-[state=selected]:bg-editorial-surface-soft",
         className,
       )}
+      whileHover={{ backgroundColor: "var(--editorial-surface-soft)" }}
+      transition={{ duration: 0.18 }}
       {...props}
     />
   );

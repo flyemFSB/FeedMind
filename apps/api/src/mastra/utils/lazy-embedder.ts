@@ -1,12 +1,26 @@
 import { resolveEmbeddingModel } from "./embedding-resolver.js";
 import { logger } from "../../lib/logger.js";
 
-let resolved: unknown = undefined;
+type Embedder = {
+  doEmbed: (options: { values: string[]; abortSignal?: AbortSignal }) => Promise<unknown>;
+};
 
-async function getEmbedder() {
+function isEmbedder(value: unknown): value is Embedder {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "doEmbed" in value &&
+    typeof value.doEmbed === "function"
+  );
+}
+
+let resolved: Embedder | null | undefined = undefined;
+
+async function getEmbedder(): Promise<Embedder> {
   if (resolved === undefined) {
     try {
-      resolved = await resolveEmbeddingModel();
+      const candidate = await resolveEmbeddingModel();
+      resolved = isEmbedder(candidate) ? candidate : null;
     } catch (err) {
       logger.warn({ err }, "解析嵌入模型失败，向量检索将不可用");
       resolved = null;
@@ -15,7 +29,7 @@ async function getEmbedder() {
   if (!resolved) {
     throw new Error("未配置嵌入模型。请在设置 → 模型配置中添加嵌入模型。");
   }
-  return resolved as { doEmbed: Function };
+  return resolved;
 }
 
 export const lazyEmbedder = {

@@ -11,7 +11,7 @@ export {
   readDirRecursive,
   countFiles,
   dateSortDesc,
-  ensureLlmWikiDir,
+  ensureRuntimeDir,
   validateSpaceId,
   readSourceTitle,
   getSpaceDir as spaceDir,

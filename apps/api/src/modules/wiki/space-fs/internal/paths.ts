@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { normalizeConceptPath } from "@feedmind/wiki-core";
 import { apiEnv } from "../../../../env.js";
 import { HttpError } from "../../../../lib/http.js";
 
@@ -53,30 +54,18 @@ export function getSourceFilePath(spaceId: string, identity: string): string {
 
 export function normalizePageRelPath(p: string): string {
   const normalized = p.replace(/\\/g, "/");
-  const withExt = normalized.endsWith(".md") ? normalized : `${normalized}.md`;
-  const prefixed = withExt.startsWith("wiki/") ? withExt : `wiki/${withExt}`;
-  const parts = prefixed.split("/");
-  for (const part of parts) {
-    if (part === ".." || part === "." || part.startsWith("/") || part.startsWith("\\")) {
-      throw new HttpError(400, "HTTP_ERROR", "Path must not contain .. or . or be absolute");
-    }
-  }
-  return prefixed;
-}
+  const bundlePath = normalized.toLowerCase().startsWith("wiki/")
+    ? normalized.slice("wiki/".length)
+    : normalized;
+  const withExt = bundlePath.toLowerCase().endsWith(".md") ? bundlePath : `${bundlePath}.md`;
 
-export const TYPE_DIR_MAP: Record<string, string> = {
-  entity: "entities",
-  concept: "concepts",
-  source: "sources",
-  overview: "",
-  index: "",
-};
-
-export function getScopedWikiDir(spaceId: string, typeFilter?: string): string {
-  const wikiDir = getWikiDir(spaceId);
-  if (typeFilter && TYPE_DIR_MAP[typeFilter] !== undefined) {
-    const sub = TYPE_DIR_MAP[typeFilter];
-    return sub ? path.join(wikiDir, sub) : wikiDir;
+  try {
+    return `wiki/${normalizeConceptPath(withExt)}`;
+  } catch (err) {
+    throw new HttpError(
+      400,
+      "VALIDATION_ERROR",
+      err instanceof Error ? err.message : "Invalid OKF concept path",
+    );
   }
-  return wikiDir;
 }

@@ -1,105 +1,87 @@
-/**
- * LLM 提示词，用于两阶段 Wiki 导入流水线。
- *
- * 阶段一（分析）：LLM 读取源内容 + 上下文，输出结构化分析结果。
- * 阶段二（生成）：LLM 读取分析结果，输出 FILE 块用于创建页面。
- */
-
-// ─── 阶段零：系统提示词 ───────────────────────────────────────────
+/** OKF 生成提示词。存储层只接受标准 Concept 文档，不接受自定义文件块协议。 */
 
 export function buildSystemPrompt(purpose: string, schema: string): string {
-  return `You are a wiki knowledge curator. Your job is to analyze source documents and maintain a structured wiki.
+  return `You are an Open Knowledge Format (OKF) v0.1 curator.
 
-## Wiki Purpose
-${purpose || "Not specified."}
+## Purpose
+${purpose || "No additional purpose was provided."}
 
-## Page Type Schema
-${
-  schema ||
-  `Four types: entity (people, orgs, products), concept (ideas, methods),
-source (document summaries), overview (global summary).`
+## Local guidance
+${schema || "Use descriptive, self-explanatory type values."}
+
+## OKF rules
+- Every generated document is a UTF-8 Markdown Concept document.
+- Every document must have YAML frontmatter with a non-empty type.
+- Prefer the frontmatter fields type, title, description, resource, tags, and timestamp.
+- Use standard Markdown links such as [Orders](/tables/orders.md) for concept relationships.
+- Use # Schema, # Examples, and # Citations sections when they apply.
+- Never use wiki-link syntax, HTML-only links, or reserved index.md/log.md as generated concepts.
+- Unknown type values are valid; choose precise descriptive types.
+- All titles, descriptions, tags, and body content must be written in Chinese.`;
 }
-
-## Rules
-- Entity pages: people, organizations, products, tools, named things
-- Concept pages: theories, methods, techniques, phenomena, abstract ideas
-- Source pages: summaries of ingested documents (auto-managed)
-- Use [[wikilink]] to cross-reference related pages
-- Frontmatter fields: type, title, created, updated, tags, sources, related
-- Only create entity/concept pages for genuinely important content
-- Do NOT create trivial or speculative pages
-- All page titles, tags, and content must be written in Chinese`;
-}
-
-// ─── 阶段一：分析提示词 ────────────────────────────────────────────
 
 export function buildAnalysisPrompt(sourceContent: string, existingIndex: string): string {
-  return `Analyze the following source document and provide a structured analysis.
+  return `Analyze the following source document for an OKF knowledge bundle.
 
-## Existing Wiki Index
-The wiki currently has these pages:
-${existingIndex || "(empty wiki)"}
+## Existing bundle index
+${existingIndex || "(empty bundle)"}
 
-## Source Document
+## Source document
 ${sourceContent}
 
-## Task
-Analyze the source document and return a JSON object with these fields:
-1. "keyEntities": Array of {name, description, type} — important named entities found in the source (people, organizations, products, tools). type is always "entity".
-2. "keyConcepts": Array of {name, description, type} — important concepts, theories, or ideas. type is always "concept".
-3. "mainArguments": Array of strings — the main arguments or findings presented.
-4. "connections": Array of strings — how this connects to existing wiki pages. Use format "relates to [[page-slug]]: explanation".
-5. "summary": A 2-3 sentence summary of this source for the global overview.
-
-Focus on substantive content. Ignore minor details, formatting, and references sections.`;
+## Return JSON
+{
+  "keyEntities": [{"name": "...", "description": "...", "type": "..."}],
+  "keyConcepts": [{"name": "...", "description": "...", "type": "..."}],
+  "mainArguments": ["..."],
+  "connections": ["Describe relationships using normal Markdown paths."],
+  "summary": "A concise bundle overview update."
 }
 
-// ─── 阶段二：生成提示词 ────────────────────────────────────────────
+Focus on durable, source-backed knowledge. Do not create trivial or speculative concepts.`;
+}
 
 export function buildGenerationPrompt(
   analysis: string,
-  existingSlugs: string[],
+  existingConceptIds: string[],
   sourceIdentity: string,
 ): string {
-  const slugList = existingSlugs.length > 0 ? existingSlugs.join(", ") : "(empty)";
+  const concepts = existingConceptIds.length > 0 ? existingConceptIds.join(", ") : "(empty bundle)";
+  return `Generate OKF v0.1 Concept documents from the analysis below.
 
-  return `Based on the analysis below, generate wiki pages as FILE blocks. All wiki page titles and content must be in Chinese.
+## Existing concept IDs
+${concepts}
 
-## Existing Page Slugs
-${slugList}
+## Source identity
+${sourceIdentity}
 
 ## Analysis
 ${analysis}
 
-## Source Identity (for frontmatter sources field)
-${sourceIdentity}
-
-## Task
-Generate wiki pages using this FILE block format:
-
----FILE: wiki/concepts/example.md---
----
-type: concept
-title: Example Title
-created: ${new Date().toISOString().slice(0, 10)}
-updated: ${new Date().toISOString().slice(0, 10)}
-tags: [tag1, tag2]
-sources: [${sourceIdentity}]
-related: []
----
-
-Content here with [[wikilink]] references.
----END FILE---
+## Return exactly one JSON object
+{
+  "documents": [
+    {
+      "path": "references/source-summary.md",
+      "frontmatter": {
+        "type": "Reference",
+        "title": "...",
+        "description": "One sentence summary.",
+        "tags": ["..."],
+        "timestamp": "${new Date().toISOString()}",
+        "provenance": ["${sourceIdentity}"]
+      },
+      "content": "Markdown body with standard links such as [Concept](/concepts/concept.md)."
+    }
+  ]
+}
 
 Rules:
-1. Create one source summary page at wiki/sources/<source-stem>.md
-2. Create entity pages for important named entities (wiki/entities/<slug>.md)
-3. Create concept pages for important concepts (wiki/concepts/<slug>.md)
-4. Use [[wikilink]] to reference existing pages from the slug list
-5. Frontmatter must include: type, title, created, updated, tags, sources, related
-6. sources array must include "${sourceIdentity}"
-7. related should reference existing related pages via their slugs
-8. Content should be informative and well-structured with markdown
-9. Format as separate ---FILE: path--- ... ---END FILE--- blocks
-10. Do NOT generate pages for trivial or speculative content`;
+1. Paths are relative to the OKF bundle root and must end in .md.
+2. Do not generate index.md or log.md; the application maintains them.
+3. Every frontmatter object must contain a non-empty type.
+4. Create a reference document for the source and only substantive entity/concept documents.
+5. Link to existing concepts by their exact concept ID with normal Markdown links.
+6. Include # Citations with numbered Markdown links when claims rely on external sources.
+7. Do not wrap the JSON in a Markdown code fence.`;
 }

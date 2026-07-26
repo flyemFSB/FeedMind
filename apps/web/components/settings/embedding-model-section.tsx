@@ -103,7 +103,7 @@ export function EmbeddingModelSection() {
             <button
               type="button"
               onClick={() => setShowKey((v) => !v)}
-              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink"
+              className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
               aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
             >
               {showKey ? (
@@ -131,7 +131,7 @@ export function EmbeddingModelSection() {
         <Button
           onClick={handleSave}
           disabled={saving || !baseUrl || !apiKey || !modelName}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 transition-colors disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
         >
           <Save size={14} />
           <span>{t("common.save")}</span>

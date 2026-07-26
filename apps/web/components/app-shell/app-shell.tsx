@@ -43,7 +43,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
       <WikiSidebar onSettingsClick={openSettings} onRemoteClick={openRemote} />
       <div
         data-island="workspace"
-        className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-editorial-canvas-soft"
+        className="relative flex min-w-0 flex-1 flex-col overflow-hidden bg-editorial-canvas-soft shadow-[-1px_0_2px_rgba(0,0,0,0.04)]"
       >
         {children}
       </div>

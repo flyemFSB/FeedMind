@@ -14,7 +14,7 @@ packages/
   contracts/    Zod 4 schemas + TypeScript 类型（API 契约单一数据源）
   db/           Drizzle ORM 表定义 + SQLite (libsql)
   shared/       Crypto (AES 加密/解密) + 环境变量 + 工具函数
-  wiki-core/    Wiki 文件系统操作（file blocks、frontmatter、wikilinks、graph）
+  wiki-core/    OKF v0.1 文件系统操作（frontmatter、Markdown links、graph）
   crawler-core/ 多平台内容爬虫引擎（小红书、抖音、B 站等）
 data/
   wiki/         Wiki 空间（Markdown 文件，不在仓库中）
@@ -22,11 +22,11 @@ data/
 
 ## 关键架构决策
 
-- **文件型 Wiki**：Wiki 页面以纯 Markdown 存储于磁盘，不入库。每个 Wiki "空间" 是 `data/wiki/` 下的独立目录。页面使用 YAML frontmatter 管理元数据。数据库仅存储聊天/爬虫数据。
+- **OKF 文件型 Wiki**：每个空间的 `wiki/` 是 OKF v0.1 bundle，Concept 使用 Markdown + YAML frontmatter，Concept ID 是相对路径去掉 `.md`。`raw/` 和 `.feedmind/` 是 FeedMind 运行时目录，不属于 bundle。数据库仅存储聊天/爬虫数据。
 - **中文优先**：所有用户界面文本和 Wiki 内容使用中文。通过 react-i18next 支持英文。
 - **Mastra Agent**：AI Agent 内嵌于 API 进程 (`apps/api/src/mastra/`)，使用 `@mastra/core`。通过 `@mastra/ai-sdk` 的 `chatRoute()` 暴露 AI SDK v6 兼容的流式聊天接口。
 - **动态模型解析**：Agent 从 `llm` 表运行时解析 LLM 模型，通过请求头读取用户选中的模型。
-- **Wiki 导入管道** (`ingest-pipeline.ts`)：两阶段 LLM 管道——阶段一分析源内容为结构化数据，阶段二生成 Wiki 页面 FILE 块。
+- **Wiki 导入管道** (`ingest-pipeline.ts`)：两阶段 LLM 管道——阶段一分析源内容为结构化数据，阶段二生成 OKF Concept JSON 并写入 Markdown 文件。
 - **运行时配置** (`runtime_config` 表)：存储每个运行时（"session" 聊天、"wiki" 导入）的 LLM 参数。
 - **爬虫**：基于 Playwright，使用 Cookie 认证，结果存入 SQLite。
 - **OpenAPI 文档**：通过 `@hono/zod-openapi` 自动生成 OpenAPI 3.1 规范，Scalar UI 提供交互式文档页面。

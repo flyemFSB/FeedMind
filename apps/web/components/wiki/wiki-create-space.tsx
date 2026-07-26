@@ -39,7 +39,7 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
         schema: "",
         settings: {
           language: "zh-CN",
-          enabledPageTypes: ["entity", "concept", "source", "overview"],
+          enabledPageTypes: [],
           extraDirs: [],
         },
       };

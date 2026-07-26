@@ -12,7 +12,7 @@ export type WikiTemplate = z.infer<typeof wikiTemplateSchema>;
 
 export const wikiSpaceSettingsSchema = z.object({
   language: z.string().default("zh-CN"),
-  enabledPageTypes: z.array(z.string()).default(["entity", "concept", "source", "overview"]),
+  enabledPageTypes: z.array(z.string()).default([]),
   extraDirs: z.array(z.string()).default([]),
 });
 export type WikiSpaceSettings = z.infer<typeof wikiSpaceSettingsSchema>;
@@ -59,28 +59,33 @@ export const wikiSpaceListItemSchema = wikiSpaceReadSchema.pick({
 });
 export type WikiSpaceListItem = z.infer<typeof wikiSpaceListItemSchema>;
 
-// ─── Wiki 页面 ─────────────────────────────────────────────────
-export const wikiPageTypeSchema = z.enum(["entity", "concept", "source", "overview", "index"]);
+// ─── OKF Concept 页面 ───────────────────────────────────────────
+export const wikiPageTypeSchema = z.string().trim().min(1);
 export type WikiPageType = z.infer<typeof wikiPageTypeSchema>;
 
 export const wikiPageCreateSchema = z.object({
   path: z.string().min(1).max(512),
-  type: wikiPageTypeSchema.default("concept"),
+  type: wikiPageTypeSchema.default("Reference"),
   title: z.string().min(1).max(256),
+  description: z.string().max(1000).optional(),
+  resource: z.string().max(2048).optional(),
   content: z.string().default(""),
-  sources: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
-  related: z.array(z.string()).default([]),
+  timestamp: z.string().optional(),
+  frontmatter: z.record(z.string(), z.unknown()).default({}),
 });
 export type WikiPageCreate = z.infer<typeof wikiPageCreateSchema>;
 
 export const wikiPageUpdateSchema = z.object({
   path: z.string().min(1).max(512).optional(),
+  type: wikiPageTypeSchema.optional(),
   title: z.string().min(1).max(256).optional(),
+  description: z.string().max(1000).optional(),
+  resource: z.string().max(2048).optional(),
   content: z.string().optional(),
-  sources: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
-  related: z.array(z.string()).optional(),
+  timestamp: z.string().optional(),
+  frontmatter: z.record(z.string(), z.unknown()).optional(),
 });
 export type WikiPageUpdate = z.infer<typeof wikiPageUpdateSchema>;
 
@@ -88,16 +93,16 @@ export const wikiPageReadSchema = z.object({
   id: z.string(),
   space_id: z.string(),
   path: z.string(),
+  concept_id: z.string(),
   slug: z.string(),
   type: wikiPageTypeSchema,
   title: z.string(),
+  description: z.string().default(""),
+  resource: z.string().nullable().default(null),
   content: z.string(),
   frontmatter: z.record(z.string(), z.unknown()).default({}),
-  sources: z.array(z.string()).default([]),
   tags: z.array(z.string()).default([]),
-  related: z.array(z.string()).default([]),
-  created_at: z.string(),
-  updated_at: z.string(),
+  timestamp: z.string().default(""),
 });
 export type WikiPageRead = z.infer<typeof wikiPageReadSchema>;
 
@@ -105,12 +110,14 @@ export const wikiPageListItemSchema = wikiPageReadSchema.pick({
   id: true,
   space_id: true,
   path: true,
+  concept_id: true,
   slug: true,
   type: true,
   title: true,
+  description: true,
+  resource: true,
   tags: true,
-  created_at: true,
-  updated_at: true,
+  timestamp: true,
 });
 export type WikiPageListItem = z.infer<typeof wikiPageListItemSchema>;
 
@@ -297,7 +304,13 @@ export const ingestJobSchema = z.object({
 export type IngestJob = z.infer<typeof ingestJobSchema>;
 
 // ─── Lint 类型 ─────────────────────────────────────────────────
-export const lintResultTypeSchema = z.enum(["orphan", "broken-link", "no-outlinks", "semantic"]);
+export const lintResultTypeSchema = z.enum([
+  "orphan",
+  "broken-link",
+  "no-outlinks",
+  "conformance",
+  "semantic",
+]);
 export type LintResultType = z.infer<typeof lintResultTypeSchema>;
 
 export const lintSeveritySchema = z.enum(["warning", "info"]);

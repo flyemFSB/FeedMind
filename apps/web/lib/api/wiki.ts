@@ -59,7 +59,7 @@ export function createWikiPage(spaceId: string, payload: WikiPageCreate): Promis
 }
 
 export function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${pageId}`));
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`));
 }
 
 export function updateWikiPage(
@@ -67,11 +67,11 @@ export function updateWikiPage(
   pageId: string,
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
-  return apiPut(`/wiki/spaces/${spaceId}/pages/${pageId}`, payload);
+  return apiPut(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`, payload);
 }
 
 export function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
-  return apiDelete(`/wiki/spaces/${spaceId}/pages/${pageId}`);
+  return apiDelete(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`);
 }
 
 export function resolveWikiLink(spaceId: string, target: string): Promise<WikiResolveResult> {
@@ -82,7 +82,9 @@ export function resolveWikiLink(spaceId: string, target: string): Promise<WikiRe
 
 // ─── Backlinks ──────────────────────────────────────────────────
 export function getWikiBacklinks(spaceId: string, pageId: string): Promise<WikiBacklink[]> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${pageId}/backlinks`));
+  return apiFetch(
+    backendApiPath(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}/backlinks`),
+  );
 }
 
 // ─── Sources ───────────────────────────────────────────────────
@@ -115,6 +117,13 @@ export function deleteWikiSource(
   mode: "detach" | "delete-orphans" = "detach",
 ): Promise<{ deleted_pages: number; updated_pages: number }> {
   return apiDelete(`/wiki/spaces/${spaceId}/sources/${sourceId}?mode=${mode}`);
+}
+
+export function previewDeleteImpact(
+  spaceId: string,
+  sourceId: string,
+): Promise<{ willDelete: string[]; willUpdate: string[]; unaffected: number }> {
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/${sourceId}/delete-impact`));
 }
 
 // ─── File Upload ────────────────────────────────────────────────

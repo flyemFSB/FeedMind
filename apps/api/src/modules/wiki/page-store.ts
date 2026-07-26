@@ -1,5 +1,11 @@
 import path from "node:path";
-import { buildPageContent, normalizeWikilinkTarget, parseFrontmatter } from "@feedmind/wiki-core";
+import {
+  buildConceptContent,
+  normalizeConceptId,
+  parseFrontmatter,
+  extractStringArray,
+  extractConceptLinks,
+} from "@feedmind/wiki-core";
 import type {
   WikiPageCreate,
   WikiPageListItem,
@@ -17,43 +23,65 @@ import {
   safeWriteFile,
   getSpaceDir,
   invalidatePageCache,
-  findPageBySlug,
+  findPageById,
   walkPages,
   readPage,
   readPageListItem,
   readPageRaw,
   normalizePageRelPath,
 } from "./space-fs/index.js";
+import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
 
-function slugFromPath(p: string): string {
-  return path.basename(p, ".md");
+function toWikiPageRead(data: Record<string, unknown>): WikiPageRead {
+  return data as unknown as WikiPageRead;
+}
+
+function buildPageFile(
+  type: string,
+  title: string,
+  description: string | undefined,
+  resource: string | undefined,
+  tags: string[] | undefined,
+  timestamp: string,
+  frontmatter: Record<string, unknown> | undefined,
+  content: string,
+): string {
+  return buildConceptContent({
+    type,
+    title,
+    description,
+    resource,
+    tags,
+    timestamp,
+    frontmatter,
+    content,
+  });
 }
 
 export async function listWikiPages(
   spaceId: string,
   opts?: { type?: string; q?: string; limit?: number; offset?: number },
 ): Promise<{ items: WikiPageListItem[]; total: number }> {
-  const files = walkPages(spaceId, opts?.type);
   const items: WikiPageListItem[] = [];
-
-  for (const filePath of files) {
+  for (const filePath of walkPages(spaceId)) {
     const data = readPageListItem(filePath, spaceId);
     if (!data) continue;
     const item = data as unknown as WikiPageListItem;
+    if (opts?.type && item.type !== opts.type) continue;
     if (opts?.q) {
       const q = opts.q.toLowerCase();
       if (
         !item.title.toLowerCase().includes(q) &&
         !item.path.toLowerCase().includes(q) &&
-        !item.slug.toLowerCase().includes(q)
-      )
+        !item.concept_id.toLowerCase().includes(q)
+      ) {
         continue;
+      }
     }
     items.push(item);
   }
 
-  items.sort((a, b) => dateSortDesc(a.updated_at, b.updated_at));
-
+  items.sort((a, b) => dateSortDesc(a.timestamp, b.timestamp));
   const total = items.length;
   const limit = opts?.limit ?? 50;
   const offset = opts?.offset ?? 0;
@@ -61,13 +89,11 @@ export async function listWikiPages(
 }
 
 export async function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {
-  const filePath = findPageBySlug(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
-
+  const filePath = findPageById(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
   const data = readPage(filePath, spaceId);
-  if (!data) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
-
-  return data as unknown as WikiPageRead;
+  if (!data) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  return toWikiPageRead(data);
 }
 
 export async function createWikiPage(
@@ -75,45 +101,37 @@ export async function createWikiPage(
   payload: WikiPageCreate,
 ): Promise<WikiPageRead> {
   const normalizedPath = normalizePageRelPath(payload.path);
-  const slug = slugFromPath(normalizedPath);
   const absPath = path.join(getSpaceDir(spaceId), normalizedPath);
 
+  // 检查是否存在（避免竞态条件）
   if (readPageRaw(absPath) !== null) {
-    throw new HttpError(409, "HTTP_ERROR", `Path already exists (${normalizedPath})`);
+    throw new HttpError(409, "HTTP_ERROR", `OKF concept already exists (${payload.path})`);
   }
 
   ensureDir(path.dirname(absPath));
+  const timestamp = payload.timestamp ?? nowISO();
 
-  const now = nowISO();
-  const pageData = {
-    type: payload.type ?? "concept",
-    title: payload.title,
-    tags: payload.tags ?? [],
-    sources: payload.sources ?? [],
-    related: payload.related ?? [],
-    created: now,
-    updated: now,
-    content: payload.content || "",
-  };
+  // 直接构建文件内容，无需额外读取
+  const content = buildPageFile(
+    payload.type,
+    payload.title,
+    payload.description,
+    payload.resource,
+    payload.tags,
+    timestamp,
+    payload.frontmatter,
+    payload.content,
+  );
 
-  safeWriteFile(absPath, buildPageContent(pageData));
+  safeWriteFile(absPath, content);
   invalidatePageCache(spaceId);
+  rebuildOkfIndexes(spaceId);
+  appendOkfLog(spaceId, `创建概念“${payload.path}”。`);
 
-  return {
-    id: slug,
-    space_id: spaceId,
-    path: normalizedPath,
-    slug,
-    type: pageData.type as WikiPageRead["type"],
-    title: pageData.title,
-    content: pageData.content,
-    frontmatter: { ...pageData } as Record<string, unknown>,
-    sources: pageData.sources,
-    tags: pageData.tags,
-    related: pageData.related,
-    created_at: now,
-    updated_at: now,
-  };
+  // 直接从内存数据解析，避免重复 IO
+  const parsedData = readPage(absPath, spaceId);
+  if (!parsedData) throw new HttpError(500, "INTERNAL_ERROR", "Created OKF concept cannot be read");
+  return toWikiPageRead(parsedData);
 }
 
 export async function updateWikiPage(
@@ -121,139 +139,91 @@ export async function updateWikiPage(
   pageId: string,
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
-  const filePath = findPageBySlug(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
+  const filePath = findPageById(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  const existingData = readPage(filePath, spaceId);
+  if (!existingData)
+    throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  const existing = toWikiPageRead(existingData);
 
-  const existing = readPage(filePath, spaceId) as unknown as WikiPageRead | null;
-  if (!existing) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
-
-  const now = nowISO();
-  const updatedData = {
-    type: existing.type,
-    title: payload.title ?? existing.title,
-    tags: payload.tags ?? existing.tags,
-    sources: payload.sources ?? existing.sources,
-    related: payload.related ?? existing.related,
-    created: existing.created_at,
-    updated: now,
-    content: payload.content ?? existing.content,
+  const timestamp = payload.timestamp ?? nowISO();
+  const frontmatter = {
+    ...existing.frontmatter,
+    ...(payload.frontmatter ?? {}),
   };
+  const nextPath = payload.path ?? existing.path;
+  const normalizedPath = normalizePageRelPath(nextPath);
+  const nextFilePath = path.join(getSpaceDir(spaceId), normalizedPath);
 
-  if (payload.path && payload.path !== existing.path.replace(/^wiki\//, "")) {
-    const newPath = normalizePageRelPath(payload.path);
-    const newAbsPath = path.join(getSpaceDir(spaceId), newPath);
-    if (readPageRaw(newAbsPath) !== null) {
-      throw new HttpError(409, "HTTP_ERROR", `Target path already exists (${newPath})`);
-    }
-    ensureDir(path.dirname(newAbsPath));
-    safeRename(filePath, newAbsPath);
-    safeWriteFile(newAbsPath, buildPageContent(updatedData));
-    invalidatePageCache(spaceId);
-
-    const newSlug = slugFromPath(newPath);
-    return {
-      id: newSlug,
-      space_id: spaceId,
-      path: newPath,
-      slug: newSlug,
-      type: updatedData.type as WikiPageRead["type"],
-      title: updatedData.title,
-      content: updatedData.content,
-      frontmatter: { ...updatedData } as Record<string, unknown>,
-      sources: updatedData.sources,
-      tags: updatedData.tags,
-      related: updatedData.related,
-      created_at: existing.created_at,
-      updated_at: now,
-    };
+  if (nextFilePath !== filePath && readPageRaw(nextFilePath) !== null) {
+    throw new HttpError(409, "HTTP_ERROR", `OKF concept already exists (${nextPath})`);
   }
 
-  safeWriteFile(filePath, buildPageContent(updatedData));
-  invalidatePageCache(spaceId);
+  const content = buildPageFile(
+    payload.type ?? existing.type,
+    payload.title ?? existing.title,
+    payload.description ?? existing.description,
+    payload.resource ?? existing.resource ?? undefined,
+    payload.tags ?? existing.tags,
+    timestamp,
+    frontmatter,
+    payload.content ?? existing.content,
+  );
 
-  return {
-    id: existing.id,
-    space_id: spaceId,
-    path: existing.path,
-    slug: existing.slug,
-    type: updatedData.type as WikiPageRead["type"],
-    title: updatedData.title,
-    content: updatedData.content,
-    frontmatter: { ...updatedData } as Record<string, unknown>,
-    sources: updatedData.sources,
-    tags: updatedData.tags,
-    related: updatedData.related,
-    created_at: existing.created_at,
-    updated_at: now,
-  };
+  if (nextFilePath !== filePath) {
+    ensureDir(path.dirname(nextFilePath));
+    safeRename(filePath, nextFilePath);
+  }
+  safeWriteFile(nextFilePath, content);
+  invalidatePageCache(spaceId);
+  rebuildOkfIndexes(spaceId);
+  appendOkfLog(spaceId, `更新概念“${pageId}”。`);
+
+  const data = readPage(nextFilePath, spaceId);
+  if (!data) throw new HttpError(500, "INTERNAL_ERROR", "Updated OKF concept cannot be read");
+  return toWikiPageRead(data);
 }
 
 export async function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
-  const filePath = findPageBySlug(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki page does not exist (${pageId})`);
-
+  const filePath = findPageById(spaceId, pageId);
+  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
   safeUnlink(filePath);
   invalidatePageCache(spaceId);
+  rebuildOkfIndexes(spaceId);
+  appendOkfLog(spaceId, `删除概念“${pageId}”。`);
 }
 
 export async function resolveWikiLink(spaceId: string, target: string): Promise<WikiResolveResult> {
-  const files = walkPages(spaceId);
-  const bySlug = new Map<string, WikiPageRead>();
-  const slugList: Array<{ slug: string; path: string; title: string }> = [];
-
-  for (const filePath of files) {
-    const slug = path.basename(filePath, ".md");
-    const page = readPage(filePath, spaceId) as unknown as WikiPageRead | null;
-    if (!page) continue;
-    bySlug.set(slug, page);
-    slugList.push({ slug, path: page.path, title: page.title });
+  const pages = walkPages(spaceId)
+    .map((filePath) => readPage(filePath, spaceId))
+    .filter((page): page is Record<string, unknown> => page !== null);
+  let decodedTarget = target;
+  try {
+    decodedTarget = decodeURIComponent(target);
+  } catch {
+    /* 查询参数已经是普通文本时直接使用。 */
   }
+  const pathTarget = decodedTarget.split(/[?#]/, 1)[0]?.trim() ?? "";
+  const normalizedTarget = normalizeConceptId(pathTarget);
+  const exact = pages.find((page) => page.concept_id === normalizedTarget);
+  if (exact) return resolvedPage(exact);
 
-  if (bySlug.has(target)) {
-    const page = bySlug.get(target)!;
-    return {
-      resolved: true,
-      page_id: page.id,
-      slug: page.slug,
-      title: page.title,
-      status: "resolved" as const,
-      candidates: [],
-    };
-  }
-
-  const normalized = normalizeWikilinkTarget(target.replace(/\\/g, "/").replace(/\.md$/i, ""));
-  const pathTarget = normalized.replace(/^wiki\//, "");
-  const matches = slugList.filter(
-    (s) =>
-      normalizeWikilinkTarget(s.slug) === normalized ||
-      normalizeWikilinkTarget(s.title) === normalized ||
-      normalizeWikilinkTarget(s.path.replace(/\.md$/i, "")) === normalized ||
-      normalizeWikilinkTarget(s.path.replace(/^wiki\//, "").replace(/\.md$/i, "")) === pathTarget,
-  );
-
-  if (matches.length === 1) {
-    return {
-      resolved: true,
-      page_id: matches[0].slug,
-      slug: matches[0].slug,
-      title: matches[0].title,
-      status: "resolved" as const,
-      candidates: [],
-    };
-  }
+  const matches = pages.filter((page) => {
+    const title = String(page.title).toLowerCase();
+    return (
+      title === pathTarget.toLowerCase() ||
+      String(page.slug).toLowerCase() === pathTarget.toLowerCase()
+    );
+  });
+  if (matches.length === 1) return resolvedPage(matches[0]);
   if (matches.length > 1) {
     return {
       resolved: false,
       page_id: null,
       slug: null,
       title: null,
-      status: "ambiguous" as const,
-      candidates: matches.map((m) => ({
-        page_id: m.slug,
-        path: m.path,
-        title: m.title,
-        slug: m.slug,
-      })),
+      status: "ambiguous",
+      candidates: matches.map(candidatePage),
     };
   }
 
@@ -262,8 +232,28 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
     page_id: null,
     slug: null,
     title: null,
-    status: "missing" as const,
+    status: "missing",
     candidates: [],
+  };
+}
+
+function resolvedPage(page: Record<string, unknown>): WikiResolveResult {
+  return {
+    resolved: true,
+    page_id: String(page.id),
+    slug: String(page.slug),
+    title: String(page.title),
+    status: "resolved",
+    candidates: [],
+  };
+}
+
+function candidatePage(page: Record<string, unknown>) {
+  return {
+    page_id: String(page.id),
+    path: String(page.path),
+    title: String(page.title),
+    slug: String(page.slug),
   };
 }
 
@@ -271,40 +261,34 @@ export async function getWikiBacklinks(
   spaceId: string,
   pageId: string,
 ): Promise<Array<{ page_id: string; slug: string; title: string; path: string }>> {
-  const files = walkPages(spaceId);
   const backlinks: Array<{ page_id: string; slug: string; title: string; path: string }> = [];
-  const linkPattern = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
-  const targetSlug = pageId.toLowerCase();
+  let decodedPageId = pageId;
+  try {
+    decodedPageId = decodeURIComponent(pageId);
+  } catch {
+    /* 路由参数已经是普通文本时直接使用。 */
+  }
+  const targetId = normalizeConceptId(decodedPageId);
+  for (const filePath of walkPages(spaceId)) {
+    const page = readPage(filePath, spaceId);
+    if (!page || page.id === targetId) continue;
 
-  for (const filePath of files) {
-    try {
-      const content = readPageRaw(filePath);
-      if (!content) continue;
-      const slug = path.basename(filePath, ".md");
-      if (slug === pageId) continue;
-
-      const clean = content.replace(/```[\s\S]*?```/g, "");
-      linkPattern.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      let found = false;
-      while ((match = linkPattern.exec(clean)) !== null) {
-        const rawTarget = match[1]!.trim();
-        const normalized = rawTarget.toLowerCase().replace(/\s+/g, "-");
-        if (normalized === targetSlug || normalized === pageId.toLowerCase()) {
-          found = true;
-          break;
-        }
-      }
-      if (!found) continue;
-
-      const { frontmatter } = parseFrontmatter(content);
-      const title = (frontmatter.title as string) ?? slug;
-      const relPath = path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/");
-      backlinks.push({ page_id: slug, slug, title, path: relPath });
-    } catch {
-      /* skip unreadable */
+    const raw = readPageRaw(filePath);
+    if (!raw) continue;
+    const { body } = parseFrontmatter(raw);
+    const links = extractConceptLinks(body, String(page.concept_id));
+    if (links.includes(targetId)) {
+      backlinks.push({
+        page_id: String(page.id),
+        slug: String(page.slug),
+        title: String(page.title),
+        path: String(page.path),
+      });
     }
   }
-
   return backlinks;
+}
+
+export function getPageProvenance(page: WikiPageRead): string[] {
+  return extractStringArray(page.frontmatter, "provenance");
 }

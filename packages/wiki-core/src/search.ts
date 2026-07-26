@@ -52,27 +52,27 @@ const STOP_WORDS = new Set([
  * 处理中日韩文（CJK）二元分词。
  */
 export function tokenizeQuery(query: string): string[] {
-  const rawTokens = query
-    .toLowerCase()
-    .split(/[\s,，。！？、；：""''（）()\-_/\\·~～…]+/)
-    .filter((t) => t.length > 1)
-    .filter((t) => !STOP_WORDS.has(t));
+  const tokens = new Set<string>();
+  const rawTokens = query.toLowerCase().split(/[\s,，。！？、；：""''（）()\-_//\\·~～…]+/);
 
-  const tokens: string[] = [];
   for (const token of rawTokens) {
-    const hasCJK = /[一-鿿㐀-䶿]/.test(token);
-    if (hasCJK && token.length > 2) {
-      const chars = [...token];
-      for (let i = 0; i < chars.length - 1; i++) tokens.push(chars[i] + chars[i + 1]);
-      for (const ch of chars) {
-        if (!STOP_WORDS.has(ch)) tokens.push(ch);
-      }
-      tokens.push(token);
-    } else {
-      tokens.push(token);
+    if (token.length <= 1 || STOP_WORDS.has(token)) continue;
+
+    tokens.add(token);
+
+    // 仅在可能包含 CJK 字符且长度大于 2 时生成二元组
+    if (!/[一-鿿㐀-䶿]/.test(token)) continue;
+
+    const chars = [...token];
+    for (let i = 0; i < chars.length - 1; i++) {
+      tokens.add(chars[i] + chars[i + 1]);
+    }
+    for (const ch of chars) {
+      if (ch.length === 1 && !STOP_WORDS.has(ch)) tokens.add(ch);
     }
   }
-  return [...new Set(tokens)];
+
+  return [...tokens];
 }
 
 /** 用于搜索的页面内容 */
@@ -99,7 +99,7 @@ export function searchPages(
   for (const page of pages) {
     const titleLower = page.title.toLowerCase();
     const contentLower = page.content.toLowerCase();
-    const stem = page.path.split("/").pop()?.replace(/\.md$/, "").toLowerCase() ?? "";
+    const stem = page.path.split("/").pop()?.replace(/\.md$/i, "").toLowerCase() ?? "";
 
     const filenameExact = stem === queryPhrase || stem === queryPhrase.replace(/\s+/g, "-");
     const titleHasPhrase = titleLower.includes(queryPhrase);

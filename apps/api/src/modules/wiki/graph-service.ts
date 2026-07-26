@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import fs from "node:fs";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- graphology 是动态导入的 JS 库
@@ -21,12 +22,13 @@ export async function getWikiGraph(
   }
 
   const mdFiles = collectFileEntries(wikiDir).filter(
-    (f) => !f.is_dir && f.name.endsWith(".md") && !isSystemFile(f.name),
+    (f) => !f.is_dir && f.name.toLowerCase().endsWith(".md") && !isSystemFile(f.name),
   );
 
   const { nodes, edges } = await buildWikiGraph(
-    async (filePath: string) => fs.readFileSync(filePath, "utf-8"),
+    async (filePath: string) => readFile(filePath, "utf-8"), // 异步读取避免阻塞
     mdFiles.map((f) => ({ name: f.name, path: normalizePath(f.path), is_dir: f.is_dir })),
+    normalizePath(wikiDir),
   );
 
   if (nodes.length === 0) {
@@ -85,18 +87,32 @@ async function detectCommunities(
     edgeSet.add(`${edge.target}:::${edge.source}`);
   }
 
+  // 构建邻接表以提高查询效率 O(1) 而非 O(n)
+  const adjacencyMap = new Map<string, Set<string>>();
+  for (const edge of edges) {
+    if (!adjacencyMap.has(edge.source)) adjacencyMap.set(edge.source, new Set());
+    if (!adjacencyMap.has(edge.target)) adjacencyMap.set(edge.target, new Set());
+    adjacencyMap.get(edge.source)!.add(edge.target);
+    adjacencyMap.get(edge.target)!.add(edge.source);
+  }
+
   const nodeInfo = new Map(nodes.map((n) => [n.id, { label: n.label, linkCount: n.linkCount }]));
   const communities: CommunityInfo[] = [];
 
   for (const [commId, memberIds] of groups) {
     const n = memberIds.length;
 
+    // 使用邻接表快速计算内部边数 O(n) 而非 O(n²)
     let intraEdges = 0;
-    for (let i = 0; i < memberIds.length; i++) {
-      for (let j = i + 1; j < memberIds.length; j++) {
-        if (edgeSet.has(`${memberIds[i]}:::${memberIds[j]}`)) intraEdges++;
+    for (const memberId of memberIds) {
+      const neighbors = adjacencyMap.get(memberId) ?? new Set();
+      for (const otherId of memberIds) {
+        if (otherId !== memberId && neighbors.has(otherId)) {
+          intraEdges++;
+        }
       }
     }
+    intraEdges /= 2; // 每条边被计数两次
     const possibleEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
     const cohesion = intraEdges / possibleEdges;
 

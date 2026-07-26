@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { formatFrontmatter, parseFrontmatter } from "@feedmind/wiki-core";
-import { runIngest, extractIdentity } from "./ingest-pipeline.js";
+import { IngestCancelledError, runIngest, extractIdentity } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
 import {
   getSpaceDir,
@@ -46,16 +46,24 @@ export function startIngestWorker(): void {
         logger.info({ spaceId, sourcePath: job.source_path }, "开始处理导入任务");
 
         try {
-          const result = await runIngest(spaceId, job.source_path, (message, step, totalSteps) => {
-            store.updateStatus(spaceId, job.id, "processing", {
-              progress: { message, step, totalSteps },
-            });
-          });
+          const shouldCancel = () =>
+            store.list(spaceId).find((candidate) => candidate.id === job.id)?.status ===
+            "cancelled";
+          const result = await runIngest(
+            spaceId,
+            job.source_path,
+            (message, step, totalSteps) => {
+              store.updateStatus(spaceId, job.id, "processing", {
+                progress: { message, step, totalSteps },
+              });
+            },
+            shouldCancel,
+          );
 
           invalidatePageCache(spaceId);
 
           store.updateStatus(spaceId, job.id, "done", {
-            written_files: [],
+            written_files: result.writtenFiles,
             pages_created: result.pagesCreated,
             pages_updated: result.pagesUpdated,
           });
@@ -71,7 +79,7 @@ export function startIngestWorker(): void {
               const raw = fs.readFileSync(sourcePath, "utf-8");
               const { frontmatter, body } = parseFrontmatter(raw);
               frontmatter.status = "ingested";
-              frontmatter.ingested_at = nowISO();
+              frontmatter.timestamp = nowISO();
               frontmatter.page_count = result.pagesCreated;
               safeWriteFile(sourcePath, formatFrontmatter(frontmatter) + "\n" + body);
             }
@@ -84,6 +92,10 @@ export function startIngestWorker(): void {
             "导入任务完成",
           );
         } catch (err) {
+          if (err instanceof IngestCancelledError) {
+            store.updateStatus(spaceId, job.id, "cancelled", { error: null });
+            continue;
+          }
           const msg = err instanceof Error ? err.message : String(err);
           logger.error({ spaceId, jobId: job.id, err }, "导入任务失败");
 

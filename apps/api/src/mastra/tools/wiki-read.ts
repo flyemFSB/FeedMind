@@ -5,12 +5,12 @@ const MAX_PAGE_CHARS = 4096;
 
 export const wikiReadTool = createTool({
   id: "wiki_read",
-  description: `Read a wiki page by its slug/ID. Returns the page content with frontmatter metadata.
+  description: `Read an OKF concept by its Concept ID. Returns the Markdown body and frontmatter metadata.
 Use this when you need to reference existing knowledge in the wiki.
-The pageId is the slug (filename without .md extension).`,
+The pageId is the bundle-relative path without the .md extension, such as "tables/orders".`,
   inputSchema: z.object({
     spaceId: z.string().describe("The wiki space ID (e.g., 'my-research')."),
-    pageId: z.string().describe("The page slug/ID (filename without .md)."),
+    pageId: z.string().describe("The OKF Concept ID, a bundle-relative path without .md."),
   }),
   execute: async ({ spaceId, pageId }, { requestContext }) => {
     // 从 RequestContext 获取后端 API 地址
@@ -44,14 +44,14 @@ The pageId is the slug (filename without .md extension).`,
       `Title: ${data.title as string}`,
       `Type: ${data.type as string}`,
       `Path: ${data.path as string}`,
-      ...((data.sources as string[] | undefined)?.length
-        ? [`Sources: ${(data.sources as string[]).join(", ")}`]
+      ...((data.description as string | undefined)
+        ? [`Description: ${data.description as string}`]
+        : []),
+      ...((data.resource as string | null | undefined)
+        ? [`Resource: ${data.resource as string}`]
         : []),
       ...((data.tags as string[] | undefined)?.length
         ? [`Tags: ${(data.tags as string[]).join(", ")}`]
-        : []),
-      ...((data.related as string[] | undefined)?.length
-        ? [`Related: ${(data.related as string[]).join(", ")}`]
         : []),
       "",
       truncated,

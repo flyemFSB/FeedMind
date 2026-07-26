@@ -11,7 +11,7 @@ import {
   restoreQueue,
 } from "@feedmind/wiki-core";
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
-import { getSpaceDir } from "./space-fs/index.js";
+import { ensureDir, getSpaceDir, safeWriteFile } from "./space-fs/index.js";
 
 export interface QueueStore {
   list(spaceId: string): IngestJob[];
@@ -34,7 +34,7 @@ export interface QueueStore {
 
 export class JsonQueueStore implements QueueStore {
   private queuePath(spaceId: string): string {
-    return path.join(getSpaceDir(spaceId), ".llm-wiki", "ingest-queue.json");
+    return path.join(getSpaceDir(spaceId), ".feedmind", "ingest-queue.json");
   }
 
   private readQueue(spaceId: string): IngestJob[] {
@@ -48,8 +48,8 @@ export class JsonQueueStore implements QueueStore {
 
   private writeQueue(spaceId: string, queue: IngestJob[]): void {
     const dir = path.dirname(this.queuePath(spaceId));
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(this.queuePath(spaceId), dumpQueue(queue), "utf-8");
+    ensureDir(dir);
+    safeWriteFile(this.queuePath(spaceId), dumpQueue(queue));
   }
 
   list(spaceId: string): IngestJob[] {

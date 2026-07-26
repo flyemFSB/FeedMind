@@ -3,11 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { HttpError } from "../../../../lib/http.js";
 
-// Wiki 系统文件：不应出现在页面列表、图谱、搜索结果中
-export const SYSTEM_FILES = ["index.md", "log.md", "overview.md"];
+// OKF 仅保留 index.md 和 log.md；其他 Markdown 都是 Concept 文档。
+export const SYSTEM_FILES = ["index.md", "log.md"];
 
 export function isSystemFile(name: string): boolean {
-  return SYSTEM_FILES.includes(name);
+  return SYSTEM_FILES.includes(name.toLowerCase());
 }
 
 export function ensureDir(dir: string): void {
@@ -84,7 +84,7 @@ export function readDirRecursive(
 
 export function countFiles(dir: string, ext?: string): number {
   return readDirRecursive(dir, (_f, name) => {
-    if (ext && !name.endsWith(ext)) return false;
+    if (ext && !name.toLowerCase().endsWith(ext.toLowerCase())) return false;
     if (isSystemFile(name)) return false;
     return true;
   }).length;

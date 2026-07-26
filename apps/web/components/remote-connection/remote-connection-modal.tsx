@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { X, Smartphone, Loader2 } from "lucide-react";
+import { motion } from "motion/react";
+import { X, Smartphone } from "lucide-react";
 import { Feishu } from "@/components/icons/remote-connection-icons";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { cn } from "@/lib/utils";
 import { FeishuConnectDialog } from "./feishu-connect-dialog";
 
@@ -96,6 +98,8 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
               variant="ghost"
               size="icon"
               className="rounded-md hover:bg-editorial-surface-soft"
+              aria-label={t("common.close")}
+              title={t("common.close")}
             >
               <X size={16} className="text-editorial-ink-muted" />
             </Button>
@@ -105,7 +109,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
           <div className="max-h-[420px] overflow-y-auto overscroll-contain px-5 py-4">
             {loading ? (
               <div className="flex justify-center py-8">
-                <Loader2 size={20} className="animate-spin text-editorial-ink-muted" />
+                <MotionSpinner size={20} className="text-editorial-ink-muted" />
               </div>
             ) : (
               <div className="space-y-1">
@@ -151,11 +155,13 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
   const { id, nameKey, descriptionKey, icon: Icon } = platform;
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onConnect(id)}
+      whileHover={{ scale: 1.01 }}
+      whileTap={{ scale: 0.985 }}
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors duration-150",
+        "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left",
         "hover:bg-editorial-surface-soft",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong focus-visible:ring-offset-1 focus-visible:ring-offset-editorial-surface-card",
       )}
@@ -170,23 +176,27 @@ function PlatformRow({ platform, connected, onConnect }: PlatformRowProps) {
       </div>
 
       <div className="shrink-0">
-        <span
+        <motion.span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-colors duration-150",
+            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium",
             connected
               ? "bg-editorial-semantic-success/10 text-editorial-semantic-success"
               : "bg-editorial-surface-soft text-editorial-ink-muted",
           )}
+          animate={{ opacity: connected ? 1 : 0.75 }}
+          transition={{ duration: 0.18 }}
         >
-          <span
+          <motion.span
             className={cn(
-              "h-[5px] w-[5px] rounded-full transition-colors duration-150",
+              "h-[5px] w-[5px] rounded-full",
               connected ? "bg-editorial-semantic-success" : "bg-editorial-ink-muted",
             )}
+            animate={{ scale: connected ? 1 : 0.85 }}
+            transition={{ duration: 0.18 }}
           />
           {connected ? t("remoteConnection.connected") : t("remoteConnection.disconnected")}
-        </span>
+        </motion.span>
       </div>
-    </button>
+    </motion.button>
   );
 }

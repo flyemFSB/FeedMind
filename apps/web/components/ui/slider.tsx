@@ -1,6 +1,8 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
+import { motionPressTransition } from "@/lib/motion";
 
 function Slider({
   className,
@@ -39,9 +41,16 @@ function Slider({
         </SliderPrimitive.Track>
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
+            render={(elementProps, state) => (
+              <motion.div
+                {...elementProps}
+                animate={{ scale: state.dragging ? 1.16 : 1 }}
+                transition={motionPressTransition}
+              />
+            )}
             data-slot="slider-thumb"
             key={index}
-            className="relative block size-3 shrink-0 rounded-full border border-ring bg-editorial-surface-card ring-ring/50 transition-colors duration-150 select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
+            className="relative block size-3 shrink-0 rounded-full border border-ring bg-editorial-surface-card ring-ring/50 select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
           />
         ))}
       </SliderPrimitive.Control>

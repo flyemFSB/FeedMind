@@ -8,7 +8,8 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
-import { ArrowLeft, CalendarClock, FileText, Link2, Pencil, Tags } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { ArrowLeft, CalendarClock, ExternalLink, Pencil, Tags } from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -19,6 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { lightweightCode } from "@/components/ai-elements/code-plugin";
 import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
 import { useTranslation } from "react-i18next";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import "katex/dist/katex.min.css";
 import "streamdown/styles.css";
 import "./wiki-markdown.css";
@@ -74,17 +76,12 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   }
 
   const typeColor = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
-  const markdown = toMarkdownWithWikiLinks(page.content);
+  const markdown = page.content;
 
   return (
     <div className="h-full overflow-y-auto bg-editorial-canvas">
       <div className="mx-auto w-full max-w-[1040px] px-5 py-5 sm:px-8 sm:py-8">
-        <PageMetadataCard
-          page={page}
-          typeColor={typeColor}
-          onEdit={onEdit}
-          onNavigate={onNavigate}
-        />
+        <PageMetadataCard page={page} typeColor={typeColor} onEdit={onEdit} />
 
         <article className="mx-auto max-w-[760px] px-1 pb-16 pt-8 sm:px-5">
           <div className="wiki-markdown text-[14px] leading-7 text-editorial-ink">
@@ -94,28 +91,31 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               shikiTheme={["github-light", "github-dark"]}
               components={{
                 a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
-                  if (href?.startsWith("#wikilink-")) {
-                    const target = decodeURIComponent(href.slice("#wikilink-".length));
+                  const target = href ? resolveInternalTarget(href, page.concept_id) : null;
+                  if (target) {
                     return (
-                      <button
+                      <motion.button
                         type="button"
-                        className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 transition-colors hover:decoration-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
                         onClick={() => onNavigate(target)}
                       >
                         {children}
-                      </button>
+                      </motion.button>
                     );
                   }
 
                   return (
-                    <a
+                    <motion.a
                       href={href}
                       target="_blank"
                       rel="noreferrer"
-                      className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 transition-colors hover:decoration-editorial-primary"
+                      whileHover={{ y: -1 }}
+                      className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary"
                     >
                       {children}
-                    </a>
+                    </motion.a>
                   );
                 },
                 table: MarkdownTable,
@@ -130,27 +130,35 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               <h2 className="mb-3 text-[14px] font-semibold text-editorial-ink">
                 {t("wiki.backlinksCount", { count: backlinks.length })}
               </h2>
-              <div className="grid gap-1 sm:grid-cols-2">
-                {backlinks.map((backlink) => (
-                  <button
-                    key={backlink.page_id}
-                    type="button"
-                    className="motion-hover-group group flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
-                    onClick={() => onNavigate(backlink.slug)}
-                  >
-                    <ArrowLeft
-                      size={13}
-                      className="motion-hover-arrow shrink-0 text-editorial-ink-muted transition-transform [transition-duration:var(--motion-fast)] [transition-timing-function:var(--ease-out)]"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-editorial-primary">
-                      {backlink.title}
-                    </span>
-                    <span className="truncate text-[12px] text-editorial-ink-muted">
-                      {backlink.path}
-                    </span>
-                  </button>
-                ))}
-              </div>
+              <AnimatePresence initial={false}>
+                <motion.div
+                  className="grid gap-1 sm:grid-cols-2"
+                  variants={listContainerVariants}
+                  initial="initial"
+                  animate="animate"
+                >
+                  {backlinks.map((backlink) => (
+                    <motion.button
+                      key={backlink.page_id}
+                      type="button"
+                      layout
+                      variants={listItemVariants}
+                      whileHover={{ x: 2 }}
+                      whileTap={{ scale: 0.99 }}
+                      className="group flex min-w-0 items-center gap-2 rounded-lg px-3 py-2.5 text-left hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+                      onClick={() => onNavigate(backlink.page_id)}
+                    >
+                      <ArrowLeft size={13} className="shrink-0 text-editorial-ink-muted" />
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-editorial-primary">
+                        {backlink.title}
+                      </span>
+                      <span className="truncate text-[12px] text-editorial-ink-muted">
+                        {backlink.path}
+                      </span>
+                    </motion.button>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
             </section>
           )}
         </article>
@@ -159,16 +167,44 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   );
 }
 
+function resolveInternalTarget(href: string, currentConceptId: string): string | null {
+  const [rawPath] = href.split(/[?#]/, 1);
+  if (!rawPath || !rawPath.toLowerCase().endsWith(".md")) return null;
+  if (rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) return null;
+
+  let decodedPath = rawPath;
+  try {
+    decodedPath = decodeURIComponent(rawPath);
+  } catch {
+    /* 非法编码时保留原路径，由后续的标准化逻辑处理。 */
+  }
+
+  const path = decodedPath.startsWith("/")
+    ? decodedPath.slice(1)
+    : `${currentConceptId.split("/").slice(0, -1).join("/")}/${decodedPath}`;
+  const resolved: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (resolved.length === 0) return null;
+      resolved.pop();
+      continue;
+    }
+    resolved.push(part);
+  }
+
+  const conceptId = resolved.join("/").replace(/\.md$/i, "");
+  return conceptId || null;
+}
+
 function PageMetadataCard({
   page,
   typeColor,
   onEdit,
-  onNavigate,
 }: {
   page: WikiPageRead;
   typeColor: string;
   onEdit?: () => void;
-  onNavigate: (target: string) => void;
 }) {
   return (
     <section className="px-1 pb-6 pt-2 sm:px-5 sm:pt-4">
@@ -191,7 +227,7 @@ function PageMetadataCard({
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-editorial-ink-muted">
             <CalendarClock size={13} />
-            <span>更新于 {formatUpdatedAt(page.updated_at)}</span>
+            <span>更新于 {formatUpdatedAt(page.timestamp)}</span>
           </div>
           <div className="flex items-center gap-1.5">
             {onEdit && (
@@ -215,42 +251,31 @@ function PageMetadataCard({
           {page.tags.length > 0 && (
             <MetadataRow icon={<Tags size={13} />} label="标签">
               {page.tags.map((tag) => (
-                <span
+                <motion.span
                   key={tag}
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong"
+                  whileHover={{ scale: 1.04 }}
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong"
                 >
                   #{tag}
-                </span>
+                </motion.span>
               ))}
             </MetadataRow>
           )}
 
-          {page.sources.length > 0 && (
-            <MetadataRow icon={<FileText size={13} />} label={`来源 · ${page.sources.length}`}>
-              {page.sources.map((source) => (
-                <span
-                  key={source}
-                  className="max-w-full truncate rounded-md border border-editorial-hairline bg-editorial-canvas-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
-                  title={source}
-                >
-                  {source}
-                </span>
-              ))}
-            </MetadataRow>
+          {page.description && (
+            <p className="text-[13px] leading-6 text-editorial-ink-soft">{page.description}</p>
           )}
 
-          {page.related.length > 0 && (
-            <MetadataRow icon={<Link2 size={13} />} label={`关联 · ${page.related.length}`}>
-              {page.related.map((related) => (
-                <button
-                  key={related}
-                  type="button"
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
-                  onClick={() => onNavigate(related)}
-                >
-                  {related} ↗
-                </button>
-              ))}
+          {page.resource && (
+            <MetadataRow icon={<ExternalLink size={13} />} label="资源">
+              <a
+                href={page.resource}
+                target="_blank"
+                rel="noreferrer"
+                className="max-w-full truncate text-[12px] text-editorial-primary underline underline-offset-2"
+              >
+                {page.resource}
+              </a>
             </MetadataRow>
           )}
         </div>
@@ -300,17 +325,6 @@ function WikiReaderSkeleton() {
         <Skeleton className="h-4 w-9/12" />
       </div>
     </div>
-  );
-}
-
-function toMarkdownWithWikiLinks(content: string) {
-  return content.replace(
-    /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,
-    (_match, target: string, alias?: string) => {
-      const resolvedTarget = target.trim();
-      const label = (alias || target).trim();
-      return `[${label}](#wikilink-${encodeURIComponent(resolvedTarget)})`;
-    },
   );
 }
 

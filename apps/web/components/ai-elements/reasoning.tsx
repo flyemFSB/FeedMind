@@ -30,9 +30,11 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Brain, ChevronRight } from "lucide-react";
+import { motionSpring } from "@/lib/motion";
 
 /* ── Context ── */
 interface ReasoningContextValue {
@@ -69,13 +71,20 @@ const AUTO_CLOSE_DELAY = 1200;
 
 /* ── Thinking Dots ── */
 function ThinkingDots() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <span className="inline-flex items-center gap-[3px]" aria-label="思考中">
       {[0, 1, 2].map((i) => (
-        <span
+        <motion.span
           key={i}
-          className="inline-block h-1 w-1 rounded-full bg-editorial-ink-muted animate-pulse-subtle"
-          style={{ animationDelay: `${i * 0.25}s` }}
+          className="inline-block h-1 w-1 rounded-full bg-editorial-ink-muted"
+          animate={shouldReduceMotion ? { opacity: 0.65 } : { opacity: [0.35, 1, 0.35] }}
+          transition={
+            shouldReduceMotion
+              ? { duration: 0.12 }
+              : { duration: 0.9, repeat: Infinity, delay: i * 0.12 }
+          }
         />
       ))}
     </span>
@@ -171,20 +180,20 @@ export function ReasoningTrigger({
   getThinkingMessage = DEFAULT_THINKING_MSG,
   ...props
 }: ReasoningTriggerProps) {
-  const { isStreaming, duration } = useReasoning();
+  const { isStreaming, duration, isOpen } = useReasoning();
 
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors ui-open:border-b ui-open:border-editorial-hairline",
+        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink",
+        isOpen && "border-b border-editorial-hairline",
         className,
       )}
       {...props}
     >
-      <ChevronRight
-        size={14}
-        className="shrink-0 text-editorial-ink-muted transition-transform duration-200 ui-open:rotate-90"
-      />
+      <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={motionSpring}>
+        <ChevronRight size={14} className="shrink-0 text-editorial-ink-muted" />
+      </motion.span>
       <Brain size={14} className="shrink-0 text-editorial-ink-muted" />
       {getThinkingMessage(isStreaming, duration)}
     </CollapsibleTrigger>

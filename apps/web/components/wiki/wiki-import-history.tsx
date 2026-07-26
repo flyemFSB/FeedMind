@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Clock, Loader2, RefreshCw, XCircle, AlertCircle, X } from "lucide-react";
+import { motion } from "motion/react";
+import { CheckCircle2, Clock, RefreshCw, XCircle, AlertCircle, X } from "lucide-react";
 import type { IngestJob } from "@feedmind/contracts";
 import { listIngestJobs, cancelIngestJob, retryIngestJob } from "@/lib/api/wiki";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -111,14 +114,16 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
           <div className="flex items-center gap-2">
             <button
               onClick={() => loadJobs()}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-soft"
               title={t("wiki.refresh")}
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+              {loading ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
             </button>
             <button
               onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-soft"
+              aria-label={t("common.close")}
+              title={t("common.close")}
             >
               <X size={16} />
             </button>
@@ -131,17 +136,23 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
             <h3 className="mb-2 text-[12px] font-semibold text-editorial-primary">
               {t("wiki.importingCount", { count: activeJobs.length })}
             </h3>
-            <div className="space-y-2">
+            <motion.div
+              className="space-y-2"
+              variants={listContainerVariants}
+              initial="initial"
+              animate="animate"
+            >
               {activeJobs.map((job) => (
-                <ActiveJobCard
-                  key={job.id}
-                  job={job}
-                  now={now}
-                  onCancel={handleCancel}
-                  cancelling={cancelling === job.id}
-                />
+                <motion.div key={job.id} layout variants={listItemVariants}>
+                  <ActiveJobCard
+                    job={job}
+                    now={now}
+                    onCancel={handleCancel}
+                    cancelling={cancelling === job.id}
+                  />
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         )}
 
@@ -170,11 +181,18 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
                 </p>
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <motion.div
+                className="space-y-1.5"
+                variants={listContainerVariants}
+                initial="initial"
+                animate="animate"
+              >
                 {historyJobs.map((job) => (
-                  <HistoryJobCard key={job.id} job={job} onRetry={handleRetry} />
+                  <motion.div key={job.id} layout variants={listItemVariants}>
+                    <HistoryJobCard job={job} onRetry={handleRetry} />
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             )}
           </div>
         </div>
@@ -212,7 +230,7 @@ function ActiveJobCard({
   return (
     <div className="rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-3">
       <div className="flex items-center gap-3">
-        <Loader2 size={16} className="shrink-0 animate-spin text-editorial-primary" />
+        <MotionSpinner size={16} className="text-editorial-primary" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[13px] font-medium text-editorial-ink">{displayName}</p>
           <p className="text-[12px] text-editorial-ink-muted">
@@ -225,10 +243,10 @@ function ActiveJobCard({
           <button
             onClick={() => onCancel(job.id)}
             disabled={cancelling}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted transition-colors hover:bg-editorial-surface-strong hover:text-editorial-semantic-error disabled:opacity-50"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-strong hover:text-editorial-semantic-error disabled:opacity-50"
             title={t("wiki.cancel")}
           >
-            {cancelling ? <Loader2 size={12} className="animate-spin" /> : <XCircle size={14} />}
+            {cancelling ? <MotionSpinner size={12} /> : <XCircle size={14} />}
           </button>
         )}
       </div>
@@ -240,7 +258,7 @@ function ActiveJobCard({
               return (
                 <div
                   key={i}
-                  className={`h-1.5 flex-1 rounded-md transition-colors duration-150 ${
+                  className={`h-1.5 flex-1 rounded-md ${
                     filled ? "bg-editorial-primary" : "bg-editorial-surface-strong"
                   }`}
                 />
@@ -282,7 +300,7 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
       : formatTime(job.added_at);
 
   return (
-    <div className="flex items-center gap-3 rounded-lg px-4 py-2.5 transition-colors hover:bg-editorial-canvas-soft">
+    <div className="flex items-center gap-3 rounded-lg px-4 py-2.5 hover:bg-editorial-canvas-soft">
       {icon}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-editorial-ink">{displayName}</p>
@@ -311,7 +329,7 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
       {job.status === "failed" && (
         <button
           onClick={() => onRetry(job.id)}
-          className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium text-editorial-primary transition-colors hover:bg-editorial-primary/10"
+          className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium text-editorial-primary hover:bg-editorial-primary/10"
         >
           <RefreshCw size={11} />
           {t("wiki.retry")}

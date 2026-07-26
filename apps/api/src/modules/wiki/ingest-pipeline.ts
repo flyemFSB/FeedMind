@@ -1,155 +1,47 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  parseFileBlocks,
-  isSafeIngestPath,
-  sanitizeIngestedFileContent,
+  buildConceptContent,
+  checkCache,
+  conceptIdFromPath,
+  dumpCache,
+  extractString,
+  extractSourceReferences,
+  formatConceptLink,
+  loadCache,
+  mergeConceptContent,
+  normalizeConceptPath,
   parseFrontmatter,
-  formatFrontmatter,
-  buildPageContent,
-  mergePageContent,
-  getFileStem,
+  removeFromCache,
+  saveCache,
 } from "@feedmind/wiki-core";
-import { buildSystemPrompt, buildAnalysisPrompt, buildGenerationPrompt } from "./ingest-prompts.js";
-import { getSpaceDir, isSystemFile } from "./space-fs/index.js";
+import type { IngestCacheEntry } from "@feedmind/wiki-core";
+import { buildAnalysisPrompt, buildGenerationPrompt, buildSystemPrompt } from "./ingest-prompts.js";
+import {
+  getWikiDir,
+  getSpaceDir,
+  ensureDir,
+  ensureRuntimeDir,
+  nowISO,
+  readDirRecursive,
+  sha256,
+  safeWriteFile,
+  isSystemFile,
+} from "./space-fs/index.js";
+import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
 import { logger } from "../../lib/logger.js";
-
-// ─── 配置 ──────────────────────────────────────────────────────
-
-const MAX_SOURCE_CHARS = 80_000;
-
-// ─── LLM 客户端 ──────────────────────────────────────────────────
-
 import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
 import { getRuntimeConfig } from "../models/config-service.js";
 
-// ─── 空间目录辅助函数 ─────────────────────────────────────────────
-
-function sourceFilePath(spaceId: string, identity: string): string {
-  const fileName = identity.endsWith(".md") ? identity : `${identity}.md`;
-  return path.join(getSpaceDir(spaceId), "raw", "sources", fileName);
-}
-
-// ─── 读取源内容 ───────────────────────────────────────────────────
-
-function readSourceContent(
-  spaceId: string,
-  sourceIdentity: string,
-): {
-  content: string;
-  sourceStem: string;
-} {
-  const fPath = sourceFilePath(spaceId, sourceIdentity);
-  if (!fs.existsSync(fPath)) {
-    throw new Error(`源文件未找到: ${fPath}`);
-  }
-
-  const raw = fs.readFileSync(fPath, "utf-8");
-  const { frontmatter, body } = parseFrontmatter(raw);
-  const stem = getFileStem(sourceIdentity);
-
-  // 从 frontmatter 读取元数据上下文
-  const title = (frontmatter.title as string) || stem;
-  const kind = (frontmatter.kind as string) || "text";
-
-  // 文本类源直接用 body；其他格式需等 M5 做格式转换
-  let content = body.trim();
-  if (!content) {
-    content = raw.trim();
-  }
-
-  // 截断超长内容
-  if (content.length > MAX_SOURCE_CHARS) {
-    content =
-      content.slice(0, MAX_SOURCE_CHARS) + `\n\n[... 内容在 ${MAX_SOURCE_CHARS} 字符处截断 ...]`;
-  }
-
-  return {
-    content: `# ${title}\n\n${content}\n\n(Source kind: ${kind})`,
-    sourceStem: stem,
-  };
-}
-
-// ─── 读取空间上下文 ───────────────────────────────────────────────
+const MAX_SOURCE_CHARS = 80_000;
+const activeIngests = new Set<string>();
 
 interface SpaceContext {
   purpose: string;
   schema: string;
   index: string;
-  existingSlugs: string[];
+  existingConceptIds: string[];
 }
-
-function readSpaceContext(spaceId: string): SpaceContext {
-  const sDir = getSpaceDir(spaceId);
-
-  const purpose =
-    readOptionalFile(path.join(sDir, "purpose.md")) ||
-    readOptionalFile(path.join(sDir, "space.json")) ||
-    "";
-
-  const schema = readOptionalFile(path.join(sDir, "schema.md")) || "";
-
-  // 遍历已有 Wiki 页面
-  const wikiDir = path.join(sDir, "wiki");
-  const existingSlugs: string[] = [];
-  const pageLines: string[] = [];
-
-  function collectPages(dir: string, _category: string) {
-    try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      const mdFiles = entries.filter((e) => !e.isDirectory() && e.name.endsWith(".md")).sort();
-
-      for (const entry of mdFiles) {
-        const slug = entry.name.replace(/\.md$/, "");
-        if (isSystemFile(entry.name)) continue;
-
-        const fullPath = path.join(dir, entry.name);
-        try {
-          const fileContent = fs.readFileSync(fullPath, "utf-8");
-          const { frontmatter } = parseFrontmatter(fileContent);
-          const title = (frontmatter.title as string) || slug;
-          existingSlugs.push(slug);
-          pageLines.push(`- [[${slug}|${title}]]`);
-        } catch {
-          existingSlugs.push(slug);
-          pageLines.push(`- [[${slug}|${slug}]]`);
-        }
-      }
-    } catch {
-      // 目录尚不存在
-    }
-  }
-
-  // 按 entities → concepts → sources 顺序收集，保证 index 排版一致
-  collectPages(path.join(wikiDir, "entities"), "entities");
-  collectPages(path.join(wikiDir, "concepts"), "concepts");
-  collectPages(path.join(wikiDir, "sources"), "sources");
-  collectPages(wikiDir, "root");
-
-  const index = pageLines.join("\n");
-
-  return { purpose, schema, index, existingSlugs };
-}
-
-function readOptionalFile(filePath: string): string | null {
-  try {
-    const content = fs.readFileSync(filePath, "utf-8").trim();
-    // 若读取 space.json，提取 purpose 字段
-    if (filePath.endsWith("space.json")) {
-      try {
-        const parsed = JSON.parse(content);
-        return (parsed.purpose as string) || null;
-      } catch {
-        return null;
-      }
-    }
-    return content || null;
-  } catch {
-    return null;
-  }
-}
-
-// ─── 阶段一：分析 ─────────────────────────────────────────────────
 
 interface AnalysisResult {
   keyEntities: Array<{ name: string; description: string; type: string }>;
@@ -159,237 +51,384 @@ interface AnalysisResult {
   summary: string;
 }
 
+interface GeneratedDocument {
+  path: string;
+  frontmatter: Record<string, unknown>;
+  content: string;
+}
+
+function sourceFilePath(spaceId: string, identity: string): string {
+  const fileName = identity.toLowerCase().endsWith(".md") ? identity : `${identity}.md`;
+  return path.join(getSpaceDir(spaceId), "raw", "sources", fileName);
+}
+
+function readSourceDocument(
+  spaceId: string,
+  sourceIdentity: string,
+): { content: string; hash: string } {
+  const filePath = sourceFilePath(spaceId, sourceIdentity);
+  if (!fs.existsSync(filePath)) throw new Error(`源文件未找到: ${filePath}`);
+
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { frontmatter, body } = parseFrontmatter(raw);
+  const title =
+    extractString(frontmatter, "title") ?? path.basename(sourceIdentity).replace(/\.md$/i, "");
+  const kind = extractString(frontmatter, "kind") ?? "text";
+  const content = body.trim() || raw.trim();
+  const formatted = `# ${title}\n\n${content}\n\n（来源类型：${kind}）`;
+  return { content: formatted, hash: sha256(formatted) };
+}
+
+function splitSourceContent(content: string): string[] {
+  if (content.length <= MAX_SOURCE_CHARS) return [content];
+
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < content.length) {
+    let end = Math.min(start + MAX_SOURCE_CHARS, content.length);
+    if (end < content.length) {
+      const boundary = content.lastIndexOf("\n\n", end);
+      if (boundary > start + 1_000) end = boundary;
+    }
+    chunks.push(content.slice(start, end).trim());
+    start = end;
+  }
+  return chunks.filter(Boolean);
+}
+
+function checkpointPath(spaceId: string, sourceIdentity: string): string {
+  return path.join(
+    getSpaceDir(spaceId),
+    ".feedmind",
+    "ingest-progress",
+    `${sha256(sourceIdentity).slice(0, 16)}.json`,
+  );
+}
+
+function mergeAnalyses(analyses: AnalysisResult[]): AnalysisResult {
+  const uniqueBy = <T extends { name: string }>(items: T[]): T[] =>
+    items.filter((item, index) => items.findIndex((other) => other.name === item.name) === index);
+
+  return {
+    keyEntities: uniqueBy(analyses.flatMap((analysis) => analysis.keyEntities)),
+    keyConcepts: uniqueBy(analyses.flatMap((analysis) => analysis.keyConcepts)),
+    mainArguments: [...new Set(analyses.flatMap((analysis) => analysis.mainArguments))],
+    connections: [...new Set(analyses.flatMap((analysis) => analysis.connections))],
+    summary: analyses
+      .map((analysis) => analysis.summary)
+      .filter(Boolean)
+      .join("\n\n"),
+  };
+}
+
+async function analyzeSource(
+  sourceContent: string,
+  sourceHash: string,
+  sourceIdentity: string,
+  spaceId: string,
+  context: SpaceContext,
+  llmClient: LlmClient,
+  report: (message: string, step: number) => void,
+  shouldCancel?: () => boolean,
+): Promise<AnalysisResult> {
+  const chunks = splitSourceContent(sourceContent);
+  const pathName = checkpointPath(spaceId, sourceIdentity);
+  let analyses: AnalysisResult[] = [];
+
+  try {
+    if (fs.existsSync(pathName)) {
+      const checkpoint = JSON.parse(fs.readFileSync(pathName, "utf-8")) as {
+        sourceHash?: string;
+        analyses?: AnalysisResult[];
+      };
+      if (checkpoint.sourceHash === sourceHash && Array.isArray(checkpoint.analyses)) {
+        analyses = checkpoint.analyses;
+      }
+    }
+  } catch {
+    analyses = [];
+  }
+
+  for (let index = analyses.length; index < chunks.length; index++) {
+    if (shouldCancel?.()) throw new IngestCancelledError();
+    analyses[index] = await stage1Analysis(chunks[index], context, llmClient);
+    ensureDir(path.dirname(pathName));
+    safeWriteFile(pathName, JSON.stringify({ sourceHash, analyses }, null, 2));
+    report(`正在分析源内容（${index + 1}/${chunks.length}）...`, 2);
+  }
+
+  if (fs.existsSync(pathName)) fs.unlinkSync(pathName);
+  return mergeAnalyses(analyses);
+}
+
+function cachePath(spaceId: string): string {
+  return path.join(getSpaceDir(spaceId), ".feedmind", "ingest-cache.json");
+}
+
+function readIngestCache(spaceId: string): Map<string, IngestCacheEntry> {
+  const filePath = cachePath(spaceId);
+  return fs.existsSync(filePath) ? loadCache(fs.readFileSync(filePath, "utf-8")) : new Map();
+}
+
+function writeIngestCache(spaceId: string, cache: Map<string, IngestCacheEntry>): void {
+  ensureRuntimeDir(spaceId);
+  safeWriteFile(cachePath(spaceId), dumpCache(cache));
+}
+
+export function removeIngestCache(spaceId: string, sourceIdentity: string): void {
+  const cache = readIngestCache(spaceId);
+  removeFromCache(cache, sourceIdentity);
+  if (sourceIdentity.toLowerCase().endsWith(".md")) {
+    removeFromCache(cache, sourceIdentity.slice(0, -3));
+  } else {
+    removeFromCache(cache, `${sourceIdentity}.md`);
+  }
+  writeIngestCache(spaceId, cache);
+}
+
+function allCachedFilesExist(spaceId: string, files: string[]): boolean {
+  return (
+    files.length > 0 && files.every((file) => fs.existsSync(path.join(getSpaceDir(spaceId), file)))
+  );
+}
+
+export class IngestCancelledError extends Error {
+  constructor() {
+    super("导入任务已取消");
+    this.name = "IngestCancelledError";
+  }
+}
+
+function ensureNotCancelled(shouldCancel?: () => boolean): void {
+  if (shouldCancel?.()) throw new IngestCancelledError();
+}
+
+function readSpaceContext(spaceId: string): SpaceContext {
+  const spaceDir = getSpaceDir(spaceId);
+  const wikiDir = getWikiDir(spaceId);
+  const pages: Array<{ id: string; title: string; description: string }> = [];
+  const files = readDirRecursive(
+    wikiDir,
+    (_filePath, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
+
+  for (const filePath of files) {
+    try {
+      const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
+      const { frontmatter } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
+      const conceptId = conceptIdFromPath(relativePath);
+      pages.push({
+        id: conceptId,
+        title: extractString(frontmatter, "title") ?? conceptId,
+        description: extractString(frontmatter, "description") ?? "",
+      });
+    } catch {
+      /* 无法读取的 Concept 由 OKF lint 报告。 */
+    }
+  }
+
+  pages.sort((a, b) => a.id.localeCompare(b.id));
+  const index = pages
+    .map(({ id, title, description }) => `- ${formatConceptLink(title, id)} - ${description}`)
+    .join("\n");
+
+  let metadata: Record<string, unknown> = {};
+  try {
+    metadata = JSON.parse(fs.readFileSync(path.join(spaceDir, "space.json"), "utf-8")) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    // 空间元数据缺失时使用默认上下文。
+  }
+
+  return {
+    purpose: typeof metadata.purpose === "string" ? metadata.purpose : "",
+    schema: typeof metadata.schema === "string" ? metadata.schema : "",
+    index,
+    existingConceptIds: pages.map((page) => page.id),
+  };
+}
+
 async function stage1Analysis(
   sourceContent: string,
   context: SpaceContext,
   llmClient: LlmClient,
 ): Promise<AnalysisResult> {
-  const systemPrompt = buildSystemPrompt(context.purpose, context.schema);
-  const analysisPrompt = buildAnalysisPrompt(sourceContent, context.index);
-
   const raw = await llmClient.chat(
     [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: analysisPrompt },
+      { role: "system", content: buildSystemPrompt(context.purpose, context.schema) },
+      { role: "user", content: buildAnalysisPrompt(sourceContent, context.index) },
     ],
     { responseFormat: "json" },
   );
 
   try {
-    const parsed = JSON.parse(raw);
-
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
-      keyEntities: Array.isArray(parsed.keyEntities) ? parsed.keyEntities : [],
-      keyConcepts: Array.isArray(parsed.keyConcepts) ? parsed.keyConcepts : [],
-      mainArguments: Array.isArray(parsed.mainArguments) ? parsed.mainArguments : [],
-      connections: Array.isArray(parsed.connections) ? parsed.connections : [],
+      keyEntities: Array.isArray(parsed.keyEntities)
+        ? (parsed.keyEntities as AnalysisResult["keyEntities"])
+        : [],
+      keyConcepts: Array.isArray(parsed.keyConcepts)
+        ? (parsed.keyConcepts as AnalysisResult["keyConcepts"])
+        : [],
+      mainArguments: Array.isArray(parsed.mainArguments) ? parsed.mainArguments.map(String) : [],
+      connections: Array.isArray(parsed.connections) ? parsed.connections.map(String) : [],
       summary: typeof parsed.summary === "string" ? parsed.summary : "",
     };
   } catch (err) {
     throw new Error(
-      `LLM 响应的分析 JSON 解析失败: ${err instanceof Error ? err.message : String(err)}\nRaw: ${raw.slice(0, 300)}`,
+      `LLM 响应的分析 JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`,
       { cause: err },
     );
   }
 }
 
-// ─── 阶段二：生成 ─────────────────────────────────────────────────
-
 async function stage2Generation(
-  analysisJSON: string,
+  analysis: string,
   context: SpaceContext,
   sourceIdentity: string,
   llmClient: LlmClient,
 ): Promise<string> {
-  const systemPrompt = buildSystemPrompt(context.purpose, context.schema);
-  const generationPrompt = buildGenerationPrompt(
-    analysisJSON,
-    context.existingSlugs,
-    sourceIdentity,
-  );
-
-  // stage2 生成阶段需要更多 token 空间以输出完整的 Wiki 页面内容
   return llmClient.chat(
     [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: generationPrompt },
+      { role: "system", content: buildSystemPrompt(context.purpose, context.schema) },
+      {
+        role: "user",
+        content: buildGenerationPrompt(analysis, context.existingConceptIds, sourceIdentity),
+      },
     ],
-    { responseFormat: "text", maxTokens: 8192 },
+    { responseFormat: "json", maxTokens: 8192 },
   );
 }
 
-// ─── 处理 FILE 块 ─────────────────────────────────────────────────
+function parseGeneratedDocuments(raw: string, warnings: string[]): GeneratedDocument[] {
+  const normalized = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+  const parsed = JSON.parse(normalized) as { documents?: unknown };
+  if (!Array.isArray(parsed.documents)) throw new Error("LLM 未返回 documents 数组");
 
-interface ProcessBlocksResult {
-  created: string[];
-  updated: string[];
+  const results: GeneratedDocument[] = [];
+  for (let index = 0; index < parsed.documents.length; index++) {
+    const item = parsed.documents[index];
+    try {
+      if (!item || typeof item !== "object") throw new Error(`第 ${index + 1} 个 Concept 不是对象`);
+      const document = item as Record<string, unknown>;
+      const documentPath = normalizeConceptPath(String(document.path ?? ""));
+      const frontmatter = document.frontmatter;
+      if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+        throw new Error(`Concept ${documentPath} 缺少 frontmatter 对象`);
+      }
+      const content = document.content;
+      if (typeof content !== "string") throw new Error(`Concept ${documentPath} 缺少 content`);
+      results.push({
+        path: documentPath,
+        frontmatter: frontmatter as Record<string, unknown>,
+        content,
+      });
+    } catch (err) {
+      // 单个文档解析失败不应中止整个导入，记录警告并跳过
+      warnings.push(
+        `跳过第 ${index + 1} 个 Concept: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+  return results;
 }
 
-function processFileBlocks(
+function normalizeGeneratedContent(document: GeneratedDocument, sourceIdentity: string): string {
+  const frontmatter = { ...document.frontmatter };
+  const type = extractString(frontmatter, "type");
+  if (!type) throw new Error(`Concept ${document.path} 缺少非空 type`);
+
+  const provenance = extractSourceReferences(frontmatter);
+  if (!provenance.includes(sourceIdentity))
+    frontmatter.provenance = [...provenance, sourceIdentity];
+  const timestamp = extractString(frontmatter, "timestamp") ?? nowISO();
+  return buildConceptContent({ type, frontmatter, timestamp, content: document.content });
+}
+
+function processDocuments(
   spaceId: string,
-  blocks: Array<{ path: string; content: string }>,
-  sourceFileName: string,
-): ProcessBlocksResult {
+  documents: GeneratedDocument[],
+  sourceIdentity: string,
+  shouldCancel?: () => boolean,
+): { created: string[]; updated: string[]; writtenFiles: string[] } {
+  const wikiDir = getWikiDir(spaceId);
   const created: string[] = [];
   const updated: string[] = [];
-  const sDir = getSpaceDir(spaceId);
+  const writtenFiles: string[] = [];
 
-  for (const block of blocks) {
-    const safePath = sanitizeIngestedFileContent(block.path);
+  for (const document of documents) {
+    ensureNotCancelled(shouldCancel);
+    const filePath = path.join(wikiDir, document.path);
+    const normalized = normalizeGeneratedContent(document, sourceIdentity);
+    ensureParent(filePath);
 
-    if (!isSafeIngestPath(safePath)) {
-      continue;
-    }
-
-    const absPath = path.join(sDir, safePath);
-    const dirName = path.dirname(absPath);
-    fs.mkdirSync(dirName, { recursive: true });
-
-    const sanitizedContent = sanitizeIngestedFileContent(block.content);
-
-    if (fs.existsSync(absPath)) {
-      // 合并已有页面内容
-      const existingContent = fs.readFileSync(absPath, "utf-8");
-      const merged = mergePageContent(existingContent, sanitizedContent, sourceFileName);
-      fs.writeFileSync(absPath, merged, "utf-8");
-      updated.push(safePath);
+    if (fs.existsSync(filePath)) {
+      const existing = fs.readFileSync(filePath, "utf-8");
+      writePageHistory(spaceId, document.path, existing);
+      const merged = mergeConceptContent(existing, normalized);
+      safeWriteFile(filePath, merged);
+      updated.push(document.path);
     } else {
-      // 新建页面——确保有 frontmatter
-      let finalContent = sanitizedContent;
-      if (!finalContent.startsWith("---")) {
-        const slug = path.basename(safePath, ".md");
-        const { frontmatter } = parseFrontmatter(sanitizedContent);
-        const type = (frontmatter.type as string) || inferTypeFromBlockPath(safePath);
-        const title = (frontmatter.title as string) || slug;
-        finalContent = buildPageContent({
-          type,
-          title,
-          tags: (frontmatter.tags as string[]) ?? [],
-          sources: (frontmatter.sources as string[]) ?? [sourceFileName],
-          related: (frontmatter.related as string[]) ?? [],
-          created: new Date().toISOString(),
-          updated: new Date().toISOString(),
-          content: finalContent,
-        });
-      }
-      fs.writeFileSync(absPath, finalContent, "utf-8");
-      created.push(safePath);
+      safeWriteFile(filePath, normalized);
+      created.push(document.path);
     }
+    writtenFiles.push(path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/"));
   }
 
-  return { created, updated };
+  return { created, updated, writtenFiles };
 }
 
-function inferTypeFromBlockPath(relPath: string): string {
-  const normalized = relPath.replace(/\\/g, "/").toLowerCase();
-  if (normalized.includes("/entities/")) return "entity";
-  if (normalized.includes("/concepts/")) return "concept";
-  if (normalized.includes("/sources/")) return "source";
-  if (normalized.endsWith("/overview.md")) return "overview";
-  return "concept";
+function writePageHistory(spaceId: string, documentPath: string, content: string): void {
+  const historyPath = path.join(
+    getSpaceDir(spaceId),
+    ".feedmind",
+    "page-history",
+    `${documentPath.replace(/[\\/]/g, "_")}.${Date.now()}.md`,
+  );
+  ensureDir(path.dirname(historyPath));
+  safeWriteFile(historyPath, content);
 }
 
-// ─── 更新索引 ─────────────────────────────────────────────────────
-
-function updateIndex(
-  spaceId: string,
-  newPages: Array<{ path: string; title: string; type: string }>,
-): void {
-  if (newPages.length === 0) return;
-
-  const indexPath = path.join(getSpaceDir(spaceId), "wiki", "index.md");
-
-  let content = "";
-  if (fs.existsSync(indexPath)) {
-    content = fs.readFileSync(indexPath, "utf-8");
-  }
-
-  if (!content.trim()) {
-    content = "# Page Index\n\nWiki 页面索引（自动维护）。\n\n";
-  }
-
-  // 按类型分组新页面
-  const byType = new Map<string, Array<{ path: string; title: string }>>();
-  for (const page of newPages) {
-    const t = page.type || "concept";
-    const list = byType.get(t) ?? [];
-    list.push({ path: page.path, title: page.title });
-    byType.set(t, list);
-  }
-
-  // 在类型标题下追加新条目
-  let additions = "";
-  for (const [type, pages] of byType) {
-    additions += `\n### ${type}\n`;
-    for (const page of pages) {
-      const slug = page.path.replace(/^wiki\//, "").replace(/\.md$/, "");
-      additions += `- [[${slug}|${page.title}]]\n`;
-    }
-  }
-
-  if (additions) {
-    fs.writeFileSync(indexPath, content + additions, "utf-8");
-  }
+function ensureParent(filePath: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-// ─── 更新变更日志 ─────────────────────────────────────────────────
-
-function updateLog(spaceId: string, entry: string): void {
-  const logPath = path.join(getSpaceDir(spaceId), "wiki", "log.md");
-
-  let content = "";
-  if (fs.existsSync(logPath)) {
-    content = fs.readFileSync(logPath, "utf-8");
-  }
-
-  if (!content.trim()) {
-    content = "# Change Log\n\n";
-  }
-
-  const now = new Date().toISOString().replace("T", " ").slice(0, 16);
-  content += `- ${now}: ${entry}\n`;
-
-  fs.writeFileSync(logPath, content, "utf-8");
-}
-
-// ─── 更新概览页 ───────────────────────────────────────────────────
-
-function updateOverview(spaceId: string, newSummary: string): void {
-  if (!newSummary) return;
-
-  const overviewPath = path.join(getSpaceDir(spaceId), "wiki", "overview.md");
-
+function updateOverview(spaceId: string, summary: string): string | null {
+  if (!summary) return null;
+  const filePath = path.join(getWikiDir(spaceId), "overview.md");
+  let body = summary;
   let existingFrontmatter: Record<string, unknown> = {};
-  let existingBody = "";
-  if (fs.existsSync(overviewPath)) {
-    const raw = fs.readFileSync(overviewPath, "utf-8");
-    const { frontmatter, body } = parseFrontmatter(raw);
-    existingFrontmatter = frontmatter;
-    existingBody = body.trim();
+  if (fs.existsSync(filePath)) {
+    const existing = fs.readFileSync(filePath, "utf-8");
+    writePageHistory(spaceId, "overview.md", existing);
+    const parsed = parseFrontmatter(existing);
+    existingFrontmatter = parsed.frontmatter;
+    body = `${summary}\n\n---\n\n${parsed.body.trim()}`;
   }
-
-  // 保留现有 frontmatter 字段，仅覆写已知字段
-  const fm = {
-    ...existingFrontmatter,
-    type: "overview",
-    title: "Wiki Overview",
-    updated: new Date().toISOString().slice(0, 10),
-  };
-  const combined = formatFrontmatter(fm) + `\n\n${newSummary}\n\n---\n\n${existingBody}`;
-
-  fs.writeFileSync(overviewPath, combined, "utf-8");
+  ensureParent(filePath);
+  safeWriteFile(
+    filePath,
+    buildConceptContent({
+      type: "Overview",
+      title: "Knowledge Bundle Overview",
+      description: summary,
+      timestamp: nowISO(),
+      frontmatter: existingFrontmatter,
+      content: body,
+    }),
+  );
+  return path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/");
 }
-
-// ─── 从上下文提取源标识 ────────────────────────────────────────────
 
 export function extractIdentity(sourcePath: string): string {
   const normalized = sourcePath.replace(/\\/g, "/");
-  const parts = normalized.split("/");
-  const last = parts[parts.length - 1] || normalized;
-  return last;
+  return normalized.split("/").at(-1) ?? normalized;
 }
-
-// ─── 主导入编排 ───────────────────────────────────────────────────
 
 export type IngestProgressCallback = (message: string, step: number, totalSteps: number) => void;
 
@@ -398,6 +437,7 @@ export interface IngestResult {
   pagesUpdated: number;
   warnings: string[];
   log: string[];
+  writtenFiles: string[];
 }
 
 const TOTAL_STEPS = 5;
@@ -406,124 +446,113 @@ export async function runIngest(
   spaceId: string,
   sourcePath: string,
   onProgress?: IngestProgressCallback,
+  shouldCancel?: () => boolean,
 ): Promise<IngestResult> {
+  if (activeIngests.has(spaceId)) throw new Error("该空间已有导入任务正在执行");
+  activeIngests.add(spaceId);
+
   const log: string[] = [];
   const warnings: string[] = [];
-
-  function addLog(msg: string) {
-    log.push(msg);
-  }
-
-  function reportProgress(message: string, step: number) {
-    addLog(message);
+  const report = (message: string, step: number) => {
+    log.push(message);
     onProgress?.(message, step, TOTAL_STEPS);
-  }
+  };
 
-  // 解析 Wiki 运行配置并创建 LLM 客户端
-  const runtime = await getRuntimeConfig("wiki");
-  const llmClient: LlmClient = new OpenAiLlmClient({
-    apiKey: runtime.api_key,
-    baseUrl: runtime.base_url,
-    model: runtime.model_id || runtime.model_name,
-  });
-  addLog(`Wiki LLM: ${runtime.model_id || runtime.model_name}`);
-  logger.info({ model: runtime.model_id || runtime.model_name }, "Wiki 导入开始");
-
-  // 步骤 1：读取源内容
-  const sourceIdentity = extractIdentity(sourcePath);
-  let sourceContent: string;
   try {
-    const result = readSourceContent(spaceId, sourceIdentity);
-    sourceContent = result.content;
-    reportProgress(`读取源文件: ${sourceIdentity} (${sourceContent.length} 字符)`, 1);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`读取源文件失败: ${msg}`, { cause: err });
-  }
+    const sourceIdentity = extractIdentity(sourcePath);
+    report(`读取源文件：${sourceIdentity}`, 1);
+    const source = readSourceDocument(spaceId, sourceIdentity);
+    const cache = readIngestCache(spaceId);
+    const cachedFiles = checkCache(cache, sourceIdentity, source.hash);
+    if (cachedFiles && allCachedFilesExist(spaceId, cachedFiles)) {
+      report("源文件未变化，使用已有导入结果。", 5);
+      return { pagesCreated: 0, pagesUpdated: 0, warnings: [], log, writtenFiles: cachedFiles };
+    }
 
-  // 步骤 2：读取空间上下文
-  const context = readSpaceContext(spaceId);
-  addLog(`空间上下文: ${context.existingSlugs.length} 个已有页面`);
+    const runtime = await getRuntimeConfig("wiki");
+    const llmClient: LlmClient = new OpenAiLlmClient({
+      apiKey: runtime.api_key,
+      baseUrl: runtime.base_url,
+      model: runtime.model_id || runtime.model_name,
+    });
+    logger.info({ model: runtime.model_id || runtime.model_name }, "OKF 导入开始");
 
-  // 步骤 3：分析
-  reportProgress("正在分析内容...", 2);
-  let analysis: AnalysisResult;
-  try {
-    analysis = await stage1Analysis(sourceContent, context, llmClient);
-    addLog(
-      `分析完成: ${analysis.keyEntities.length} 个实体, ${analysis.keyConcepts.length} 个概念`,
+    const context = readSpaceContext(spaceId);
+    log.push(`OKF bundle 当前包含 ${context.existingConceptIds.length} 个 Concept`);
+
+    const analysis = await analyzeSource(
+      source.content,
+      source.hash,
+      sourceIdentity,
+      spaceId,
+      context,
+      llmClient,
+      report,
+      shouldCancel,
     );
-    logger.info({ spaceId, entityCount: analysis.keyEntities.length }, "阶段一分析完成");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`阶段一（分析）失败: ${msg}`, { cause: err });
-  }
 
-  // 步骤 4：生成
-  reportProgress("正在生成 Wiki 页面...", 3);
-  let generationText: string;
-  try {
-    generationText = await stage2Generation(
+    ensureNotCancelled(shouldCancel);
+    report("正在生成 OKF Concept...", 3);
+    const generated = await stage2Generation(
       JSON.stringify(analysis, null, 2),
       context,
       sourceIdentity,
       llmClient,
     );
-    addLog(`阶段二生成完成 (${generationText.length} 字符)`);
-    logger.info({ spaceId, charCount: generationText.length }, "阶段二生成完成");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`阶段二（生成）失败: ${msg}`, { cause: err });
+
+    let documents: GeneratedDocument[];
+    try {
+      documents = parseGeneratedDocuments(generated, warnings);
+    } catch (err) {
+      throw new Error(
+        `OKF Concept JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`,
+        {
+          cause: err,
+        },
+      );
+    }
+    if (documents.length === 0) {
+      warnings.push("LLM 未生成 OKF Concept");
+      return { pagesCreated: 0, pagesUpdated: 0, warnings, log, writtenFiles: [] };
+    }
+
+    ensureNotCancelled(shouldCancel);
+    report("正在写入 OKF 文件...", 4);
+    const {
+      created,
+      updated,
+      writtenFiles: conceptFiles,
+    } = processDocuments(spaceId, documents, sourceIdentity, shouldCancel);
+    ensureNotCancelled(shouldCancel);
+    const overviewFile = updateOverview(spaceId, analysis.summary);
+    rebuildOkfIndexes(spaceId);
+    appendOkfLog(
+      spaceId,
+      `已导入“${sourceIdentity}”：创建 ${created.length} 个概念，更新 ${updated.length} 个概念。`,
+    );
+
+    const writtenFiles = [
+      ...conceptFiles,
+      ...(overviewFile ? [overviewFile] : []),
+      "wiki/index.md",
+      "wiki/log.md",
+    ];
+    saveCache(cache, sourceIdentity, source.hash, writtenFiles);
+    writeIngestCache(spaceId, cache);
+
+    report("OKF 导入完成", 5);
+    logger.info(
+      { spaceId, pagesCreated: created.length, pagesUpdated: updated.length },
+      "OKF 导入完成",
+    );
+    return {
+      pagesCreated: created.length,
+      pagesUpdated: updated.length,
+      warnings,
+      log,
+      writtenFiles,
+    };
+  } finally {
+    activeIngests.delete(spaceId);
   }
-
-  // 解析 FILE 块
-  const { blocks, warnings: parseWarnings } = parseFileBlocks(generationText);
-  for (const w of parseWarnings) {
-    warnings.push(w);
-    addLog(`警告: ${w}`);
-  }
-  addLog(`解析到 ${blocks.length} 个 FILE 块`);
-
-  if (blocks.length === 0) {
-    warnings.push("LLM 未生成有效的 FILE 块");
-    addLog("警告: LLM 未生成有效的 FILE 块");
-    return { pagesCreated: 0, pagesUpdated: 0, warnings, log };
-  }
-
-  // 步骤 5：写入页面
-  reportProgress("正在写入页面...", 4);
-  const { created, updated } = processFileBlocks(spaceId, blocks, sourceIdentity);
-  addLog(`写入完成: ${created.length} 个新建, ${updated.length} 个更新`);
-
-  // 更新 index.md
-  const newPageEntries = [...created, ...updated].map((p) => ({
-    path: p,
-    title: path.basename(p, ".md"),
-    type: inferTypeFromBlockPath(p),
-  }));
-  updateIndex(spaceId, newPageEntries);
-
-  // 更新 log.md
-  updateLog(
-    spaceId,
-    `已导入 "${sourceIdentity}": ${created.length} 个页面新建, ${updated.length} 个更新`,
-  );
-
-  // 用源摘要更新 overview.md
-  if (analysis.summary) {
-    updateOverview(spaceId, analysis.summary);
-  }
-
-  reportProgress("导入完成", 5);
-  logger.info(
-    { spaceId, pagesCreated: created.length, pagesUpdated: updated.length },
-    "Wiki 导入完成",
-  );
-
-  return {
-    pagesCreated: created.length,
-    pagesUpdated: updated.length,
-    warnings,
-    log,
-  };
 }

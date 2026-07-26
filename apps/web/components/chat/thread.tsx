@@ -16,7 +16,9 @@ import { MessageParts } from "./message-parts";
 import { Composer } from "./composer";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { cn } from "@/lib/utils";
-import { ArrowDown, Loader2 } from "lucide-react";
+import { ArrowDown } from "lucide-react";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { useMemo } from "react";
 import "./thread.css";
 
 interface ThreadProps {
@@ -28,7 +30,12 @@ export function Thread({ className, contentClassName }: ThreadProps) {
   const { messages, status, isLoadingHistory, sendMessage } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
-  const suggestions = [t("chat.suggestion1"), t("chat.suggestion2"), t("chat.suggestion3")];
+
+  // 使用 useMemo 避免每次渲染都重新创建建议数组
+  const suggestions = useMemo(
+    () => [t("chat.suggestion1"), t("chat.suggestion2"), t("chat.suggestion3")],
+    [t],
+  );
 
   return (
     <div
@@ -42,7 +49,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
           {isLoadingHistory ? (
             <div className="flex items-center justify-center py-24">
               <div className="flex flex-col items-center gap-3 text-editorial-ink-muted">
-                <Loader2 size={20} className="animate-spin" />
+                <MotionSpinner size={20} />
                 <span className="text-[13px]">{t("chat.loadingHistory")}</span>
               </div>
             </div>
@@ -64,22 +71,24 @@ export function Thread({ className, contentClassName }: ThreadProps) {
             >
               <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-xl">
                 {suggestions.map((suggestion) => (
-                  <button
+                  <motion.button
                     key={suggestion}
                     type="button"
                     onClick={() => sendMessage?.({ text: suggestion })}
-                    className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-[12px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+                    whileHover={{ scale: 1.015 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
                   >
                     {suggestion}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </ConversationEmptyState>
           ) : (
             <AnimatePresence initial={false}>
-              {messages.map((message, idx) => (
+              {messages.map((message) => (
                 <motion.div
-                  key={`${message.id}-${idx}`}
+                  key={message.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
@@ -87,7 +96,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                 >
                   <MessageParts
                     message={message}
-                    isLastMessage={idx === messages.length - 1}
+                    isLastMessage={message.id === messages[messages.length - 1]?.id}
                     isStreaming={isStreaming}
                   />
                 </motion.div>

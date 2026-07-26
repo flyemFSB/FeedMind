@@ -11,7 +11,6 @@ import {
   countFiles,
   dateSortDesc,
   nowISO,
-  safeWriteFile,
   slugify,
   getSpaceDir,
   readRegistry,
@@ -21,6 +20,7 @@ import {
   createSpaceDirs,
   deleteSpaceDir,
 } from "./space-fs/index.js";
+import { rebuildOkfIndexes } from "./okf-ops.js";
 
 export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
   const registry = await readRegistry();
@@ -58,7 +58,7 @@ export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
     schema: (meta.schema as string) ?? "",
     settings: (meta.settings as WikiSpaceSettings) ?? {
       language: "zh-CN",
-      enabledPageTypes: ["entity", "concept", "source", "overview"],
+      enabledPageTypes: [],
       extraDirs: [],
     },
     page_count: countFiles(path.join(getSpaceDir(spaceId), "wiki"), ".md"),
@@ -81,20 +81,14 @@ export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpa
     template: payload.template ?? "general",
     purpose: payload.purpose ?? "",
     schema: payload.schema ?? "",
-    settings: {
-      language: "zh-CN",
-      enabledPageTypes: ["entity", "concept", "source", "overview"],
-      extraDirs: [],
-    },
+    settings: { language: "zh-CN", enabledPageTypes: [], extraDirs: [] },
     created_at: now,
     updated_at: now,
   };
 
   writeSpaceMeta(spaceId, meta);
   createSpaceDirs(spaceId);
-
-  safeWriteFile(path.join(getSpaceDir(spaceId), "purpose.md"), payload.purpose || "# Purpose\n\n");
-  safeWriteFile(path.join(getSpaceDir(spaceId), "schema.md"), payload.schema || "# Schema\n\n");
+  rebuildOkfIndexes(spaceId);
 
   const registry = await readRegistry();
   registry.push({ id: spaceId, name: payload.name });

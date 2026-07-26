@@ -6,6 +6,7 @@
 "use client";
 
 import { useRef, useState, type ChangeEvent } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   PromptInput,
   PromptInputTextarea,
@@ -56,23 +57,31 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
     >
       <PromptInput onSubmit={(message) => handleSubmit(message.text)} className="space-y-3">
         {files.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {files.map((file, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-1 rounded-md border border-editorial-hairline bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
-              >
-                <span className="max-w-[120px] truncate">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeFile(i)}
-                  className="ml-1 text-editorial-ink-muted hover:text-editorial-semantic-error"
+          <motion.div layout className="flex flex-wrap gap-2">
+            <AnimatePresence initial={false}>
+              {files.map((file, i) => (
+                <motion.div
+                  key={i}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="flex items-center gap-1 rounded-md border border-editorial-hairline bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
                 >
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
+                  <span className="max-w-[120px] truncate">{file.name}</span>
+                  <motion.button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="ml-1 text-editorial-ink-muted hover:text-editorial-semantic-error"
+                  >
+                    <X size={12} />
+                  </motion.button>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
         <PromptInputTextarea
           value={input}
@@ -106,14 +115,16 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
               className="hidden"
               onChange={handleFileChange}
             />
-            <button
+            <motion.button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.92 }}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
               title={t("chat.addAttachment")}
             >
               <Paperclip size={15} />
-            </button>
+            </motion.button>
           </div>
           {isLoading ? (
             <PromptInputSubmit status="streaming" onClick={() => stop()} className="h-10 w-10" />

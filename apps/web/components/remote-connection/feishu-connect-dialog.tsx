@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { X, Loader2, Check, Eye, EyeOff, Copy } from "lucide-react";
+import { useState, useEffect, type ReactNode } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { X, Check, Eye, EyeOff, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { fadeSlideVariants, motionSpring } from "@/lib/motion";
 import { toast } from "sonner";
 
 interface FeishuConnectDialogProps {
@@ -98,16 +101,18 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
             variant="ghost"
             size="icon"
             className="rounded-md hover:bg-editorial-surface-soft"
+            aria-label="关闭"
+            title="关闭"
           >
             <X size={16} className="text-editorial-ink-muted" />
           </Button>
         </div>
 
         <div className="min-h-[280px]">
-          <div key={step} className="motion-content">
+          <AnimatedStep step={step}>
             {step === "loading" && (
               <div className="flex justify-center py-12">
-                <Loader2 size={22} className="animate-spin text-editorial-ink-muted" />
+                <MotionSpinner size={22} className="text-editorial-ink-muted" />
               </div>
             )}
 
@@ -134,7 +139,7 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                       value={appId}
                       onChange={(e) => setAppId(e.target.value)}
                       placeholder="cli_xxxxxxxx"
-                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink"
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
                     />
                   </div>
                   <div>
@@ -146,12 +151,12 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                       value={appSecret}
                       onChange={(e) => setAppSecret(e.target.value)}
                       placeholder="输入 App Secret"
-                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink"
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
                     />
                   </div>
                 </div>
                 <Button onClick={handleSave} disabled={saving} className="w-full gap-1.5">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                  {saving ? <MotionSpinner size={14} /> : <Check size={14} />}
                   接入机器人
                 </Button>
               </div>
@@ -229,8 +234,7 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
             {step === "done" && (
               <div className="space-y-4 px-5 py-5">
                 <div className="flex items-center gap-3 rounded-lg bg-editorial-semantic-success/10 px-4 py-3">
-                  <svg
-                    className="motion-success"
+                  <motion.svg
                     width="18"
                     height="18"
                     viewBox="0 0 24 24"
@@ -239,9 +243,17 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                     strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={motionSpring}
                   >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                    <motion.polyline
+                      points="20 6 9 17 4 12"
+                      initial={{ pathLength: 0, opacity: 0 }}
+                      animate={{ pathLength: 1, opacity: 1 }}
+                      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </motion.svg>
                   <span className="text-[13px] font-medium text-editorial-semantic-success">
                     凭证验证通过
                   </span>
@@ -275,9 +287,25 @@ export function FeishuConnectDialog({ open, onClose, onConnected }: FeishuConnec
                 </div>
               </div>
             )}
-          </div>
+          </AnimatedStep>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AnimatedStep({ step, children }: { step: Step; children: ReactNode }) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={step}
+        variants={fadeSlideVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }

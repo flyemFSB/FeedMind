@@ -1,81 +1,86 @@
+# FeedMind
+
 <div align="center">
   <img src="./apps/web/public/FeedMind-logo-text.png" alt="FeedMind" width="360" />
-  <p><strong>本地优先的趋势研究 Agent 系统</strong></p>
+  <p><strong>本地优先的趋势研究 AI Agent 系统</strong></p>
+
   <p>
-    <img src="https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen" alt="Node" />
-    <img src="https://img.shields.io/badge/TypeScript-strict-blue" alt="TypeScript" />
-    <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
-    <img src="https://img.shields.io/badge/pnpm-11-orange" alt="pnpm" />
+    <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg" alt="Node.js"></a>
+    <a href="https://pnpm.io"><img src="https://img.shields.io/badge/pnpm-11-blue.svg" alt="pnpm"></a>
+    <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/typescript-strict-blue.svg" alt="TypeScript"></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
   </p>
+
   <p>
-    <a href="#-项目简介">项目简介</a> •
-    <a href="#-功能特性">功能特性</a> •
-    <a href="#-快速开始">快速开始</a> •
-    <a href="#-项目结构">项目结构</a> •
-    <a href="#-API-文档">API 文档</a> •
-    <a href="#-开发规范">开发规范</a>
+    <a href="#-特性"><strong>特性</strong></a> •
+    <a href="#-快速开始"><strong>快速开始</strong></a> •
+    <a href="#-项目结构"><strong>项目结构</strong></a> •
+    <a href="#-技术栈"><strong>技术栈</strong></a> •
+    <a href="#-开发指南"><strong>开发指南</strong></a> •
+    <a href="#-api-参考"><strong>API 参考</strong></a>
   </p>
 </div>
 
 ---
 
-## 📖 项目简介
+## 📖 关于项目
 
-FeedMind 是一个**本地优先**的任务驱动趋势研究 Agent 系统，完成从「网络信息收集 → AI 深度对话 → 结构化知识库沉淀」的完整闭环。
+**FeedMind** 是一个本地优先（Local-first）的趋势研究 AI Agent 系统，致力于构建从「信息收集 → AI 分析 → 知识沉淀」的完整工作流。
+
+### 核心理念
 
 ```
-信息收集 (Crawler) → AI 研究 (Agent) → 知识库 (Wiki)
+网络信息收集 → AI 深度分析 → 结构化知识库
 ```
 
-所有数据保留在本地（SQLite + 文件系统），API 密钥加密存储，不依赖任何云服务。适合知识工作者在研究会话中深度使用。
-
-支持中文/English 双语界面和浅色/深色/跟随系统三种主题模式。
+所有数据保存在本地 SQLite + Markdown 文件系统，不依赖云服务，确保隐私和数据所有权。支持中英文双语和明暗主题切换。
 
 ---
 
-## ✨ 功能特性
+## ✨ 核心特性
 
-### AI 对话（Mastra Agent）
+### 🤖 AI Agent 对话系统
 
-- **多模型支持** — OpenAI、Anthropic、DeepSeek、Gemini、Grok、Qwen 及所有 OpenAI 兼容接口，模型从 LLM 表运行时解析
-- **流式响应** — 基于 Mastra AI SDK 的实时流式输出，支持推理 token 渲染和工具调用可视化
-- **工具调用** — 内置网络搜索（Tavily/Exa/AnySearch 级联降级）、网页抓取（Firecrawl/Readability）、Wiki 查询、意图澄清等工具
-- **动态 subagent** — 通过 task 工具运行时创建 researcher / extractor / summarizer / browser 子 agent
-- **会话管理** — 持久化对话历史，支持分支切换和模型热切换
+基于 **Mastra AI** 框架构建的智能助手：
 
-### Wiki 知识库
+- **多模型支持** — 兼容 OpenAI、Anthropic、DeepSeek、Gemini、Grok、Qwen 及所有 OpenAI API 兼容服务
+- **流式响应** — 实时输出推理过程、工具调用和最终答案
+- **工具生态** — 内置网络搜索（Tavily/Exa）、网页内容提取（Firecrawl/Readability）、Wiki 查询、自定义工具
+- **动态 Subagent** — 根据任务自动创建研究者、提取器、总结者等子 agent
+- **会话管理** — 持久化历史、模型热切换、分支对话
 
-- **文件存储** — 页面为纯 Markdown 文件 + YAML frontmatter，存储在磁盘上，可 git 追踪
-- **Spaces** — 多个独立知识库，按目录组织，数据库仅存储聊天和爬虫数据
-- **交叉引用** — `[[wikilink]]` 语法，自动反向链接解析
-- **知识图谱** — graphology 驱动的图形化展示 + Louvain 社区检测
-- **CJK 全文搜索** — 中文分词支持
-- **来源管理** — 附加 URL 或上传文件（PDF、DOCX、图片）作为页面来源
-- **AI 导入流水线** — 两阶段 LLM 流水线：分析源内容 → 生成结构化 Wiki 页面
-- **检查与审核** — 内置链接检查器和 AI 驱动的质量审核
+### 📚 Wiki 知识库
 
-### 内容爬虫引擎
+文件级知识库管理系统：
 
-- **路由驱动架构** — 每个平台/功能注册独立 route handler，类似 RSSHub 模式
-- **多平台** — 小红书（笔记/收藏/搜索）、B站（视频/搜索）、知乎（回答/热榜/文章/想法/搜索）、抖音、快手
-- **双路径策略** — 有 cookie 时走 HTTP 直调，无 cookie 或反爬降级时自动切换 Playwright 浏览器自动化
-- **Cookie 注入** — 浏览器降级路径自动注入登录态，支持有状态爬取
-- **RSS 输出** — 所有爬取结果统一输出 RSS 2.0 XML，含封面图、分类标签、附件等结构化字段
-- **任务管理** — 任务队列、进度跟踪、取消、重试，同路由互斥
+- **Markdown 原生** — 页面为纯文本 Markdown，YAML frontmatter 元数据，可纳入 Git 版本控制
+- **多空间隔离** — 独立知识库空间，目录即分类
+- **双向链接** — OKF 标准格式，自动反向链接追踪
+- **知识图谱可视化** — Graphology 驱动的节点关系图 + Louvain 社区检测算法
+- **智能搜索** — CJK 分词全文检索（中文分词支持）
+- **来源管理** — 附加 URL 或上传文件（PDF、Word、图片）作为参考资料
+- **AI 导入流水线** — LLM 自动分析源内容，生成结构化 Wiki 页面
+- **质量检查** — 死链检测、内容审核、重复检测
+- **OKF v0.1 规范支持** — Google Open Knowledge Format 标准兼容，包含自动索引生成、引用验证、标签体系、更新日志模板
 
-### 资讯管理
+### 🕷️ 爬虫引擎
 
-- **RSS 订阅** — 订阅源聚合展示（支持 feedsmith 等标准 RSS 解析）
-- **社交媒体动态** — 关注博主内容流、收藏内容查看
-- **AI 推荐** — 基于兴趣的内容推荐
-- **一键 Cookie 同步** — Chrome Extension 自动读取登录态，无需手动复制粘贴
+路由驱动的多平台爬取系统：
 
-### 隐私与安全
+- **路由注册机制** — 类似 RSSHub 的模块化设计，每个平台功能独立路由
+- **多平台支持** — 小红书、Bilibili、知乎、抖音、快手等
+- **双模式降级策略**：
+  - ✅ Cookie 存在 → HTTP 直接 API 请求（高性能）
+  - ⚠️ 无 Cookie/反爬 → Playwright 浏览器自动化（兜底方案）
+- **Cookie Cloud 同步** — Chrome 插件自动采集登录态，一键注入
+- **RSS 输出** — 统一 RSS 2.0 XML 格式，含封面图、分类标签
 
-- **本地优先** — 所有数据保留在本地 SQLite + 文件系统，不依赖云服务
-- **加密 API 密钥** — AES-128-CBC + HMAC-SHA256 (Fernet 兼容)
-- **日志脱敏** — pino redact 自动过滤 `apiKey`、`password`、`cookies`、`authorization` 等敏感字段
-- **SSRF 防护** — 网页抓取 URL 校验，防止服务端请求伪造
+### 🔐 安全与隐私
+
+- **加密存储** — Fernet 兼容的 AES-128-CBC + HMAC-SHA256 加密 API 密钥
+- **日志脱敏** — Pino logger 自动过滤敏感字段（apiKey、password、cookies）
+- **SSRF 防护** — 所有外部 URL 请求前进行白名单校验
+- **本地数据库** — libSQL（嵌入式 SQLite），数据完全可控
 
 ---
 
@@ -83,58 +88,66 @@ FeedMind 是一个**本地优先**的任务驱动趋势研究 Agent 系统，完
 
 ### 前置要求
 
-- **Node.js** >= 24.0.0
-- **pnpm** >= 10.0.0（安装：`npm install -g pnpm`）
+- Node.js ≥ 24.0.0
+- pnpm ≥ 10.0.0（安装：`npm install -g pnpm@latest`）
 
-### 安装
+### 初始设置
 
 ```bash
-# 克隆仓库
+# 1. 克隆仓库
 git clone https://github.com/flyemFSB/FeedMind.git
 cd FeedMind
 
-# 复制环境变量
+# 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env — 设置 ENCRYPTION_KEY（用于 API 密钥加密）
+# 编辑 .env，生成 ENCRYPTION_KEY：
+# openssl rand -hex 32
 
-# 安装依赖
+# 3. 安装依赖
 pnpm install
 
-# 构建共享包
+# 4. 构建共享包（必须）
 pnpm run build:packages
 
-# 初始化 SQLite 数据库
+# 5. 初始化数据库
 pnpm run db:init
 ```
 
-### 开发
+### 启动开发服务
 
 ```bash
-# 启动所有服务（API + Web）
+# 同时启动 API 后端和 Web 前端
 pnpm run dev
 ```
 
-| 服务              | 地址                                  |
-| ----------------- | ------------------------------------- |
-| Web 前端          | http://localhost:13790                |
-| REST API          | http://localhost:18790                |
-| API 文档 (Scalar) | http://localhost:18790/api/v1/docs    |
-| OpenAPI JSON      | http://localhost:18790/api/v1/openapi |
+访问地址：
+
+| 服务             | 地址                                  | 说明                 |
+| ---------------- | ------------------------------------- | -------------------- |
+| **Web 应用**     | http://localhost:13790                | TanStack Start 前端  |
+| **REST API**     | http://localhost:18790                | Hono 后端            |
+| **API 文档**     | http://localhost:18790/api/v1/docs    | Scalar UI 交互式文档 |
+| **OpenAPI JSON** | http://localhost:18790/api/v1/openapi | 机器可读规范         |
 
 ### 常用命令
 
-| 命令                      | 说明                          |
-| ------------------------- | ----------------------------- |
-| `pnpm install`            | 安装所有依赖                  |
-| `pnpm run dev`            | 启动所有开发服务（API + Web） |
-| `pnpm run build`          | 构建所有应用和包              |
-| `pnpm run build:packages` | 仅构建共享包                  |
-| `pnpm run typecheck`      | TypeScript 类型检查           |
-| `pnpm run lint`           | ESLint 代码检查               |
-| `pnpm run test`           | 运行测试（Vitest）            |
-| `pnpm run db:init`        | 初始化 SQLite 数据库          |
-| `pnpm run db:generate`    | 生成 Drizzle 迁移文件         |
-| `pnpm run db:migrate`     | 运行 Drizzle 迁移             |
+```bash
+# 单服务开发
+pnpm run web:dev   # 仅前端
+pnpm run api:dev   # 仅后端
+
+# 构建与测试
+pnpm run build          # 构建全部
+pnpm run build:packages # 仅构建共享包
+pnpm run typecheck      # TypeScript 类型检查
+pnpm run lint           # ESLint + Prettier
+pnpm run test           # Vitest 单元测试
+
+# 数据库管理
+pnpm run db:generate    # 生成迁移文件
+pnpm run db:migrate     # 运行迁移
+pnpm run db:reset       # 重置数据库
+```
 
 ---
 
@@ -142,275 +155,290 @@ pnpm run dev
 
 ```
 feedmind/
-├── apps/
-│   ├── web/                          # TanStack Start 前端（React 19）
-│   │   ├── src/routes/               # 路由定义（/wiki、/feeds、/chat）
-│   │   ├── components/               # UI 组件
-│   │   │   ├── app-shell/            # 全局壳层（侧边栏、顶栏、Agent 抽屉）
-│   │   │   ├── ai-elements/          # AI 对话组件（消息气泡、工具调用）
-│   │   │   ├── chat/                 # 聊天会话（线程列表、编辑器）
-│   │   │   ├── wiki/                 # Wiki 阅读器、编辑器、图谱、导入
-│   │   │   ├── feeds/                # 资讯管理（RSS、社交媒体、AI 推荐）
-│   │   │   ├── settings/             # 设置面板（模型、工具、运行时、技能）
-│   │   │   ├── remote-connection/    # 远程连接弹窗（飞书、社交平台）
-│   │   │   └── ui/                   # shadcn/ui 基础组件
-│   │   └── lib/                      # API 客户端、自定义 hooks、i18n
-│   │
-│   ├── api/                          # Hono REST API + Mastra Agent
+├── apps/                          # 应用程序根目录
+│   ├── api/                       # REST API + Mastra Agent
 │   │   ├── src/
-│   │   │   ├── lib/                  # 通用工具（logger、openapi、http、错误类）
-│   │   │   ├── routes/v1/            # OpenAPI 路由组（health、chats、llms、
-│   │   │   │                         #   wiki、crawler、tools、skills、
-│   │   │   │                         #   runtime-config、remote-connection）
-│   │   │   ├── modules/              # 业务逻辑服务
-│   │   │   │   ├── wiki/             # 空间管理、页面存储、导入管道、图谱
-│   │   │   │   ├── crawler/          # 爬虫任务管理 + RSS 输出
-│   │   │   │   ├── chats/            # 会话持久化
-│   │   │   │   ├── llms/             # 模型 CRUD + 选中
-│   │   │   │   ├── remote-connection/# 平台连接与 Cookie 管理
-│   │   │   │   └── models/           # 运行时配置
-│   │   │   └── mastra/               # Agent 定义、工具、subagent 模板
-│   │   │       ├── agents/           # feedmind-agent 主 Agent
-│   │   │       ├── tools/            # 搜索、网页抓取、Wiki、Task 工具
-│   │   │       └── subagents/        # 内置 subagent 模板
-│   │   └── src/server.ts             # 入口文件
+│   │   │   ├── lib/              # 通用工具（logger、openapi、http）
+│   │   │   ├── routes/v1/        # OpenAPI v1 路由组
+│   │   │   │   ├── health.ts     # 健康检查
+│   │   │   │   ├── chats.ts      # 会话管理
+│   │   │   │   ├── llms.ts       # 模型配置
+│   │   │   │   ├── wiki.ts       # Wiki 知识库 API
+│   │   │   │   ├── crawler.ts    # 爬虫任务
+│   │   │   │   ├── tools.ts      # 工具配置
+│   │   │   │   ├── skills.ts     # 技能包
+│   │   │   │   ├── runtime-config.ts # 运行时配置
+│   │   │   │   └── ...
+│   │   │   ├── modules/          # 业务模块
+│   │   │   │   ├── wiki/         # Wiki 核心逻辑（空间、页面、导入、图谱）
+│   │   │   │   ├── crawler/      # 爬虫任务队列
+│   │   │   │   ├── chat/         # 聊天逻辑
+│   │   │   │   └── remote-connection/ # Cookie 管理
+│   │   │   └── mastra/           # AI Agent 定义
+│   │   │       ├── agents/       # feedmind-agent 主 agent
+│   │   │       ├── tools/        # 工具实现
+│   │   │       └── subagents/    # 子 agent 模板
+│   │   ├── server.ts             # 入口文件
+│   │   └── package.json
 │   │
-├── packages/
-│   ├── contracts/                    # Zod 校验 schema（前后端共享契约）
-│   ├── db/                           # Drizzle ORM schema + 迁移 + 客户端
-│   ├── shared/                       # 环境变量、Fernet 加密、日期工具
-│   ├── crawler-core/                 # 路由驱动爬虫引擎
+│   └── web/                       # React 19 前端
+│       ├── src/
+│       │   ├── routes/           # TanStack Router 路由
+│       │   │   ├── wiki.tsx      # Wiki 阅读器
+│       │   │   ├── feeds.index.tsx # 资讯首页
+│       │   │   └── ...
+│       │   ├── components/       # React 组件
+│       │   │   ├── ai-elements/  # AI 对话组件
+│       │   │   ├── chat/         # 聊天界面
+│       │   │   ├── wiki/         # Wiki 编辑器、图谱、导入
+│       │   │   ├── settings/     # 设置面板
+│       │   │   └── ui/           # shadcn/ui 基础组件
+│       │   ├── lib/              # 工具库
+│       │   │   ├── api/          # API 客户端
+│       │   │   ├── i18n/         # 国际化
+│       │   │   └── hooks/        # 自定义 hooks
+│       │   └── main.tsx          # 入口文件
+│       └── package.json
+│
+├── packages/                      # 共享包
+│   ├── contracts/                # Zod schema（前后端共享契约）
+│   ├── db/                       # Drizzle ORM + SQLite
+│   ├── shared/                   # 加密、日期工具
+│   ├── env/                      # 环境变量加载
+│   ├── crawler-core/             # 爬虫引擎核心
 │   │   ├── src/
-│   │   │   ├── core/                 # 浏览器管理、RSS 构建器、路由注册、
-│   │   │   │                         #   签名算法（WBI、x-zse-96）
-│   │   │   └── routes/               # 平台 handlers（小红书、B站、知乎、
-│   │   │                             #   抖音、快手）
-│   └── wiki-core/                    # Wiki 文件系统、frontmatter、wikilink、图谱
+│   │   │   ├── core/            # 浏览器管理、RSS 构建
+│   │   │   └── routes/          # 平台实现（xhs、bili、zhihu...）
+│   │   └── package.json
+│   └── wiki-core/                # Wiki 文件系统操作
+│       ├── src/
+│       │   ├── page-store.ts    # 页面 CRUD
+│       │   ├── graph.ts         # 图谱构建
+│       │   ├── search.ts        # 全文检索
+│       │   └── links.ts         # 双向链接解析
+│       └── package.json
 │
-├── data/
-│   ├── feedmind.db                   # SQLite 数据库
-│   └── wiki/                         # Wiki Markdown 文件
+├── data/                          # 数据目录（Git 忽略）
+│   ├── feedmind.db               # SQLite 数据库
+│   └── wiki/                     # Wiki Markdown 文件
 │
-├── docs/                             # 设计文档、架构决策、方案设计
-├── .husky/                           # Git hooks（commitlint + lint-staged）
-├── .editorconfig                     # 编辑器配置
-├── .gitattributes                    # Git 属性配置
-├── .prettierignore                   # Prettier 忽略规则
-├── commitlint.config.mjs             # 提交信息规范
-├── prettier.config.mjs               # 代码格式化配置
-├── tsconfig.base.json                # TypeScript 基础配置
-└── pnpm-workspace.yaml               # pnpm 工作空间配置
+├── docs/                          # 设计文档
+│   ├── CLAUDE.md                 # 开发者指南（本 README 补充）
+│   ├── DESIGN.md                 # 架构设计说明
+│   └── research/                 # 技术研究
+│
+├── .husky/                        # Git hooks
+├── .eslintrc.cjs                  # ESLint 配置
+├── prettier.config.mjs            # Prettier 配置
+├── commitlint.config.mjs          # Commit 规范
+├── tsconfig.base.json             # TypeScript 基础配置
+├── vitest.config.ts               # 测试配置
+└── pnpm-workspace.yaml            # Monorepo 配置
 ```
 
 ---
 
-## 🧱 架构设计
+## 🧰 技术栈
 
-### 系统架构
+### 前端
 
-```
-                    浏览器
-                       │
-              ┌────────┴────────┐
-              │                 │
-         /api/v1/*        /api/agent/*
-              │                 │
-              ▼                 ▼
-    ┌─────────────────────────────────┐
-    │  apps/api (Hono + Mastra)       │
-    │  ┌───────────────────────────┐  │
-    │  │ REST 路由                  │  │
-    │  │ LLMs / Chats / Wiki /     │  │
-    │  │ Crawler / Tools / Skills   │  │
-    │  │ RemoteConnection / Health  │  │
-    │  ├───────────────────────────┤  │
-    │  │ Mastra Agent              │  │
-    │  │ feedmind-agent + tools    │  │
-    │  └──────────┬────────────────┘  │
-    └─────────────┼───────────────────┘
-                  │
-       ┌──────────┴──────────┐
-       │                     │
-    SQLite (libSQL)     File System
-    ┌──────────────┐   data/wiki/*.md
-    │ chats        │
-    │ llms         │
-    │ runtime_conf │
-    │ crawler_tasks│
-    │ remote_conn  │
-    └──────────────┘
-```
+| 技术               | 版本   | 用途                |
+| ------------------ | ------ | ------------------- |
+| **TanStack Start** | latest | SSR/SSG 框架 + 路由 |
+| **React**          | 19     | UI 库               |
+| **Vite**           | 6      | 构建工具            |
+| **Tailwind CSS**   | 4      | 原子化 CSS          |
+| **shadcn/ui**      | latest | 组件库              |
+| **motion**         | latest | 动画                |
+| **Zod**            | 4      | 运行时验证          |
+| **i18next**        | latest | 国际化              |
+| **ai SDK**         | ^4     | Vercel AI 集成      |
 
-### 爬虫引擎架构
+### 后端
 
-```
-┌─ 路由驱动 ──────────────────────────────────────┐
-│                                                   │
-│  registerRoute("xhs/user/notes", handler)         │
-│  registerRoute("bili/user/video", handler)        │
-│  registerRoute("zh/hot", handler)                 │
-│  ...                                              │
-│                                                   │
-├─ 双路径策略 ──────────────────────────────────────┤
-│                                                   │
-│  RouteHandler({ params, cookies, signal })        │
-│       │                                           │
-│       ├─ 有 cookie → HTTP 直调用 API              │
-│       │   biliFetch() / zhihuFetch() / fetch()    │
-│       │                                           │
-│       └─ 无 cookie 或错误 → Playwright 兜底       │
-│           injectCookies(page, cookies, domain)     │
-│           page.goto() → 拦截 XHR / evaluate()     │
-│                                                   │
-├─ 输出 ────────────────────────────────────────────┤
-│                                                   │
-│  buildRssXml({ title, link, items })             │
-│  → RSS 2.0 XML（含 image、category、enclosure）   │
-│                                                   │
-└───────────────────────────────────────────────────┘
-```
+| 技术            | 版本   | 用途             |
+| --------------- | ------ | ---------------- |
+| **Hono**        | 4.x    | 轻量 Web 框架    |
+| **Mastra**      | latest | AI Agent 框架    |
+| **Drizzle ORM** | latest | TypeScript ORM   |
+| **libSQL**      | latest | 嵌入式 SQLite    |
+| **Pino**        | 9.x    | 结构化日志       |
+| **zod-openapi** | latest | OpenAPI 3.1 规范 |
 
-### Cookie 获取与同步
+### 中间件与服务
 
-```
-Chrome Extension (MV3)
-  chrome.cookies.getAll({ domain })  →  POST localhost:18790
-       │
-       ▼
-remoteConnections 表（SQLite）
-       │
-       ▼ 爬虫任务时读取
-injectCookies(page, cookies, domain)
-       │
-       ▼
-Playwright 无头浏览器 → 已登录 → 爬取平台内容
-```
-
-### 技术栈
-
-| 层级       | 技术                                                    |
-| ---------- | ------------------------------------------------------- |
-| 前端框架   | TanStack Start (Vite) + TanStack Router                 |
-| UI         | React 19、Tailwind CSS 4、motion、shadcn/ui             |
-| 国际化     | react-i18next + i18next-browser-languagedetector        |
-| 主题       | next-themes（浅色/深色/系统）                           |
-| 后端 API   | Hono 4 + @hono/zod-openapi + Scalar UI                  |
-| Agent 框架 | Mastra (`@mastra/core`)                                 |
-| AI SDK     | Vercel AI SDK (`ai`, `@ai-sdk/react`, `@ai-sdk/openai`) |
-| ORM        | Drizzle ORM                                             |
-| 数据库     | libSQL（嵌入式 SQLite）                                 |
-| 校验       | Zod 4（契约优先设计）                                   |
-| 爬虫       | 自研路由引擎 + @mastra/agent-browser (Playwright)       |
-| 搜索       | Tavily、Exa、AnySearch（级联降级）                      |
-| 网页抓取   | Firecrawl、Mozilla Readability、cheerio                 |
-| 知识图谱   | graphology + Louvain 社区检测                           |
-| 加密       | Fernet (AES-128-CBC + HMAC-SHA256)                      |
-| 日志       | pino 结构化日志 + 自动脱敏                              |
-| 测试       | Vitest                                                  |
-| 代码检查   | ESLint + Prettier + commitlint                          |
-| Monorepo   | pnpm workspaces + Turborepo                             |
-| 运行环境   | Node.js >= 24                                           |
+| 技术           | 用途                     |
+| -------------- | ------------------------ |
+| **Playwright** | 浏览器自动化（爬虫兜底） |
+| **Graphology** | 图数据结构与算法         |
+| **Firecrawl**  | 网页内容提取             |
+| **Tavily/Exa** | 网络搜索 API             |
 
 ---
 
-## 📋 API 文档
-
-API 采用 OpenAPI 3.1 规范，通过 `@hono/zod-openapi` 自动生成文档：
-
-- **交互式文档**: 启动服务后访问 `http://localhost:18790/api/v1/docs`（Scalar UI）
-- **OpenAPI JSON**: `http://localhost:18790/api/v1/openapi`
-
-### 路由概览
-
-| 分组               | 路径                            | 说明                          |
-| ------------------ | ------------------------------- | ----------------------------- |
-| Health             | `GET /health`                   | 健康检查（含数据库连接状态）  |
-| LLMs               | `/llms`                         | 模型 CRUD + 选中              |
-| Chats              | `/chats`                        | 会话 CRUD + 消息持久化        |
-| Runtime            | `/runtime-configs`              | 运行时配置（会话/Wiki 模型）  |
-| Tools              | `/tools`                        | 工具配置 CRUD                 |
-| Wiki               | `/wiki/spaces/:id/*`            | 空间、页面、来源、导入、图谱  |
-| Crawler            | `/crawler/tasks`                | 爬虫任务创建、列表、取消、RSS |
-| Remote Connections | `/remote-connections`           | 社交平台连接与 Cookie 管理    |
-| Skills             | `/skills`                       | 技能包安装、管理              |
-| Agent Chat         | `POST /api/agent/chat/:agentId` | AI 流式对话（Vite dev proxy） |
-
-### 环境变量
-
-| 变量                    | 必需   | 默认值               | 说明                                                             |
-| ----------------------- | ------ | -------------------- | ---------------------------------------------------------------- |
-| `ENCRYPTION_KEY`        | **是** | —                    | AES 加密密钥，用于加密 LLM API 密钥。`openssl rand -hex 32` 生成 |
-| `DATABASE_PATH`         | 否     | `./data/feedmind.db` | SQLite 数据库文件路径                                            |
-| `APP_ENV`               | 否     | `development`        | 运行环境（`production` 时强制校验加密密钥）                      |
-| `API_HOST`              | 否     | `127.0.0.1`          | API 监听地址（Docker 部署设为 `0.0.0.0`）                        |
-| `API_PORT`              | 否     | `18790`              | API 监听端口                                                     |
-| `WIKI_DIR`              | 否     | `data/wiki`          | Wiki Markdown 文件存储目录                                       |
-| `DISABLE_INGEST_WORKER` | 否     | —                    | 设为 `1` 禁用 Wiki 导入 worker                                   |
-
----
-
-## 📐 开发规范
-
-### 实施规范
-
-1. **Ponytail 原则** — 用最懒但能用的方案。YAGNI，不引入不需要的依赖，不搞过度工程
-2. **动手前先调研** — 涉及技术栈功能时先查最新官方文档，确保实现基于最新版本
-3. **中文注释** — 代码注释用中文，说 WHY 不说 WHAT
-4. **中文日志** — 日志消息用中文，结构化字段用英文
-
-### 提交规范
-
-遵循 Conventional Commits，格式 `type(scope): 描述`：
-
-```
-feat(crawler): 添加小红书笔记详情路由
-fix(api): 修复健康检查超时问题
-chore(deps): 升级 pino 到 v10
-docs(readme): 更新 API 文档链接
-refactor(ingest): 提取公共解析逻辑
-test(contracts): 补充 Zod schema 测试
-style(eslint): 启用 no-floating-promises 规则
-perf(worker): 优化缓存策略
-```
-
-- 提交前自动运行 `lint-staged`（prettier 格式化）
-- 提交信息自动由 `commitlint` 校验
-- 推送前运行 `pnpm run typecheck && pnpm run lint`
+## 🛠️ 开发指南
 
 ### 代码规范
 
-| 规则                                 | 约定                                                     |
-| ------------------------------------ | -------------------------------------------------------- |
-| **文件命名**                         | kebab-case（`page-store.ts`）                            |
-| **变量/函数**                        | camelCase                                                |
-| **类/类型/接口**                     | PascalCase                                               |
-| **未使用参数**                       | `_` 前缀（`_signal`、`_category`）                       |
-| **ESLint `no-explicit-any`**         | warn，避免随意使用 any                                   |
-| **ESLint `consistent-type-imports`** | error，强制 `import type`                                |
-| **ESLint `no-floating-promises`**    | error，禁止未处理的 Promise                              |
-| **TypeScript**                       | `strict: true` + `noUnusedLocals` + `noUnusedParameters` |
-| **错误处理**                         | 重新抛出时传递 `{ cause: err }`                          |
-| **主动丢弃 Promise**                 | 使用 `void` 操作符                                       |
+#### 提交规范
 
-### 共享包
+遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
 
-| 包                       | 说明                                                           |
-| ------------------------ | -------------------------------------------------------------- |
-| `@feedmind/contracts`    | Zod 4 校验 schema 和 TypeScript 类型（前后端共享的唯一契约源） |
-| `@feedmind/db`           | Drizzle ORM schema、SQLite 客户端、迁移和种子数据              |
-| `@feedmind/shared`       | 环境变量加载器、日期工具、Fernet 加密                          |
-| `@feedmind/crawler-core` | 路由驱动爬虫引擎（浏览器管理、签名算法、RSS 构建、平台实现）   |
-| `@feedmind/wiki-core`    | Wiki 文件系统操作、frontmatter 解析、wikilink、图谱            |
+```bash
+feat(wiki): 添加知识图谱可视化组件
+fix(api): 修复爬虫任务状态同步 bug
+chore(deps): 升级 Mastra 到最新版本
+docs(readme): 更新快速开始步骤
+refactor(search): 优化中文分词算法
+test(crawler): 补充小红书路由测试
+style(eslint): 启用 no-floating-promises 规则
+perf(ingest): 引入缓存减少 IO 开销
+```
+
+#### 命名约定
+
+- 文件名：`kebab-case`（如 `wiki-page-list.tsx`）
+- 变量/函数：`camelCase`
+- 类型/接口：`PascalCase`
+- 未用参数：`_prefix`（如 `_signal`, `_options`）
+
+#### 代码质量
+
+提交前自动运行：
+
+```bash
+pnpm lint-staged  # Prettier 格式化
+commitlint        # Commit 消息校验
+```
+
+推送前需通过：
+
+```bash
+pnpm run typecheck && pnpm run lint
+```
+
+### 数据库迁移
+
+```bash
+# 修改 schema 后生成迁移
+pnpm --filter @feedmind/db db:generate
+
+# 应用迁移到本地数据库
+pnpm --filter @feedmind/db db:migrate
+
+# 重置数据库（开发时调试用）
+pnpm --filter @feedmind/db db:reset
+```
+
+### 调试技巧
+
+1. **日志输出**： Pino 自动脱敏，无需担心泄露密钥
+2. **API 调试**：使用 Scalar UI 或 Postman 测试
+3. **前端调试**：React DevTools + TanStack DevTools
+4. **代理拦截**：Chrome Network 面板监听 `/api/v1/*` 请求
+
+---
+
+## 🔌 API 参考
+
+### 认证与安全
+
+除公开端点外，大部分 API 不需要显式认证（本地应用）。敏感操作通过 `.env`中的`ENCRYPTION_KEY` 加密密钥保护。
+
+### 主要端点
+
+#### AI 对话
+
+```http
+POST /api/agent/chat/:agentId
+Content-Type: application/json
+
+{
+  "message": "分析一下最新的大模型趋势",
+  "context": ["previous-chat-id"]
+}
+```
+
+#### Wiki 知识库
+
+```http
+GET  /wiki/spaces                    # 列出所有空间
+POST /wiki/spaces                    # 创建空间
+GET  /wiki/spaces/:id/pages          # 列出页面
+POST /wiki/spaces/:id/pages          # 创建页面
+PUT  /wiki/spaces/:id/pages/:pageId  # 更新页面
+DELETE /wiki/spaces/:id/pages/:pageId # 删除页面
+GET  /wiki/spaces/:id/graph          # 获取知识图谱
+POST /wiki/spaces/:id/search         # 搜索页面
+POST /wiki/spaces/:id/ingest         # 导入外部内容
+```
+
+#### 爬虫任务
+
+```http
+GET  /crawler/tasks                  # 列表
+POST /crawler/tasks                  # 创建任务
+DELETE /crawler/tasks/:id            # 取消任务
+GET  /crawler/tasks/:id/rss          # RSS 输出
+```
+
+#### 模型管理
+
+```http
+GET  /llms                           # 列出模型
+POST /llms                           # 添加模型
+PATCH  /llms/:id                     # 更新模型
+DELETE /llms/:id                     # 删除模型
+POST /llms/selected                  # 选中默认模型
+```
+
+完整文档：http://localhost:18790/api/v1/docs
+
+---
+
+## 🔑 环境变量
+
+| 变量                    | 必需   | 默认值               | 说明                                                             |
+| ----------------------- | ------ | -------------------- | ---------------------------------------------------------------- |
+| `ENCRYPTION_KEY`        | **是** | —                    | AES 加密密钥，用于加密 API 密钥。<br>`openssl rand -hex 32` 生成 |
+| `DATABASE_PATH`         | 否     | `./data/feedmind.db` | SQLite 数据库路径                                                |
+| `WIKI_DIR`              | 否     | `data/wiki`          | Wiki Markdown 目录                                               |
+| `API_PORT`              | 否     | `18790`              | API 服务端口                                                     |
+| `DISABLE_INGEST_WORKER` | 否     | —                    | 禁用后台导入进程（`1`=真）                                       |
+| `LLM_API_KEY_*`         | 按需   | —                    | 各模型 API 密钥（加密存储）                                      |
+
+完整示例见 `.env.example`。
+
+---
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 仓库
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
+4. 推送到分支 (`git push origin feature/amazing-feature`)
+5. 打开 Pull Request
+
+### 开发前提
+
+- 已运行 `pnpm install` 和 `pnpm run build:packages`
+- 代码符合 ESLint + Prettier 规范
+- 新增功能需包含单元测试（Vitest）
 
 ---
 
 ## 📄 许可证
 
-[MIT](./LICENSE)
+[MIT License](./LICENSE)
 
 ---
 
 <div align="center">
-  <p>Built with React 19, TanStack Start, Hono, Mastra</p>
-  <p>本地 · 安静 · 编辑式</p>
+
+**Built with ❤️ using React 19, Hono, Mastra & TanStack Start**
+
+本地 · 安静 · 你的知识引擎
+
 </div>

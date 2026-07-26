@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Package, Trash2, Upload } from "lucide-react";
 import type { SkillRead } from "@feedmind/contracts";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
 const skillKeys = {
   all: ["skills"] as const,
@@ -119,15 +121,17 @@ export function SkillsPanel() {
       </div>
 
       {/* Drop zone */}
-      <div
-        onDragOver={(e) => {
+      <motion.div
+        onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
           e.preventDefault();
           setDragOver(true);
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 transition-colors ${
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.995 }}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 ${
           dragOver
             ? "border-editorial-primary bg-editorial-primary/5"
             : "border-editorial-hairline hover:border-editorial-primary/40 hover:bg-editorial-surface-soft"
@@ -151,7 +155,7 @@ export function SkillsPanel() {
             {t("settings.skillDropzoneHint")}
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Installed skills */}
       {skills.length === 0 ? (
@@ -160,20 +164,28 @@ export function SkillsPanel() {
           <p className="text-[13px] text-editorial-ink-muted">{t("settings.skillEmpty")}</p>
         </div>
       ) : (
-        <div className="divide-y divide-editorial-hairline overflow-hidden rounded-lg border border-editorial-hairline">
-          {skills.map((skill) => (
-            <SkillRow
-              key={skill.name}
-              skill={skill}
-              onDelete={() => {
-                if (confirm(t("settings.skillDeleteConfirm")?.replace("{name}", skill.name))) {
-                  deleteMutation.mutate(skill.name);
-                }
-              }}
-              isDeleting={deleteMutation.isPending && deleteMutation.variables === skill.name}
-            />
-          ))}
-        </div>
+        <AnimatePresence initial={false}>
+          <motion.div
+            className="divide-y divide-editorial-hairline overflow-hidden rounded-lg border border-editorial-hairline"
+            variants={listContainerVariants}
+            initial="initial"
+            animate="animate"
+          >
+            {skills.map((skill) => (
+              <motion.div key={skill.name} layout variants={listItemVariants}>
+                <SkillRow
+                  skill={skill}
+                  onDelete={() => {
+                    if (confirm(t("settings.skillDeleteConfirm")?.replace("{name}", skill.name))) {
+                      deleteMutation.mutate(skill.name);
+                    }
+                  }}
+                  isDeleting={deleteMutation.isPending && deleteMutation.variables === skill.name}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        </AnimatePresence>
       )}
     </div>
   );

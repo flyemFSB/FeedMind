@@ -1,10 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  buildDeletedKeys,
-  cleanPageReferences,
+  conceptIdFromPath,
+  extractSourceReferences,
+  extractStringArray,
   formatFrontmatter,
   parseFrontmatter,
+  resolveConceptLink,
 } from "@feedmind/wiki-core";
 import type { WikiSourceCreate, WikiSourceListItem, WikiSourceRead } from "@feedmind/contracts";
 import { HttpError } from "../../lib/http.js";
@@ -23,7 +25,28 @@ import {
   findSourceBySlug,
   getSourceFilePath,
   sourcePageCounts,
+  isSystemFile,
 } from "./space-fs/index.js";
+import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
+import { removeIngestCache } from "./ingest-pipeline.js";
+
+export function buildSourceFrontmatter(
+  title: string,
+  kind: string,
+  timestamp: string,
+  extra: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    type: "Reference",
+    title,
+    description: `导入来源：${title}`,
+    resource: title,
+    tags: [],
+    timestamp,
+    kind,
+    ...extra,
+  };
+}
 
 export async function listWikiSources(
   spaceId: string,
@@ -57,7 +80,9 @@ export async function getWikiSource(spaceId: string, sourceId: string): Promise<
   > | null;
   if (!base) throw new HttpError(404, "HTTP_ERROR", `Wiki source does not exist (${sourceId})`);
 
-  const pageCount = sourcePageCounts(spaceId).get(base.id) ?? 0;
+  const pageCounts = sourcePageCounts(spaceId);
+  const pageCount =
+    pageCounts.get(base.id as string) ?? pageCounts.get(base.identity as string) ?? 0;
   return { ...base, page_count: pageCount };
 }
 
@@ -76,14 +101,11 @@ export async function createWikiSource(
   ensureDir(path.dirname(absPath));
 
   const now = nowISO();
-  const fm: Record<string, unknown> = {
-    title: payload.title,
-    kind: payload.kind ?? "text",
+  const fm = buildSourceFrontmatter(payload.title, payload.kind ?? "text", now, {
+    resource: payload.original_uri ?? "",
     original_uri: payload.original_uri ?? "",
     metadata: payload.metadata ?? {},
-    created: now,
-    updated: now,
-  };
+  });
   safeWriteFile(absPath, formatFrontmatter(fm) + "\n" + (payload.content ?? ""));
 
   const stat = fs.statSync(absPath);
@@ -122,17 +144,18 @@ export async function deleteWikiSource(
 
   let deletedPages = 0;
   let updatedPages = 0;
+  const deletedConceptIds = new Set<string>();
   const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
-  const wikiFiles = readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
-
-  const deletedSlugs: string[] = [];
-  const deletedKeys = new Set<string>();
+  const wikiFiles = readDirRecursive(
+    wikiDir,
+    (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
 
   for (const wf of wikiFiles) {
     try {
       const wc = fs.readFileSync(wf, "utf-8");
       const { frontmatter, body } = parseFrontmatter(wc);
-      const srcs = (frontmatter.sources as string[]) ?? [];
+      const srcs = extractSourceReferences(frontmatter);
 
       if (!srcs.includes(slug) && !srcs.includes(fileName)) continue;
 
@@ -141,15 +164,14 @@ export async function deleteWikiSource(
         if (filtered.length === 0) {
           safeUnlink(wf);
           deletedPages++;
-          const deletedSlug = path.basename(wf, ".md");
-          deletedSlugs.push(deletedSlug);
-          deletedKeys.add(deletedSlug.toLowerCase().replace(/[\s\-_]+/g, ""));
+          deletedConceptIds.add(conceptIdFromPath(path.relative(wikiDir, wf).replace(/\\/g, "/")));
           continue;
         }
       }
 
       const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
-      frontmatter.sources = filtered;
+      frontmatter.provenance = filtered;
+      delete frontmatter.sources;
       safeWriteFile(wf, formatFrontmatter(frontmatter) + "\n" + body);
       updatedPages++;
     } catch {
@@ -157,51 +179,14 @@ export async function deleteWikiSource(
     }
   }
 
-  const indexPath = path.join(getSpaceDir(spaceId), "wiki", "index.md");
-  if (deletedSlugs.length > 0 && fs.existsSync(indexPath)) {
-    try {
-      const indexContent = fs.readFileSync(indexPath, "utf-8");
-      const cleaned = indexContent.split("\n").filter((line) => {
-        const match = line.match(/\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]/);
-        if (!match) return true;
-        const refSlug = match[1]
-          .trim()
-          .toLowerCase()
-          .replace(/[\s\-_]+/g, "");
-        return !deletedKeys.has(refSlug);
-      });
-      if (cleaned.length > 0) fs.writeFileSync(indexPath, cleaned.join("\n"), "utf-8");
-    } catch {
-      /* skip */
-    }
-  }
-
-  if (deletedSlugs.length > 0) {
-    const pageRefDeletedKeys = buildDeletedKeys(
-      deletedSlugs.map((slug) => ({ slug, title: slug })),
-    );
-    for (const wikiFile of wikiFiles) {
-      if (!fs.existsSync(wikiFile)) continue;
-      try {
-        const content = fs.readFileSync(wikiFile, "utf-8");
-        const cleaned = cleanPageReferences(content, pageRefDeletedKeys);
-        if (cleaned !== null) safeWriteFile(wikiFile, cleaned);
-      } catch {
-        /* 无法清理的页面不影响来源删除 */
-      }
-    }
-  }
-
-  const logPath = path.join(getSpaceDir(spaceId), "wiki", "log.md");
-  try {
-    let logContent = "";
-    if (fs.existsSync(logPath)) logContent = fs.readFileSync(logPath, "utf-8");
-    if (!logContent.trim()) logContent = "# Change Log\n\n";
-    const entry = `- ${nowISO().replace("T", " ").slice(0, 16)}: Deleted source "${slug}". ${deletedPages > 0 ? `${deletedPages} orphan pages removed. ` : ""}${updatedPages > 0 ? `${updatedPages} pages updated.` : ""}\n`;
-    fs.writeFileSync(logPath, logContent + entry, "utf-8");
-  } catch {
-    /* skip */
-  }
+  cleanDeletedConceptLinks(wikiDir, deletedConceptIds);
+  removeIngestCache(spaceId, slug);
+  removeIngestCache(spaceId, fileName);
+  rebuildOkfIndexes(spaceId);
+  appendOkfLog(
+    spaceId,
+    `删除来源“${slug}”：删除 ${deletedPages} 个概念，更新 ${updatedPages} 个概念。`,
+  );
 
   return { deleted_pages: deletedPages, updated_pages: updatedPages };
 }
@@ -216,7 +201,10 @@ export async function previewDeleteImpact(
   const fileName = path.basename(filePath);
   const slug = path.basename(filePath, path.extname(filePath));
   const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
-  const wikiFiles = readDirRecursive(wikiDir, (_f, name) => name.endsWith(".md"));
+  const wikiFiles = readDirRecursive(
+    wikiDir,
+    (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
 
   const willDelete: string[] = [];
   const willUpdate: string[] = [];
@@ -226,7 +214,7 @@ export async function previewDeleteImpact(
     try {
       const content = fs.readFileSync(wf, "utf-8");
       const { frontmatter } = parseFrontmatter(content);
-      const srcs = (frontmatter.sources as string[]) ?? [];
+      const srcs = extractSourceReferences(frontmatter);
       if (!srcs.includes(slug) && !srcs.includes(fileName)) {
         unaffected++;
         continue;
@@ -240,4 +228,40 @@ export async function previewDeleteImpact(
   }
 
   return { willDelete, willUpdate, unaffected };
+}
+
+function cleanDeletedConceptLinks(wikiDir: string, deletedConceptIds: Set<string>): void {
+  if (deletedConceptIds.size === 0) return;
+
+  const wikiFiles = readDirRecursive(
+    wikiDir,
+    (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
+
+  for (const filePath of wikiFiles) {
+    try {
+      const raw = fs.readFileSync(filePath, "utf-8");
+      const parsed = parseFrontmatter(raw);
+      const currentId = conceptIdFromPath(path.relative(wikiDir, filePath).replace(/\\/g, "/"));
+      const cleanedBody = parsed.body.replace(
+        /(?<!!)\[([^\]]+)\]\(\s*(<[^>]+>|[^)\s]+)(?:\s+["'][^)]*["'])?\s*\)/g,
+        (match, label: string, rawTarget: string) => {
+          const target = rawTarget.startsWith("<") ? rawTarget.slice(1, -1) : rawTarget;
+          const targetId = resolveConceptLink(currentId, target);
+          return targetId && deletedConceptIds.has(targetId) ? label : match;
+        },
+      );
+      const related = extractStringArray(parsed.frontmatter, "related");
+      const filteredRelated = related.filter(
+        (id) => !deletedConceptIds.has(id.replace(/\.md$/i, "")),
+      );
+      const nextFrontmatter = { ...parsed.frontmatter };
+      if (filteredRelated.length !== related.length) nextFrontmatter.related = filteredRelated;
+      if (cleanedBody !== parsed.body || filteredRelated.length !== related.length) {
+        safeWriteFile(filePath, formatFrontmatter(nextFrontmatter) + "\n" + cleanedBody);
+      }
+    } catch {
+      /* 单个页面清理失败不阻塞来源删除。 */
+    }
+  }
 }

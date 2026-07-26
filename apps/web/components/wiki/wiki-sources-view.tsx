@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { FileText, Globe, Loader2, Play, Trash2, Type } from "lucide-react";
-import { deleteWikiSource, runIngest } from "@/lib/api/wiki";
+import { AnimatePresence, motion } from "motion/react";
+import { FileText, Globe, Play, Trash2, Type } from "lucide-react";
+import { deleteWikiSource, previewDeleteImpact, runIngest } from "@/lib/api/wiki";
 import { useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiKeys } from "@/lib/hooks/use-wiki";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { fadeSlideVariants, listContainerVariants, listItemVariants } from "@/lib/motion";
 import { useTranslation } from "react-i18next";
 
 interface WikiSourcesViewProps {
@@ -22,13 +25,20 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
-
   const invalidateSources = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
   }, [queryClient, spaceId]);
 
   const handleDelete = async (sourceId: string) => {
     try {
+      const impact = await previewDeleteImpact(spaceId, sourceId);
+      const confirmed = window.confirm(
+        t("wiki.deleteImpactConfirm", {
+          deleteCount: impact.willDelete.length,
+          updateCount: impact.willUpdate.length,
+        }),
+      );
+      if (!confirmed) return;
       await deleteWikiSource(spaceId, sourceId, "detach");
       invalidateSources();
     } catch {
@@ -135,11 +145,18 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
           </div>
         ) : (
-          <div className="divide-y divide-editorial-surface-soft">
+          <motion.div
+            className="divide-y divide-editorial-surface-soft"
+            variants={listContainerVariants}
+            initial="initial"
+            animate="animate"
+          >
             {sources.map((source) => (
-              <div
+              <motion.div
                 key={source.id}
-                className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-editorial-canvas-soft group"
+                layout
+                variants={listItemVariants}
+                className="flex items-center gap-4 px-6 py-3 hover:bg-editorial-canvas-soft group"
               >
                 <div className="text-editorial-ink-muted shrink-0">{kindIcon(source.kind)}</div>
                 <div className="min-w-0 flex-1">
@@ -158,44 +175,59 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                     </span>
                   )}
                 </div>
-                <button
+                <motion.button
                   onClick={() => handleIngest(source.identity, source.title)}
                   disabled={ingestingId === source.identity}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                  whileHover={{ scale: 1.08, opacity: 1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
                   title={
                     ingestingId === source.identity ? t("wiki.ingestingTitle") : t("wiki.runIngest")
                   }
                 >
                   {ingestingId === source.identity ? (
-                    <Loader2 size={12} className="animate-spin" />
+                    <MotionSpinner size={12} />
                   ) : (
                     <Play size={12} />
                   )}
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   onClick={() => handleDelete(source.id)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
+                  whileHover={{ scale: 1.08, opacity: 1 }}
+                  whileTap={{ scale: 0.9 }}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
                   title={t("wiki.deleteSource")}
                 >
                   <Trash2 size={13} />
-                </button>
-              </div>
+                </motion.button>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
 
         {/* 导入结果提示 */}
-        {ingestResult && (
-          <div className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-[12px] leading-relaxed text-editorial-ink shadow-sm">
-            {ingestResult}
-            <button
-              className="ml-2 text-editorial-ink-muted hover:text-editorial-ink"
-              onClick={() => setIngestResult(null)}
+        <AnimatePresence initial={false}>
+          {ingestResult && (
+            <motion.div
+              key="ingest-result"
+              variants={fadeSlideVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-[12px] leading-relaxed text-editorial-ink shadow-sm"
             >
-              ✕
-            </button>
-          </div>
-        )}
+              {ingestResult}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.92 }}
+                className="ml-2 text-editorial-ink-muted hover:text-editorial-ink"
+                onClick={() => setIngestResult(null)}
+              >
+                ✕
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

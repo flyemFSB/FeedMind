@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { motion } from "motion/react";
 import { Plus, Trash2, Rss, Globe, Cookie, User, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { Button } from "@/components/ui/button";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { Xiaohongshu, Douyin, Bilibili, Zhihu } from "@/components/icons/remote-connection-icons";
 
@@ -241,7 +244,7 @@ function SourcesPage() {
                 size="sm"
                 className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
               >
-                <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+                {syncing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
                 {t("feeds.sync")}
               </Button>
             </div>
@@ -253,7 +256,7 @@ function SourcesPage() {
                 onChange={(e) => setNewUrl(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                 placeholder={t("feeds.inputPlaceholder")}
-                className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
               />
               <Button
                 onClick={handleAdd}
@@ -273,16 +276,23 @@ function SourcesPage() {
                 <p className="text-[13px] text-editorial-ink-muted">{t("feeds.noSubscriptions")}</p>
               </div>
             ) : (
-              <div className="divide-y divide-editorial-hairline border-y border-editorial-hairline">
+              <motion.div
+                className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
+                variants={listContainerVariants}
+                initial="initial"
+                animate="animate"
+              >
                 {sources.map((source) => {
                   const Icon =
                     source.type === "social" && source.platform
                       ? (PLATFORM_ICONS[source.platform] ?? Globe)
                       : Rss;
                   return (
-                    <div
+                    <motion.div
                       key={source.id}
-                      className="group flex items-center gap-3 px-2 py-3 transition-colors hover:bg-editorial-surface-soft"
+                      layout
+                      variants={listItemVariants}
+                      className="group flex items-center gap-3 px-2 py-3 hover:bg-editorial-surface-soft"
                     >
                       <Icon size={20} />
                       <div className="min-w-0 flex-1">
@@ -309,23 +319,25 @@ function SourcesPage() {
                           )}
                         </p>
                       </div>
-                      <button
+                      <motion.button
                         type="button"
                         onClick={() => handleDelete(source.id)}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-muted opacity-0 transition-[opacity,background-color,color] [transition-duration:var(--motion-fast)] [transition-timing-function:var(--ease-out)] hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.9 }}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100"
                       >
                         <Trash2 size={13} />
-                      </button>
-                    </div>
+                      </motion.button>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </motion.div>
             )}
           </div>
         </div>
 
         {/* 分隔线 */}
-        <div className="my-6 w-px shrink-0 bg-editorial-hairline max-sm:hidden" />
+        <div className="my-6 w-px shrink-0 bg-editorial-hairline shadow-[-1px_0_2px_rgba(0,0,0,0.03)] max-sm:hidden" />
 
         {/* 右：Cookie 管理 */}
         <div className="flex w-96 shrink-0 flex-col gap-6 p-6 pl-8 max-lg:w-72 max-sm:w-full max-sm:p-4 max-sm:pl-4">
@@ -350,7 +362,7 @@ function SourcesPage() {
                     onChange={(e) => setCookiecloudUuid(e.target.value)}
                     readOnly={hasConfig}
                     placeholder={hasConfig ? "" : t("feeds.cookieUuidPlaceholder")}
-                    className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted read-only:cursor-not-allowed read-only:text-editorial-ink-muted"
+                    className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted read-only:cursor-not-allowed read-only:text-editorial-ink-muted"
                   />
                 </div>
                 <div>
@@ -363,7 +375,7 @@ function SourcesPage() {
                       value={cookiecloudPassword}
                       onChange={(e) => setCookiecloudPassword(e.target.value)}
                       placeholder={hasConfig ? "******" : "输入加密密码"}
-                      className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                      className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
                     />
                     <button
                       type="button"
@@ -412,7 +424,12 @@ function SourcesPage() {
               </div>
               <p className="mt-1 text-[12px] text-editorial-ink-muted">各平台登录 Cookie 状态</p>
             </div>
-            <div className="divide-y divide-editorial-hairline border-y border-editorial-hairline">
+            <motion.div
+              className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
+              variants={listContainerVariants}
+              initial="initial"
+              animate="animate"
+            >
               {[
                 { id: "xiaohongshu", label: "小红书", icon: Xiaohongshu },
                 { id: "bilibili", label: "B站", icon: Bilibili },
@@ -421,9 +438,11 @@ function SourcesPage() {
               ].map((platform) => {
                 const isConfigured = cookieStatus[platform.id] ?? false;
                 return (
-                  <div
+                  <motion.div
                     key={platform.id}
-                    className="group flex items-center gap-3 px-2 py-3 transition-colors hover:bg-editorial-surface-soft"
+                    layout
+                    variants={listItemVariants}
+                    className="group flex items-center gap-3 px-2 py-3 hover:bg-editorial-surface-soft"
                   >
                     <platform.icon size={20} />
                     <span className="min-w-0 flex-1 text-[13px] font-medium text-editorial-ink">
@@ -439,10 +458,10 @@ function SourcesPage() {
                     >
                       {isConfigured ? "已配置" : "未配置"}
                     </span>
-                  </div>
+                  </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

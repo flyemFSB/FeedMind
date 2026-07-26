@@ -1,0 +1,77 @@
+/* Milkdown Crepe 编辑器主题覆写——将 crepe 变量映射到项目 editorial 设计令牌 */
+@import "@milkdown/crepe/theme/common/style.css";
+
+/* 亮色主题 */
+.milkdown {
+  --crepe-color-background: var(--editorial-surface-card);
+  --crepe-color-on-background: var(--editorial-ink);
+  --crepe-color-surface: var(--editorial-surface-soft);
+  --crepe-color-surface-low: var(--editorial-surface-strong);
+  --crepe-color-on-surface: var(--editorial-ink);
+  --crepe-color-on-surface-variant: var(--editorial-ink-soft);
+  --crepe-color-outline: var(--editorial-hairline-strong);
+  --crepe-color-primary: var(--editorial-primary);
+  --crepe-color-secondary: var(--editorial-hairline);
+  --crepe-color-on-secondary: var(--editorial-ink);
+  --crepe-color-inverse: var(--editorial-surface-soft);
+  --crepe-color-on-inverse: var(--editorial-ink);
+  --crepe-color-inline-code: var(--editorial-semantic-error);
+  --crepe-color-error: var(--editorial-semantic-error);
+  --crepe-color-hover: var(--editorial-surface-soft);
+  --crepe-color-selected: var(--editorial-surface-strong);
+  --crepe-color-inline-area: var(--editorial-surface-strong);
+
+  --crepe-font-title: var(--font-sans);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+
+  --crepe-shadow-1: 0px 1px 3px 1px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
+  --crepe-shadow-2: 0px 2px 6px 2px rgba(0, 0, 0, 0.08), 0px 1px 2px 0px rgba(0, 0, 0, 0.12);
+}
+
+/* 暗色主题——通过 .dark 祖先类触发 */
+.dark .milkdown {
+  --crepe-color-background: var(--editorial-surface-card);
+  --crepe-color-on-background: var(--editorial-ink);
+  --crepe-color-surface: var(--editorial-surface-soft);
+  --crepe-color-surface-low: var(--editorial-surface-strong);
+  --crepe-color-on-surface: var(--editorial-ink);
+  --crepe-color-on-surface-variant: var(--editorial-ink-soft);
+  --crepe-color-outline: var(--editorial-hairline-strong);
+  --crepe-color-primary: var(--editorial-primary);
+  --crepe-color-secondary: var(--editorial-hairline);
+  --crepe-color-on-secondary: var(--editorial-ink);
+  --crepe-color-inverse: var(--editorial-surface-soft);
+  --crepe-color-on-inverse: var(--editorial-ink);
+  --crepe-color-inline-code: #ff6666;
+  --crepe-color-error: #ff6666;
+  --crepe-color-hover: var(--editorial-surface-soft);
+  --crepe-color-selected: var(--editorial-surface-strong);
+  --crepe-color-inline-area: var(--editorial-surface-strong);
+
+  --crepe-shadow-1: 0px 1px 2px 0px rgba(255, 255, 255, 0.1), 0px 1px 3px 1px rgba(255, 255, 255, 0.06);
+  --crepe-shadow-2: 0px 1px 2px 0px rgba(255, 255, 255, 0.1), 0px 2px 6px 2px rgba(255, 255, 255, 0.06);
+}
+
+/* 编辑器容器基础样式 */
+.milkdown {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.milkdown .editor {
+  min-height: 100%;
+  padding: 1.5rem;
+  outline: none;
+}
+
+/* 标题使用 sans-serif 而非 crepe 默认的 serif */
+.milkdown .editor h1,
+.milkdown .editor h2,
+.milkdown .editor h3,
+.milkdown .editor h4 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

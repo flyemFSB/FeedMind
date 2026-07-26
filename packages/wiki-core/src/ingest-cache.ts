@@ -9,7 +9,7 @@ export function loadCache(json: string): Map<string, IngestCacheEntry> {
   try {
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return new Map();
-    return new Map(parsed.map((e: IngestCacheEntry) => [e.sourceIdentity, e]));
+    return new Map(parsed.map((entry: IngestCacheEntry) => [entry.sourceIdentity, entry]));
   } catch {
     return new Map();
   }
@@ -25,8 +25,7 @@ export function checkCache(
   sourceHash: string,
 ): string[] | null {
   const entry = cache.get(sourceIdentity);
-  if (!entry) return null;
-  if (entry.sourceHash !== sourceHash) return null;
+  if (entry?.sourceHash !== sourceHash) return null;
   return entry.filesWritten;
 }
 

@@ -49,23 +49,12 @@ export type MessageResponseProps = {
   isAnimating?: boolean;
 };
 
-const STREAM_ANIMATION = {
-  animation: "fadeIn" as const,
-  duration: 90,
-  easing: "cubic-bezier(0.23, 1, 0.32, 1)",
-  sep: "char" as const,
-  stagger: 4,
-};
-
 export const MessageResponse = memo(function MessageResponse({
   className,
-  isAnimating = false,
   ...props
 }: MessageResponseProps) {
   return (
     <MessageResponseContent
-      animated={STREAM_ANIMATION}
-      isAnimating={isAnimating}
       className={cn(
         "prose prose-sm max-w-none",
         "prose-headings:text-editorial-ink prose-headings:font-display",
@@ -90,7 +79,6 @@ export function MessageActions({ className, children, ...props }: MessageActions
       className={cn(
         "flex items-center gap-1",
         "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-        "transition-opacity duration-150",
         className,
       )}
       {...props}

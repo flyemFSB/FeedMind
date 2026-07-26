@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { CheckCircle2, FileText, Globe, Loader2, Upload, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { CheckCircle2, FileText, Globe, Upload, X } from "lucide-react";
 import { uploadWikiFile, createWikiSource } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { fadeSlideVariants } from "@/lib/motion";
 
 // ─── Props ────────────────────────────────────────────────────
 
@@ -38,19 +41,23 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
         {/* Header row — no border, kept clean */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
-          <button
+          <motion.button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted transition-colors hover:bg-editorial-surface-soft"
+            type="button"
+            whileTap={{ scale: 0.92 }}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft"
           >
             <X size={16} />
-          </button>
+          </motion.button>
         </div>
 
         {/* Tab bar — plain buttons, full control over styling */}
         <div className="mx-6 mt-3 flex gap-5 border-b border-editorial-surface-strong">
-          <button
+          <motion.button
             onClick={() => setTab("file")}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium ${
               tab === "file"
                 ? "text-editorial-primary"
                 : "text-editorial-ink-muted hover:text-editorial-ink"
@@ -59,12 +66,18 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <FileText size={15} strokeWidth={1.6} />
             {t("wiki.uploadFile")}
             {tab === "file" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-md" />
+              <motion.span
+                layoutId="import-tab-indicator"
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute right-0 bottom-0 left-0 h-0.5 rounded-md bg-editorial-primary"
+              />
             )}
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             onClick={() => setTab("url")}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium transition-colors ${
+            type="button"
+            whileTap={{ scale: 0.98 }}
+            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium ${
               tab === "url"
                 ? "text-editorial-primary"
                 : "text-editorial-ink-muted hover:text-editorial-ink"
@@ -73,17 +86,39 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <Globe size={15} strokeWidth={1.6} />
             {t("wiki.pasteLink")}
             {tab === "url" && (
-              <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-editorial-primary rounded-md" />
+              <motion.span
+                layoutId="import-tab-indicator"
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute right-0 bottom-0 left-0 h-0.5 rounded-md bg-editorial-primary"
+              />
             )}
-          </button>
+          </motion.button>
         </div>
 
         <div className="min-h-[240px] px-6 py-5">
-          {tab === "file" ? (
-            <FileUploadTab spaceId={spaceId} onImported={onImported} />
-          ) : (
-            <UrlPasteTab spaceId={spaceId} onImported={onImported} />
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            {tab === "file" ? (
+              <motion.div
+                key="file"
+                variants={fadeSlideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <FileUploadTab spaceId={spaceId} onImported={onImported} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="url"
+                variants={fadeSlideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                <UrlPasteTab spaceId={spaceId} onImported={onImported} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </DialogContent>
     </Dialog>
@@ -169,14 +204,14 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 ${
           dragOver
             ? "border-editorial-primary bg-editorial-primary/10"
             : "border-editorial-hairline bg-editorial-canvas-soft hover:border-editorial-ink-muted"
         }`}
       >
         {uploading ? (
-          <Loader2 size={28} className="animate-spin text-editorial-primary" />
+          <MotionSpinner size={28} className="text-editorial-primary" />
         ) : (
           <Upload size={28} className="text-editorial-ink-muted" strokeWidth={1.5} />
         )}
@@ -301,7 +336,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           {t("wiki.urlLabel")}
         </label>
         <textarea
-          className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none transition-colors focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
+          className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
@@ -330,7 +365,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
         >
           {processing ? (
             <>
-              <Loader2 size={14} className="animate-spin" />
+              <MotionSpinner size={14} />
               {t("wiki.importing")}
             </>
           ) : (

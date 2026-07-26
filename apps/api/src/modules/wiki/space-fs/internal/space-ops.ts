@@ -3,14 +3,7 @@ import path from "node:path";
 import { ensureDir, safeWriteFile } from "./io.js";
 import { getSpaceDir, getWikiRootDir, getRegistryPath, getSpaceMetaPath } from "./paths.js";
 
-const SPACE_SUBDIRS = [
-  "wiki",
-  "wiki/entities",
-  "wiki/concepts",
-  "wiki/sources",
-  "raw/sources",
-  ".llm-wiki",
-];
+const SPACE_SUBDIRS = ["wiki", "raw/sources", ".feedmind"];
 
 export function createSpaceDirs(spaceId: string): void {
   const base = getSpaceDir(spaceId);
@@ -49,6 +42,6 @@ export async function deleteSpaceDir(spaceId: string): Promise<void> {
   await fs.rm(getSpaceDir(spaceId), { recursive: true, force: true });
 }
 
-export function ensureLlmWikiDir(spaceId: string): void {
-  ensureDir(getSpaceDir(spaceId) + "/.llm-wiki");
+export function ensureRuntimeDir(spaceId: string): void {
+  ensureDir(path.join(getSpaceDir(spaceId), ".feedmind"));
 }

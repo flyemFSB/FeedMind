@@ -1,5 +1,6 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, BookOpen, ChevronDown, Import, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { fadeSlideVariants } from "@/lib/motion";
 
 type WikiView = "pages" | "graph" | "lint" | "sources";
 const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "sources"];
@@ -86,7 +88,7 @@ function MyWikiPage() {
   const spaceIdRef = useRef(spaceId);
   spaceIdRef.current = spaceId;
 
-  const handleWikilinkClick = useCallback(
+  const handleConceptLinkClick = useCallback(
     async (target: string): Promise<string | null> => {
       const currentSpaceId = spaceIdRef.current;
       if (!currentSpaceId) return null;
@@ -173,7 +175,7 @@ function MyWikiPage() {
   const spaceTitle = spaceId ? (
     <DropdownMenu open={showSpaceMenu} onOpenChange={setShowSpaceMenu}>
       <DropdownMenuTrigger
-        className="flex cursor-pointer items-center gap-1.5 text-[16px] font-semibold text-editorial-ink transition-colors hover:text-editorial-primary"
+        className="flex cursor-pointer items-center gap-1.5 text-[16px] font-semibold text-editorial-ink hover:text-editorial-primary"
         aria-label={t("wiki.switchSpace")}
       >
         <span>{spaceName}</span>
@@ -215,36 +217,47 @@ function MyWikiPage() {
     <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
       <div className="flex h-full min-h-0">
         <div className="flex min-h-0 min-w-0 flex-1">
-          {activeView === "pages" && (
-            <DualPaneLayout
-              spaceId={spaceId}
-              activePageId={activePageId}
-              isEditing={isEditing}
-              onPageSelect={handlePageSelect}
-              onClearPage={() => {
-                setActivePageId(null);
-                setIsEditing(false);
-              }}
-              onEdit={() => setIsEditing(true)}
-              onCancelEdit={() => setIsEditing(false)}
-              onWikilinkClick={handleWikilinkClick}
-            />
-          )}
-          {activeView === "graph" && spaceId && (
-            <WikiGraphView
-              spaceId={spaceId}
-              onPageSelect={handlePageSelect}
-              onNavigate={handleWikilinkClick}
-            />
-          )}
-          {activeView === "lint" && spaceId && (
-            <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
-          )}
-          {activeView === "sources" && spaceId && (
-            <div className="flex-1 overflow-y-auto">
-              <WikiSourcesView spaceId={spaceId} />
-            </div>
-          )}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeView}
+              className="flex min-h-0 min-w-0 flex-1"
+              variants={fadeSlideVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              {activeView === "pages" && (
+                <DualPaneLayout
+                  spaceId={spaceId}
+                  activePageId={activePageId}
+                  isEditing={isEditing}
+                  onPageSelect={handlePageSelect}
+                  onClearPage={() => {
+                    setActivePageId(null);
+                    setIsEditing(false);
+                  }}
+                  onEdit={() => setIsEditing(true)}
+                  onCancelEdit={() => setIsEditing(false)}
+                  onConceptLinkClick={handleConceptLinkClick}
+                />
+              )}
+              {activeView === "graph" && spaceId && (
+                <WikiGraphView
+                  spaceId={spaceId}
+                  onPageSelect={handlePageSelect}
+                  onNavigate={handleConceptLinkClick}
+                />
+              )}
+              {activeView === "lint" && spaceId && (
+                <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
+              )}
+              {activeView === "sources" && spaceId && (
+                <div className="flex-1 overflow-y-auto">
+                  <WikiSourcesView spaceId={spaceId} />
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 
@@ -286,7 +299,7 @@ function DualPaneLayout({
   onClearPage,
   onEdit,
   onCancelEdit,
-  onWikilinkClick,
+  onConceptLinkClick,
 }: {
   spaceId: string;
   activePageId: string | null;
@@ -295,12 +308,12 @@ function DualPaneLayout({
   onClearPage: () => void;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onWikilinkClick: (target: string) => void;
+  onConceptLinkClick: (target: string) => void;
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <aside
-        className={`h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-editorial-hairline bg-editorial-surface-soft/60 ${
+        className={`h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-editorial-hairline bg-editorial-surface-soft/60 shadow-[1px_0_2px_rgba(0,0,0,0.03)] ${
           activePageId ? "flex max-md:hidden" : "flex max-md:w-full"
         }`}
       >
@@ -324,27 +337,38 @@ function DualPaneLayout({
             </button>
           </div>
         )}
-        {activePageId ? (
-          isEditing ? (
-            <WikiEditor
-              spaceId={spaceId}
-              pageId={activePageId}
-              onSave={() => {
-                onCancelEdit();
-              }}
-              onCancel={onCancelEdit}
-            />
-          ) : (
-            <WikiReader
-              spaceId={spaceId}
-              pageId={activePageId}
-              onEdit={onEdit}
-              onNavigate={onWikilinkClick}
-            />
-          )
-        ) : (
-          <WikiEmptyState />
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activePageId ? `${activePageId}-${isEditing ? "edit" : "read"}` : "empty"}
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            variants={fadeSlideVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {activePageId ? (
+              isEditing ? (
+                <WikiEditor
+                  spaceId={spaceId}
+                  pageId={activePageId}
+                  onSave={() => {
+                    onCancelEdit();
+                  }}
+                  onCancel={onCancelEdit}
+                />
+              ) : (
+                <WikiReader
+                  spaceId={spaceId}
+                  pageId={activePageId}
+                  onEdit={onEdit}
+                  onNavigate={onConceptLinkClick}
+                />
+              )
+            ) : (
+              <WikiEmptyState />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,10 +1,18 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Network,
   RefreshCw,
   Search,
-  Loader2,
   Type,
   Layers,
   Lightbulb,
@@ -40,6 +48,8 @@ import { getWikiGraph, getWikiGraphInsights } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { drawerVariants } from "@/lib/motion";
 import { WIKI_TYPE_LABELS } from "./constants";
 import { WikiReader } from "./wiki-reader";
 import { useTranslation } from "react-i18next";
@@ -202,7 +212,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
   if (loading) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
-        <Loader2 className="h-8 w-8 animate-spin opacity-50" />
+        <MotionSpinner size={32} className="opacity-50" />
         <p className="text-sm">{t("wiki.graphLoading")}</p>
       </div>
     );
@@ -315,8 +325,9 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                 if (!sp || !tp) return null;
                 const isConnected = hoveredNodeId === edge.source || hoveredNodeId === edge.target;
                 return (
-                  <line
+                  <motion.line
                     key={`edge-${i}`}
+                    initial={false}
                     x1={sp.x}
                     y1={sp.y}
                     x2={tp.x}
@@ -324,7 +335,11 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                     stroke={isConnected ? "#7aaef7" : "#c9d9ef"}
                     strokeWidth={isConnected ? 1.8 : 0.65 + Math.min(edge.weight, 8) * 0.14}
                     opacity={hoveredNodeId ? (isConnected ? 0.95 : 0.08) : 0.5}
-                    className="transition-[opacity,stroke-width] duration-150"
+                    animate={{
+                      opacity: hoveredNodeId ? (isConnected ? 0.95 : 0.08) : 0.5,
+                      strokeWidth: isConnected ? 1.8 : 0.65 + Math.min(edge.weight, 8) * 0.14,
+                    }}
+                    transition={{ duration: 0.18 }}
                   />
                 );
               })}
@@ -340,49 +355,59 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                     ? COMMUNITY_COLORS[(node.community ?? 0) % COMMUNITY_COLORS.length]
                     : nodeColor(node.type);
                 return (
-                  <g
+                  <motion.g
                     key={node.id}
+                    initial={false}
                     data-graph-node
                     onClick={() => handleNodeClick(node)}
                     onMouseEnter={() => setHoveredNodeId(node.id)}
                     onMouseLeave={() => setHoveredNodeId(null)}
                     onFocus={() => setHoveredNodeId(node.id)}
                     onBlur={() => setHoveredNodeId(null)}
-                    onKeyDown={(event) => {
+                    onKeyDown={(event: KeyboardEvent<SVGGElement>) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
                         handleNodeClick(node);
                       }
                     }}
-                    className="cursor-pointer transition-opacity duration-150"
+                    className="cursor-pointer"
                     style={{ cursor: "pointer" }}
+                    animate={{ opacity: isHighlighted ? 1 : 0.2 }}
+                    whileHover={{ scale: 1.04 }}
+                    transition={{ duration: 0.18 }}
                     role="button"
                     tabIndex={0}
                     aria-label={node.label}
                   >
                     <title>{node.label}</title>
-                    <circle
+                    <motion.circle
+                      initial={false}
                       cx={pos.x}
                       cy={pos.y}
                       r={size}
                       fill={color}
-                      opacity={isHighlighted ? 0.95 : 0.16}
+                      animate={{
+                        r: isHovered ? size + 1 : size,
+                        opacity: isHighlighted ? 0.95 : 0.16,
+                        strokeWidth: isHovered ? 2.5 : 1.5,
+                      }}
                       stroke="var(--editorial-surface-card)"
                       strokeWidth={isHovered ? 2.5 : 1.5}
                     />
-                    <text
+                    <motion.text
+                      initial={false}
                       x={pos.x}
                       y={pos.y + size + 12}
                       textAnchor="middle"
                       fill="var(--editorial-ink-soft)"
                       fontSize="10"
                       fontWeight={isHovered ? 600 : 500}
-                      opacity={isHighlighted ? 1 : 0.2}
-                      className="pointer-events-none transition-opacity duration-150"
+                      animate={{ opacity: isHighlighted ? 1 : 0.2 }}
+                      className="pointer-events-none"
                     >
                       {node.label.length > 15 ? node.label.slice(0, 15) + "…" : node.label}
-                    </text>
-                  </g>
+                    </motion.text>
+                  </motion.g>
                 );
               })}
             </g>
@@ -392,17 +417,19 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           <div className="absolute bottom-3 left-3 rounded-lg border border-editorial-hairline bg-editorial-surface-card/95 px-3 py-2 text-xs">
             {colorMode === "type" ? (
               <div className="flex flex-col gap-1">
-                {Object.entries(GRAPH_TYPE_COLORS).map(([type, color]) => (
-                  <div key={type} className="flex items-center gap-2">
-                    <span
-                      className="inline-block h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
-                    <span className="text-[12px] text-editorial-ink-soft">
-                      {WIKI_TYPE_LABELS[type] || type}
-                    </span>
-                  </div>
-                ))}
+                {[...new Set(nodes.map((node) => node.type))]
+                  .sort((a, b) => a.localeCompare(b, "zh-CN"))
+                  .map((type) => (
+                    <div key={type} className="flex items-center gap-2">
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: nodeColor(type) }}
+                      />
+                      <span className="text-[12px] text-editorial-ink-soft">
+                        {WIKI_TYPE_LABELS[type] || type}
+                      </span>
+                    </div>
+                  ))}
               </div>
             ) : (
               <div className="flex flex-col gap-1">
@@ -423,82 +450,102 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
         </div>
 
         {/* Insights Panel */}
-        {showInsights && insights && (
-          <div className="motion-panel w-80 shrink-0 border-l bg-editorial-surface-card overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[13px] font-semibold text-editorial-ink">
-                {t("wiki.insightsTitle")}
-              </span>
-              <button onClick={() => setShowInsights(false)}>
-                <X size={14} />
-              </button>
-            </div>
+        <AnimatePresence initial={false}>
+          {showInsights && insights && (
+            <motion.div
+              className="w-80 shrink-0 border-l border-editorial-hairline bg-editorial-surface-card overflow-y-auto p-4 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]"
+              key="insights"
+              variants={drawerVariants}
+              initial="closed"
+              animate="open"
+              exit="closed"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[13px] font-semibold text-editorial-ink">
+                  {t("wiki.insightsTitle")}
+                </span>
+                <button onClick={() => setShowInsights(false)}>
+                  <X size={14} />
+                </button>
+              </div>
 
-            {insights.surprising?.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                  <Link2 size={14} className="text-blue-500" /> {t("wiki.unexpectedLinks")}
-                </div>
-                {insights.surprising.map((conn, i: number) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border p-3 mb-2 text-sm hover:bg-editorial-canvas-soft cursor-pointer"
-                    onClick={() => {
-                      onPageSelect(conn.source.id);
-                    }}
-                  >
-                    <div className="font-medium text-xs mb-1">
-                      {conn.source.label} ↔ {conn.target.label}
+              {insights.surprising?.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
+                    <Link2 size={14} className="text-blue-500" /> {t("wiki.unexpectedLinks")}
+                  </div>
+                  {insights.surprising.map((conn, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border p-3 mb-2 text-sm hover:bg-editorial-canvas-soft cursor-pointer"
+                      onClick={() => {
+                        onPageSelect(conn.source.id);
+                      }}
+                    >
+                      <div className="font-medium text-xs mb-1">
+                        {conn.source.label} ↔ {conn.target.label}
+                      </div>
+                      <p className="text-[12px] text-editorial-ink-muted">
+                        {conn.reasons.join(", ")}
+                      </p>
                     </div>
-                    <p className="text-[12px] text-editorial-ink-muted">
-                      {conn.reasons.join(", ")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {insights.gaps?.length > 0 && (
-              <div>
-                <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                  <AlertTriangle size={14} className="text-amber-500" /> {t("wiki.knowledgeGaps")}
+                  ))}
                 </div>
-                {insights.gaps.map((gap, i: number) => (
-                  <div key={i} className="rounded-lg border p-3 mb-2">
-                    <div className="font-medium text-xs mb-1">{gap.title}</div>
-                    <p className="text-[12px] text-editorial-ink-muted mb-1">{gap.description}</p>
-                    <p className="text-[12px] italic text-editorial-ink-muted">{gap.suggestion}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+              )}
 
-        {selectedNodeId && (
-          <aside className="motion-panel flex w-[min(560px,45vw)] shrink-0 flex-col border-l border-editorial-hairline bg-editorial-surface-card">
-            <div className="flex h-12 shrink-0 items-center justify-between border-b border-editorial-hairline px-4">
-              <span className="text-[13px] font-medium text-editorial-ink">页面预览</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 rounded-lg"
-                onClick={() => setSelectedNodeId(null)}
-                aria-label="关闭页面预览"
-              >
-                <X size={15} />
-              </Button>
-            </div>
-            <div className="min-h-0 flex-1">
-              <WikiReader
-                spaceId={spaceId}
-                pageId={selectedNodeId}
-                onNavigate={(target) => void handlePanelNavigate(target)}
-              />
-            </div>
-          </aside>
-        )}
+              {insights.gaps?.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
+                    <AlertTriangle size={14} className="text-amber-500" /> {t("wiki.knowledgeGaps")}
+                  </div>
+                  {insights.gaps.map((gap, i: number) => (
+                    <div key={i} className="rounded-lg border p-3 mb-2">
+                      <div className="font-medium text-xs mb-1">{gap.title}</div>
+                      <p className="text-[12px] text-editorial-ink-muted mb-1">{gap.description}</p>
+                      <p className="text-[12px] italic text-editorial-ink-muted">
+                        {gap.suggestion}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {selectedNodeId && (
+            <motion.aside
+              className="flex w-[min(560px,45vw)] shrink-0 flex-col border-l border-editorial-hairline bg-editorial-surface-card shadow-[-2px_0_4px_rgba(0,0,0,0.03)]"
+              key={`preview-${selectedNodeId}`}
+              variants={drawerVariants}
+              initial="closed"
+              animate="open"
+              exit="closed"
+            >
+              <div className="flex h-12 shrink-0 items-center justify-between border-b border-editorial-hairline px-4">
+                <span className="text-[13px] font-medium text-editorial-ink">页面预览</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-lg"
+                  onClick={() => setSelectedNodeId(null)}
+                  aria-label="关闭页面预览"
+                >
+                  <X size={15} />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <WikiReader
+                  spaceId={spaceId}
+                  pageId={selectedNodeId}
+                  onNavigate={(target) => void handlePanelNavigate(target)}
+                />
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

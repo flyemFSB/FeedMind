@@ -2,9 +2,11 @@
 
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
+import { motionInstant, motionPressTransition, popoverVariants } from "@/lib/motion";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -15,7 +17,20 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
 }
 
 function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+  return (
+    <MenuPrimitive.Trigger
+      data-slot="dropdown-menu-trigger"
+      render={(elementProps, state) => (
+        <motion.button
+          {...elementProps}
+          animate={{ scale: state.open ? 1.005 : 1 }}
+          whileTap={{ scale: 0.98 }}
+          transition={motionPressTransition}
+        />
+      )}
+      {...props}
+    />
+  );
 }
 
 function DropdownMenuContent({
@@ -37,12 +52,21 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
       >
         <MenuPrimitive.Popup
+          {...props}
           data-slot="dropdown-menu-content"
           className={cn(
             "z-50 max-h-(--available-height) w-(--anchor-width) min-w-32 origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md bg-popover p-1 text-popover-foreground shadow-sm ring-1 ring-foreground/10 outline-none",
             className,
           )}
-          {...props}
+          render={(elementProps, state) => (
+            <motion.div
+              {...elementProps}
+              initial="closed"
+              animate={state.open ? "open" : "closed"}
+              variants={popoverVariants}
+              transition={state.instant ? motionInstant : undefined}
+            />
+          )}
         />
       </MenuPrimitive.Positioner>
     </MenuPrimitive.Portal>

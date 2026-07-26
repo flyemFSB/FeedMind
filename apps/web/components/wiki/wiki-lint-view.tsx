@@ -1,11 +1,14 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, Info, Play, RefreshCw } from "lucide-react";
+import { motion } from "motion/react";
+import { AlertTriangle, Info, Play } from "lucide-react";
 import type { LintResult } from "@feedmind/contracts";
 import { runLint, getLintItems } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
 interface WikiLintViewProps {
   spaceId: string;
@@ -75,9 +78,9 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
           size="sm"
           onClick={handleRunLint}
           disabled={running}
-          className="h-8 gap-1.5 rounded-lg bg-editorial-primary px-3 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
+          className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] text-primary-foreground hover:bg-primary/80"
         >
-          {running ? <RefreshCw size={13} className="animate-spin" /> : <Play size={13} />}
+          {running ? <MotionSpinner size={13} /> : <Play size={13} />}
           {t("wiki.runLint")}
         </Button>
       </div>
@@ -99,15 +102,22 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
             <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.runLintHint")}</p>
           </div>
         ) : (
-          <div className="space-y-2 p-6">
+          <motion.div
+            className="space-y-2 p-6"
+            variants={listContainerVariants}
+            initial="initial"
+            animate="animate"
+          >
             {items.map((item, i) => {
               const Icon = LINT_ICONS[item.severity] ?? Info;
               const color = LINT_COLORS[item.severity] ?? "var(--color-editorial-ink-muted)";
-              const pageSlug = item.page.replace(/wiki\//, "").replace(/\.md$/, "");
+              const pageSlug = item.page.replace(/\.md$/i, "");
               return (
-                <div
+                <motion.div
                   key={i}
-                  className="flex items-start gap-3 rounded-lg border border-editorial-surface-strong p-3 transition-colors hover:bg-editorial-canvas-soft"
+                  layout
+                  variants={listItemVariants}
+                  className="flex items-start gap-3 rounded-lg border border-editorial-surface-strong p-3 hover:bg-editorial-canvas-soft"
                 >
                   <Icon size={14} style={{ color }} className="mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
@@ -133,10 +143,10 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
                     </div>
                     <p className="mt-0.5 text-[12px] text-editorial-ink-muted">{item.detail}</p>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

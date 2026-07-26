@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { X, Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import type { LLMModel } from "@/lib/types";
 import { useModels } from "@/lib/hooks/use-models";
@@ -17,6 +18,7 @@ import { ModelFormDialog } from "./model-form-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
 import { EmbeddingModelSection } from "./embedding-model-section";
 import { useTranslation } from "react-i18next";
+import { fadeSlideVariants } from "@/lib/motion";
 
 interface Tab {
   id: TabId;
@@ -43,7 +45,6 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [showModelForm, setShowModelForm] = useState(false);
   const [editingModel, setEditingModel] = useState<LLMModel | null>(null);
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
-
   // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
   const { data: chatModels = [] } = useModels("chat", { enabled: open });
 
@@ -104,7 +105,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   key={tab.id}
                   value={tab.id}
                   className={
-                    "flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-[13px] font-medium transition-colors max-sm:justify-center max-sm:px-0 " +
+                    "flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-[13px] font-medium max-sm:justify-center max-sm:px-0 " +
                     (activeTab === tab.id
                       ? "bg-editorial-accent-soft text-editorial-accent"
                       : "text-editorial-ink-soft hover:bg-editorial-surface-card")
@@ -118,28 +119,38 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </aside>
 
           <div className="min-w-0 flex-1 overflow-y-auto p-6">
-            {activeTab === "models" && (
-              <div className="space-y-8">
-                <ModelsPanel
-                  models={chatModels}
-                  title={t("settings.chatModels")}
-                  onAddModel={() => {
-                    setEditingModel(null);
-                    setShowModelForm(true);
-                  }}
-                  onEditModel={(m) => {
-                    setEditingModel(m);
-                    setShowModelForm(true);
-                  }}
-                  onDeleteModel={setDeletingModel}
-                />
-                <EmbeddingModelSection />
-              </div>
-            )}
-            {activeTab === "tools" && <ToolsPanel />}
-            {activeTab === "skills" && <SkillsPanel />}
-            {activeTab === "runtime" && <RuntimePanel />}
-            {activeTab === "system" && <SystemPanel />}
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeTab}
+                variants={fadeSlideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {activeTab === "models" && (
+                  <div className="space-y-8">
+                    <ModelsPanel
+                      models={chatModels}
+                      title={t("settings.chatModels")}
+                      onAddModel={() => {
+                        setEditingModel(null);
+                        setShowModelForm(true);
+                      }}
+                      onEditModel={(m) => {
+                        setEditingModel(m);
+                        setShowModelForm(true);
+                      }}
+                      onDeleteModel={setDeletingModel}
+                    />
+                    <EmbeddingModelSection />
+                  </div>
+                )}
+                {activeTab === "tools" && <ToolsPanel />}
+                {activeTab === "skills" && <SkillsPanel />}
+                {activeTab === "runtime" && <RuntimePanel />}
+                {activeTab === "system" && <SystemPanel />}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </Tabs>
 

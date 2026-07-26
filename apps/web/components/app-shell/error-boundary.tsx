@@ -19,7 +19,7 @@ function ErrorFallbackContent({ error, onRetry }: { error: Error | null; onRetry
         </p>
         <Button
           onClick={onRetry}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80 transition-colors duration-150"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
         >
           <RefreshCw size={14} />
           {t("common.retry")}

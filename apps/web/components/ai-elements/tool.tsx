@@ -19,6 +19,7 @@
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { useTranslation } from "react-i18next";
 import {
   Check,
@@ -71,7 +72,7 @@ const STATUS_ICON: Record<ToolPartState, LucideIcon> = {
 };
 
 const STATUS_ICON_CLASS: Record<ToolPartState, string> = {
-  "input-streaming": "text-editorial-ink-muted animate-spin",
+  "input-streaming": "text-editorial-ink-muted",
   "input-available": "text-editorial-ink-muted",
   "approval-requested": "text-editorial-semantic-warning",
   "approval-responded": "text-editorial-ink-muted",
@@ -143,7 +144,7 @@ export function ToolHeader({
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-colors",
+        "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px]",
         "hover:bg-editorial-surface-soft",
         state === "output-error" && "bg-editorial-semantic-error/5",
         className,
@@ -152,7 +153,11 @@ export function ToolHeader({
     >
       {children ?? (
         <>
-          <Icon size={14} className={cn("shrink-0", iconClass)} />
+          {state === "input-streaming" ? (
+            <MotionSpinner size={14} className={iconClass} />
+          ) : (
+            <Icon size={14} className={cn("shrink-0", iconClass)} />
+          )}
           <span className="flex-1 truncate font-medium text-editorial-ink">{displayName}</span>
           <span className="shrink-0 text-[12px] text-editorial-ink-muted font-normal">
             {getStatusLabel(state)}

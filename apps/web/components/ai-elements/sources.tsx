@@ -14,10 +14,13 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
+import { motion } from "motion/react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useCollapsibleOpen } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Book, ExternalLink, ChevronRight } from "lucide-react";
 import type { ComponentProps } from "react";
+import { motionSpring } from "@/lib/motion";
 
 /* ── Sources — 折叠容器 ── */
 export type SourcesProps = ComponentProps<typeof Collapsible>;
@@ -42,19 +45,19 @@ export type SourcesTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
 
 export function SourcesTrigger({ className, count, children, ...props }: SourcesTriggerProps) {
   const { t } = useTranslation();
+  const isOpen = useCollapsibleOpen();
 
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink transition-colors",
+        "flex h-9 w-full items-center gap-2 px-3 text-left text-[13px] font-medium text-editorial-ink-soft hover:text-editorial-ink",
         className,
       )}
       {...props}
     >
-      <ChevronRight
-        size={14}
-        className="shrink-0 text-editorial-ink-muted transition-transform duration-200 ui-open:rotate-90"
-      />
+      <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={motionSpring}>
+        <ChevronRight size={14} className="shrink-0 text-editorial-ink-muted" />
+      </motion.span>
       <Book size={14} className="shrink-0 text-editorial-ink-muted" />
       {children ?? <span>{t("chat.sourcesCount", { count })}</span>}
     </CollapsibleTrigger>
@@ -82,15 +85,16 @@ export type SourceProps = ComponentProps<"a"> & {
 
 export function Source({ className, href, title, children, ...props }: SourceProps) {
   return (
-    <a
+    <motion.a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug transition-colors",
+        "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] leading-snug",
         "text-editorial-ink-soft hover:text-editorial-ink hover:bg-editorial-surface-soft",
         className,
       )}
+      whileTap={{ scale: 0.99 }}
       {...props}
     >
       <ExternalLink size={12} className="shrink-0 text-editorial-ink-muted" />
@@ -98,7 +102,7 @@ export function Source({ className, href, title, children, ...props }: SourcePro
       <span className="shrink-0 text-[12px] text-editorial-ink-muted truncate max-w-[160px]">
         {extractDomain(href)}
       </span>
-    </a>
+    </motion.a>
   );
 }
 

@@ -30,16 +30,17 @@ export {
   readSpaceMeta,
   writeSpaceMeta,
   deleteSpaceDir,
-  ensureLlmWikiDir,
+  ensureRuntimeDir,
 } from "./internal/space-ops.js";
 
 export {
   invalidatePageCache,
-  findPageBySlug,
+  findPageById,
   walkPages,
   readPage,
   readPageListItem,
   readPageRaw,
+  getPageConceptId,
 } from "./internal/page-fs.js";
 
 export {

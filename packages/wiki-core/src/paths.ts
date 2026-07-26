@@ -38,7 +38,7 @@ export function getRelativePath(fullPath: string, basePath: string): string {
 export function isAbsolutePath(p: string): boolean {
   if (!p) return false;
   if (p.startsWith("/")) return true;
-  if (/^[A-Za-z]:[\\/]/.test(p)) return true;
+  if (/^[A-Za-z]:/.test(p)) return true;
   if (p.startsWith("\\\\") || p.startsWith("//")) return true;
   return false;
 }
@@ -71,25 +71,32 @@ export function safeJoin(baseDir: string, userPath: string): string {
   return joined;
 }
 
-/** 从 wiki 根相对路径推断页面类型 */
-export function inferTypeFromPath(relativePath: string): string {
-  const normalized = normalizePath(relativePath).toLowerCase();
-  if (normalized.includes("/entities/")) return "entity";
-  if (normalized.includes("/concepts/")) return "concept";
-  if (normalized.includes("/sources/")) return "source";
-  if (normalized.endsWith("/overview.md")) return "overview";
-  if (normalized.endsWith("/index.md")) return "index";
-  return "concept";
-}
+/** 校验并规范 OKF bundle 内的 Concept 文件路径。 */
+export function normalizeConceptPath(p: string): string {
+  const normalized = normalizePath(p);
+  if (
+    !normalized ||
+    isAbsolutePath(normalized) ||
+    normalized.includes("\0") ||
+    [...normalized].some((c) => c < " ")
+  ) {
+    throw new Error("Invalid OKF concept path");
+  }
+  // Windows 文件系统禁止的字符，避免写入时 EINVAL
+  if (/[<>:"|?*]/.test(normalized)) {
+    throw new Error("Path contains illegal characters for Windows filesystem");
+  }
 
-/** 根据页面类型获取对应子目录名 */
-export function typeToDir(type: string): string {
-  const map: Record<string, string> = {
-    entity: "entities",
-    concept: "concepts",
-    source: "sources",
-    overview: "",
-    index: "",
-  };
-  return map[type] ?? "concepts";
+  const parts = normalized.split("/");
+  if (parts.some((part) => !part || part === "." || part === "..")) {
+    throw new Error("Path traversal rejected");
+  }
+  if (!normalized.toLowerCase().endsWith(".md")) {
+    throw new Error("OKF concept path must end with .md");
+  }
+  const fileName = parts.at(-1)?.toLowerCase();
+  if (fileName === "index.md" || fileName === "log.md") {
+    throw new Error("Reserved OKF filename cannot be a concept");
+  }
+  return normalized;
 }

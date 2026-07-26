@@ -2,8 +2,10 @@
 
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
 import { cva, type VariantProps } from "class-variance-authority";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
+import { motionSpring, tabPanelVariants } from "@/lib/motion";
 
 function Tabs({ className, orientation = "horizontal", ...props }: TabsPrimitive.Root.Props) {
   return (
@@ -49,10 +51,31 @@ function TabsList({
 function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
+      render={(elementProps, state) => {
+        const { children, ...rest } = elementProps;
+        return (
+          <motion.button
+            {...rest}
+            initial={false}
+            whileTap={{ scale: 0.98 }}
+            transition={motionSpring}
+          >
+            <span className="relative z-10 inline-flex min-w-0 items-center gap-1.5">
+              {children}
+            </span>
+            {state.active && (
+              <motion.span
+                layoutId="tabs-active-indicator"
+                className="pointer-events-none absolute inset-0 z-0 rounded-[inherit] bg-background shadow-xs group-data-[variant=line]/tabs-list:inset-x-0 group-data-[variant=line]/tabs-list:top-auto group-data-[variant=line]/tabs-list:bottom-0 group-data-[variant=line]/tabs-list:h-0.5 group-data-[variant=line]/tabs-list:rounded-none group-data-[variant=line]/tabs-list:bg-editorial-primary"
+                transition={motionSpring}
+              />
+            )}
+          </motion.button>
+        );
+      }}
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 transition-colors duration-150 group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-transparent dark:data-active:text-foreground",
+        "relative isolate inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className,
       )}
       {...props}
@@ -63,9 +86,20 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
 function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   return (
     <TabsPrimitive.Panel
+      {...props}
+      keepMounted
       data-slot="tabs-content"
       className={cn("flex-1 text-sm outline-none", className)}
-      {...props}
+      render={(elementProps, state) => (
+        <motion.div
+          {...elementProps}
+          hidden={false}
+          aria-hidden={state.hidden}
+          initial="hidden"
+          animate={state.hidden ? "hidden" : "visible"}
+          variants={tabPanelVariants}
+        />
+      )}
     />
   );
 }

@@ -1,28 +1,67 @@
 "use client";
 
-import * as CollapsiblePrimitive from "@radix-ui/react-collapsible";
-import { forwardRef, type ComponentProps } from "react";
+import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible";
+import { createContext, forwardRef, useContext } from "react";
+import { motion } from "motion/react";
+
+import { collapseVariants, motionPressTransition } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-const Collapsible = CollapsiblePrimitive.Root;
+const CollapsibleOpenContext = createContext(false);
 
-const CollapsibleTrigger = CollapsiblePrimitive.Trigger;
+function Collapsible({ render: _render, ...props }: CollapsiblePrimitive.Root.Props) {
+  return (
+    <CollapsiblePrimitive.Root
+      {...props}
+      render={(elementProps, state) => (
+        <CollapsibleOpenContext.Provider value={state.open}>
+          <div {...elementProps} />
+        </CollapsibleOpenContext.Provider>
+      )}
+    />
+  );
+}
 
-const CollapsibleContent = forwardRef<
-  HTMLDivElement,
-  ComponentProps<typeof CollapsiblePrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <CollapsiblePrimitive.Content
-    ref={ref}
-    className={cn(
-      "overflow-hidden data-[state=closed]:animate-collapsible-up data-[state=open]:animate-collapsible-down",
-      className,
-    )}
-    {...props}
-  >
-    {children}
-  </CollapsiblePrimitive.Content>
-));
+function useCollapsibleOpen() {
+  return useContext(CollapsibleOpenContext);
+}
+
+function CollapsibleTrigger({ className, ...props }: CollapsiblePrimitive.Trigger.Props) {
+  return (
+    <CollapsiblePrimitive.Trigger
+      className={className}
+      render={(elementProps, state) => (
+        <motion.button
+          {...elementProps}
+          animate={{ scale: state.open ? 1.005 : 1 }}
+          transition={motionPressTransition}
+        />
+      )}
+      {...props}
+    />
+  );
+}
+
+const CollapsibleContent = forwardRef<HTMLDivElement, CollapsiblePrimitive.Panel.Props>(
+  ({ className, ...props }, ref) => (
+    <CollapsiblePrimitive.Panel
+      {...props}
+      ref={ref}
+      keepMounted
+      className={cn("overflow-hidden", className)}
+      render={(elementProps, state) => (
+        <motion.div
+          {...elementProps}
+          hidden={false}
+          inert={!state.open}
+          initial="closed"
+          animate={state.open ? "open" : "closed"}
+          variants={collapseVariants}
+        />
+      )}
+    />
+  ),
+);
 CollapsibleContent.displayName = "CollapsibleContent";
 
-export { Collapsible, CollapsibleTrigger, CollapsibleContent };
+export { Collapsible, CollapsibleTrigger, CollapsibleContent, useCollapsibleOpen };
