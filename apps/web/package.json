@@ -29,7 +29,6 @@
     "katex": "^0.17.0",
     "lucide-react": "^1.24.0",
     "motion": "^12.40.0",
-    "next-themes": "1.0.0-beta.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-i18next": "^17.0.8",

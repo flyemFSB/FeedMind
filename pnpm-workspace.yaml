@@ -16,7 +16,6 @@ allowBuilds:
   edgedriver: true
   geckodriver: true
   tesseract.js: true
-  sharp: true
   protobufjs: true
 
 hoist: false

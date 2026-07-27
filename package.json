@@ -12,7 +12,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "pnpm run build:packages && concurrently -n api,web -c cyan,green \"pnpm run api:dev\" \"pnpm run web:dev\"",
+    "dev": "chcp 65001 >nul && pnpm run build:packages && concurrently -n api,web -c cyan,green \"pnpm run api:dev\" \"pnpm run web:dev\"",
     "build": "pnpm -r build",
     "build:packages": "pnpm --filter @feedmind/contracts build && pnpm --filter @feedmind/shared build && pnpm --filter @feedmind/db build && pnpm --filter @feedmind/crawler-core build && pnpm --filter @feedmind/wiki-core build && pnpm --filter @feedmind/env build",
     "lint": "pnpm -r lint",

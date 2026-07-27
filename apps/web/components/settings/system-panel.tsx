@@ -3,7 +3,7 @@
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
 import i18n from "@/lib/i18n";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/theme-provider";
 import { Sun, Moon, Monitor } from "lucide-react";
 import {
   Select,

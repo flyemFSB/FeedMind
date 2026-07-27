@@ -89,7 +89,7 @@
 ### 前置要求
 
 - Node.js ≥ 24.0.0
-- pnpm ≥ 10.0.0（安装：`npm install -g pnpm@latest`）
+- pnpm ≥ 11.0.0（安装：`npm install -g pnpm@latest`）
 
 ### 初始设置
 
@@ -124,7 +124,7 @@ pnpm run dev
 
 | 服务             | 地址                                  | 说明                 |
 | ---------------- | ------------------------------------- | -------------------- |
-| **Web 应用**     | http://localhost:13790                | TanStack Start 前端  |
+| **Web 应用**     | http://localhost:13790                | Vite + React 前端    |
 | **REST API**     | http://localhost:18790                | Hono 后端            |
 | **API 文档**     | http://localhost:18790/api/v1/docs    | Scalar UI 交互式文档 |
 | **OpenAPI JSON** | http://localhost:18790/api/v1/openapi | 机器可读规范         |
@@ -181,23 +181,24 @@ feedmind/
 │   │   ├── server.ts             # 入口文件
 │   │   └── package.json
 │   │
-│   └── web/                       # React 19 前端
+│   └── web/                       # React 19 前端（Vite SPA）
 │       ├── src/
-│       │   ├── routes/           # TanStack Router 路由
+│       │   ├── routes/           # TanStack Router 文件路由
 │       │   │   ├── wiki.tsx      # Wiki 阅读器
 │       │   │   ├── feeds.index.tsx # 资讯首页
 │       │   │   └── ...
-│       │   ├── components/       # React 组件
-│       │   │   ├── ai-elements/  # AI 对话组件
-│       │   │   ├── chat/         # 聊天界面
-│       │   │   ├── wiki/         # Wiki 编辑器、图谱、导入
-│       │   │   ├── settings/     # 设置面板
-│       │   │   └── ui/           # shadcn/ui 基础组件
-│       │   ├── lib/              # 工具库
-│       │   │   ├── api/          # API 客户端
-│       │   │   ├── i18n/         # 国际化
-│       │   │   └── hooks/        # 自定义 hooks
+│       │   ├── router.tsx        # 路由实例
 │       │   └── main.tsx          # 入口文件
+│       ├── components/            # React 组件
+│       │   ├── ai-elements/      # AI 对话组件
+│       │   ├── chat/             # 聊天界面
+│       │   ├── wiki/             # Wiki 编辑器、图谱、导入
+│       │   ├── settings/         # 设置面板
+│       │   └── ui/               # shadcn/ui 基础组件
+│       ├── lib/                   # 工具库
+│       │   ├── api/              # API 客户端
+│       │   ├── i18n/             # 国际化
+│       │   └── hooks/            # 自定义 hooks
 │       └── package.json
 │
 ├── packages/                      # 共享包
@@ -222,13 +223,13 @@ feedmind/
 │   ├── feedmind.db               # SQLite 数据库
 │   └── wiki/                     # Wiki Markdown 文件
 │
-├── docs/                          # 设计文档
-│   ├── CLAUDE.md                 # 开发者指南（本 README 补充）
-│   ├── DESIGN.md                 # 架构设计说明
+├── CLAUDE.md                      # AI 开发规范
+├── DESIGN.md                      # 架构设计说明
+├── docs/                          # 文档与研究
 │   └── research/                 # 技术研究
 │
 ├── .husky/                        # Git hooks
-├── .eslintrc.cjs                  # ESLint 配置
+├── eslint.config.mjs              # ESLint 扁平配置
 ├── prettier.config.mjs            # Prettier 配置
 ├── commitlint.config.mjs          # Commit 规范
 ├── tsconfig.base.json             # TypeScript 基础配置
@@ -242,17 +243,18 @@ feedmind/
 
 ### 前端
 
-| 技术               | 版本   | 用途                |
-| ------------------ | ------ | ------------------- |
-| **TanStack Start** | latest | SSR/SSG 框架 + 路由 |
-| **React**          | 19     | UI 库               |
-| **Vite**           | 6      | 构建工具            |
-| **Tailwind CSS**   | 4      | 原子化 CSS          |
-| **shadcn/ui**      | latest | 组件库              |
-| **motion**         | latest | 动画                |
-| **Zod**            | 4      | 运行时验证          |
-| **i18next**        | latest | 国际化              |
-| **ai SDK**         | ^4     | Vercel AI 集成      |
+| 技术                | 版本   | 用途                    |
+| ------------------- | ------ | ----------------------- |
+| **React**           | 19     | UI 库                   |
+| **Vite**            | 8      | 构建工具 + 开发服务器   |
+| **TanStack Router** | latest | 文件路由 + 自动代码分割 |
+| **Tailwind CSS**    | 4      | 原子化 CSS              |
+| **shadcn/ui**       | latest | 组件库                  |
+| **Milkdown Crepe**  | 7.x    | Markdown 所见即得编辑器 |
+| **motion**          | latest | 动画                    |
+| **Zod**             | 4      | 运行时验证              |
+| **i18next**         | latest | 国际化                  |
+| **Vercel AI SDK**   | 7.x    | AI 流式对话集成         |
 
 ### 后端
 
@@ -262,7 +264,7 @@ feedmind/
 | **Mastra**      | latest | AI Agent 框架    |
 | **Drizzle ORM** | latest | TypeScript ORM   |
 | **libSQL**      | latest | 嵌入式 SQLite    |
-| **Pino**        | 9.x    | 结构化日志       |
+| **Pino**        | 10.x   | 结构化日志       |
 | **zod-openapi** | latest | OpenAPI 3.1 规范 |
 
 ### 中间件与服务
@@ -437,7 +439,7 @@ POST /llms/selected                  # 选中默认模型
 
 <div align="center">
 
-**Built with ❤️ using React 19, Hono, Mastra & TanStack Start**
+**Built with ❤️ using React 19, Hono, Mastra & TanStack Router**
 
 本地 · 安静 · 你的知识引擎
 
