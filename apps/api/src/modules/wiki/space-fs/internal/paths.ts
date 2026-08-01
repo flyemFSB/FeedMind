@@ -5,7 +5,8 @@ import { apiEnv } from "../../../../env.js";
 import { HttpError } from "../../../../lib/http.js";
 
 const _thisDir = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(_thisDir, "..", "..", "..", "..", "..", "..");
+// 上溯 7 级：internal → space-fs → wiki → modules → src → api → apps → 项目根
+const PROJECT_ROOT = path.resolve(_thisDir, "..", "..", "..", "..", "..", "..", "..");
 
 const SPACE_ID_RE = /^[\p{L}\p{N}_-]+$/u;
 

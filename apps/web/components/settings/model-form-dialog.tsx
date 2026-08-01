@@ -349,11 +349,10 @@ export function ModelFormDialog({
               </button>
             </div>
           </div>
-          <div className="col-span-2 grid grid-cols-2 gap-3">
+          <div className="col-span-2 grid grid-cols-[3fr_2fr] gap-3">
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-                上下文窗口（KB）{" "}
-                <span className="font-normal text-[12px] text-editorial-ink-muted">1M = 1000K</span>
+                上下文窗口（KB）
               </label>
               <Input
                 type="number"
@@ -361,7 +360,7 @@ export function ModelFormDialog({
                 onChange={(event) =>
                   setForm((current) => ({ ...current, context: event.target.value }))
                 }
-                placeholder="例如: 128"
+                placeholder="例如: 128（1M = 1000K）"
                 className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             </div>

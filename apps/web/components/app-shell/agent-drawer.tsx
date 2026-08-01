@@ -168,7 +168,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         animate={open ? "open" : "closed"}
         variants={drawerVariants}
       >
-        <div className="flex h-14 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
+        <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
           <DropdownMenu>
             <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
               <span className="truncate text-[13px] font-medium leading-tight">{currentLabel}</span>

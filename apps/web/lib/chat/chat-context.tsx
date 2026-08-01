@@ -16,6 +16,7 @@ import {
   type ReactNode,
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import {
   getSelectedFeedMindModel,
@@ -25,6 +26,8 @@ import {
 import {
   getChatSessionMessages,
   createChatSession,
+  renameChatSession,
+  chatKeys,
   writeActiveFeedMindThreadId,
   readActiveFeedMindThreadId,
   clearActiveFeedMindThreadId,
@@ -33,12 +36,23 @@ import {
 /** Mastra Chat 路由地址（通过 SSR proxy 转发到 API 服务） */
 const CHAT_API = "/api/chat/feedmind";
 
+const TITLE_MAX_LEN = 15;
+
+/** 按首条消息生成会话标题：折叠空白并截断 */
+function makeChatTitle(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return "新会话";
+  return clean.length > TITLE_MAX_LEN ? `${clean.slice(0, TITLE_MAX_LEN)}…` : clean;
+}
+
 export interface ChatContextValue {
   messages: UIMessage[];
   sendMessage: (data: { text: string }) => void;
   status: ReturnType<typeof useChat>["status"];
   stop: () => void;
   regenerate: () => void;
+  error: Error | undefined;
+  clearError: () => void;
   setMessages: (messages: UIMessage[] | ((messages: UIMessage[]) => UIMessage[])) => void;
   activeThreadId: string | null;
   isLoadingHistory: boolean;
@@ -59,6 +73,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     readActiveFeedMindThreadId(),
   );
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const queryClient = useQueryClient();
 
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
   useEffect(() => {
@@ -106,6 +121,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     status,
     stop,
     regenerate,
+    error,
+    clearError,
   } = useChat({
     transport,
     onError: (error) => {
@@ -147,20 +164,37 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const existing = activeThreadIdRef.current;
     if (existing) return existing;
 
+    // 同步生成并设置 threadId，避免等待 createChatSession 期间首条消息丢失 threadId，
+    // 否则后端 ObservationalMemory 会在调用 LLM 前硬失败
     const newId = crypto.randomUUID();
-    await createChatSession(newId);
     writeActiveFeedMindThreadId(newId);
     setActiveThreadId(newId);
     activeThreadIdRef.current = newId;
+
+    try {
+      await createChatSession(newId);
+    } catch (err) {
+      // 会话记录创建失败不阻塞消息发送，仅记录日志
+      console.error("[Chat] 创建会话记录失败（不影响本次消息发送）:", err);
+    }
     return newId;
   }, []);
 
   const sendMessage = useCallback(
     async (data: { text: string }) => {
-      await ensureSession();
+      // 新会话（无 threadId）时按首条消息自动命名，异步不阻塞消息发送
+      const isFirstMessage = !activeThreadIdRef.current;
+      const threadId = await ensureSession();
+      if (isFirstMessage) {
+        renameChatSession(threadId, makeChatTitle(data.text))
+          .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.list() }))
+          .catch(() => {
+            // 命名失败不影响消息发送，忽略
+          });
+      }
       rawSendMessage(data);
     },
-    [ensureSession, rawSendMessage],
+    [ensureSession, rawSendMessage, queryClient],
   );
 
   // ── 会话管理 ──
@@ -181,14 +215,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
-  }, [setUiMessages]);
+    // 新会话应清除上一条消息的错误状态，避免错误横幅残留
+    clearError();
+  }, [setUiMessages, clearError]);
 
   const clearSession = useCallback(() => {
     clearActiveFeedMindThreadId();
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
-  }, [setUiMessages]);
+    clearError();
+  }, [setUiMessages, clearError]);
 
   const value = useMemo<ChatContextValue>(
     () => ({
@@ -197,6 +234,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       status,
       stop,
       regenerate,
+      error,
+      clearError,
       setMessages: setUiMessages,
       activeThreadId,
       isLoadingHistory,
@@ -210,6 +249,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       status,
       stop,
       regenerate,
+      error,
+      clearError,
       setUiMessages,
       activeThreadId,
       isLoadingHistory,

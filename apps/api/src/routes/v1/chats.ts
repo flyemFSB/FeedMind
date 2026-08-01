@@ -7,6 +7,7 @@ import {
   deleteChatSession,
   getChatSession,
   listChatSessions,
+  updateChatSessionTitle,
 } from "../../modules/chats/service.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 
@@ -15,6 +16,10 @@ export const chatRoutes = new Hono();
 const createSessionSchema = z.object({
   agent_thread_id: z.string().optional(),
   title: z.string().nullable().optional(),
+});
+
+const updateSessionTitleSchema = z.object({
+  title: z.string().min(1).max(200),
 });
 
 chatRoutes.post("/chats", async (c) => {
@@ -39,3 +44,9 @@ chatRoutes.get("/chats/:sessionId/messages", async (c) => {
 chatRoutes.delete("/chats/:sessionId", async (c) =>
   jsonOk(c, await deleteChatSession(c.req.param("sessionId"))),
 );
+
+/** 更新会话标题（按首条消息自动命名） */
+chatRoutes.patch("/chats/:sessionId", async (c) => {
+  const payload = await parseJson(c, updateSessionTitleSchema);
+  return jsonOk(c, await updateChatSessionTitle(c.req.param("sessionId"), payload.title));
+});

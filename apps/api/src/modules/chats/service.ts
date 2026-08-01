@@ -56,6 +56,20 @@ export async function getChatSession(agentThreadId: string): Promise<ChatSession
   return toRead(row);
 }
 
+/** 更新会话标题（按首条消息自动命名） */
+export async function updateChatSessionTitle(
+  agentThreadId: string,
+  title: string,
+): Promise<ChatSessionRead> {
+  const [row] = await db
+    .update(chatSessions)
+    .set({ title: title.trim(), updatedAt: new Date().toISOString() })
+    .where(eq(chatSessions.agentThreadId, agentThreadId))
+    .returning();
+  if (!row) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
+  return toRead(row);
+}
+
 export async function deleteChatSession(agentThreadId: string): Promise<ChatSessionRead> {
   const [row] = await db
     .delete(chatSessions)

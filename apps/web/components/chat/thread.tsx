@@ -26,8 +26,19 @@ interface ThreadProps {
   contentClassName?: string;
 }
 
+/** 服务器错误为 errorText JSON 字符串（{ message, ... }），提取可读信息 */
+function readableError(err: Error): string {
+  try {
+    const parsed = JSON.parse(err.message) as { message?: string };
+    return parsed.message ?? err.message;
+  } catch {
+    return err.message;
+  }
+}
+
 export function Thread({ className, contentClassName }: ThreadProps) {
-  const { messages, status, isLoadingHistory, sendMessage } = useChatContext();
+  const { messages, status, isLoadingHistory, sendMessage, error, clearError, regenerate } =
+    useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
 
@@ -108,6 +119,26 @@ export function Thread({ className, contentClassName }: ThreadProps) {
           <ArrowDown size={16} />
         </ConversationScrollButton>
       </Conversation>
+
+      {/* 顶层聊天错误（ObservationalMemory / LLM 调用失败等） */}
+      {error && status === "error" && (
+        <div className="mx-4 mb-2 flex items-start justify-between gap-3 rounded-md border border-editorial-semantic-error/40 bg-editorial-semantic-error/5 px-3 py-2 text-[12px]">
+          <div className="min-w-0">
+            <div className="font-medium text-editorial-semantic-error">{t("chat.errorTitle")}</div>
+            <div className="mt-0.5 break-words text-editorial-ink-soft">{readableError(error)}</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearError();
+              regenerate();
+            }}
+            className="shrink-0 rounded-md border border-editorial-hairline bg-editorial-surface-card px-2 py-1 text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"
+          >
+            {t("common.regenerate")}
+          </button>
+        </div>
+      )}
 
       <div className="relative z-10 w-full shrink-0 px-4 pb-2 pt-4">
         <Composer className="w-full" />

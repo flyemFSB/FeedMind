@@ -45,7 +45,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
       data-island="navigation"
       className="relative z-20 flex h-full w-[48px] shrink-0 flex-col items-center overflow-hidden bg-editorial-canvas-soft max-sm:w-[44px]"
     >
-      <div className="flex w-full flex-col items-center py-1.5">
+      <div className="flex w-full flex-col items-center">
         <motion.button
           type="button"
           onClick={() => goToView("pages")}
@@ -67,9 +67,9 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
         </motion.button>
       </div>
 
-      <div className="h-[2px] w-7 rounded-sm bg-editorial-hairline" />
+      <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
-      <nav className="flex w-full flex-col items-center gap-1.5 px-1 pt-3">
+      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
         {NAV_ITEMS.slice(0, 3).map((tool) => (
           <NavIconButton
             key={tool.id}
@@ -81,7 +81,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
         ))}
       </nav>
 
-      <div className="h-[2px] w-7 rounded-sm bg-editorial-hairline" />
+      <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
       <nav className="flex w-full flex-col items-center gap-1.5 px-1">
         {NAV_ITEMS.slice(3).map((tool) => (
@@ -95,7 +95,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
         ))}
       </nav>
 
-      <div className="h-[2px] w-7 rounded-sm bg-editorial-hairline" />
+      <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
       <nav className="flex w-full flex-col items-center gap-1.5 px-1">
         <NavIconButton
@@ -112,9 +112,9 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
         />
       </nav>
 
-      <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-1 pb-3 pt-2">
+      <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-1 pb-3">
         <NavIconButton icon={Smartphone} label="common.remoteConnection" onClick={onRemoteClick} />
-        <div className="h-[2px] w-7 rounded-sm bg-editorial-hairline" />
+        <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
         <NavIconButton icon={Settings} label="common.settings" onClick={onSettingsClick} />
       </nav>
     </aside>

@@ -10,6 +10,7 @@ import {
   Wrench,
   Trash2,
   Plus,
+  Sparkles,
 } from "lucide-react";
 import { Menu } from "@base-ui/react/menu";
 import { toast } from "sonner";
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/settings/provider-icon";
 import { lookupModelInfo, formatKB } from "@/lib/constants/provider-models";
+import type { FreeModelPreset } from "@/lib/constants/free-models";
+import { FreeModelDialog } from "./free-model-dialog";
 import { useTranslation } from "react-i18next";
 
 const iconButtonClass =
@@ -63,23 +66,30 @@ function getApiKeyTooltip(
 interface ModelsPanelProps {
   models: LLMModel[];
   title?: string;
+  /** 隐藏提供商列和提供商过滤按钮（嵌入模型使用） */
+  showProvider?: boolean;
   onAddModel: () => void;
   onEditModel: (model: LLMModel) => void;
   onDeleteModel: (model: LLMModel) => void;
+  /** 传入免费模型 preset 时，头部显示「添加免费模型」入口 */
+  freeModelPreset?: FreeModelPreset;
 }
 
 export function ModelsPanel({
   models,
   title,
+  showProvider = true,
   onAddModel,
   onEditModel,
   onDeleteModel,
+  freeModelPreset,
 }: ModelsPanelProps) {
   const { t } = useTranslation();
   const ALL_FILTER = "__all__";
   const [providerFilter, setProviderFilter] = useState(ALL_FILTER);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [apiKeyCache, setApiKeyCache] = useState<Record<string, string>>({});
+  const [showFreeDialog, setShowFreeDialog] = useState(false);
 
   const visibleModels = useMemo(
     () =>
@@ -143,51 +153,83 @@ export function ModelsPanel({
             {t("settings.modelsDescription")}
           </p>
         </div>
-        <Button
-          onClick={onAddModel}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80"
-        >
-          <Plus size={14} />
-          <span>{t("settings.addModel")}</span>
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          {freeModelPreset && (
+            <Button
+              onClick={() => setShowFreeDialog(true)}
+              variant="secondary"
+              className="flex items-center gap-1.5 rounded-md bg-editorial-surface-soft px-3 py-2 text-[13px] font-medium text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"
+            >
+              <Sparkles size={13} />
+              <span>{t("settings.addFreeModel")}</span>
+            </Button>
+          )}
+          <Button
+            onClick={onAddModel}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80"
+          >
+            <Plus size={14} />
+            <span>{t("settings.addModel")}</span>
+          </Button>
+        </div>
       </div>
 
-      <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
-        {providerFilters.map((p) => (
-          <Button
-            key={p}
-            onClick={() => setProviderFilter(p)}
-            variant={providerFilter === p ? "default" : "secondary"}
-            size="sm"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium ${
-              providerFilter === p
-                ? "bg-editorial-surface-strong text-editorial-ink"
-                : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
-            }`}
-          >
-            {p !== ALL_FILTER && <ProviderIcon provider={p} size={16} />}
-            {p === ALL_FILTER ? t("common.all") : p}
-          </Button>
-        ))}
-      </div>
+      {showProvider && (
+        <div className="flex max-w-full items-center gap-2 overflow-x-auto pb-1">
+          {providerFilters.map((p) => (
+            <Button
+              key={p}
+              onClick={() => setProviderFilter(p)}
+              variant={providerFilter === p ? "default" : "secondary"}
+              size="sm"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium ${
+                providerFilter === p
+                  ? "bg-editorial-surface-strong text-editorial-ink"
+                  : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
+              }`}
+            >
+              {p !== ALL_FILTER && <ProviderIcon provider={p} size={16} />}
+              {p === ALL_FILTER ? t("common.all") : p}
+            </Button>
+          ))}
+        </div>
+      )}
 
       <div className="max-w-full overflow-hidden rounded-lg border border-editorial-hairline">
         <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft">
-              <TableHead className="w-[18%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
-                {t("settings.tableProvider")}
-              </TableHead>
-              <TableHead className="w-[32%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              {showProvider && (
+                <TableHead className="w-[18%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                  {t("settings.tableProvider")}
+                </TableHead>
+              )}
+              <TableHead
+                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                  showProvider ? "w-[32%]" : "w-[30%]"
+                }`}
+              >
                 {t("settings.tableModel")}
               </TableHead>
-              <TableHead className="w-[20%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead
+                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                  showProvider ? "w-[20%]" : "w-[38%]"
+                }`}
+              >
                 {t("settings.tableEndpoint")}
               </TableHead>
-              <TableHead className="w-[16%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead
+                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                  showProvider ? "w-[16%]" : "w-[17%]"
+                }`}
+              >
                 {t("settings.tableApiKey")}
               </TableHead>
-              <TableHead className="w-[14%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+              <TableHead
+                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                  showProvider ? "w-[14%]" : "w-[15%]"
+                }`}
+              >
                 {t("settings.tableActions")}
               </TableHead>
             </TableRow>
@@ -198,17 +240,19 @@ export function ModelsPanel({
                 key={model.id}
                 className="group/model-row border-b border-editorial-surface-soft last:border-0 hover:bg-editorial-surface-soft"
               >
-                <TableCell className="px-3 py-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <ProviderIcon provider={model.provider} size={14} />
-                    <span
-                      className="truncate text-[13px] text-editorial-ink"
-                      title={model.provider}
-                    >
-                      {model.provider}
-                    </span>
-                  </div>
-                </TableCell>
+                {showProvider && (
+                  <TableCell className="px-3 py-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <ProviderIcon provider={model.provider} size={14} />
+                      <span
+                        className="truncate text-[13px] text-editorial-ink"
+                        title={model.provider}
+                      >
+                        {model.provider}
+                      </span>
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell className="px-3 py-2.5 text-[13px] text-editorial-ink">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -351,6 +395,14 @@ export function ModelsPanel({
           </TableBody>
         </Table>
       </div>
+
+      {freeModelPreset && (
+        <FreeModelDialog
+          open={showFreeDialog}
+          preset={freeModelPreset}
+          onClose={() => setShowFreeDialog(false)}
+        />
+      )}
     </div>
   );
 }

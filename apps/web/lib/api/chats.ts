@@ -1,4 +1,4 @@
-import { apiFetch, backendApiPath, apiPost } from "./client";
+import { apiFetch, backendApiPath, apiPost, apiPatch } from "./client";
 import type { UIMessage } from "@ai-sdk/react";
 
 export type ChatSessionListItem = {
@@ -55,6 +55,14 @@ export async function createChatSession(
   last_message_at: string | null;
 }> {
   return apiPost("/chats", { agent_thread_id: agentThreadId, title });
+}
+
+/** 更新会话标题（按首条消息自动命名） */
+export async function renameChatSession(
+  threadId: string,
+  title: string,
+): Promise<ChatSessionListItem> {
+  return apiPatch(`/chats/${encodeURIComponent(threadId)}`, { title });
 }
 
 export async function deleteChatSessionApi(threadId: string): Promise<void> {

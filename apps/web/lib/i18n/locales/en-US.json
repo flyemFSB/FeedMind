@@ -79,7 +79,8 @@
     "preview": "Preview",
     "sourcesCount": "Used {count} sources",
     "addAttachment": "Add attachment",
-    "removeAttachment": "Remove attachment"
+    "removeAttachment": "Remove attachment",
+    "errorTitle": "Chat failed"
   },
   "wiki": {
     "title": "My Wiki",
@@ -342,11 +343,16 @@
     "deleteFailed": "Delete failed",
     "chatModels": "Chat Models",
     "embeddingModels": "Embedding Models",
-    "embeddingModelsDescription": "Configure embedding model for vector search. Requires Base URL, API Key, and model name.",
+    "embeddingModelDesc": "Used for vector search and knowledge base indexing. Takes effect immediately.",
     "embeddingModelName": "Model Name",
     "embeddingFormIncomplete": "Please fill in all fields",
     "embeddingModelSaved": "Embedding model saved",
-    "embeddingModelSaveFailed": "Save failed"
+    "embeddingModelSaveFailed": "Save failed",
+    "addFreeModel": "Add Free Model",
+    "freeModelKeyRequired": "Please enter an API key",
+    "freeModelStepGetKey": "Get an API key from {provider}:",
+    "freeModelStepPaste": "Paste the API key below",
+    "freeModelStepFinish": "Click \"Add Model\" to finish"
   },
   "remoteConnection": {
     "title": "Remote Connection",

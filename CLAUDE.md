@@ -9,7 +9,7 @@ FeedMind — 知识管理、AI 对话、内容爬取服务平台。基于 pnpm m
 ```
 apps/
   api/    Hono REST API + Mastra AI Agent + OpenAPI (Scalar)
-  web/    TanStack Start + React 19 + Tailwind CSS 4 + shadcn/ui
+  web/    Vite SPA + React 19 + TanStack Router + Tailwind CSS 4 + Base UI
 packages/
   contracts/    Zod 4 schemas + TypeScript 类型（API 契约单一数据源）
   db/           Drizzle ORM 表定义 + SQLite (libsql)
@@ -22,10 +22,10 @@ data/
 
 ## 关键架构决策
 
-- **OKF 文件型 Wiki**：每个空间的 `wiki/` 是 OKF v0.1 bundle，Concept 使用 Markdown + YAML frontmatter，Concept ID 是相对路径去掉 `.md`。`raw/` 和 `.feedmind/` 是 FeedMind 运行时目录，不属于 bundle。数据库仅存储聊天/爬虫数据。
+- **OKF 文件型 Wiki**：每个空间的 `wiki/` 是 OKF v0.1 bundle，Concept 使用 Markdown + YAML frontmatter，Concept ID 是相对路径去掉 `.md`。`raw/` 和 `.feedmind/` 是 FeedMind 运行时目录，不属于 bundle。数据库存储聊天/爬虫数据，以及 wiki 页面的 FTS5 全文检索索引（派生自文件，可随时重建）。
 - **中文优先**：所有用户界面文本和 Wiki 内容使用中文。通过 react-i18next 支持英文。
 - **Mastra Agent**：AI Agent 内嵌于 API 进程 (`apps/api/src/mastra/`)，使用 `@mastra/core`。通过 `@mastra/ai-sdk` 的 `chatRoute()` 暴露 AI SDK v6 兼容的流式聊天接口。
-- **动态模型解析**：Agent 从 `llm` 表运行时解析 LLM 模型，通过请求头读取用户选中的模型。
+- **动态模型解析**：Agent 从 `model` 表运行时解析 LLM 模型，通过 `x-feedmind-model-id` 请求头读取用户选中的模型（服务端包装 app.fetch 注入 requestContext）。
 - **Wiki 导入管道** (`ingest-pipeline.ts`)：两阶段 LLM 管道——阶段一分析源内容为结构化数据，阶段二生成 OKF Concept JSON 并写入 Markdown 文件。
 - **运行时配置** (`runtime_config` 表)：存储每个运行时（"session" 聊天、"wiki" 导入）的 LLM 参数。
 - **爬虫**：基于 Playwright，使用 Cookie 认证，结果存入 SQLite。
@@ -63,7 +63,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 | `openapi`         | OpenAPI 3.1 JSON 规范（由 `@hono/zod-openapi` 自动生成） |
 | `docs`            | Scalar 交互式 API 文档 UI                                |
 
-Agent 聊天路由：`/api/agent/chat/:agentId`（通过 Vite dev proxy 转发）。
+Agent 聊天路由：`/api/chat/:agentId`（前端）→ Vite dev proxy 重写为 `/v1/agent/chat/:agentId`（后端）。
 
 ## 开发规范
 

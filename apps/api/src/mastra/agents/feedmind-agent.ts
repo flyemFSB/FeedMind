@@ -83,11 +83,10 @@ ${getSubagentDescriptions()}
     vector: getVectorStore(),
     embedder: lazyEmbedder as any,
     options: {
-      observationalMemory: {
-        temporalMarkers: true,
-        activateAfterIdle: "auto",
-        retrieval: { vector: true },
-      },
+      // ObservationalMemory 默认用 google/gemini-2.5-flash 后台 Agent，
+      // 本项目未注册该模型 provider，OM 激活时会因模型解析失败抛未捕获异常导致进程崩溃。
+      // 禁用 OM，保留基础消息历史 Memory。
+      observationalMemory: false,
     },
   }),
   tools: {

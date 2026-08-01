@@ -15,8 +15,9 @@ import { SkillsPanel } from "./skills-panel";
 import { SystemPanel } from "./system-panel";
 import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
+import { EmbeddingModelDialog } from "./embedding-model-dialog";
 import { DeleteModelDialog } from "./delete-model-dialog";
-import { EmbeddingModelSection } from "./embedding-model-section";
+import { FREE_MODEL_PRESETS } from "@/lib/constants/free-models";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 
@@ -45,8 +46,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [showModelForm, setShowModelForm] = useState(false);
   const [editingModel, setEditingModel] = useState<LLMModel | null>(null);
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
+  const [showEmbeddingForm, setShowEmbeddingForm] = useState(false);
+  const [editingEmbeddingModel, setEditingEmbeddingModel] = useState<LLMModel | null>(null);
   // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
   const { data: chatModels = [] } = useModels("chat", { enabled: open });
+  const { data: embeddingModels = [] } = useModels("embedding", { enabled: open });
 
   function handleModelSaved() {
     setShowModelForm(false);
@@ -128,7 +132,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 exit="exit"
               >
                 {activeTab === "models" && (
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     <ModelsPanel
                       models={chatModels}
                       title={t("settings.chatModels")}
@@ -141,8 +145,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                         setShowModelForm(true);
                       }}
                       onDeleteModel={setDeletingModel}
+                      freeModelPreset={FREE_MODEL_PRESETS.agnesChat}
                     />
-                    <EmbeddingModelSection />
+                    <div className="h-px w-full bg-editorial-hairline" />
+                    <ModelsPanel
+                      models={embeddingModels}
+                      title={t("settings.embeddingModels")}
+                      showProvider={false}
+                      onAddModel={() => {
+                        setEditingEmbeddingModel(null);
+                        setShowEmbeddingForm(true);
+                      }}
+                      onEditModel={(m) => {
+                        setEditingEmbeddingModel(m);
+                        setShowEmbeddingForm(true);
+                      }}
+                      onDeleteModel={setDeletingModel}
+                      freeModelPreset={FREE_MODEL_PRESETS.siliconFlowEmbedding}
+                    />
                   </div>
                 )}
                 {activeTab === "tools" && <ToolsPanel />}
@@ -163,6 +183,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             if (!v) {
               setShowModelForm(false);
               setEditingModel(null);
+            }
+          }}
+        />
+        <EmbeddingModelDialog
+          key={editingEmbeddingModel?.id ?? "new-embedding"}
+          open={showEmbeddingForm}
+          initialModel={editingEmbeddingModel}
+          onSubmit={() => setShowEmbeddingForm(false)}
+          onOpenChange={(v) => {
+            if (!v) {
+              setShowEmbeddingForm(false);
+              setEditingEmbeddingModel(null);
             }
           }}
         />

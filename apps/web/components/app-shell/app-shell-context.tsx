@@ -40,17 +40,16 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
  * 管理 Agent 抽屉与设置弹窗的开关，供左侧导航栏与各页面顶栏共享。
  */
 export function AppShellProvider({ children }: { children: ReactNode }) {
-  const [agentDrawerOpen, setAgentDrawerOpen] = useState(
-    () => window.matchMedia("(min-width: 1025px)").matches,
-  );
+  const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
 
   useEffect(() => {
     const desktop = window.matchMedia("(min-width: 1025px)");
-    const syncDrawerWithViewport = () => setAgentDrawerOpen(desktop.matches);
-
-    syncDrawerWithViewport();
+    // 仅在小屏自动收起；桌面端默认收起、不随视口强制打开，由用户手动展开
+    const syncDrawerWithViewport = () => {
+      if (!desktop.matches) setAgentDrawerOpen(false);
+    };
     desktop.addEventListener("change", syncDrawerWithViewport);
     return () => desktop.removeEventListener("change", syncDrawerWithViewport);
   }, []);

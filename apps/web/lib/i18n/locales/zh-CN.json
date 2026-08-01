@@ -79,7 +79,8 @@
     "preview": "预览",
     "sourcesCount": "已使用 {count} 个来源",
     "addAttachment": "添加附件",
-    "removeAttachment": "移除附件"
+    "removeAttachment": "移除附件",
+    "errorTitle": "对话失败"
   },
   "wiki": {
     "title": "我的WIKI",
@@ -342,11 +343,16 @@
     "deleteFailed": "删除失败",
     "chatModels": "会话模型",
     "embeddingModels": "嵌入模型",
-    "embeddingModelsDescription": "配置嵌入模型用于向量化。需要填写 Base URL、API Key 和模型名称。",
+    "embeddingModelDesc": "用于向量检索与知识库索引，保存后立即生效。",
     "embeddingModelName": "模型名称",
     "embeddingFormIncomplete": "请填写所有字段",
     "embeddingModelSaved": "嵌入模型保存成功",
-    "embeddingModelSaveFailed": "保存失败"
+    "embeddingModelSaveFailed": "保存失败",
+    "addFreeModel": "添加免费模型",
+    "freeModelKeyRequired": "请先填写 API Key",
+    "freeModelStepGetKey": "前往 {provider} 获取 API Key：",
+    "freeModelStepPaste": "将 API Key 粘贴到下方输入框",
+    "freeModelStepFinish": "点击「添加模型」完成接入"
   },
   "remoteConnection": {
     "title": "远程连接",

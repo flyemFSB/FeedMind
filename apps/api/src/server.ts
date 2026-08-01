@@ -30,15 +30,57 @@ async function main(): Promise<void> {
   const mastraServer = new MastraServer({ app, mastra });
   await mastraServer.init();
 
-  // 从自定义 header 读取模型 ID，注入 requestContext（避免 body 中携带导致重复）
-  app.use("*", async (c, next) => {
-    const modelId = c.req.header("x-feedmind-model-id");
-    if (modelId) {
-      const rc = c.get("requestContext");
-      rc?.set("feedmindModelId", modelId);
+  // 包装 app.fetch：仅对聊天路由改写请求 body。
+  // 原先用 app.use("*") 注入 requestContext 是死代码——Hono 按注册顺序执行，
+  // chatRoute handler 在 init 时已注册，会短路后续中间件。
+  const baseFetch = app.fetch.bind(app);
+  app.fetch = async (request: Request): Promise<Response> => {
+    const isChat =
+      request.method === "POST" && new URL(request.url).pathname.startsWith("/v1/agent/chat/");
+    if (isChat) {
+      try {
+        const body = (await request.clone().json()) as {
+          memory?: { thread?: string; resource?: string };
+          requestContext?: Record<string, unknown>;
+        };
+        if (body && typeof body === "object") {
+          let changed = false;
+
+          // 请求未携带 memory.thread 时自动生成，否则 ObservationalMemory 会在调用 LLM 前硬失败
+          if (!body.memory?.thread) {
+            const threadId = crypto.randomUUID();
+            body.memory = { thread: threadId, resource: threadId };
+            body.requestContext = {
+              ...(body.requestContext ?? {}),
+              MastraMemory: { thread: { id: threadId }, resourceId: threadId },
+            };
+            changed = true;
+          }
+
+          // 从自定义 header 读取模型 ID，注入 requestContext（Mastra 会合并 body.requestContext）
+          const modelId = request.headers.get("x-feedmind-model-id");
+          if (modelId) {
+            body.requestContext = { ...(body.requestContext ?? {}), feedmindModelId: modelId };
+            changed = true;
+          }
+
+          if (changed) {
+            const headers = new Headers(request.headers);
+            headers.delete("content-length");
+            request = new Request(request.url, {
+              method: request.method,
+              headers,
+              body: JSON.stringify(body),
+              signal: request.signal,
+            });
+          }
+        }
+      } catch {
+        // 非 JSON body 保持原样透传
+      }
     }
-    await next();
-  });
+    return baseFetch(request);
+  };
 
   serve({
     fetch: app.fetch,
