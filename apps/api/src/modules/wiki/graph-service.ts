@@ -6,8 +6,8 @@ let _Graph: any = null;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _Louvain: any = null;
 async function ensureGraphLibs() {
-  if (!_Graph) _Graph = (await import("graphology")).default;
-  if (!_Louvain) _Louvain = (await import("graphology-communities-louvain")).default;
+  _Graph ??= (await import("graphology")).default;
+  _Louvain ??= (await import("graphology-communities-louvain")).default;
 }
 import { buildWikiGraph, normalizePath } from "@feedmind/wiki-core";
 import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";

@@ -8,6 +8,7 @@ import { useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiKeys } from "@/lib/hooks/use-wiki";
 import { Badge } from "@/components/ui/badge";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { fadeSlideVariants, listContainerVariants, listItemVariants } from "@/lib/motion";
@@ -25,24 +26,41 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
   const [ingestingId, setIngestingId] = useState<string | null>(null);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<{
+    willDelete: string[];
+    willUpdate: string[];
+  } | null>(null);
   const invalidateSources = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
+    void queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
   }, [queryClient, spaceId]);
 
-  const handleDelete = async (sourceId: string) => {
+  // 先预览删除影响，再弹确认框，避免用户对删除范围没有概念
+  const requestDelete = useCallback(
+    async (source: { id: string; title: string }) => {
+      setDeleteTarget(source);
+      setDeleteImpact(null);
+      try {
+        const impact = await previewDeleteImpact(spaceId, source.id);
+        setDeleteImpact(impact);
+      } catch {
+        // 错误由 apiFetch toast 统一处理
+      }
+    },
+    [spaceId],
+  );
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
     try {
-      const impact = await previewDeleteImpact(spaceId, sourceId);
-      const confirmed = window.confirm(
-        t("wiki.deleteImpactConfirm", {
-          deleteCount: impact.willDelete.length,
-          updateCount: impact.willUpdate.length,
-        }),
-      );
-      if (!confirmed) return;
-      await deleteWikiSource(spaceId, sourceId, "detach");
+      await deleteWikiSource(spaceId, deleteTarget.id, "detach");
+      setDeleteTarget(null);
       invalidateSources();
     } catch {
-      // 错误由 apiFetch toast 统一处理
+      // 错误由 apiFetch toast 统一处理，保留弹窗以便重试
     }
   };
 
@@ -192,7 +210,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   )}
                 </motion.button>
                 <motion.button
-                  onClick={() => handleDelete(source.id)}
+                  onClick={() => requestDelete(source)}
                   whileHover={{ scale: 1.08, opacity: 1 }}
                   whileTap={{ scale: 0.9 }}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
@@ -229,6 +247,21 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
           )}
         </AnimatePresence>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void handleDeleteConfirm()}
+        title={t("wiki.deleteSource")}
+        description={
+          deleteTarget
+            ? t("wiki.deleteImpactConfirm", {
+                deleteCount: deleteImpact?.willDelete.length ?? 0,
+                updateCount: deleteImpact?.willUpdate.length ?? 0,
+              })
+            : undefined
+        }
+      />
     </div>
   );
 }

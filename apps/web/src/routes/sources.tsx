@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { Plus, Trash2, Rss, Globe, Cookie, User, Eye, EyeOff, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -33,24 +34,22 @@ function parseSocialUrl(url: string): SocialInfo | null {
 
     if (host.includes("bilibili.com") || host.includes("b23.tv")) {
       const m = path.match(/\/(\d+)/);
-      if (m && m[1])
-        return { platform: "bilibili", route: "bili/user/video", params: { uid: m[1] } };
+      if (m?.[1]) return { platform: "bilibili", route: "bili/user/video", params: { uid: m[1] } };
     }
     if (host.includes("xiaohongshu.com")) {
       const m = path.match(/\/user\/profile\/([^/]+)/);
-      if (m && m[1])
+      if (m?.[1])
         return { platform: "xiaohongshu", route: "xhs/user/notes", params: { user_id: m[1] } };
     }
     if (host.includes("douyin.com")) {
       const m = path.match(/\/user\/([^/]+)/);
-      if (m && m[1]) return { platform: "douyin", route: "dy/user", params: { uid: m[1] } };
+      if (m?.[1]) return { platform: "douyin", route: "dy/user", params: { uid: m[1] } };
     }
     if (host.includes("zhihu.com")) {
-      const m = path.match(/\/people\/([^/]+)/) || path.match(/\/org\/([^/]+)/);
-      if (m && m[1])
-        return { platform: "zhihu", route: "zh/answers", params: { question_id: m[1] } };
+      const m = path.match(/\/people\/([^/]+)/) ?? path.match(/\/org\/([^/]+)/);
+      if (m?.[1]) return { platform: "zhihu", route: "zh/answers", params: { question_id: m[1] } };
       const qm = path.match(/\/question\/(\d+)/);
-      if (qm && qm[1])
+      if (qm?.[1])
         return { platform: "zhihu", route: "zh/answers", params: { question_id: qm[1] } };
     }
   } catch {
@@ -123,6 +122,7 @@ function SourcesPage() {
   const [sources, setSources] = useState<RssSource[]>([]);
   const [newUrl, setNewUrl] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<RssSource | null>(null);
 
   // CookieCloud
   const [cookiecloudUuid, setCookiecloudUuid] = useState("");
@@ -146,7 +146,7 @@ function SourcesPage() {
   }, []);
 
   useEffect(() => {
-    loadSources();
+    void loadSources();
   }, [loadSources]);
 
   useEffect(() => {
@@ -200,9 +200,9 @@ function SourcesPage() {
       }
       setNewUrl("");
       await loadSources();
-      toast.success(t("feeds.addSuccess"));
+      toast.add({ title: t("feeds.addSuccess"), type: "success" });
     } catch {
-      toast.error(t("feeds.addError"));
+      toast.add({ title: t("feeds.addError"), type: "error" });
     }
   };
 
@@ -210,9 +210,10 @@ function SourcesPage() {
     try {
       await removeSource(id);
       await loadSources();
-      toast.success(t("feeds.deleteSuccess"));
+      setDeleteTarget(null);
+      toast.add({ title: t("feeds.deleteSuccess"), type: "success" });
     } catch {
-      toast.error(t("feeds.deleteError"));
+      toast.add({ title: t("feeds.deleteError"), type: "error" });
     }
   };
 
@@ -220,11 +221,30 @@ function SourcesPage() {
     setSyncing(true);
     try {
       await syncAllFeeds();
-      toast.success(t("feeds.syncSuccess"));
+      toast.add({ title: t("feeds.syncSuccess"), type: "success" });
     } catch {
-      toast.error(t("feeds.syncError"));
+      toast.add({ title: t("feeds.syncError"), type: "error" });
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleSaveCookieConfig = async () => {
+    if (!cookiecloudUuid.trim() || !cookiecloudPassword.trim()) return;
+    try {
+      const res = await fetch("/api/v1/cookiecloud/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uuid: cookiecloudUuid,
+          password: cookiecloudPassword,
+          crypto_type: "legacy",
+        }),
+      });
+      if (!res.ok) throw new Error("请求失败");
+      toast.add({ title: t("feeds.configSaved"), type: "success" });
+    } catch {
+      toast.add({ title: t("feeds.configSaveFailed"), type: "error" });
     }
   };
 
@@ -239,7 +259,7 @@ function SourcesPage() {
                 <p className="text-[12px] text-editorial-ink-soft">{t("feeds.pasteLinkHint")}</p>
               </div>
               <Button
-                onClick={handleSync}
+                onClick={() => void handleSync()}
                 disabled={syncing}
                 size="sm"
                 className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
@@ -254,12 +274,14 @@ function SourcesPage() {
               <input
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleAdd();
+                }}
                 placeholder={t("feeds.inputPlaceholder")}
                 className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
               />
               <Button
-                onClick={handleAdd}
+                onClick={() => void handleAdd()}
                 disabled={!newUrl.trim()}
                 size="sm"
                 className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-[12px]"
@@ -321,7 +343,7 @@ function SourcesPage() {
                       </div>
                       <motion.button
                         type="button"
-                        onClick={() => handleDelete(source.id)}
+                        onClick={() => setDeleteTarget(source)}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.9 }}
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100"
@@ -374,7 +396,7 @@ function SourcesPage() {
                       type={showPassword ? "text" : "password"}
                       value={cookiecloudPassword}
                       onChange={(e) => setCookiecloudPassword(e.target.value)}
-                      placeholder={hasConfig ? "******" : "输入加密密码"}
+                      placeholder={hasConfig ? "******" : t("feeds.cookiePasswordPlaceholder")}
                       className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
                     />
                     <button
@@ -388,29 +410,12 @@ function SourcesPage() {
                   </div>
                 </div>
                 <Button
-                  onClick={async () => {
-                    if (!cookiecloudUuid.trim() || !cookiecloudPassword.trim()) return;
-                    try {
-                      const res = await fetch("/api/v1/cookiecloud/config", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          uuid: cookiecloudUuid,
-                          password: cookiecloudPassword,
-                          crypto_type: "legacy",
-                        }),
-                      });
-                      if (!res.ok) throw new Error("请求失败");
-                      toast.success("CookieCloud 配置已保存");
-                    } catch {
-                      toast.error("保存 CookieCloud 配置失败");
-                    }
-                  }}
+                  onClick={() => void handleSaveCookieConfig()}
                   disabled={!cookiecloudUuid.trim() || !cookiecloudPassword.trim()}
                   size="sm"
                   className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
                 >
-                  保存配置
+                  {t("feeds.saveConfig")}
                 </Button>
               </div>
             </div>
@@ -420,9 +425,13 @@ function SourcesPage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <User size={15} className="text-editorial-ink-soft" />
-                <h2 className="text-[16px] font-semibold text-editorial-ink">账号 Cookie</h2>
+                <h2 className="text-[16px] font-semibold text-editorial-ink">
+                  {t("feeds.accountCookie")}
+                </h2>
               </div>
-              <p className="mt-1 text-[12px] text-editorial-ink-muted">各平台登录 Cookie 状态</p>
+              <p className="mt-1 text-[12px] text-editorial-ink-muted">
+                {t("feeds.accountCookieDesc")}
+              </p>
             </div>
             <motion.div
               className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
@@ -456,7 +465,7 @@ function SourcesPage() {
                           : "bg-editorial-surface-strong text-editorial-ink-muted",
                       )}
                     >
-                      {isConfigured ? "已配置" : "未配置"}
+                      {isConfigured ? t("feeds.configured") : t("feeds.notConfigured")}
                     </span>
                   </motion.div>
                 );
@@ -465,6 +474,18 @@ function SourcesPage() {
           </div>
         </div>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) void handleDelete(deleteTarget.id);
+        }}
+        title={t("feeds.deleteSource")}
+        description={
+          deleteTarget ? t("feeds.deleteSourceConfirm", { name: deleteTarget.title }) : undefined
+        }
+      />
     </LayoutWrapper>
   );
 }

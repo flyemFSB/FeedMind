@@ -1,117 +1,86 @@
-/**
- * ai-elements Message 组件
- * 消息渲染：用户消息气泡 / 助手消息纯文字 + Markdown 响应
- *
- * 与官方差异：
- * - 保留 FeedMind editorial 设计令牌
- * - 保留中文 i18n
- * - `from` 限定为 "user" | "assistant"
- */
 "use client";
 
-import { memo, type ComponentProps, type HTMLAttributes } from "react";
-import { Button } from "@/components/ui/button";
-import { MessageResponseContent } from "./message-response";
+import { Button } from "@/components/ui/radix/button";
 import { cn } from "@/lib/utils";
+import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
+import type { UIMessage } from "ai";
+import type { ComponentProps, HTMLAttributes } from "react";
+import { memo } from "react";
+import { Streamdown } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
-  from: "user" | "assistant";
+  from: UIMessage["role"];
 };
 
-export function Message({ className, from, children, ...props }: MessageProps) {
-  return (
-    <div
-      className={cn(
-        "group flex w-full max-w-full min-w-0 flex-col gap-2",
-        from === "user" ? "ml-auto max-w-[85%] items-end" : "items-start",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-}
+export const Message = ({ className, from, ...props }: MessageProps) => (
+  <div
+    className={cn(
+      "group flex w-full max-w-[95%] flex-col gap-2",
+      from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
+      className,
+    )}
+    {...props}
+  />
+);
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 
-export function MessageContent({ className, children, ...props }: MessageContentProps) {
-  return (
-    <div className={cn("w-full min-w-0 space-y-2", className)} {...props}>
-      {children}
-    </div>
-  );
-}
+export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
+  <div
+    className={cn(
+      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
+      "group-[.is-assistant]:text-foreground",
+      className,
+    )}
+    {...props}
+  >
+    {children}
+  </div>
+);
 
-export type MessageResponseProps = {
-  className?: string;
-  children?: string;
-  isAnimating?: boolean;
-};
+export type MessageActionsProps = ComponentProps<"div">;
 
-export const MessageResponse = memo(function MessageResponse({
-  className,
-  ...props
-}: MessageResponseProps) {
-  return (
-    <MessageResponseContent
-      className={cn(
-        "prose prose-sm max-w-none",
-        "prose-headings:text-editorial-ink prose-headings:font-display",
-        "prose-p:text-body-md prose-p:text-editorial-ink-soft",
-        "prose-a:text-editorial-primary prose-a:no-underline hover:prose-a:underline",
-        "prose-strong:text-editorial-ink",
-        "prose-code:before:content-none prose-code:after:content-none",
-        "prose-pre:max-w-full prose-pre:overflow-x-auto prose-pre:bg-transparent prose-pre:p-0",
-        "prose-li:text-editorial-ink-soft",
-        className,
-      )}
-      {...props}
-    />
-  );
-});
-
-export type MessageActionsProps = HTMLAttributes<HTMLDivElement>;
-
-export function MessageActions({ className, children, ...props }: MessageActionsProps) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-1",
-        "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-}
+export const MessageActions = ({ className, children, ...props }: MessageActionsProps) => (
+  <div className={cn("flex items-center gap-1", className)} {...props}>
+    {children}
+  </div>
+);
 
 export type MessageActionProps = ComponentProps<typeof Button> & {
-  tooltip?: string;
   label?: string;
 };
 
-export function MessageAction({
-  className,
-  variant = "ghost",
-  size = "icon-sm",
+export const MessageAction = ({
   children,
   label,
-  tooltip,
+  variant = "ghost",
+  size = "icon-sm",
   ...props
-}: MessageActionProps) {
-  return (
-    <Button
-      variant={variant}
-      size={size}
-      className={cn("text-editorial-ink-muted hover:text-editorial-ink", className)}
-      aria-label={label ?? tooltip ?? ""}
-      title={tooltip ?? label ?? ""}
+}: MessageActionProps) => (
+  <Button size={size} type="button" variant={variant} {...props}>
+    {children}
+    <span className="sr-only">{label}</span>
+  </Button>
+);
+
+export type MessageResponseProps = ComponentProps<typeof Streamdown>;
+
+const streamdownPlugins = { cjk, code, math, mermaid };
+
+export const MessageResponse = memo(
+  ({ className, ...props }: MessageResponseProps) => (
+    <Streamdown
+      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+      plugins={streamdownPlugins}
       {...props}
-    >
-      {children}
-    </Button>
-  );
-}
+    />
+  ),
+  (prevProps, nextProps) =>
+    prevProps.children === nextProps.children && nextProps.isAnimating === prevProps.isAnimating,
+);
+
+MessageResponse.displayName = "MessageResponse";

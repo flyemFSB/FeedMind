@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { updateAllToolConfigs } from "@/lib/api/tools";
 import { useTools } from "@/lib/hooks/use-tools";
 import { Button } from "@/components/ui/button";
@@ -63,9 +63,9 @@ export function ToolsPanel() {
       }
       await updateAllToolConfigs(payload);
       setTouched(new Set());
-      toast.success(t("settings.toolSaved"));
+      toast.add({ title: t("settings.toolSaved"), type: "success" });
     } catch {
-      toast.error(t("settings.saveFailed"));
+      toast.add({ title: t("settings.saveFailed"), type: "error" });
     }
   }
 
@@ -98,7 +98,7 @@ export function ToolsPanel() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={save} className="h-8 rounded-md text-[12px]">
+          <Button size="sm" onClick={() => void save()} className="h-8 rounded-md text-[12px]">
             {t("common.save")}
           </Button>
         </div>

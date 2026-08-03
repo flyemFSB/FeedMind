@@ -37,7 +37,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
   const isWikiActive = pathname.startsWith("/wiki");
 
   const goToView = (view: string) => {
-    navigate({ to: "/wiki", search: { view } as any, replace: false });
+    void navigate({ to: "/wiki", search: { view }, replace: false });
   };
 
   return (
@@ -45,7 +45,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
       data-island="navigation"
       className="relative z-20 flex h-full w-[48px] shrink-0 flex-col items-center overflow-hidden bg-editorial-canvas-soft max-sm:w-[44px]"
     >
-      <div className="flex w-full flex-col items-center">
+      <div className="flex w-full flex-col items-center pt-1.5">
         <motion.button
           type="button"
           onClick={() => goToView("pages")}
@@ -102,13 +102,13 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
           icon={Rss}
           label="feeds.title"
           active={pathname === "/feeds"}
-          onClick={() => navigate({ to: "/feeds" })}
+          onClick={() => void navigate({ to: "/feeds" })}
         />
         <NavIconButton
           icon={List}
           label="feeds.sourceManagement"
           active={pathname === "/sources"}
-          onClick={() => navigate({ to: "/sources" } as any)}
+          onClick={() => void navigate({ to: "/sources" })}
         />
       </nav>
 

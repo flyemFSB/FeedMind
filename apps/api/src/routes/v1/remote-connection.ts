@@ -53,7 +53,7 @@ remoteConnectionRoutes.post("/remote-connections/feishu/config", async (c) => {
   try {
     await saveAndVerify({ appId: body.appId, appSecret: body.appSecret });
     return jsonOk(c, { success: true });
-  } catch (err: any) {
-    return jsonError(c, 400, "VERIFY_FAILED", err.message ?? "凭证验证失败");
+  } catch (err) {
+    return jsonError(c, 400, "VERIFY_FAILED", err instanceof Error ? err.message : "凭证验证失败");
   }
 });

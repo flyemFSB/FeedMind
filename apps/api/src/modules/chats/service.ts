@@ -9,12 +9,12 @@ export async function createChatSession(
   agentThreadId?: string,
   title?: string | null,
 ): Promise<ChatSessionRead> {
-  const id = agentThreadId || crypto.randomUUID();
+  const id = agentThreadId ?? crypto.randomUUID();
   const [row] = await db
     .insert(chatSessions)
     .values({
       agentThreadId: id,
-      title: title?.trim() || "新会话",
+      title: title?.trim() ?? "新会话",
     })
     .returning();
   return toRead(row);

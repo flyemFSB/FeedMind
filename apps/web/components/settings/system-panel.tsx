@@ -21,7 +21,7 @@ export function SystemPanel() {
 
   function handleLanguageChange(value: string | null) {
     if (!value) return;
-    i18n.changeLanguage(value);
+    void i18n.changeLanguage(value);
   }
 
   const themes = [

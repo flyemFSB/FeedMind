@@ -19,9 +19,9 @@ export async function createSource(input: RssSourceCreate): Promise<RssSourceRow
   const id = randomUUID();
   const now = new Date().toISOString();
   const title =
-    input.title || input.type === "rss"
+    Boolean(input.title) || input.type === "rss"
       ? new URL(input.url).hostname
-      : `${input.platform || "社交"} - ${input.url}`;
+      : `${input.platform ?? "社交"} - ${input.url}`;
 
   await db.insert(rssSources).values({
     id,

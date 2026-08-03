@@ -10,19 +10,75 @@ import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
 import { zhihuFetch } from "../core/zhihu-utils.js";
 
+// ─── 知乎 API 响应结构（按实际用到的字段裁剪） ──────────────────
+
+interface ZhihuAuthor {
+  id?: string;
+  url_token?: string;
+  name?: string;
+  avatar_url?: string;
+}
+
+interface ZhihuAnswerItem {
+  author?: ZhihuAuthor;
+  excerpt?: string;
+  content?: string;
+  id?: string | number;
+  created_time?: number;
+}
+
+interface ZhihuHotItem {
+  target?: {
+    title?: string;
+    excerpt?: string;
+    detail?: string;
+    url?: string;
+    id?: string | number;
+    created?: number;
+    image_url?: string;
+  };
+}
+
+interface ZhihuPin {
+  author?: ZhihuAuthor;
+  excerpt?: string;
+  content?: string[];
+  created_at?: number;
+}
+
+interface ZhihuArticle {
+  author?: ZhihuAuthor;
+  title?: string;
+  excerpt?: string;
+  content?: string;
+  created_time?: number;
+  image_url?: string;
+  title_image?: string;
+}
+
+interface ZhihuSearchItem {
+  type?: string;
+  object?: {
+    question?: { title?: string; id?: string | number };
+    title?: string;
+    excerpt?: string;
+    content?: string;
+    url?: string;
+    id?: string | number;
+    author?: ZhihuAuthor;
+    created_time?: number;
+    image_url?: string;
+  };
+}
+
 // ─── 辅助函数 ────────────────────────────────────────────────────
 
 function cleanHtml(text: string): string {
   return (text || "").replace(/<[^>]+>/g, "").substring(0, 500);
 }
 
-function extractAuthor(obj: any): { id?: string; name?: string; avatar?: string } {
-  if (!obj?.author) return {};
-  return {
-    id: obj.author.id || obj.author.url_token,
-    name: obj.author.name,
-    avatar: obj.author.avatar_url,
-  };
+function extractAuthor(obj: { author?: ZhihuAuthor }): string | undefined {
+  return obj?.author?.name;
 }
 
 // ─── Answers（问题回答列表） ─────────────────────────────────────
@@ -35,18 +91,18 @@ const answersHandler: RouteHandler = async ({ params, cookies, abortSignal, maxI
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const data = await zhihuFetch<any>(
+    const data = await zhihuFetch<{ data: ZhihuAnswerItem[] }>(
       `/questions/${questionId}/answers?include=content,excerpt,author,voteup_count,comment_count,created_time,updated_time&limit=${Math.min(maxItems, 20)}&offset=0&order_by=created`,
       cookies,
       controller.signal,
     );
 
-    const items = (data.data ?? []).slice(0, maxItems).map((item: any) => ({
-      title: `${item.author?.name || "匿名用户"}的回答`,
-      description: cleanHtml(item.excerpt || item.content || ""),
+    const items = (data.data ?? []).slice(0, maxItems).map((item: ZhihuAnswerItem) => ({
+      title: `${item.author?.name ?? "匿名用户"}的回答`,
+      description: cleanHtml(item.excerpt ?? item.content ?? ""),
       link: `https://www.zhihu.com/question/${questionId}/answer/${item.id}`,
       guid: buildGuid("zhihu", `answer_${item.id}`),
-      pubDate: fromUnixTimestamp(item.created_time),
+      pubDate: item.created_time ? fromUnixTimestamp(item.created_time) : new Date().toUTCString(),
       author: item.author?.name,
     }));
 
@@ -73,18 +129,18 @@ const hotHandler: RouteHandler = async ({ cookies, abortSignal, maxItems }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const data = await zhihuFetch<any>(
+    const data = await zhihuFetch<{ data: ZhihuHotItem[] }>(
       "/zhihu/topstory/hot-list?limit=50",
       cookies,
       controller.signal,
     );
 
-    const items = (data.data ?? []).slice(0, maxItems).map((item: any) => {
-      const target = item.target || {};
+    const items = (data.data ?? []).slice(0, maxItems).map((item: ZhihuHotItem) => {
+      const target = item.target ?? {};
       return {
-        title: target.title || "",
-        description: target.excerpt || target.detail || "",
-        link: target.url || `https://www.zhihu.com/question/${target.id}`,
+        title: target.title ?? "",
+        description: target.excerpt ?? target.detail ?? "",
+        link: target.url ?? `https://www.zhihu.com/question/${target.id}`,
         guid: buildGuid("zhihu", `hot_${target.id}`),
         pubDate: target.created ? fromUnixTimestamp(target.created) : new Date().toUTCString(),
         image: target.image_url,
@@ -116,25 +172,25 @@ const pinHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const data = await zhihuFetch<any>(`/pins/${pinId}`, cookies, controller.signal);
+    const data = await zhihuFetch<ZhihuPin>(`/pins/${pinId}`, cookies, controller.signal);
 
     const author = extractAuthor(data);
     return {
       rssXml: buildRssXml({
-        title: `${author.name || "知乎用户"}的想法`,
+        title: `${author ?? "知乎用户"}的想法`,
         link: `https://www.zhihu.com/pin/${pinId}`,
-        description: data.excerpt || "",
+        description: data.excerpt ?? "",
         language: "zh-CN",
         items: [
           {
-            title: data.excerpt?.substring(0, 100) || "知乎想法",
-            description: data.content?.join("\n") || data.excerpt || "",
+            title: data.excerpt?.substring(0, 100) ?? "知乎想法",
+            description: data.content?.join("\n") ?? data.excerpt ?? "",
             link: `https://www.zhihu.com/pin/${pinId}`,
             guid: buildGuid("zhihu", `pin_${pinId}`),
             pubDate: data.created_at
               ? fromUnixTimestamp(data.created_at)
               : new Date().toUTCString(),
-            author: author.name,
+            author,
           },
         ],
       }),
@@ -155,7 +211,7 @@ const articleHandler: RouteHandler = async ({ params, cookies, abortSignal }) =>
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const data = await zhihuFetch<any>(
+    const data = await zhihuFetch<ZhihuArticle>(
       `https://zhuanlan.zhihu.com/api/articles/${articleId}`,
       cookies,
       controller.signal,
@@ -164,21 +220,21 @@ const articleHandler: RouteHandler = async ({ params, cookies, abortSignal }) =>
     const author = extractAuthor(data);
     return {
       rssXml: buildRssXml({
-        title: data.title || "知乎专栏",
+        title: data.title ?? "知乎专栏",
         link: `https://zhuanlan.zhihu.com/p/${articleId}`,
-        description: data.excerpt || "",
+        description: data.excerpt ?? "",
         language: "zh-CN",
         items: [
           {
-            title: data.title || "",
-            description: cleanHtml(data.content || data.excerpt || ""),
+            title: data.title ?? "",
+            description: cleanHtml(data.content ?? data.excerpt ?? ""),
             link: `https://zhuanlan.zhihu.com/p/${articleId}`,
             guid: buildGuid("zhihu", `article_${articleId}`),
             pubDate: data.created_time
               ? fromUnixTimestamp(data.created_time)
               : new Date().toUTCString(),
-            author: author.name,
-            image: data.image_url || data.title_image,
+            author,
+            image: data.image_url ?? data.title_image,
           },
         ],
       }),
@@ -206,24 +262,28 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
       limit: String(Math.min(maxItems, 20)),
     }).toString();
 
-    const data = await zhihuFetch<any>(`/search_v3?${qs}`, cookies, controller.signal);
+    const data = await zhihuFetch<{ data: ZhihuSearchItem[] }>(
+      `/search_v3?${qs}`,
+      cookies,
+      controller.signal,
+    );
 
     const items = (data.data ?? [])
-      .filter((item: any) => item.type === "answer" || item.type === "article")
+      .filter((item: ZhihuSearchItem) => item.type === "answer" || item.type === "article")
       .slice(0, maxItems)
-      .map((item: any) => {
-        const obj = item.object || {};
+      .map((item: ZhihuSearchItem) => {
+        const obj = item.object ?? {};
         const author = extractAuthor(obj);
-        const qTitle = obj.question?.title || obj.title || "";
+        const qTitle = obj.question?.title ?? obj.title ?? "";
         return {
           title: qTitle,
-          description: cleanHtml(obj.excerpt || obj.content || ""),
-          link: obj.url || `https://www.zhihu.com/question/${obj.question?.id}/answer/${obj.id}`,
+          description: cleanHtml(obj.excerpt ?? obj.content ?? ""),
+          link: obj.url ?? `https://www.zhihu.com/question/${obj.question?.id}/answer/${obj.id}`,
           guid: buildGuid("zhihu", `search_${obj.id}`),
           pubDate: obj.created_time
             ? fromUnixTimestamp(obj.created_time)
             : new Date().toUTCString(),
-          author: author.name,
+          author,
           image: obj.image_url,
         };
       });

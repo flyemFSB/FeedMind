@@ -7,7 +7,6 @@
  * - __zse_ck 自动获取
  */
 import crypto from "node:crypto";
-import { load } from "cheerio";
 import { encrypt } from "./x-zse-96-v3.js";
 
 const API_BASE = "https://www.zhihu.com/api/v4";
@@ -15,7 +14,7 @@ const API_BASE = "https://www.zhihu.com/api/v4";
 /**
  * 从 cookie 字符串中提取指定 key 的值
  */
-export function getCookieValue(cookies: string, key: string): string | null {
+function getCookieValue(cookies: string, key: string): string | null {
   for (const part of cookies.split(";")) {
     const trimmed = part.trim();
     if (trimmed.startsWith(key + "=")) {
@@ -28,7 +27,7 @@ export function getCookieValue(cookies: string, key: string): string | null {
 /**
  * 获取 __zse_ck 值（从知乎静态 JS 文件自动获取）
  */
-export async function fetchZseCK(signal?: AbortSignal): Promise<string | null> {
+async function fetchZseCK(signal?: AbortSignal): Promise<string | null> {
   try {
     const res = await fetch("https://static.zhihu.com/zse-ck/v3.js", { signal });
     const script = await res.text();
@@ -47,7 +46,7 @@ export async function fetchZseCK(signal?: AbortSignal): Promise<string | null> {
  * 2. md5 = MD5(f)
  * 3. x-zse-96 = "2.0_" + encrypt(md5)
  */
-export function buildXZSE96(apiPath: string, dc0: string): string {
+function buildXZSE96(apiPath: string, dc0: string): string {
   const f = `101_3_3.0+${apiPath}+${dc0}`;
   const md5Str = crypto.createHash("md5").update(f, "utf-8").digest("hex");
   return "2.0_" + encrypt(md5Str);
@@ -56,7 +55,7 @@ export function buildXZSE96(apiPath: string, dc0: string): string {
 /**
  * 构建完整的知乎 API 请求头
  */
-export async function buildZhihuHeaders(
+async function buildZhihuHeaders(
   apiPath: string,
   cookies?: string,
   signal?: AbortSignal,
@@ -68,9 +67,7 @@ export async function buildZhihuHeaders(
   // 如果没有 d_c0，尝试自动获取
   if (!dc0) {
     // 先获取 zse_ck
-    if (!zseCk) {
-      zseCk = await fetchZseCK(signal);
-    }
+    zseCk ??= await fetchZseCK(signal);
     if (zseCk) {
       cookieStr = `__zse_ck=${zseCk}`;
     }
@@ -128,74 +125,4 @@ export async function zhihuFetch<T>(
   if (!res.ok) throw new Error(`知乎 API ${res.status}: ${res.statusText}`);
 
   return res.json() as Promise<T>;
-}
-
-/**
- * 修正知乎图片 URL
- *
- * - 去掉 query string
- * - 替换 _b.jpg / _r.jpg / _720w.jpg → .jpg
- */
-export function fixImageUrl(url: string): string {
-  return url
-    .split("?", 1)[0]
-    .replace("_b.jpg", ".jpg")
-    .replace("_r.jpg", ".jpg")
-    .replace("_720w.jpg", ".jpg");
-}
-
-/**
- * 处理知乎 HTML 内容：
- * - 删除 <noscript> 和 MCN 链接卡片
- * - 修正知乎跳转链接
- * - 修正图片 URL
- */
-export function processImage(content: string): string {
-  const $ = load(content, null, false);
-
-  $('noscript, a[data-draft-type="mcn-link-card"]').remove();
-
-  $("a").each((_i: number, elem: any) => {
-    const href = $(elem).attr("href");
-    if (
-      href?.startsWith("http://link.zhihu.com/?target=") ||
-      href?.startsWith("https://link.zhihu.com/?target=")
-    ) {
-      try {
-        const url = new URL(href);
-        const target = url.searchParams.get("target") || "";
-        $(elem).attr("href", decodeURIComponent(target));
-      } catch {
-        // ignore invalid URLs
-      }
-    }
-  });
-
-  $("img.content_image, img.origin_image, img.content-image, img.data-actualsrc, figure>img").each(
-    (_i: number, e: any) => {
-      if (e.attribs["data-actualsrc"]) {
-        $(e).attr({
-          src: fixImageUrl(e.attribs["data-actualsrc"]),
-          width: null,
-          height: null,
-        });
-        $(e).removeAttr("data-actualsrc");
-      } else if (e.attribs["data-original"]) {
-        $(e).attr({
-          src: fixImageUrl(e.attribs["data-original"]),
-          width: null,
-          height: null,
-        });
-        $(e).removeAttr("data-original");
-      } else {
-        $(e).attr({
-          src: fixImageUrl(e.attribs.src),
-          width: null,
-          height: null,
-        });
-      }
-    },
-  );
-
-  return $.html();
 }

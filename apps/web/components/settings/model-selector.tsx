@@ -78,7 +78,10 @@ export function ModelSelector() {
   const hasModels = models.length > 0;
 
   return (
-    <Select value={hasModels ? selectedModel : ""} onValueChange={handleChange}>
+    <Select
+      value={hasModels ? selectedModel : ""}
+      onValueChange={(value) => void handleChange(value)}
+    >
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
         className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"

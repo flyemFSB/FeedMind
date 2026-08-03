@@ -33,13 +33,25 @@ export interface QueueStore {
 }
 
 export class JsonQueueStore implements QueueStore {
+  // restoreQueue 是崩溃恢复：进程重启后遗留的 processing 任务重置为 pending。
+  // 只能在启动时执行一次——每次读取都恢复会抹掉进度/开始时间，导致前端永远看不到进度。
+  private restoredSpaces = new Set<string>();
+
   private queuePath(spaceId: string): string {
     return path.join(getSpaceDir(spaceId), ".feedmind", "ingest-queue.json");
   }
 
   private readQueue(spaceId: string): IngestJob[] {
     try {
-      const queue = restoreQueue(loadQueue(fs.readFileSync(this.queuePath(spaceId), "utf-8")));
+      const queue = loadQueue(fs.readFileSync(this.queuePath(spaceId), "utf-8"));
+      if (!this.restoredSpaces.has(spaceId)) {
+        this.restoredSpaces.add(spaceId);
+        const restored = restoreQueue(queue);
+        if (restored.some((job, i) => job.status !== queue[i]?.status)) {
+          this.writeQueue(spaceId, restored);
+        }
+        return restored;
+      }
       return queue;
     } catch {
       return [];
@@ -101,7 +113,7 @@ export class JsonQueueStore implements QueueStore {
 let _instance: QueueStore | null = null;
 
 export function getQueueStore(): QueueStore {
-  if (!_instance) _instance = new JsonQueueStore();
+  _instance ??= new JsonQueueStore();
   return _instance;
 }
 

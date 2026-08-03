@@ -1,5 +1,5 @@
-import crypto from "node:crypto";
 import fsPromises from "node:fs/promises";
+import type { Worksheet as ExcelWorksheet, Cell as ExcelCell } from "exceljs";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -16,24 +16,9 @@ export interface ExtractedDocument {
 // ─── 格式检测 ────────────────────────────────────────────────────
 
 const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
-const BINARY_EXTS = new Set(["pdf", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
-export const EXTRACTABLE_EXTS = new Set([...TEXT_EXTS, ...BINARY_EXTS, ...IMAGE_EXTS]);
-
-export function isTextFormat(ext: string): boolean {
-  return TEXT_EXTS.has(ext);
-}
-
-export function isBinaryFormat(ext: string): boolean {
-  return BINARY_EXTS.has(ext);
-}
-
-export function isImageFormat(ext: string): boolean {
-  return IMAGE_EXTS.has(ext);
-}
-
-export function detectFormat(fileName: string): string {
+function detectFormat(fileName: string): string {
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   if (TEXT_EXTS.has(ext)) return "text";
   if (IMAGE_EXTS.has(ext)) return "image";
@@ -95,17 +80,19 @@ async function extractTextFile(
 // ─── PDF ───────────────────────────────────────────────────────────
 
 async function extractPdf(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  // pdf-parse v2 直接导出函数本身（ESM 下不需要 .default）
-  const pdfParse = await import("pdf-parse");
-  const parseFn = (pdfParse as any).default ?? (pdfParse as any);
+  const { PDFParse } = await import("pdf-parse");
   const buf = await fsPromises.readFile(filePath);
 
   let text: string;
   let pageCount: number | undefined;
   try {
-    const data = await parseFn(buf);
-    text = data.text ?? "";
-    pageCount = data.numpages ?? undefined;
+    // pdf-parse v2 按类调用，getText 返回整篇文本与分页结果
+    const parser = new PDFParse({ data: buf });
+    const result = await parser.getText();
+    // 释放 pdfjs worker，避免长进程内多次解析累积线程
+    void parser.destroy();
+    text = result.text ?? "";
+    pageCount = result.pages?.length ?? undefined;
   } catch (err) {
     return {
       text: `# ${fileName}\n\n[PDF text extraction failed: ${err instanceof Error ? err.message : String(err)}]`,
@@ -198,12 +185,12 @@ async function extractXlsx(filePath: string, fileName: string): Promise<Extracte
 
     const parts: string[] = [`# ${fileName}`];
 
-    workbook.eachSheet((worksheet: any) => {
+    workbook.eachSheet((worksheet: ExcelWorksheet) => {
       parts.push(`\n## Sheet: ${worksheet.name} (${worksheet.rowCount} rows)`);
 
       const headerRow = worksheet.getRow(1);
       const headers: string[] = [];
-      headerRow.eachCell((cell: any) => headers.push(cell.text));
+      headerRow.eachCell((cell: ExcelCell) => headers.push(cell.text));
       if (headers.length > 0) {
         parts.push(`| ${headers.join(" | ")} |`);
         parts.push(`| ${headers.map(() => "---").join(" | ")} |`);
@@ -213,7 +200,7 @@ async function extractXlsx(filePath: string, fileName: string): Promise<Extracte
         const row = worksheet.getRow(i);
         const cells: string[] = [];
         let rowEmpty = true;
-        row.eachCell((cell: any) => {
+        row.eachCell((cell: ExcelCell) => {
           cells.push(cell.text);
           if (cell.text.trim()) rowEmpty = false;
         });
@@ -281,8 +268,6 @@ async function extractOfficeFile(filePath: string, fileName: string): Promise<Ex
 
 // ─── 图片元数据 ────────────────────────────────────────────────────
 
-const SUPPORTED_IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
-
 async function extractImageInfo(filePath: string, fileName: string): Promise<ExtractedDocument> {
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   let metadata = "";
@@ -311,7 +296,7 @@ async function extractImageInfo(filePath: string, fileName: string): Promise<Ext
     text: `# ${fileName}\n\nImage file — included for reference.\n\n${metadata ? `## Metadata\n${metadata}` : ""}`,
     wordCount: 0,
     mimeType: mimeFromExt(ext) || "image/unknown",
-    warnings: SUPPORTED_IMAGE_EXTS.has(ext) ? [] : [`Unsupported image format: ${ext}`],
+    warnings: IMAGE_EXTS.has(ext) ? [] : [`Unsupported image format: ${ext}`],
   };
 }
 
@@ -362,16 +347,5 @@ export async function extractDocument(
         mimeType: mimeFromExt(ext),
         warnings: [`Unsupported format: .${ext}`],
       };
-  }
-}
-
-// ─── 文件内容哈希（用于导入缓存）─────────────────────────────────
-
-export async function fileContentHash(filePath: string): Promise<string> {
-  try {
-    const buf = await fsPromises.readFile(filePath);
-    return crypto.createHash("sha256").update(buf).digest("hex");
-  } catch {
-    return "";
   }
 }

@@ -20,17 +20,14 @@ import {
 } from "@/components/ui/select";
 import { Thread } from "@/components/chat/thread";
 import { useChatContext } from "@/lib/chat/chat-context";
-import { useChatSessions, useDeleteChatSession } from "@/lib/hooks/use-chats";
+import { useChatSessions } from "@/lib/hooks/use-chats";
+import { useChatSessionDelete } from "@/lib/hooks/use-chat-session-delete";
 import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/use-models";
 import { persistSelectedFeedMindModel, setSelectedFeedMindModelId } from "@/lib/api/agent";
 import { ProviderIcon } from "@/components/settings/provider-icon";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  drawerVariants,
-  motionInstant,
-  motionLayoutTransition,
-  motionPressTransition,
-} from "@/lib/motion";
+import { drawerVariants, motionInstant, motionLayoutTransition } from "@/lib/motion";
 import { useTranslation } from "react-i18next";
 
 interface AgentDrawerProps {
@@ -40,11 +37,13 @@ interface AgentDrawerProps {
 
 export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const { t } = useTranslation();
-  const { createNewSession, switchSession, activeThreadId, clearSession } = useChatContext();
+  const { createNewSession, switchSession, activeThreadId } = useChatContext();
   const { data: sessions = [] } = useChatSessions();
-  const deleteMutation = useDeleteChatSession();
+  const deleteConfirm = useChatSessionDelete();
   const drawerRef = useRef<HTMLDivElement>(null);
   const [instantClose, setInstantClose] = useState(false);
+  // 会话下拉菜单的 open 受控，删除按钮需要先关菜单再弹确认框
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(true);
 
@@ -61,12 +60,12 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
       const saved = localStorage.getItem("feedmind:agent-drawer-width");
       if (saved) {
         const n = Number(saved);
-        return Math.min(Math.max(n, 320), 640);
+        return Math.min(Math.max(n, 400), 800);
       }
     } catch {
       /* ignore */
     }
-    return 400;
+    return 560;
   });
   const drawerWidthRef = useRef(drawerWidth);
   drawerWidthRef.current = drawerWidth;
@@ -82,7 +81,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
 
     const handlePointerMove = (event: globalThis.PointerEvent) => {
       const newWidth = startWidth - (event.clientX - startX);
-      const clamped = Math.min(Math.max(newWidth, 320), 640);
+      const clamped = Math.min(Math.max(newWidth, 400), 800);
       setDrawerWidth(clamped);
     };
 
@@ -102,7 +101,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   }, []);
 
   const currentSession = sessions.find((s) => s.agent_thread_id === activeThreadId);
-  const currentLabel = currentSession?.title || t("common.newChat");
+  const currentLabel = currentSession?.title ?? t("common.newChat");
 
   useEffect(() => {
     if (!open) return;
@@ -169,7 +168,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         variants={drawerVariants}
       >
         <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
-          <DropdownMenu>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
               <span className="truncate text-[13px] font-medium leading-tight">{currentLabel}</span>
               <ChevronDown size={12} className="shrink-0 text-editorial-ink-muted" />
@@ -183,7 +182,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                 sessions.map((session) => (
                   <DropdownMenuItem
                     key={session.agent_thread_id}
-                    onClick={() => switchSession(session.agent_thread_id)}
+                    onClick={() => void switchSession(session.agent_thread_id)}
                     className="group flex items-center rounded-md p-0 text-[12px]"
                   >
                     <span className="flex-1 truncate px-2 py-1.5">
@@ -192,10 +191,8 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (session.agent_thread_id === activeThreadId) {
-                          clearSession();
-                        }
-                        deleteMutation.mutate(session.agent_thread_id);
+                        setMenuOpen(false);
+                        deleteConfirm.setDeleteTarget(session.agent_thread_id);
                       }}
                       className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
                       title={t("common.delete")}
@@ -207,7 +204,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => createNewSession()}
+                onClick={() => void createNewSession()}
                 className="flex items-center gap-2 rounded-md text-[12px] text-editorial-ink"
               >
                 <Plus size={14} />
@@ -218,26 +215,37 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
 
           <div className="ml-auto flex items-center">
             <CompactModelSelector />
-            {!isDesktop && (
-              <motion.button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                whileHover={{ scale: 1.04, opacity: 1 }}
-                whileTap={{ scale: 0.94 }}
-                transition={motionPressTransition}
-                className="ml-1 flex size-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-80 hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
-                aria-label="关闭 Agent 面板"
-                title="关闭 Agent 面板"
-              >
-                <X size={15} />
-              </motion.button>
-            )}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="ml-1 flex size-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-80 hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+              aria-label="关闭 Agent 面板"
+              title="关闭 Agent 面板"
+            >
+              <X size={15} />
+            </button>
           </div>
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1">
           <Thread className="bg-editorial-surface-card" />
         </div>
+
+        <DeleteConfirmDialog
+          open={deleteConfirm.deleteTarget != null}
+          onClose={deleteConfirm.handleClose}
+          onConfirm={deleteConfirm.handleConfirm}
+          title={t("chat.deleteSession")}
+          description={
+            deleteConfirm.deleteTarget
+              ? t("chat.deleteSessionConfirm", {
+                  title:
+                    sessions.find((s) => s.agent_thread_id === deleteConfirm.deleteTarget)?.title ??
+                    t("chat.sessionTitleDefault"),
+                })
+              : undefined
+          }
+        />
       </motion.div>
     </motion.div>
   );
@@ -274,7 +282,10 @@ function CompactModelSelector() {
   const currentModel = models.find((m) => m.id === selectedModel);
 
   return (
-    <Select value={hasModels ? selectedModel : ""} onValueChange={handleChange}>
+    <Select
+      value={hasModels ? selectedModel : ""}
+      onValueChange={(value) => void handleChange(value)}
+    >
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
         className="h-7 max-w-[130px] rounded-md border-editorial-hairline bg-editorial-surface-card px-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"

@@ -51,7 +51,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
   }, [spaceId, pageId]);
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
   }, [loadPage]);
 
   const handleSave = async () => {
@@ -125,7 +125,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
           </Button>
           <Button
             size="sm"
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="h-8 rounded-lg bg-primary px-4 text-[12px] text-primary-foreground hover:bg-primary/80"
           >

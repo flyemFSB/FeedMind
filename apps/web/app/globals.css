@@ -64,6 +64,8 @@
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-destructive: var(--destructive);
+  --color-destructive-strong: var(--destructive-strong);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -92,8 +94,8 @@
   --editorial-surface-dark: #37352d;
   --editorial-surface-dark-elevated: #2d2d2d;
   --editorial-ink: #37352d;
-  --editorial-ink-soft: #9b9a97;
-  --editorial-ink-muted: #bfbdb8;
+  --editorial-ink-soft: #6f6c64;
+  --editorial-ink-muted: #76726b;
   --editorial-ink-on-dark: #ffffff;
   --editorial-ink-on-dark-soft: #cdcdcd;
   --editorial-ink-on-primary: #ffffff;
@@ -131,8 +133,10 @@
   --accent: #efefef;
   --accent-foreground: #37352d;
   --destructive: #e03e3e;
+  --destructive-strong: #c62f2f;
+  --destructive-foreground: #ffffff;
   --input: #e9e9e7;
-  --ring: #d1d0cc;
+  --ring: #87837b;
   --radius: 6px;
   --chart-1: oklch(0.88 0 0);
   --chart-2: oklch(0.68 0 0);
@@ -147,6 +151,12 @@
   --sidebar-accent-foreground: #37352d;
   --sidebar-border: #e9e9e7;
   --sidebar-ring: #d1d0cc;
+
+  /* shiki 代码高亮（ai-elements code-block 暗色回退） */
+  --shiki-light: #24292f;
+  --shiki-light-bg: #ffffff;
+  --shiki-dark: #e6edf3;
+  --shiki-dark-bg: #0d1117;
 }
 
 .dark {
@@ -198,8 +208,10 @@
   --accent: #2e2e2e;
   --accent-foreground: #ffffff;
   --destructive: #e03e3e;
+  --destructive-strong: #c62f2f;
+  --destructive-foreground: #ffffff;
   --input: #2e2e2e;
-  --ring: #454545;
+  --ring: #6d6d6d;
   --radius: 6px;
   --chart-1: oklch(0.82 0 0);
   --chart-2: oklch(0.65 0 0);

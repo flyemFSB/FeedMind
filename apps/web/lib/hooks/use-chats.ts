@@ -13,7 +13,7 @@ export function useDeleteChatSession() {
   return useMutation({
     mutationFn: deleteChatSessionApi,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: chatKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.list() });
     },
   });
 }

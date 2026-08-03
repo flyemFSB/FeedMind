@@ -101,7 +101,7 @@ function extractInitialState(html: string): XhsInitialState | null {
   const $ = load(html);
   const scriptText = $("script")
     .filter((_i, el) => {
-      const text = (el as { children?: { data?: string }[] })?.children?.[0]?.data || "";
+      const text = (el as { children?: { data?: string }[] })?.children?.[0]?.data ?? "";
       return text.startsWith("window.__INITIAL_STATE__=");
     })
     .text();
@@ -186,7 +186,7 @@ function buildMediaHtml(note: XhsNote, displayLivePhoto = false): string {
             return `<video controls poster="${image.urlDefault}">${videoUrls.map((u) => `<source src="${u}" type="video/mp4">`).join("\n")}</video>`;
           }
         }
-        return `<img src="${image.urlDefault || image.url}"><br>`;
+        return `<img src="${image.urlDefault ?? image.url}"><br>`;
       })
       .join("");
   }
@@ -200,8 +200,8 @@ function buildMediaHtml(note: XhsNote, displayLivePhoto = false): string {
 function enrichNoteDescription(note: XhsNote): string {
   if (!note) return "";
   const mediaHtml = buildMediaHtml(note);
-  const tagHtml = formatTagList(note.tag_list || note.tagList);
-  const descHtml = formatText(note.desc || "");
+  const tagHtml = formatTagList(note.tag_list ?? note.tagList);
+  const descHtml = formatText(note.desc ?? "");
   return [mediaHtml, tagHtml, descHtml].filter(Boolean).join("<br><br>");
 }
 
@@ -218,19 +218,20 @@ interface XhsRssItem {
 }
 
 function noteToRssItem(note: XhsNote, tag?: string): XhsRssItem | null {
-  const noteCard = note.note_card || note;
+  const noteCard = note.note_card ?? note;
   if (!noteCard?.note_id && !noteCard?.id) return null;
 
-  const id = noteCard.note_id || noteCard.id || "";
-  const firstImage = noteCard.imageList?.[0]?.urlDefault || noteCard.cover?.urlDefault;
+  const id = noteCard.note_id ?? noteCard.id ?? "";
+  const firstImage = noteCard.imageList?.[0]?.urlDefault ?? noteCard.cover?.urlDefault;
 
   return {
-    title: noteCard.display_title || noteCard.title || (noteCard.desc || "").substring(0, 80) || "",
+    title:
+      (noteCard.display_title ?? noteCard.title ?? (noteCard.desc ?? "").substring(0, 80)) || "",
     description: enrichNoteDescription(noteCard),
     link: `https://www.xiaohongshu.com/explore/${id}`,
     guid: buildGuid("xhs", id),
     pubDate: noteCard.time ? fromUnixTimestamp(noteCard.time) : new Date().toUTCString(),
-    author: noteCard.user?.nickname || noteCard.user?.nickName,
+    author: noteCard.user?.nickname ?? noteCard.user?.nickName,
     category: tag ? [tag] : undefined,
     image: firstImage,
   };
@@ -475,9 +476,7 @@ const noteHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
     const rssItem = noteData
       ? {
           title:
-            noteData.display_title ||
-            noteData.title ||
-            (noteData.desc || "").substring(0, 80) ||
+            (noteData.display_title ?? noteData.title ?? (noteData.desc ?? "").substring(0, 80)) ||
             "",
           description: enrichNoteDescription(noteData),
           link: `https://www.xiaohongshu.com/explore/${noteId}`,

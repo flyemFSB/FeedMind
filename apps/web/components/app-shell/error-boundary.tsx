@@ -15,7 +15,7 @@ function ErrorFallbackContent({ error, onRetry }: { error: Error | null; onRetry
         </div>
         <h2 className="mb-2 text-[16px] font-semibold text-editorial-ink">{t("error.title")}</h2>
         <p className="mb-6 text-[13px] text-editorial-ink-soft">
-          {error?.message || t("error.defaultMessage")}
+          {error?.message ?? t("error.defaultMessage")}
         </p>
         <Button
           onClick={onRetry}

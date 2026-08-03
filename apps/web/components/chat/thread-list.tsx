@@ -5,12 +5,14 @@
  */
 "use client";
 
-import { useChatSessions, useDeleteChatSession } from "@/lib/hooks/use-chats";
+import { useChatSessions } from "@/lib/hooks/use-chats";
+import { useChatSessionDelete } from "@/lib/hooks/use-chat-session-delete";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";
 import { MessageSquare, Trash2 } from "lucide-react";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 
 /**
@@ -21,8 +23,8 @@ import { MotionSpinner } from "@/components/ui/motion-spinner";
  */
 export function AssistantThreadList() {
   const { data: sessions = [], isLoading } = useChatSessions();
-  const deleteMutation = useDeleteChatSession();
-  const { switchSession, activeThreadId, clearSession } = useChatContext();
+  const { switchSession, activeThreadId } = useChatContext();
+  const deleteConfirm = useChatSessionDelete();
   const navigate = useNavigate();
   const isChatPage = useRouterState({ select: (s) => s.location.pathname }) === "/chat";
   const { t } = useTranslation();
@@ -43,8 +45,8 @@ export function AssistantThreadList() {
           <div key={session.id} className="group grid grid-cols-[1fr_32px] items-center rounded-lg">
             <motion.button
               onClick={() => {
-                switchSession(session.agent_thread_id);
-                if (!isChatPage) navigate({ to: "/chat" });
+                void switchSession(session.agent_thread_id);
+                if (!isChatPage) void navigate({ to: "/chat" });
               }}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
@@ -63,12 +65,7 @@ export function AssistantThreadList() {
               </span>
             </motion.button>
             <motion.button
-              onClick={() => {
-                if (session.agent_thread_id === activeThreadId) {
-                  clearSession();
-                }
-                deleteMutation.mutate(session.agent_thread_id);
-              }}
+              onClick={() => deleteConfirm.setDeleteTarget(session.agent_thread_id)}
               whileHover={{ scale: 1.05, opacity: 1 }}
               whileTap={{ scale: 0.9 }}
               className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong"
@@ -79,6 +76,22 @@ export function AssistantThreadList() {
           </div>
         );
       })}
+
+      <DeleteConfirmDialog
+        open={deleteConfirm.deleteTarget != null}
+        onClose={deleteConfirm.handleClose}
+        onConfirm={deleteConfirm.handleConfirm}
+        title={t("chat.deleteSession")}
+        description={
+          deleteConfirm.deleteTarget
+            ? t("chat.deleteSessionConfirm", {
+                title:
+                  sessions.find((s) => s.agent_thread_id === deleteConfirm.deleteTarget)?.title ??
+                  t("chat.sessionTitleDefault"),
+              })
+            : undefined
+        }
+      />
     </div>
   );
 }

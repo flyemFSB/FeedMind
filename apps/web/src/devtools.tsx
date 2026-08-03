@@ -14,7 +14,7 @@ function useIdleDevtools(load: () => Promise<ComponentType>) {
     let timeoutId: ReturnType<typeof globalThis.setTimeout> | undefined;
 
     const loadDevtools = () => {
-      load().then((component) => {
+      void load().then((component) => {
         if (!cancelled) setDevtools(() => component);
       });
     };

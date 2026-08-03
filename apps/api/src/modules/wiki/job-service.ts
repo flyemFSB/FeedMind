@@ -1,4 +1,4 @@
-import type { IngestJob } from "@feedmind/contracts";
+import type { IngestJob, IngestProgress } from "@feedmind/contracts";
 import { getQueueStore } from "./queue-store.js";
 
 export async function listIngestJobs(spaceId: string): Promise<IngestJob[]> {
@@ -12,6 +12,15 @@ export async function enqueueIngest(
   sourceTitle?: string,
 ): Promise<IngestJob> {
   return getQueueStore().enqueue(spaceId, sourcePath, folderContext, sourceTitle);
+}
+
+/** 标记任务为处理中并写入进度。置为 processing 后 worker 不再抢占该任务。 */
+export async function markIngestJobProcessing(
+  spaceId: string,
+  jobId: string,
+  progress?: IngestProgress,
+): Promise<void> {
+  getQueueStore().updateStatus(spaceId, jobId, "processing", progress ? { progress } : undefined);
 }
 
 export async function cancelIngestJob(spaceId: string, jobId: string): Promise<void> {

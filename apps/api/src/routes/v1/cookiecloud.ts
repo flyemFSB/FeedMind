@@ -16,7 +16,7 @@ import {
 export const cookieCloudRoutes = new Hono();
 
 async function parseBody(c: Context): Promise<Record<string, unknown>> {
-  const contentEncoding = c.req.header("content-encoding") || "";
+  const contentEncoding = c.req.header("content-encoding") ?? "";
   if (contentEncoding.includes("gzip")) {
     const buf = await c.req.raw.arrayBuffer();
     const decompressed = gunzipSync(Buffer.from(buf));

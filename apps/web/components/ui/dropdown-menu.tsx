@@ -24,7 +24,6 @@ function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
         <motion.button
           {...elementProps}
           animate={{ scale: state.open ? 1.005 : 1 }}
-          whileTap={{ scale: 0.98 }}
           transition={motionPressTransition}
         />
       )}

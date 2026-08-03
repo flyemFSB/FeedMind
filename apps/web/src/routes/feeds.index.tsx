@@ -72,7 +72,7 @@ function FeedsIndexPage() {
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const handleSync = async () => {
@@ -141,7 +141,7 @@ function FeedsIndexPage() {
             >
               <div className="mb-3 flex items-center justify-end">
                 <Button
-                  onClick={handleSync}
+                  onClick={() => void handleSync()}
                   disabled={refreshing}
                   size="sm"
                   className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
@@ -184,7 +184,7 @@ function FeedsIndexPage() {
                           "group cursor-pointer px-1 py-4 hover:bg-editorial-surface-soft",
                         )}
                         onClick={() => {
-                          if (!item.is_read) handleMarkRead(item.id);
+                          if (!item.is_read) void handleMarkRead(item.id);
                           if (item.link) window.open(item.link, "_blank");
                         }}
                       >
@@ -198,7 +198,7 @@ function FeedsIndexPage() {
                             )}
                           >
                             {src?.type === "rss" ? <Rss size={10} /> : null}
-                            {src?.title || t("feeds.unknownSource")}
+                            {src?.title ?? t("feeds.unknownSource")}
                           </span>
                           {item.author && (
                             <span className="text-[12px] text-editorial-ink-muted">
@@ -231,7 +231,7 @@ function FeedsIndexPage() {
 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3 text-[12px] text-editorial-ink-muted">
-                            <span>{formatTime(item.pub_date || item.fetched_at)}</span>
+                            <span>{formatTime(item.pub_date ?? item.fetched_at)}</span>
                           </div>
                           <ExternalLink size={12} className="text-editorial-ink-muted" />
                         </div>

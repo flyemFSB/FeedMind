@@ -1,0 +1,428 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { motion } from "motion/react";
+import { Check, Eye, EyeOff, Copy, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { fadeSlideVariants, motionSpring } from "@/lib/motion";
+import { toast } from "@/components/ui/toast";
+
+interface FeishuConfigPanelProps {
+  onConnected: () => void;
+}
+
+type Step = "loading" | "config" | "showConfig" | "done";
+
+/**
+ * FeishuConfigPanel — 飞书机器人接入面板（内嵌于远程连接弹窗）
+ * 未配置时显示扫码/手动双 tab，已配置时显示凭据信息
+ */
+export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
+  const { t } = useTranslation();
+  // 短别名，避免重复书写完整命名空间路径
+  const fp = (key: string) => t(`remoteConnection.feishuPanel.${key}`);
+  const [step, setStep] = useState<Step>("loading");
+  const [appId, setAppId] = useState("");
+  const [appSecret, setAppSecret] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [secretVisible, setSecretVisible] = useState(false);
+  const [storedAppId, setStoredAppId] = useState("");
+  const [storedAppSecret, setStoredAppSecret] = useState("");
+  const [mode, setMode] = useState<"scan" | "manual">("scan");
+  const [scanState, setScanState] = useState<"idle" | "waiting">("idle");
+  const [qrUrl, setQrUrl] = useState("");
+  const [scanError, setScanError] = useState("");
+  const scanRef = useRef<{ deviceCode: string; interval: number } | null>(null);
+  // 保存成功后 1s 从「凭证验证通过」过渡到凭据展示，卸载时需清理避免对已卸载组件 setState
+  const doneTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (doneTimerRef.current) clearTimeout(doneTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    setSecretVisible(false);
+    fetch("/api/v1/remote-connections/feishu/status")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.data?.configured) {
+          setStoredAppId(res.data.config?.appId ?? "");
+          setStoredAppSecret(res.data.config?.appSecret ?? "");
+          setStep("showConfig");
+        } else {
+          setStep("config");
+        }
+      })
+      .catch(() => setStep("config"));
+  }, []);
+
+  const saveConfig = async (id: string, secret: string) => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/v1/remote-connections/feishu/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appId: id.trim(), appSecret: secret.trim() }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        toast.add({ title: json.error.message, type: "error" });
+        return false;
+      }
+      toast.add({ title: fp("verificationPassed"), type: "success" });
+      setStoredAppId(id.trim());
+      setStoredAppSecret(secret.trim());
+      setStep("done");
+      onConnected();
+      doneTimerRef.current = setTimeout(() => setStep("showConfig"), 1000);
+      return true;
+    } catch {
+      toast.add({ title: fp("saveFailed"), type: "error" });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCopy = (text: string, label: string) => {
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => toast.add({ title: `${label} ${fp("copiedSuffix")}`, type: "success" }));
+  };
+
+  const handleSave = async () => {
+    if (!appId.trim() || !appSecret.trim()) {
+      toast.add({ title: fp("emptyCredentials"), type: "error" });
+      return;
+    }
+    await saveConfig(appId, appSecret);
+  };
+
+  const beginScan = async () => {
+    setScanState("waiting");
+    setScanError("");
+    try {
+      const res = await fetch("/api/v1/remote-connections/feishu/register/begin", {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message);
+      scanRef.current = { deviceCode: json.data.deviceCode, interval: json.data.interval };
+      setQrUrl(json.data.qrUrl);
+    } catch (err) {
+      setScanState("idle");
+      setScanError(err instanceof Error ? err.message : fp("createSessionFailed"));
+    }
+  };
+
+  // 进入扫码 tab 直接展示二维码
+  useEffect(() => {
+    if (step === "config" && mode === "scan" && scanState === "idle" && !scanError) {
+      void beginScan();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, mode, scanState, scanError]);
+
+  useEffect(() => {
+    if (!qrUrl || !scanRef.current) return;
+    const { deviceCode, interval } = scanRef.current;
+    const timer = setInterval(
+      () => {
+        void (async () => {
+          try {
+            const res = await fetch("/api/v1/remote-connections/feishu/register/poll", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ deviceCode }),
+            });
+            const json = await res.json();
+            if (json.error) throw new Error(json.error.message);
+            if (json.data.status === "success") {
+              clearInterval(timer);
+              scanRef.current = null;
+              const ok = await saveConfig(json.data.appId, json.data.appSecret);
+              if (!ok) {
+                setScanState("idle");
+                setScanError(fp("saveFailed"));
+              }
+            } else if (json.data.status === "error") {
+              clearInterval(timer);
+              scanRef.current = null;
+              setScanState("idle");
+              setScanError(json.data.error ?? fp("authFailed"));
+            }
+          } catch {
+            /* 网络抖动继续轮询 */
+          }
+        })();
+      },
+      Math.max(interval, 3) * 1000,
+    );
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrUrl]);
+
+  return (
+    <div className="space-y-4">
+      <AnimatedStep step={step}>
+        {step === "loading" && (
+          <div className="flex justify-center py-6">
+            <MotionSpinner size={20} className="text-editorial-ink-muted" />
+          </div>
+        )}
+
+        {step === "config" && (
+          <div className="space-y-3">
+            <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+              {fp("connectedDesc")}
+            </p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-editorial-surface-strong p-1">
+              {(
+                [
+                  ["scan", fp("scanTab")],
+                  ["manual", fp("manualTab")],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMode(value)}
+                  className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                    mode === value
+                      ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
+                      : "text-editorial-ink-muted hover:text-editorial-ink"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {mode === "scan" ? (
+              <div className="space-y-3">
+                {scanState === "idle" ? (
+                  scanError ? (
+                    <div className="space-y-3">
+                      <p className="rounded-lg bg-editorial-semantic-error/10 px-3 py-2 text-[12px] text-editorial-semantic-error">
+                        {scanError}
+                      </p>
+                      <Button
+                        onClick={() => void beginScan()}
+                        variant="outline"
+                        className="w-full gap-1.5"
+                      >
+                        <QrCode size={14} />
+                        {fp("qrRegenerate")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center py-4">
+                      <MotionSpinner size={18} className="text-editorial-ink-muted" />
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <div className="flex justify-center rounded-lg border border-editorial-hairline-strong bg-white p-4">
+                      <QRCodeSVG value={qrUrl} size={176} marginSize={1} />
+                    </div>
+                    <p className="text-center text-[12px] leading-relaxed text-editorial-ink-soft">
+                      {fp("scanHint1")}
+                      <br />
+                      {fp("scanHint2")}
+                    </p>
+                    <Button
+                      onClick={() => void beginScan()}
+                      variant="ghost"
+                      className="w-full text-[12px] text-editorial-ink-muted"
+                    >
+                      {fp("qrExpired")}
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <>
+                <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+                  {fp("manualHintIntro")}
+                  <a
+                    href="https://open.feishu.cn/app"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-2 hover:text-editorial-ink"
+                  >
+                    {fp("manualHintLink")}
+                  </a>
+                  {fp("manualHintOutro")}
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label
+                      htmlFor="feishu-config-app-id"
+                      className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                    >
+                      {fp("appId")}
+                    </label>
+                    <input
+                      id="feishu-config-app-id"
+                      value={appId}
+                      onChange={(e) => setAppId(e.target.value)}
+                      placeholder="cli_xxxxxxxx"
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="feishu-config-app-secret"
+                      className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                    >
+                      {fp("appSecret")}
+                    </label>
+                    <input
+                      id="feishu-config-app-secret"
+                      type="password"
+                      value={appSecret}
+                      onChange={(e) => setAppSecret(e.target.value)}
+                      placeholder={fp("appSecretPlaceholder")}
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
+                    />
+                  </div>
+                </div>
+                <Button
+                  onClick={() => void handleSave()}
+                  disabled={saving}
+                  className="w-full gap-1.5"
+                >
+                  {saving ? <MotionSpinner size={14} /> : <Check size={14} />}
+                  {fp("connectButton")}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {step === "showConfig" && (
+          <div className="space-y-3">
+            <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+              {fp("configuredTitle")}
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label
+                  htmlFor="feishu-show-app-id"
+                  className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                >
+                  {fp("appId")}
+                </label>
+                <div className="relative">
+                  <input
+                    id="feishu-show-app-id"
+                    value={storedAppId}
+                    readOnly
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(storedAppId, fp("appId"))}
+                    aria-label={fp("copyAppId")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                  >
+                    <Copy size={14} strokeWidth={1.7} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="feishu-show-app-secret"
+                  className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                >
+                  {fp("appSecret")}
+                </label>
+                <div className="relative">
+                  <input
+                    id="feishu-show-app-secret"
+                    type={secretVisible ? "text" : "password"}
+                    value={storedAppSecret}
+                    readOnly
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-14 text-[13px] text-editorial-ink outline-none"
+                  />
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setSecretVisible(!secretVisible)}
+                      aria-label={fp("toggleSecret")}
+                      className="rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                    >
+                      {secretVisible ? (
+                        <EyeOff size={14} strokeWidth={1.7} />
+                      ) : (
+                        <Eye size={14} strokeWidth={1.7} />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(storedAppSecret, fp("appSecret"))}
+                      aria-label={fp("copyAppSecret")}
+                      className="rounded-md p-1 text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink"
+                    >
+                      <Copy size={14} strokeWidth={1.7} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <Button onClick={() => setStep("config")} variant="outline" className="w-full gap-1.5">
+              {fp("reconfigure")}
+            </Button>
+          </div>
+        )}
+
+        {step === "done" && (
+          <div className="flex items-center gap-3 rounded-lg bg-editorial-semantic-success/10 px-4 py-3">
+            <motion.svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#16a34a"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={motionSpring}
+            >
+              <motion.polyline
+                points="20 6 9 17 4 12"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              />
+            </motion.svg>
+            <span className="text-[13px] font-medium text-editorial-semantic-success">
+              {fp("verificationPassed")}
+            </span>
+          </div>
+        )}
+      </AnimatedStep>
+    </div>
+  );
+}
+
+function AnimatedStep({ step, children }: { step: Step; children: React.ReactNode }) {
+  return (
+    <motion.div
+      key={step}
+      variants={fadeSlideVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
+      {children}
+    </motion.div>
+  );
+}

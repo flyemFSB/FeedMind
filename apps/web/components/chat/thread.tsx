@@ -131,7 +131,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
             type="button"
             onClick={() => {
               clearError();
-              regenerate();
+              void regenerate();
             }}
             className="shrink-0 rounded-md border border-editorial-hairline bg-editorial-surface-card px-2 py-1 text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"
           >

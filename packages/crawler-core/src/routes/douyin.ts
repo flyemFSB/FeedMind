@@ -95,22 +95,22 @@ const userHandler: RouteHandler = async ({ params, cookies, abortSignal, maxItem
       const author = awemeList[0]?.author;
 
       const items = awemeList.slice(0, maxItems).map((post: DouyinPost) => ({
-        title: (post.desc || "").split("\n", 1)[0] || "",
-        description: post.desc || "",
+        title: (post.desc ?? "").split("\n", 1)[0] || "",
+        description: post.desc ?? "",
         link: `https://www.douyin.com/video/${post.aweme_id}`,
-        guid: buildGuid("douyin", post.aweme_id || ""),
+        guid: buildGuid("douyin", post.aweme_id ?? ""),
         pubDate: post.create_time ? fromUnixTimestamp(post.create_time) : new Date().toUTCString(),
         author: author?.nickname,
         category:
-          post.video_tag?.map((t) => t.tag_name).filter((t): t is string => !!t) || undefined,
+          post.video_tag?.map((t) => t.tag_name).filter((t): t is string => !!t) ?? undefined,
         image: post.video?.cover?.url_list?.[0],
       }));
 
       return {
         rssXml: buildRssXml({
-          title: `${author?.nickname || uid} - 抖音`,
+          title: `${author?.nickname ?? uid} - 抖音`,
           link: `https://www.douyin.com/user/${uid}`,
-          description: `抖音用户 ${author?.nickname || uid} 的作品`,
+          description: `抖音用户 ${author?.nickname ?? uid} 的作品`,
           language: "zh-CN",
           items,
         }),
@@ -163,17 +163,17 @@ const detailHandler: RouteHandler = async ({ params, cookies, abortSignal }) => 
 
       return {
         rssXml: buildRssXml({
-          title: (awemeDetail?.desc || "").split("\n", 1)[0] || "抖音视频",
+          title: (awemeDetail?.desc ?? "").split("\n", 1)[0] || "抖音视频",
           link: `https://www.douyin.com/video/${awemeId}`,
-          description: awemeDetail?.desc || "",
+          description: awemeDetail?.desc ?? "",
           language: "zh-CN",
           items: awemeDetail
             ? [
                 {
-                  title: (awemeDetail.desc || "").split("\n", 1)[0] || "",
-                  description: awemeDetail.desc || "",
+                  title: (awemeDetail.desc ?? "").split("\n", 1)[0] || "",
+                  description: awemeDetail.desc ?? "",
                   link: `https://www.douyin.com/video/${awemeDetail.aweme_id}`,
-                  guid: buildGuid("douyin", awemeDetail.aweme_id || ""),
+                  guid: buildGuid("douyin", awemeDetail.aweme_id ?? ""),
                   pubDate: awemeDetail.create_time
                     ? fromUnixTimestamp(awemeDetail.create_time)
                     : new Date().toUTCString(),
@@ -231,8 +231,8 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
       const awemeList = (searchData as { aweme_list?: DouyinPost[] })?.aweme_list ?? [];
 
       const items = awemeList.slice(0, maxItems).map((post: DouyinPost) => ({
-        title: (post.desc || "").split("\n", 1)[0] || "",
-        description: post.desc || "",
+        title: (post.desc ?? "").split("\n", 1)[0] || "",
+        description: post.desc ?? "",
         link: `https://www.douyin.com/video/${post.aweme_id}`,
         guid: buildGuid("douyin", `search_${post.aweme_id}`),
         pubDate: post.create_time ? fromUnixTimestamp(post.create_time) : new Date().toUTCString(),

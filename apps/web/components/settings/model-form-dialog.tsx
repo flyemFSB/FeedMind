@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { LLMModel } from "@/lib/types";
 import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
 import {
@@ -139,19 +139,19 @@ export function ModelFormDialog({
         { id: initialModel!.id, ...payload },
         {
           onSuccess: () => {
-            toast.success(t("settings.modelUpdated"));
+            toast.add({ title: t("settings.modelUpdated"), type: "success" });
             onSubmit();
           },
-          onError: () => toast.error(t("settings.modelUpdateFailed")),
+          onError: () => toast.add({ title: t("settings.modelUpdateFailed"), type: "error" }),
         },
       );
     } else {
       createMutation.mutate(payload, {
         onSuccess: () => {
-          toast.success(t("settings.modelAdded"));
+          toast.add({ title: t("settings.modelAdded"), type: "success" });
           onSubmit();
         },
-        onError: () => toast.error(t("settings.modelAddFailed")),
+        onError: () => toast.add({ title: t("settings.modelAddFailed"), type: "error" }),
       });
     }
   }
@@ -351,30 +351,38 @@ export function ModelFormDialog({
           </div>
           <div className="col-span-2 grid grid-cols-[3fr_2fr] gap-3">
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-                上下文窗口（KB）
+              <label
+                htmlFor="model-context-input"
+                className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              >
+                {t("settings.contextWindow")}
               </label>
               <Input
+                id="model-context-input"
                 type="number"
                 value={form.context}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, context: event.target.value }))
                 }
-                placeholder="例如: 128（1M = 1000K）"
+                placeholder={t("settings.contextWindowPlaceholder")}
                 className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-                最大输出（KB）
+              <label
+                htmlFor="model-max-output-input"
+                className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              >
+                {t("settings.maxOutput")}
               </label>
               <Input
+                id="model-max-output-input"
                 type="number"
                 value={form.maxOutput}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, maxOutput: event.target.value }))
                 }
-                placeholder="例如: 32"
+                placeholder={t("settings.maxOutputPlaceholder")}
                 className="h-10 rounded-md border-editorial-hairline text-[13px]"
               />
             </div>

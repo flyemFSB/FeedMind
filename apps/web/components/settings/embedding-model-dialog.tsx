@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { LLMModel } from "@/lib/types";
 import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
@@ -60,10 +60,11 @@ export function EmbeddingModelDialog({
         },
         {
           onSuccess: () => {
-            toast.success(t("settings.embeddingModelSaved"));
+            toast.add({ title: t("settings.embeddingModelSaved"), type: "success" });
             onSubmit();
           },
-          onError: () => toast.error(t("settings.embeddingModelSaveFailed")),
+          onError: () =>
+            toast.add({ title: t("settings.embeddingModelSaveFailed"), type: "error" }),
         },
       );
     } else {
@@ -78,10 +79,11 @@ export function EmbeddingModelDialog({
         },
         {
           onSuccess: () => {
-            toast.success(t("settings.embeddingModelSaved"));
+            toast.add({ title: t("settings.embeddingModelSaved"), type: "success" });
             onSubmit();
           },
-          onError: () => toast.error(t("settings.embeddingModelSaveFailed")),
+          onError: () =>
+            toast.add({ title: t("settings.embeddingModelSaveFailed"), type: "error" }),
         },
       );
     }

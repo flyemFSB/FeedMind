@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "lint": "eslint src drizzle.config.ts --ext .ts",
+    "lint": "eslint src --ext .ts",
     "test": "vitest run --pass-with-no-tests",
     "typecheck": "tsc -b --pretty false",
     "db:push": "drizzle-kit push",

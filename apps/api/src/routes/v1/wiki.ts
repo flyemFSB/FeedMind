@@ -43,6 +43,7 @@ import { searchWiki } from "../../modules/wiki/search-service.js";
 import {
   listIngestJobs,
   enqueueIngest,
+  markIngestJobProcessing,
   cancelIngestJob,
   retryIngestJob,
   completeIngestJob,
@@ -400,9 +401,13 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
 
   // 记录任务以展示导入历史
   const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);
+  // 立即标记处理中，避免 worker 在 30s 轮询里抢占同一任务并发执行
+  await markIngestJobProcessing(spaceId, job.id);
 
   try {
-    const result = await runIngest(spaceId, sourcePath);
+    const result = await runIngest(spaceId, sourcePath, (message, step, totalSteps) => {
+      void markIngestJobProcessing(spaceId, job.id, { message, step, totalSteps });
+    });
     // 更新任务完成状态
     await completeIngestJob(
       spaceId,

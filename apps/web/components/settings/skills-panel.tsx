@@ -2,11 +2,12 @@
 
 import { useState, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { Package, Trash2, Upload } from "lucide-react";
 import type { SkillRead } from "@feedmind/contracts";
 import { listSkills, installSkill, deleteSkill } from "@/lib/api/skills";
 import { Button } from "@/components/ui/button";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +47,7 @@ export function SkillsPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: result, isLoading } = useSkills();
   const skills = result?.items ?? [];
@@ -53,16 +55,16 @@ export function SkillsPanel() {
   const deleteMutation = useMutation({
     mutationFn: (name: string) => deleteSkill(name),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: skillKeys.list() });
-      toast.success(t("settings.skillDeleted"));
+      void queryClient.invalidateQueries({ queryKey: skillKeys.list() });
+      toast.add({ title: t("settings.skillDeleted"), type: "success" });
     },
-    onError: () => toast.error(t("settings.deleteFailed")),
+    onError: () => toast.add({ title: t("settings.deleteFailed"), type: "error" }),
   });
 
   const handleFile = useCallback(
     async (file: File) => {
       if (!file.name.endsWith(".zip")) {
-        toast.error(t("settings.skillZipOnly"));
+        toast.add({ title: t("settings.skillZipOnly"), type: "error" });
         return;
       }
 
@@ -70,11 +72,11 @@ export function SkillsPanel() {
       try {
         const name = file.name.replace(/\.zip$/i, "");
         await installSkill(name, file);
-        queryClient.invalidateQueries({ queryKey: skillKeys.list() });
-        toast.success(t("settings.skillInstalled"));
+        void queryClient.invalidateQueries({ queryKey: skillKeys.list() });
+        toast.add({ title: t("settings.skillInstalled"), type: "success" });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
-        toast.error(msg);
+        toast.add({ title: msg, type: "error" });
       } finally {
         setInstalling(false);
       }
@@ -86,13 +88,13 @@ export function SkillsPanel() {
     e.preventDefault();
     setDragOver(false);
     const files = e.dataTransfer.files;
-    if (files.length > 0) handleFile(files[0]);
+    if (files.length > 0) void handleFile(files[0]);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (files && files.length > 0) {
-      handleFile(files[0]);
+      void handleFile(files[0]);
       e.target.value = "";
     }
   }
@@ -175,11 +177,7 @@ export function SkillsPanel() {
               <motion.div key={skill.name} layout variants={listItemVariants}>
                 <SkillRow
                   skill={skill}
-                  onDelete={() => {
-                    if (confirm(t("settings.skillDeleteConfirm")?.replace("{name}", skill.name))) {
-                      deleteMutation.mutate(skill.name);
-                    }
-                  }}
+                  onDelete={() => setDeleteTarget(skill.name)}
                   isDeleting={deleteMutation.isPending && deleteMutation.variables === skill.name}
                 />
               </motion.div>
@@ -187,6 +185,21 @@ export function SkillsPanel() {
           </motion.div>
         </AnimatePresence>
       )}
+
+      <DeleteConfirmDialog
+        open={deleteTarget != null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget);
+          setDeleteTarget(null);
+        }}
+        confirming={deleteMutation.isPending && deleteMutation.variables === deleteTarget}
+        title={t("settings.deleteSkill")}
+        description={
+          deleteTarget ? t("settings.skillDeleteConfirm", { name: deleteTarget }) : undefined
+        }
+      />
     </div>
   );
 }

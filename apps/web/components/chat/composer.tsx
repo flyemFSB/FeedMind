@@ -1,21 +1,22 @@
 /**
  * Composer — 消息输入组件
- * 使用 ai-elements PromptInput，适配 FeedMind 设计系统
- * IME 安全的中文输入支持
+ * 使用官方 ai-elements PromptInput 组合：
+ * PromptInput(InputGroup 单边框) → PromptInputTextarea + PromptInputFooter → PromptInputSubmit
+ * 全部为 ai-elements 内置组件，无自定义嵌套框
  */
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useState } from "react";
 import {
   PromptInput,
+  PromptInputBody,
   PromptInputTextarea,
   PromptInputSubmit,
+  PromptInputFooter,
 } from "@/components/ai-elements/prompt-input";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Paperclip, X } from "lucide-react";
 
 interface ComposerProps {
   className?: string;
@@ -26,113 +27,37 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
   const { sendMessage, status, stop } = useChatContext();
   const { t } = useTranslation();
   const [input, setInput] = useState("");
-  const [files, setFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const isComposingRef = useRef(false);
   const isLoading = status === "streaming" || status === "submitted";
 
   const handleSubmit = (text: string) => {
     if (!text.trim() || isLoading) return;
-    sendMessage({ text: text.trim() });
+    void sendMessage({ text: text.trim() });
     setInput("");
-    setFiles([]);
-  };
-
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files ?? []);
-    setFiles((prev) => [...prev, ...selected]);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
-    <div
-      className={cn(
-        "rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card p-3",
-        className,
-      )}
+    <PromptInput
+      onSubmit={(message) => handleSubmit(message.text)}
+      className={cn("w-full", className)}
     >
-      <PromptInput onSubmit={(message) => handleSubmit(message.text)} className="space-y-3">
-        {files.length > 0 && (
-          <motion.div layout className="flex flex-wrap gap-2">
-            <AnimatePresence initial={false}>
-              {files.map((file, i) => (
-                <motion.div
-                  key={i}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="flex items-center gap-1 rounded-md border border-editorial-hairline bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
-                >
-                  <span className="max-w-[120px] truncate">{file.name}</span>
-                  <motion.button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="ml-1 text-editorial-ink-muted hover:text-editorial-semantic-error"
-                  >
-                    <X size={12} />
-                  </motion.button>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
+      <PromptInputBody>
         <PromptInputTextarea
           value={input}
-          onChange={(e) => {
-            const next = e.currentTarget.value;
-            setInput(next);
-          }}
-          onCompositionStart={() => {
-            isComposingRef.current = true;
-          }}
-          onCompositionEnd={(e: React.CompositionEvent<HTMLTextAreaElement>) => {
-            isComposingRef.current = false;
-            setInput(e.currentTarget.value);
-          }}
-          onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-            if (e.key === "Enter" && !e.shiftKey && !isComposingRef.current && !isLoading) {
-              e.preventDefault();
-              handleSubmit(input);
-            }
-          }}
+          onChange={(e) => setInput(e.currentTarget.value)}
+          aria-label={t("chat.placeholder")}
           placeholder={t("chat.placeholder")}
           disabled={isLoading}
           className={cn("min-h-[56px]", textareaClassName)}
         />
-        <div className="flex items-center justify-between mt-3">
-          <div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <motion.button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
-              title={t("chat.addAttachment")}
-            >
-              <Paperclip size={15} />
-            </motion.button>
-          </div>
-          {isLoading ? (
-            <PromptInputSubmit status="streaming" onClick={() => stop()} className="h-10 w-10" />
-          ) : (
-            <PromptInputSubmit status="ready" disabled={!input.trim()} className="h-10 w-10" />
-          )}
-        </div>
-      </PromptInput>
-    </div>
+      </PromptInputBody>
+      <PromptInputFooter>
+        <PromptInputSubmit
+          status={isLoading ? (status === "submitted" ? "submitted" : "streaming") : "ready"}
+          onStop={() => void stop()}
+          disabled={!isLoading && !input.trim()}
+          aria-label={isLoading ? t("common.stop") : t("common.send")}
+        />
+      </PromptInputFooter>
+    </PromptInput>
   );
 }

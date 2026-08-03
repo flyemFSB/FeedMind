@@ -1,9 +1,9 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { getModelRuntime } from "../../modules/models/service.js";
 import { createSanitizedFetch } from "./sanitized-fetch.js";
 
 export interface ResolvedModel {
-  client: ReturnType<typeof createOpenAI>;
+  client: ReturnType<typeof createOpenAICompatible>;
   modelName: string;
   contextWindow: string | null;
   maxOutput: string | null;
@@ -20,14 +20,15 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
   if (cached) return cached;
 
   const config = await getModelRuntime(modelId);
-  const openai = createOpenAI({
+  const provider = createOpenAICompatible({
+    name: "feedmind",
     apiKey: config.api_key,
-    baseURL: config.base_url || undefined,
+    baseURL: config.base_url || "",
     fetch: createSanitizedFetch(config.base_url || undefined),
   });
-  const cleanName = config.model_id?.trim() || "";
+  const cleanName = config.model_id?.trim() ?? "";
   const entry: ResolvedModel = {
-    client: openai,
+    client: provider,
     modelName: cleanName,
     contextWindow: config.context_window,
     maxOutput: config.max_output,

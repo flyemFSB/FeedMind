@@ -10,16 +10,14 @@ import type { SubagentTemplate } from "../../tools/task.js";
 let _browserInstance: AgentBrowser | null = null;
 
 function getBrowserInstance(): AgentBrowser {
-  if (!_browserInstance) {
-    _browserInstance = new AgentBrowser({
-      headless: true,
-      viewport: { width: 1280, height: 720 },
-      timeout: 30_000,
-      scope: "thread",
-      excludeTools: [],
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-    });
-  }
+  _browserInstance ??= new AgentBrowser({
+    headless: true,
+    viewport: { width: 1280, height: 720 },
+    timeout: 30_000,
+    scope: "thread",
+    excludeTools: [],
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  });
   return _browserInstance;
 }
 

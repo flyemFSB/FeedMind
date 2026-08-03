@@ -33,7 +33,7 @@ async function getConfig() {
 
 function ensureClient(cfg: { appId: string; appSecret: string }): Client {
   if (sdkClient) {
-    const cached = sdkClient as any;
+    const cached = sdkClient as unknown as { appId?: string; appSecret?: string };
     if (cached.appId === cfg.appId && cached.appSecret === cfg.appSecret) return sdkClient;
   }
   sdkClient = new Client({
@@ -79,8 +79,31 @@ async function sendReply(client: Client, openId: string, content: string): Promi
   logger.info({ openId, contentLen: content.length }, "飞书回复消息");
 }
 
+// 飞书 WebSocket 事件负载结构（仅用到消息体与发送者）
+interface FeishuWsEvent {
+  message?: {
+    chat_type?: string;
+    message_type?: string;
+    content?: string;
+  };
+  sender?: {
+    sender_type?: string;
+    sender_id?: { open_id?: string };
+  };
+}
+
+// WSClient 底层 WebSocket（SDK 未公开该字段类型，仅按需访问）
+interface FeishuWsHandle {
+  ws?: {
+    readyState: number;
+    removeAllListeners: (event?: string) => void;
+    on: (event: string, cb: (...args: unknown[]) => void) => void;
+    close: () => void;
+  };
+}
+
 function buildMessageHandler() {
-  return async (data: any) => {
+  return async (data: FeishuWsEvent) => {
     const msg = data.message;
     const sender = data.sender;
     if (!msg || !sender) return;
@@ -90,11 +113,15 @@ function buildMessageHandler() {
 
     let userText: string;
     try {
-      userText = JSON.parse(msg.content).text ?? "";
+      userText = JSON.parse(msg.content ?? "").text ?? "";
     } catch {
-      userText = msg.content;
+      userText = msg.content ?? "";
     }
     if (!userText.trim()) return;
+
+    // openId 提到外层，catch 兜底回信时也需要它
+    const openId = sender.sender_id?.open_id;
+    if (!openId) return;
 
     void (async () => {
       let feishuClient: Client | undefined;
@@ -103,7 +130,6 @@ function buildMessageHandler() {
         if (!cfg) return;
 
         feishuClient = ensureClient(cfg);
-        const openId = sender.sender_id.open_id;
         const threadId = `feishu:${openId}`;
 
         const stream = await feedmindAgent.stream(userText, {
@@ -120,14 +146,14 @@ function buildMessageHandler() {
         const content = reply || "我没有生成有效的回复，请换个方式描述你的问题。";
         if (!reply) logger.warn({ openId, threadId }, "Agent 返回空文本，发送提示");
         await sendReply(feishuClient, openId, content);
-      } catch (err: any) {
+      } catch (err) {
         logger.error({ err }, "Agent 回复失败");
         if (feishuClient) {
           feishuClient.im.message
             .create({
               params: { receive_id_type: "open_id" },
               data: {
-                receive_id: sender.sender_id.open_id,
+                receive_id: openId,
                 content: buildCardJson("⚠️ 处理消息时出错，请稍后重试。"),
                 msg_type: "interactive",
               },
@@ -153,7 +179,7 @@ function clearConnectionTimers(): void {
 function closeWsClient(): void {
   if (!wsClient) return;
   try {
-    const ws = (wsClient as any).ws;
+    const ws = (wsClient as FeishuWsHandle).ws;
     if (ws?.removeAllListeners) ws.removeAllListeners("close");
     if (ws?.removeAllListeners) ws.removeAllListeners("error");
     if (ws?.close) ws.close();
@@ -192,8 +218,8 @@ function startHealthCheck(): void {
   healthCheckTimer = setInterval(() => {
     if (isStopping) return;
     try {
-      const ws = (wsClient as any)?.ws;
-      if (ws && ws.readyState === 3) {
+      const ws = (wsClient as FeishuWsHandle)?.ws;
+      if (ws?.readyState === 3) {
         logger.warn("健康检查：飞书 WebSocket 已关闭，准备重连");
         scheduleReconnect();
       }
@@ -205,7 +231,7 @@ function startHealthCheck(): void {
 
 function attachWsEventListeners(): void {
   try {
-    const ws = (wsClient as any)?.ws;
+    const ws = (wsClient as FeishuWsHandle)?.ws;
     if (!ws) return;
     ws.on("close", () => {
       if (!isStopping) {
@@ -213,7 +239,7 @@ function attachWsEventListeners(): void {
         scheduleReconnect();
       }
     });
-    ws.on("error", (err: any) => {
+    ws.on("error", (err: unknown) => {
       logger.error({ err }, "飞书 WebSocket 连接错误");
       if (!isStopping) scheduleReconnect();
     });
@@ -223,6 +249,7 @@ function attachWsEventListeners(): void {
 }
 
 export async function startLongConnection(): Promise<void> {
+  isStopping = false;
   const cfg = await getConfig();
   if (!cfg?.appId || !cfg?.appSecret) {
     logger.info("飞书未配置，跳过长连接启动");
@@ -279,12 +306,15 @@ export async function saveAndVerify(config: { appId: string; appSecret: string }
     appType: AppType.SelfBuild,
   });
   try {
-    await c.request({
-      method: "POST",
-      url: "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+    // 官方 API：POST /open-apis/auth/v3/tenant_access_token/internal
+    // 请求体必须携带 app_id / app_secret，code !== 0 即凭证无效
+    const res = await c.auth.tenantAccessToken.internal({
+      data: { app_id: config.appId, app_secret: config.appSecret },
     });
-  } catch (err: any) {
-    throw new Error(err?.response?.data?.msg ?? "凭证无效", { cause: err });
+    if (res.code !== 0) throw new Error(res.msg ?? "凭证无效");
+  } catch (err) {
+    const apiError = err as { response?: { data?: { msg?: string } } } | undefined;
+    throw new Error(apiError?.response?.data?.msg ?? "凭证无效", { cause: err });
   }
 
   const [existing] = await db

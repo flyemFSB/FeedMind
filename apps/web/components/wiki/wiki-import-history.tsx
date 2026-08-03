@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { CheckCircle2, Clock, RefreshCw, XCircle, AlertCircle, X } from "lucide-react";
+import { CheckCircle2, Clock, RefreshCw, XCircle, AlertCircle } from "lucide-react";
 import type { IngestJob } from "@feedmind/contracts";
 import { listIngestJobs, cancelIngestJob, retryIngestJob } from "@/lib/api/wiki";
 
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
@@ -15,14 +14,12 @@ import { listContainerVariants, listItemVariants } from "@/lib/motion";
 // ─── Props ────────────────────────────────────────────────────
 
 interface WikiImportHistoryProps {
-  open: boolean;
   spaceId: string;
-  onClose: () => void;
 }
 
 // ─── Component ─────────────────────────────────────────────────
 
-export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryProps) {
+export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
   const { t } = useTranslation();
   const [jobs, setJobs] = useState<IngestJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,29 +44,29 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
   );
 
   useEffect(() => {
-    if (open) loadJobs();
-  }, [open, loadJobs]);
+    void loadJobs();
+  }, [loadJobs]);
 
   // Poll for active jobs
   useEffect(() => {
-    if (!open || !hasActive) return;
+    if (!hasActive) return;
 
     const abortController = new AbortController();
-    const interval = setInterval(async () => {
-      await loadJobs(abortController.signal);
+    const interval = setInterval(() => {
+      void loadJobs(abortController.signal);
     }, 5000);
     return () => {
       clearInterval(interval);
       abortController.abort();
     };
-  }, [open, hasActive, loadJobs]);
+  }, [hasActive, loadJobs]);
 
   useEffect(() => {
-    if (!open || !hasActive) return;
+    if (!hasActive) return;
     setNow(Date.now());
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
-  }, [open, hasActive]);
+  }, [hasActive]);
 
   const handleCancel = async (jobId: string) => {
     setCancelling(jobId);
@@ -98,41 +95,31 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
     .sort((a, b) => (b.completed_at ?? b.added_at) - (a.completed_at ?? a.added_at));
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose();
-      }}
-    >
-      <DialogContent
-        showCloseButton={false}
-        className="max-w-lg gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-4">
-          <DialogTitle className="text-[16px] font-semibold">{t("wiki.importHistory")}</DialogTitle>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadJobs()}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-soft"
-              title={t("wiki.refresh")}
-            >
-              {loading ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
-            </button>
-            <button
-              onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-soft"
-              aria-label={t("common.close")}
-              title={t("common.close")}
-            >
-              <X size={16} />
-            </button>
-          </div>
+    <div className="flex h-full flex-col bg-editorial-surface-card">
+      {/* 头部 */}
+      <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
+        <div>
+          <h2 className="text-[14px] font-semibold text-editorial-ink">
+            {t("wiki.importHistory")}
+          </h2>
+          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+            {t("wiki.noImportHistoryDesc")}
+          </p>
         </div>
+        <button
+          onClick={() => void loadJobs()}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-editorial-ink-muted hover:bg-editorial-surface-soft"
+          title={t("wiki.refresh")}
+        >
+          {loading ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
+        </button>
+      </div>
 
+      {/* 内容列表 */}
+      <div className="flex-1 overflow-y-auto px-6 py-4">
         {/* Active imports */}
         {activeJobs.length > 0 && (
-          <div className="px-6 pt-5">
+          <div className="mb-5">
             <h3 className="mb-2 text-[12px] font-semibold text-editorial-primary">
               {t("wiki.importingCount", { count: activeJobs.length })}
             </h3>
@@ -147,7 +134,7 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
                   <ActiveJobCard
                     job={job}
                     now={now}
-                    onCancel={handleCancel}
+                    onCancel={(id) => void handleCancel(id)}
                     cancelling={cancelling === job.id}
                   />
                 </motion.div>
@@ -157,47 +144,42 @@ export function WikiImportHistory({ open, spaceId, onClose }: WikiImportHistoryP
         )}
 
         {/* History */}
-        <div className={`${activeJobs.length > 0 ? "pt-4" : "pt-5"} min-w-0 px-6 pb-4`}>
+        <div>
           <h3 className="mb-2 text-[12px] font-semibold text-editorial-ink-muted">
             {t("wiki.completedCount", { count: historyJobs.length })}
           </h3>
-          <div className="max-h-[280px] overflow-y-auto -mx-6 px-6">
-            {loading && jobs.length === 0 ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-14 w-full rounded-md" />
-                ))}
+          {loading && jobs.length === 0 ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-md" />
+              ))}
+            </div>
+          ) : historyJobs.length === 0 && activeJobs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
+                <Clock size={18} className="text-editorial-ink-muted" />
               </div>
-            ) : historyJobs.length === 0 && activeJobs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
-                  <Clock size={18} className="text-editorial-ink-muted" />
-                </div>
-                <p className="text-[13px] font-medium text-editorial-ink">
-                  {t("wiki.noImportHistory")}
-                </p>
-                <p className="mt-1 text-[12px] text-editorial-ink-muted">
-                  {t("wiki.noImportHistoryDesc")}
-                </p>
-              </div>
-            ) : (
-              <motion.div
-                className="space-y-1.5"
-                variants={listContainerVariants}
-                initial="initial"
-                animate="animate"
-              >
-                {historyJobs.map((job) => (
-                  <motion.div key={job.id} layout variants={listItemVariants}>
-                    <HistoryJobCard job={job} onRetry={handleRetry} />
-                  </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </div>
+              <p className="text-[13px] font-medium text-editorial-ink">
+                {t("wiki.noImportHistory")}
+              </p>
+            </div>
+          ) : (
+            <motion.div
+              className="space-y-1.5"
+              variants={listContainerVariants}
+              initial="initial"
+              animate="animate"
+            >
+              {historyJobs.map((job) => (
+                <motion.div key={job.id} layout variants={listItemVariants}>
+                  <HistoryJobCard job={job} onRetry={(id) => void handleRetry(id)} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
@@ -215,10 +197,10 @@ function ActiveJobCard({
   cancelling: boolean;
 }) {
   const { t } = useTranslation();
-  const displayName = job.source_title || job.source_path.split("/").pop() || job.source_path;
+  const displayName = job.source_title ?? job.source_path.split("/").pop() ?? job.source_path;
   const elapsed = job.started_at
-    ? formatDuration(now - job.started_at)
-    : formatDuration(now - job.added_at);
+    ? formatDuration(Math.max(0, now - job.started_at))
+    : formatDuration(Math.max(0, now - job.added_at));
 
   const progress = job.progress;
   const statusText = progress
@@ -282,7 +264,7 @@ function ActiveJobCard({
 
 function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string) => void }) {
   const { t } = useTranslation();
-  const displayName = job.source_title || job.source_path.split("/").pop() || job.source_path;
+  const displayName = job.source_title ?? job.source_path.split("/").pop() ?? job.source_path;
 
   const icon =
     job.status === "done" ? (
@@ -323,7 +305,9 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
           )}
         </p>
         {job.status === "failed" && job.error && (
-          <p className="mt-0.5 truncate text-[12px] text-editorial-semantic-error">{job.error}</p>
+          <p className="mt-0.5 whitespace-normal break-words text-[12px] leading-relaxed text-editorial-semantic-error">
+            {job.error}
+          </p>
         )}
       </div>
       {job.status === "failed" && (

@@ -2,12 +2,28 @@
  * 一些 OpenAI 兼容 API（如 Sensenova）在流式 tool_calls delta 中发送
  * "type":"" 和 "id":"" 而非 "type":"function" 和有效 ID。
  * @ai-sdk/openai 的流式解析器拒绝空字符串，因此需在 fetch 层修复。
+ *
+ * 另：Sensenova 免费模型 RPM 配额极低（约 5-6 次/分钟），task 工具每次调用
+ * 都会创建 subagent 发起新的 LLM 请求，瞬时易触发 429（rpm exhausted）。
+ * 这里对 429 做指数退避重试（滚动窗口约 15s 恢复）。
  */
 export function createSanitizedFetch(_baseUrl?: string) {
   return async (input: string | URL | Request, init?: RequestInit) => {
-    const response = await globalThis.fetch(input, init);
+    let response = await globalThis.fetch(input, init);
 
-    const contentType = response.headers.get("content-type") || "";
+    let attempt = 0;
+    while (response.status === 429 && attempt < 3) {
+      await response.body?.cancel().catch(() => {});
+      const retryAfter = response.headers.get("retry-after");
+      const baseDelay = retryAfter ? Number(retryAfter) * 1000 : 8_000 * 2 ** attempt;
+      const delay = Number.isFinite(baseDelay) && baseDelay > 0 ? baseDelay : 8_000 * 2 ** attempt;
+      await new Promise((resolve) => setTimeout(resolve, delay * (0.5 + Math.random() * 0.5)));
+      if (init?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      response = await globalThis.fetch(input, init);
+      attempt++;
+    }
+
+    const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/event-stream") || !response.body) {
       return response;
     }
@@ -21,7 +37,7 @@ export function createSanitizedFetch(_baseUrl?: string) {
         buffer += decoder.decode(chunk, { stream: true });
 
         const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        buffer = lines.pop() ?? "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
