@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Menu } from "@base-ui/react/menu";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { LLMModel } from "@/lib/types";
 import { getModelRuntime } from "@/lib/api/models";
 import { Button } from "@/components/ui/button";
@@ -108,7 +108,7 @@ export function ModelsPanel({
     if (!text) return;
     navigator.clipboard
       .writeText(text)
-      .then(() => toast.success(msg))
+      .then(() => toast.add({ title: msg, type: "success" }))
       .catch(() => {});
   }
 
@@ -127,7 +127,7 @@ export function ModelsPanel({
     if (!next || !model.hasApiKey) return;
     loadApiKey(model).catch((err: Error) => {
       setVisibleKeys((prev) => ({ ...prev, [model.id]: false }));
-      toast.error(err.message || t("settings.readKeyFailed"));
+      toast.add({ title: err.message || t("settings.readKeyFailed"), type: "error" });
     });
   }
 
@@ -136,9 +136,9 @@ export function ModelsPanel({
     try {
       const key = await loadApiKey(model);
       await navigator.clipboard.writeText(key);
-      toast.success(t("settings.keyCopied"));
+      toast.add({ title: t("settings.keyCopied"), type: "success" });
     } catch {
-      toast.error(t("settings.copyFailed"));
+      toast.add({ title: t("settings.copyFailed"), type: "error" });
     }
   }
 

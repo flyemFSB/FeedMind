@@ -4,8 +4,7 @@ import { MotionConfig } from "motion/react";
 import { useState } from "react";
 import { ChatProvider } from "@/lib/chat/chat-context";
 import { ErrorBoundary } from "@/components/app-shell/error-boundary";
-import { Toaster } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/theme-provider";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { createQueryClient } from "@/lib/query-client";
@@ -22,18 +21,16 @@ function App() {
       <ErrorBoundary>
         <ThemeProvider>
           <I18nProvider>
-            <TooltipProvider>
-              <QueryClientProvider client={queryClient}>
-                <ChatProvider>
-                  <RouterProvider router={router} />
-                  <TanStackQueryDevtools />
-                </ChatProvider>
-              </QueryClientProvider>
-            </TooltipProvider>
+            <QueryClientProvider client={queryClient}>
+              <ChatProvider>
+                <RouterProvider router={router} />
+                <TanStackQueryDevtools />
+              </ChatProvider>
+            </QueryClientProvider>
           </I18nProvider>
         </ThemeProvider>
       </ErrorBoundary>
-      <Toaster richColors closeButton position="top-center" />
+      <Toaster />
     </MotionConfig>
   );
 }

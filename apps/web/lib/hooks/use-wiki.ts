@@ -12,7 +12,6 @@ import {
   getWikiBacklinks,
   listWikiSources,
   createWikiSource,
-  deleteWikiSource,
   getWikiGraph,
   getWikiGraphInsights,
   getLintItems,
@@ -48,7 +47,7 @@ export function useCreateWikiSpace() {
   return useMutation({
     mutationFn: createWikiSpace,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
     },
   });
 }
@@ -58,8 +57,8 @@ export function useUpdateWikiSpace(spaceId: string | undefined) {
   return useMutation({
     mutationFn: (payload: { name: string }) => updateWikiSpace(spaceId!, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
-      queryClient.invalidateQueries({ queryKey: wikiKeys.space(spaceId!) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.space(spaceId!) });
     },
   });
 }
@@ -69,7 +68,7 @@ export function useDeleteWikiSpace() {
   return useMutation({
     mutationFn: apiDeleteWikiSpace,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
     },
   });
 }
@@ -98,7 +97,7 @@ export function useCreateWikiPage(spaceId: string | undefined) {
     mutationFn: (payload: Parameters<typeof createWikiPage>[1]) =>
       createWikiPage(spaceId!, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
     },
   });
 }
@@ -112,7 +111,7 @@ export function useUpdateWikiPage(spaceId: string | undefined) {
     }: { pageId: string } & Parameters<typeof updateWikiPage>[2]) =>
       updateWikiPage(spaceId!, pageId, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
     },
   });
 }
@@ -122,7 +121,7 @@ export function useDeleteWikiPage(spaceId: string | undefined) {
   return useMutation({
     mutationFn: (pageId: string) => deleteWikiPage(spaceId!, pageId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId!) });
     },
   });
 }
@@ -153,17 +152,7 @@ export function useCreateWikiSource(spaceId: string | undefined) {
     mutationFn: (payload: Parameters<typeof createWikiSource>[1]) =>
       createWikiSource(spaceId!, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId!) });
-    },
-  });
-}
-
-export function useDeleteWikiSource(spaceId: string | undefined) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (sourceId: string) => deleteWikiSource(spaceId!, sourceId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId!) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId!) });
     },
   });
 }

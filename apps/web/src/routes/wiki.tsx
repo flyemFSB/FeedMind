@@ -1,8 +1,9 @@
 import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, BookOpen, ChevronDown, Import, Plus } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, Import, MessageCircle, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
+import { useAppShell } from "@/components/app-shell/app-shell-context";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
 import { WikiImportHistory } from "@/components/wiki/wiki-import-history";
@@ -28,8 +29,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 
-type WikiView = "pages" | "graph" | "lint" | "sources";
-const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "sources"];
+type WikiView = "pages" | "graph" | "lint" | "sources" | "history";
+const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "sources", "history"];
 
 export const Route = createFileRoute("/wiki")({
   component: MyWikiPage,
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/wiki")({
 
 function MyWikiPage() {
   const { t } = useTranslation();
+  const { openAgentDrawer } = useAppShell();
   const queryClient = useQueryClient();
   const [spaceId, setSpaceId] = useState<string | null>(null);
   const [spaceName, setSpaceName] = useState(t("wiki.title"));
@@ -44,7 +46,6 @@ function MyWikiPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [showImportHistory, setShowImportHistory] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const prevIsEditing = useRef(isEditing);
 
@@ -54,13 +55,6 @@ function MyWikiPage() {
   const activeView: WikiView = VALID_VIEWS.includes(rawView as WikiView)
     ? (rawView as WikiView)
     : "pages";
-
-  // view=history 触发导入历史对话框（非持久视图）
-  useEffect(() => {
-    if (rawView === "history") {
-      setShowImportHistory(true);
-    }
-  }, [rawView]);
 
   const { data: spaces = [], isLoading } = useWikiSpaces();
 
@@ -75,7 +69,7 @@ function MyWikiPage() {
   // Refresh page list when exiting edit mode
   useEffect(() => {
     if (prevIsEditing.current && !isEditing && spaceId) {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
     }
     prevIsEditing.current = isEditing;
   }, [isEditing, spaceId, queryClient]);
@@ -114,8 +108,8 @@ function MyWikiPage() {
   const handleImportSuccess = useCallback(() => {
     setShowImport(false);
     if (spaceId) {
-      queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
-      queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
     }
   }, [spaceId, queryClient]);
 
@@ -165,7 +159,7 @@ function MyWikiPage() {
             setSpaceId(id);
             setSpaceName(name);
             setShowCreateSpace(false);
-            queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+            void queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
           }}
         />
       </LayoutWrapper>
@@ -202,62 +196,87 @@ function MyWikiPage() {
   );
 
   const topRightContent = spaceId ? (
-    <Button
-      variant="outline"
-      size="default"
-      className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
-      onClick={() => setShowImport(true)}
-    >
-      <Import size={16} />
-      {t("wiki.importTitle")}
-    </Button>
+    <>
+      <Button
+        variant="outline"
+        size="default"
+        className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+        onClick={() => setShowImport(true)}
+      >
+        <Import size={16} />
+        {t("wiki.importTitle")}
+      </Button>
+      <Button
+        variant="outline"
+        size="default"
+        className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+        onClick={openAgentDrawer}
+      >
+        <MessageCircle size={16} />
+        {t("common.askAI")}
+      </Button>
+    </>
   ) : undefined;
 
   return (
-    <LayoutWrapper title={spaceTitle} topRightContent={topRightContent}>
-      <div className="flex h-full min-h-0">
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeView}
-              className="flex min-h-0 min-w-0 flex-1"
-              variants={fadeSlideVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              {activeView === "pages" && (
-                <DualPaneLayout
-                  spaceId={spaceId}
-                  activePageId={activePageId}
-                  isEditing={isEditing}
-                  onPageSelect={handlePageSelect}
-                  onClearPage={() => {
-                    setActivePageId(null);
-                    setIsEditing(false);
-                  }}
-                  onEdit={() => setIsEditing(true)}
-                  onCancelEdit={() => setIsEditing(false)}
-                  onConceptLinkClick={handleConceptLinkClick}
-                />
-              )}
-              {activeView === "graph" && spaceId && (
-                <WikiGraphView
-                  spaceId={spaceId}
-                  onPageSelect={handlePageSelect}
-                  onNavigate={handleConceptLinkClick}
-                />
-              )}
-              {activeView === "lint" && spaceId && (
-                <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
-              )}
-              {activeView === "sources" && spaceId && (
-                <div className="flex-1 overflow-y-auto">
-                  <WikiSourcesView spaceId={spaceId} />
-                </div>
-              )}
-            </motion.div>
-          </AnimatePresence>
+    <LayoutWrapper showTopbar={false}>
+      <div className="flex h-full min-h-0 flex-col">
+        {/* 页面内头部：空间选择器 + 按钮（替代原 Topbar），高度与右侧栏一致，下方 border-b 分割 */}
+        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-2 sm:pl-6 sm:pr-3">
+          <div className="min-w-0">{spaceTitle}</div>
+          <div className="flex shrink-0 items-center gap-1.5">{topRightContent}</div>
+        </div>
+
+        {/* 视图内容 */}
+        <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-0 min-w-0 flex-1">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeView}
+                className="flex min-h-0 min-w-0 flex-1"
+                variants={fadeSlideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+              >
+                {activeView === "pages" && (
+                  <DualPaneLayout
+                    spaceId={spaceId}
+                    activePageId={activePageId}
+                    isEditing={isEditing}
+                    onPageSelect={handlePageSelect}
+                    onClearPage={() => {
+                      setActivePageId(null);
+                      setIsEditing(false);
+                    }}
+                    onEdit={() => setIsEditing(true)}
+                    onCancelEdit={() => setIsEditing(false)}
+                    onConceptLinkClick={(target) => void handleConceptLinkClick(target)}
+                  />
+                )}
+                {activeView === "graph" && spaceId && (
+                  <WikiGraphView
+                    spaceId={spaceId}
+                    onPageSelect={handlePageSelect}
+                    onNavigate={handleConceptLinkClick}
+                  />
+                )}
+                {activeView === "lint" && spaceId && (
+                  <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
+                )}
+                {activeView === "sources" && spaceId && (
+                  <div className="flex-1 overflow-y-auto">
+                    <WikiSourcesView spaceId={spaceId} />
+                  </div>
+                )}
+                {activeView === "history" && spaceId && (
+                  <div className="flex-1 overflow-y-auto">
+                    <WikiImportHistory spaceId={spaceId} />
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
@@ -267,14 +286,6 @@ function MyWikiPage() {
           spaceId={spaceId}
           onClose={() => setShowImport(false)}
           onImported={handleImportSuccess}
-        />
-      )}
-
-      {spaceId && (
-        <WikiImportHistory
-          open={showImportHistory}
-          spaceId={spaceId}
-          onClose={() => setShowImportHistory(false)}
         />
       )}
 
@@ -382,9 +393,9 @@ function WikiEmptyState() {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
           <BookOpen size={20} className="text-editorial-ink-soft" />
         </div>
-        <h3 className="mb-1 text-[16px] font-semibold text-editorial-ink">
+        <h2 className="mb-1 text-[16px] font-semibold text-editorial-ink">
           {t("wiki.selectPage")}
-        </h3>
+        </h2>
         <p className="text-xs leading-relaxed text-editorial-ink-soft">
           {t("wiki.selectPageDesc")}
         </p>

@@ -81,7 +81,7 @@ function parseRssXml(xml: string): { title?: string; items: ParsedRssItem[] } {
           "i",
         ),
       );
-      return (m?.[1] || m?.[2] || "").trim();
+      return (m?.[1] ?? m?.[2] ?? "").trim();
     };
     const link = extract("link");
     const guid = extract("guid") || link;
@@ -130,11 +130,11 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
       sourceId,
       title: item.title || "(无标题)",
       description: item.description || null,
-      link: item.link || null,
+      link: item.link ?? null,
       guid: item.guid,
-      author: item.author || null,
+      author: item.author ?? null,
       category: item.category ? JSON.stringify(item.category) : null,
-      image: item.image || null,
+      image: item.image ?? null,
       pubDate: item.pubDate || null,
       fetchedAt: now,
     });

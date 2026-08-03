@@ -50,7 +50,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { drawerVariants } from "@/lib/motion";
-import { WIKI_TYPE_LABELS } from "./constants";
+import { wikiTypeLabel } from "./constants";
 import { WikiReader } from "./wiki-reader";
 import { useTranslation } from "react-i18next";
 
@@ -82,7 +82,7 @@ const GRAPH_TYPE_COLORS: Record<string, string> = {
 };
 
 function nodeColor(type: string): string {
-  return GRAPH_TYPE_COLORS[type] ?? "#94a3b8";
+  return GRAPH_TYPE_COLORS[type.toLowerCase()] ?? "#94a3b8";
 }
 
 export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphViewProps) {
@@ -114,7 +114,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
     } finally {
       setLoading(false);
     }
-  }, [spaceId]);
+  }, [spaceId, t]);
 
   const loadInsights = useCallback(async () => {
     try {
@@ -126,7 +126,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
   }, [spaceId]);
 
   useEffect(() => {
-    loadGraph();
+    void loadGraph();
   }, [loadGraph]);
 
   const positions = useMemo(() => {
@@ -223,7 +223,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
       <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
         <p className="text-sm text-red-500">{error}</p>
-        <Button variant="outline" size="sm" onClick={loadGraph}>
+        <Button variant="outline" size="sm" onClick={() => void loadGraph()}>
           {t("common.retry")}
         </Button>
       </div>
@@ -289,15 +289,15 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
             variant="ghost"
             size="sm"
             onClick={() => {
-              loadGraph();
-              loadInsights();
+              void loadGraph();
+              void loadInsights();
               setShowInsights(!showInsights);
             }}
             className="h-8 gap-1 rounded-lg px-2 text-[12px]"
           >
             <Lightbulb size={13} /> {t("wiki.insights")}
           </Button>
-          <Button variant="ghost" size="sm" onClick={loadGraph} className="h-8 px-2">
+          <Button variant="ghost" size="sm" onClick={() => void loadGraph()} className="h-8 px-2">
             <RefreshCw size={13} />
           </Button>
         </div>
@@ -426,7 +426,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                         style={{ backgroundColor: nodeColor(type) }}
                       />
                       <span className="text-[12px] text-editorial-ink-soft">
-                        {WIKI_TYPE_LABELS[type] || type}
+                        {wikiTypeLabel(type)}
                       </span>
                     </div>
                   ))}

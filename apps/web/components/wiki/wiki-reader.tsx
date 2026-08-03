@@ -17,8 +17,8 @@ import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { lightweightCode } from "@/components/ai-elements/code-plugin";
-import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
+import { code } from "@streamdown/code";
+import { wikiTypeColor, wikiTypeLabel } from "./constants";
 import { useTranslation } from "react-i18next";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import "katex/dist/katex.min.css";
@@ -31,8 +31,6 @@ interface WikiReaderProps {
   onEdit?: () => void;
   onNavigate: (target: string) => void;
 }
-
-const TYPE_COLORS = WIKI_TYPE_COLORS;
 
 export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderProps) {
   const { t } = useTranslation();
@@ -60,7 +58,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   }, [spaceId, pageId]);
 
   useEffect(() => {
-    loadPage();
+    void loadPage();
   }, [loadPage]);
 
   if (loading) {
@@ -75,7 +73,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
     );
   }
 
-  const typeColor = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
+  const typeColor = wikiTypeColor(page.type);
   const markdown = page.content;
 
   return (
@@ -87,7 +85,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
           <div className="wiki-markdown text-[14px] leading-7 text-editorial-ink">
             <Streamdown
               mode="static"
-              plugins={{ cjk, code: lightweightCode, math }}
+              plugins={{ cjk, code, math }}
               shikiTheme={["github-light", "github-dark"]}
               components={{
                 a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
@@ -169,7 +167,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
 
 function resolveInternalTarget(href: string, currentConceptId: string): string | null {
   const [rawPath] = href.split(/[?#]/, 1);
-  if (!rawPath || !rawPath.toLowerCase().endsWith(".md")) return null;
+  if (!rawPath?.toLowerCase().endsWith(".md")) return null;
   if (rawPath.startsWith("//") || /^[a-z][a-z\d+.-]*:/i.test(rawPath)) return null;
 
   let decodedPath = rawPath;
@@ -215,13 +213,13 @@ function PageMetadataCard({
               className="rounded-md px-2 py-1 text-[12px] font-semibold tracking-wide text-white"
               style={{ backgroundColor: typeColor }}
             >
-              {WIKI_TYPE_LABELS[page.type] || page.type}
+              {wikiTypeLabel(page.type)}
             </span>
             <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
           </div>
-          <h1 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
+          <h2 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
             {page.title}
-          </h1>
+          </h2>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">

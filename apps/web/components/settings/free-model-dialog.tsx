@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, ExternalLink, Eye, EyeOff, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import type { FreeModelPreset } from "@/lib/constants/free-models";
 import { useCreateModel, useSetSelectedModel } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
 
   async function handleAdd() {
     if (!apiKey.trim()) {
-      toast.error(t("settings.freeModelKeyRequired"));
+      toast.add({ title: t("settings.freeModelKeyRequired"), type: "error" });
       return;
     }
     try {
@@ -49,12 +49,12 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
         maxOutput: null,
       });
       await setSelected.mutateAsync(created.id);
-      toast.success(t("settings.modelAdded"));
+      toast.add({ title: t("settings.modelAdded"), type: "success" });
       setApiKey("");
       setShowKey(false);
       onClose();
     } catch {
-      toast.error(t("settings.modelAddFailed"));
+      toast.add({ title: t("settings.modelAddFailed"), type: "error" });
     }
   }
 

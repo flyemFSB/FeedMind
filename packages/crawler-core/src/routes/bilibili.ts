@@ -101,7 +101,7 @@ async function biliFetch<T>(
     throw new BiliCaptchaError();
   }
   if (json.code !== 0) {
-    throw new Error(`BILI API error: ${json.code} - ${json.message || "unknown"}`);
+    throw new Error(`BILI API error: ${json.code} - ${json.message ?? "unknown"}`);
   }
   return json.data;
 }
@@ -170,10 +170,10 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
     }
 
     const items = vlist.slice(0, maxItems).map((v: BiliVideo) => ({
-      title: v.title || "",
-      description: v.description || "",
+      title: v.title ?? "",
+      description: v.description ?? "",
       link: `https://www.bilibili.com/video/${v.bvid}`,
-      guid: buildGuid("bili", v.bvid || String(v.aid)),
+      guid: buildGuid("bili", v.bvid ?? String(v.aid)),
       pubDate: v.created ? fromUnixTimestamp(v.created) : new Date().toUTCString(),
       author: v.author,
       image: v.pic,
@@ -181,7 +181,7 @@ const userVideoHandler: RouteHandler = async ({ params, cookies, abortSignal, ma
 
     return {
       rssXml: buildRssXml({
-        title: `${items[0]?.author || uid} - B站视频`,
+        title: `${items[0]?.author ?? uid} - B站视频`,
         link: `https://space.bilibili.com/${uid}/video`,
         description: `B站用户 ${uid} 的视频`,
         language: "zh-CN",
@@ -230,16 +230,16 @@ const videoHandler: RouteHandler = async ({ params, cookies, abortSignal }) => {
 
     return {
       rssXml: buildRssXml({
-        title: videoData.title || "B站视频",
+        title: videoData.title ?? "B站视频",
         link: `https://www.bilibili.com/video/${videoData.bvid}`,
-        description: videoData.desc || "",
+        description: videoData.desc ?? "",
         language: "zh-CN",
         items: [
           {
-            title: videoData.title || "",
-            description: videoData.desc || "",
-            link: `https://www.bilibili.com/video/${videoData.bvid || bvid}`,
-            guid: buildGuid("bili", videoData.bvid || bvid),
+            title: videoData.title ?? "",
+            description: videoData.desc ?? "",
+            link: `https://www.bilibili.com/video/${videoData.bvid ?? bvid}`,
+            guid: buildGuid("bili", videoData.bvid ?? bvid),
             pubDate: videoData.pubdate
               ? fromUnixTimestamp(videoData.pubdate)
               : new Date().toUTCString(),
@@ -287,7 +287,7 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
         results = [];
         $(".video-list .video-item").each((_i, el) => {
           const titleEl = $(el).find(".title");
-          const link = titleEl.attr("href") || "";
+          const link = titleEl.attr("href") ?? "";
           const bvidMatch = link.match(/video\/(BV\w+)/);
           if (bvidMatch) {
             results.push({
@@ -306,8 +306,8 @@ const searchHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIt
       .filter((r) => r.bvid)
       .slice(0, maxItems)
       .map((r) => ({
-        title: (r.title || "").replace(/<[^>]+>/g, ""),
-        description: r.description || "",
+        title: (r.title ?? "").replace(/<[^>]+>/g, ""),
+        description: r.description ?? "",
         link: `https://www.bilibili.com/video/${r.bvid}`,
         guid: buildGuid("bili", r.bvid!),
         pubDate: r.pubdate ? fromUnixTimestamp(r.pubdate) : new Date().toUTCString(),

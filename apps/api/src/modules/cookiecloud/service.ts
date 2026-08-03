@@ -51,7 +51,7 @@ export async function storeEncrypted(
   if (config.password) {
     try {
       const data = decrypt(uuid, encrypted, config.password, cryptoType);
-      await syncCookies(uuid, data as Record<string, any>);
+      await syncCookies(uuid, data as CookieCloudData);
       logger.info({ cryptoType, decrypted: true }, "CookieCloud Cookie 同步完成");
     } catch (err) {
       logger.warn({ uuid, err }, "CookieCloud 解密失败 — UUID 或密码不匹配");
@@ -116,8 +116,13 @@ export function decrypt(
   return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
 }
 
-async function syncCookies(uuid: string, data: Record<string, any>): Promise<void> {
-  const cookieData = data.cookie_data as Record<string, any[]> | undefined;
+// CookieCloud 解密数据的结构：cookie_data 按域名分组，每组是 Cookie 对象数组
+interface CookieCloudData {
+  cookie_data?: Record<string, { name: string; value: string }[]>;
+}
+
+async function syncCookies(uuid: string, data: CookieCloudData): Promise<void> {
+  const cookieData = data.cookie_data;
   if (!cookieData) return;
 
   await db.delete(cookieStore).where(eq(cookieStore.uuid, uuid));
@@ -126,7 +131,7 @@ async function syncCookies(uuid: string, data: Record<string, any>): Promise<voi
     const platform = matchPlatform(domain);
     if (!platform || !Array.isArray(cookies) || cookies.length === 0) continue;
 
-    const cookieStr = cookies.map((c: any) => `${c.name}=${c.value}`).join("; ");
+    const cookieStr = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
 
     await db.insert(cookieStore).values({
       uuid,

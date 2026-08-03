@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import type { ConfigField } from "@feedmind/contracts";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { getToolRuntime } from "@/lib/api/tools";
 
 interface DynamicFieldProps {
@@ -112,14 +112,16 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
           const val = res.config[field.key];
           setRealKey(typeof val === "string" ? val : "");
         })
-        .catch(() => toast.error(t("settings.readKeyFailed")));
+        .catch(() => toast.add({ title: t("settings.readKeyFailed"), type: "error" }));
     }
   }
 
   function copyKey() {
     const keyToCopy = realKey;
     if (keyToCopy) {
-      navigator.clipboard.writeText(keyToCopy).then(() => toast.success(t("settings.copied")));
+      void navigator.clipboard
+        .writeText(keyToCopy)
+        .then(() => toast.add({ title: t("settings.copied"), type: "success" }));
     }
   }
 

@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listRuntimeConfigs, updateRuntimeConfig, type RuntimeConfigUpdate } from "@/lib/api/runtime-config";
+import {
+  listRuntimeConfigs,
+  updateRuntimeConfig,
+  type RuntimeConfigUpdate,
+} from "@/lib/api/runtime-config";
 
 export const runtimeConfigKeys = {
   all: ["runtime-configs"] as const,
@@ -19,7 +23,7 @@ export function useUpdateRuntimeConfig() {
     mutationFn: ({ runtime, ...payload }: { runtime: string } & RuntimeConfigUpdate) =>
       updateRuntimeConfig(runtime, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: runtimeConfigKeys.all });
+      void queryClient.invalidateQueries({ queryKey: runtimeConfigKeys.all });
     },
   });
 }

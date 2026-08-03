@@ -1,9 +1,9 @@
 import { resolveModelClient } from "../agents/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
 import { cachedGet } from "./cached-get.js";
-import type { createOpenAI } from "@ai-sdk/openai";
+import type { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
-type ChatModel = ReturnType<ReturnType<typeof createOpenAI>["chat"]>;
+type ChatModel = ReturnType<ReturnType<typeof createOpenAICompatible>["chatModel"]>;
 
 /**
  * 共享模型解析 — 供 feedmind-agent 和 task tool 统一使用。
@@ -19,7 +19,7 @@ export async function resolveChatModel(requestContext?: {
   if (modelId) {
     try {
       const { client, modelName } = await resolveModelClient(Number(modelId));
-      return client.chat(modelName);
+      return client.chatModel(modelName);
     } catch {
       // 请求级模型解析失败，回退到已选模型
     }
@@ -31,5 +31,5 @@ export async function resolveChatModel(requestContext?: {
   }
 
   const { client, modelName } = await resolveModelClient(selected.id);
-  return client.chat(modelName);
+  return client.chatModel(modelName);
 }

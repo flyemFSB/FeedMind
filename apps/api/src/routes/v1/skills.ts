@@ -10,7 +10,7 @@ skillsRoutes.get("/skills", async (c) => {
 });
 
 skillsRoutes.post("/skills", async (c) => {
-  const contentType = c.req.header("content-type") || "";
+  const contentType = c.req.header("content-type") ?? "";
   if (!contentType.includes("multipart/form-data")) {
     return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type must be multipart/form-data");
   }

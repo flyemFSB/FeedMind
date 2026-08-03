@@ -44,7 +44,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
   }, [spaceId]);
 
   useEffect(() => {
-    loadItems();
+    void loadItems();
   }, [loadItems]);
 
   const handleRunLint = async () => {
@@ -76,7 +76,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
         </div>
         <Button
           size="sm"
-          onClick={handleRunLint}
+          onClick={() => void handleRunLint()}
           disabled={running}
           className="h-8 gap-1.5 rounded-lg bg-primary px-3 text-[12px] text-primary-foreground hover:bg-primary/80"
         >

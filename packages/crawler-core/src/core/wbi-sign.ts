@@ -38,9 +38,11 @@ export async function getWbiVerifyString(signal?: AbortSignal): Promise<string> 
     headers,
     signal,
   });
-  const navJson = (await navRes.json()) as any;
+  const navJson = (await navRes.json()) as {
+    data?: { wbi_img?: { img_url?: string; sub_url?: string } };
+  };
   const wbiImg = navJson?.data?.wbi_img;
-  if (!wbiImg) throw new Error("无法获取 WBI 密钥");
+  if (!wbiImg?.img_url || !wbiImg.sub_url) throw new Error("无法获取 WBI 密钥");
 
   const imgUrl: string = wbiImg.img_url;
   const subUrl: string = wbiImg.sub_url;

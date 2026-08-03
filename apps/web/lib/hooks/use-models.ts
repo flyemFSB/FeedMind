@@ -34,7 +34,7 @@ export function useCreateModel() {
   return useMutation({
     mutationFn: createModel,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modelKeys.all });
+      void queryClient.invalidateQueries({ queryKey: modelKeys.all });
     },
   });
 }
@@ -45,7 +45,7 @@ export function useUpdateModel() {
     mutationFn: ({ id, ...payload }: { id: string } & Parameters<typeof updateModel>[1]) =>
       updateModel(id, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modelKeys.all });
+      void queryClient.invalidateQueries({ queryKey: modelKeys.all });
     },
   });
 }
@@ -55,7 +55,7 @@ export function useDeleteModel() {
   return useMutation({
     mutationFn: deleteModel,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modelKeys.all });
+      void queryClient.invalidateQueries({ queryKey: modelKeys.all });
     },
   });
 }
@@ -65,7 +65,7 @@ export function useSetSelectedModel(type?: string) {
   return useMutation({
     mutationFn: (id: string) => setSelectedModel(id, type),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: modelKeys.selected(type) });
+      void queryClient.invalidateQueries({ queryKey: modelKeys.selected(type) });
     },
   });
 }

@@ -9,7 +9,7 @@ export const DEFAULT_SYSTEM_PROMPT = `你是 FeedMind，面向研究任务的 AI
 
 /** 构建系统提示词：注入当前日期让模型能理解"今天""最近"等相对时间表述 */
 export function buildSystemPrompt(customPrompt?: string): string {
-  const basePrompt = customPrompt || DEFAULT_SYSTEM_PROMPT;
+  const basePrompt = customPrompt ?? DEFAULT_SYSTEM_PROMPT;
   const date = new Intl.DateTimeFormat("en-CA", {
     timeZone: FEEDMIND_TIMEZONE,
     year: "numeric",

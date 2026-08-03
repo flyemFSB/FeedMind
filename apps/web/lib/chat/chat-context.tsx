@@ -47,10 +47,10 @@ function makeChatTitle(text: string): string {
 
 export interface ChatContextValue {
   messages: UIMessage[];
-  sendMessage: (data: { text: string }) => void;
+  sendMessage: (data: { text: string }) => Promise<void>;
   status: ReturnType<typeof useChat>["status"];
-  stop: () => void;
-  regenerate: () => void;
+  stop: () => Promise<void>;
+  regenerate: () => Promise<void>;
   error: Error | undefined;
   clearError: () => void;
   setMessages: (messages: UIMessage[] | ((messages: UIMessage[]) => UIMessage[])) => void;
@@ -154,7 +154,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // ── 初始化：挂载时加载历史消息 ──
   useEffect(() => {
     if (activeThreadId) {
-      loadSessionMessages(activeThreadId);
+      void loadSessionMessages(activeThreadId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -192,7 +192,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             // 命名失败不影响消息发送，忽略
           });
       }
-      rawSendMessage(data);
+      void rawSendMessage(data);
     },
     [ensureSession, rawSendMessage, queryClient],
   );

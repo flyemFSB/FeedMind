@@ -170,7 +170,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
         onImported();
       }
     },
-    [spaceId, onImported],
+    [spaceId, onImported, t],
   );
 
   const handleDrop = useCallback(
@@ -178,7 +178,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
       e.preventDefault();
       setDragOver(false);
       if (e.dataTransfer.files.length > 0) {
-        handleFiles(e.dataTransfer.files);
+        void handleFiles(e.dataTransfer.files);
       }
     },
     [handleFiles],
@@ -187,7 +187,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && e.target.files.length > 0) {
-        handleFiles(e.target.files);
+        void handleFiles(e.target.files);
       }
     },
     [handleFiles],
@@ -359,7 +359,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
         )}
         <Button
           size="sm"
-          onClick={handleSubmit}
+          onClick={() => void handleSubmit()}
           disabled={processing || validUrls.length === 0}
           className="h-9 gap-2 rounded-md bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
         >

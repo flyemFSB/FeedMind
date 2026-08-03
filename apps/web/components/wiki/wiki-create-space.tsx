@@ -108,7 +108,7 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
           <Button
             variant="default"
             size="sm"
-            onClick={handleCreate}
+            onClick={() => void handleCreate()}
             disabled={!name.trim() || creating}
           >
             {creating ? t("wiki.creating") : t("wiki.create")}

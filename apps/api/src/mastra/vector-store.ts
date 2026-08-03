@@ -10,11 +10,9 @@ function getDbPath(): string {
 }
 
 export function getVectorStore(): LibSQLVector {
-  if (!instance) {
-    instance = new LibSQLVector({
-      id: "feedmind-vector",
-      url: `file:${getDbPath().replace(/\\/g, "/")}`,
-    });
-  }
+  instance ??= new LibSQLVector({
+    id: "feedmind-vector",
+    url: `file:${getDbPath().replace(/\\/g, "/")}`,
+  });
   return instance;
 }

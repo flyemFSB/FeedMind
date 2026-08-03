@@ -7,11 +7,9 @@ import type { WikiPageListItem } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { WIKI_TYPE_COLORS, WIKI_TYPE_LABELS } from "./constants";
+import { wikiTypeColor, wikiTypeLabel } from "./constants";
 import { useTranslation } from "react-i18next";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
-
-const TYPE_COLORS = WIKI_TYPE_COLORS;
 
 interface WikiPageListProps {
   spaceId: string;
@@ -78,7 +76,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
         {filterTypes().map((t) => (
           <FilterChip
             key={t}
-            label={WIKI_TYPE_LABELS[t] || t}
+            label={wikiTypeLabel(t)}
             active={typeFilter === t}
             onClick={() => setTypeFilter(t)}
           />
@@ -153,11 +151,11 @@ function CategorizedPageList({
             <span
               className="inline-block h-2 w-2 rounded-full shrink-0"
               style={{
-                backgroundColor: WIKI_TYPE_COLORS[type] || "var(--color-editorial-ink-muted)",
+                backgroundColor: wikiTypeColor(type),
               }}
             />
             <span className="text-[12px] font-medium text-editorial-ink-muted">
-              {WIKI_TYPE_LABELS[type] || type}
+              {wikiTypeLabel(type)}
             </span>
             <span className="text-[12px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
@@ -208,7 +206,7 @@ function PageListItem({
   active: boolean;
   onClick: () => void;
 }) {
-  const color = TYPE_COLORS[page.type] || "var(--color-editorial-ink-muted)";
+  const color = wikiTypeColor(page.type);
 
   return (
     <motion.button
@@ -228,7 +226,7 @@ function PageListItem({
         <span className="block truncate text-[13px] font-medium">{page.title}</span>
       </div>
       <span className="shrink-0 text-[12px] text-editorial-ink-muted">
-        {WIKI_TYPE_LABELS[page.type] || page.type}
+        {wikiTypeLabel(page.type)}
       </span>
     </motion.button>
   );

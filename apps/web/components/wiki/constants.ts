@@ -11,6 +11,7 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
   entity: "实体",
   source: "来源",
   overview: "概览",
+  reference: "引用",
   index: "索引",
   query: "查询",
   thesis: "论点",
@@ -18,3 +19,12 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
   methodology: "方法论",
   event: "事件",
 };
+
+/** 类型标签（大小写不敏感：LLM 生成的是 Overview/Reference 等首字母大写形式） */
+export function wikiTypeLabel(type: string): string {
+  return WIKI_TYPE_LABELS[type.toLowerCase()] ?? type;
+}
+
+export function wikiTypeColor(type: string): string {
+  return WIKI_TYPE_COLORS[type.toLowerCase()] ?? "var(--color-editorial-ink-muted)";
+}

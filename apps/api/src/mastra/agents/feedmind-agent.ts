@@ -81,6 +81,9 @@ ${getSubagentDescriptions()}
   },
   memory: new Memory({
     vector: getVectorStore(),
+    // lazyEmbedder 是运行时解析的懒加载嵌入器，返回类型与 Mastra 静态 EmbeddingModel 不完全一致，
+    // 此处仅需满足 Memory 构造的形态要求，故显式断言。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     embedder: lazyEmbedder as any,
     options: {
       // ObservationalMemory 默认用 google/gemini-2.5-flash 后台 Agent，

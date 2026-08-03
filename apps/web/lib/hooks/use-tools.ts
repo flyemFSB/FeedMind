@@ -20,7 +20,7 @@ export function useUpdateAllToolConfigs() {
     mutationFn: (configs: Parameters<typeof updateAllToolConfigs>[0]) =>
       updateAllToolConfigs(configs),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: toolKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: toolKeys.list() });
     },
   });
 }

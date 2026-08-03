@@ -18,7 +18,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProviderIcon } from "./provider-icon";
 import { ModelSelector } from "./model-selector";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 
@@ -127,7 +127,7 @@ export function RuntimePanel() {
     if (!modelId) return;
     setWikiFields((prev) => ({ ...prev, llm_id: modelId }));
     await updateConfig.mutateAsync({ runtime: "wiki", llm_id: Number(modelId) });
-    toast.success(t("settings.wikiModelUpdated"));
+    toast.add({ title: t("settings.wikiModelUpdated"), type: "success" });
   }
 
   if (isLoading) {
@@ -196,7 +196,7 @@ export function RuntimePanel() {
             <WikiModelSelectorSection
               models={models}
               selectedId={wikiFields.llm_id}
-              onSelect={handleWikiModelSelect}
+              onSelect={(id) => void handleWikiModelSelect(id)}
             />
           )}
         </motion.div>
