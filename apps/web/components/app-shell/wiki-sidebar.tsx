@@ -51,7 +51,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
           onClick={() => goToView("pages")}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.92 }}
-          className="flex h-9 w-9 items-center justify-center rounded-md text-editorial-ink hover:bg-editorial-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+          className="flex h-10 w-10 items-center justify-center rounded-md text-editorial-ink hover:bg-editorial-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
           aria-label="FeedMind"
           title="FeedMind"
         >
@@ -139,7 +139,7 @@ function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProp
       whileHover={{ scale: active ? 1.07 : 1.04 }}
       whileTap={{ scale: 0.92 }}
       className={cn(
-        "relative flex h-9 w-9 items-center justify-center rounded-md",
+        "relative flex h-10 w-10 items-center justify-center rounded-md",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent",
         active
           ? "bg-editorial-surface-strong text-editorial-ink"

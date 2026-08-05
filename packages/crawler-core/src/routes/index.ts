@@ -6,3 +6,4 @@ import "./bilibili.js";
 import "./zhihu.js";
 import "./xiaohongshu.js";
 import "./douyin.js";
+import "./weread.js";

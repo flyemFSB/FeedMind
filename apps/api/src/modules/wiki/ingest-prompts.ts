@@ -1,5 +1,7 @@
 /** OKF 生成提示词。存储层只接受标准 Concept 文档，不接受自定义文件块协议。 */
 
+import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
+
 export function buildSystemPrompt(purpose: string, schema: string): string {
   return `You are an Open Knowledge Format (OKF) v0.1 curator.
 
@@ -17,7 +19,9 @@ ${schema || "Use descriptive, self-explanatory type values."}
 - Use # Schema, # Examples, and # Citations sections when they apply.
 - Never use wiki-link syntax, HTML-only links, or reserved index.md/log.md as generated concepts.
 - Unknown type values are valid; choose precise descriptive types.
-- All titles, descriptions, tags, and body content must be written in Chinese.`;
+- All titles, descriptions, tags, and body content must be written in Chinese, except for proper nouns (e.g., instrument abbreviations like ECS/GEM/FLS, chemical formulas, product names) or terms more commonly used in English (e.g., API, D-T, PDF).
+- When an English term is used, add a natural Chinese translation in parentheses that fits the Chinese context and conventions.
+- Use only one of these allowed type values for the frontmatter type field: ${WIKI_CONCEPT_TYPES.join(", ")}. Pick the knowledge form that best matches the concept; if none fits, use Concept.`;
 }
 
 export function buildAnalysisPrompt(sourceContent: string, existingIndex: string): string {
@@ -83,5 +87,7 @@ Rules:
 4. Create a reference document for the source and only substantive entity/concept documents.
 5. Link to existing concepts by their exact concept ID with normal Markdown links.
 6. Include # Citations with numbered Markdown links when claims rely on external sources.
-7. Do not wrap the JSON in a Markdown code fence.`;
+7. Do not wrap the JSON in a Markdown code fence.
+8. Titles and body content must be written in Chinese except for proper nouns or English-first terms; when English is used, add a parenthetical Chinese translation.
+9. Every frontmatter type must be one of: ${WIKI_CONCEPT_TYPES.join(", ")}. Choose the knowledge form that best matches the concept; fall back to Concept when unsure.`;
 }

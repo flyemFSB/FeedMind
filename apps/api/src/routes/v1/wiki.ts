@@ -37,6 +37,7 @@ import {
   deleteWikiSource,
   previewDeleteImpact,
   buildSourceFrontmatter,
+  markSourceIngested,
 } from "../../modules/wiki/source-store.js";
 import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/graph-service.js";
 import { searchWiki } from "../../modules/wiki/search-service.js";
@@ -50,6 +51,7 @@ import {
   failIngestJob,
 } from "../../modules/wiki/job-service.js";
 import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
+import { wakeIngestWorker } from "../../modules/wiki/ingest-worker.js";
 import { runLint, getLintItems } from "../../modules/wiki/lint-service.js";
 import {
   ensureDir,
@@ -72,6 +74,17 @@ const sourcePathSchema = z
 const ingestBodySchema = z.object({
   sourcePath: sourcePathSchema,
 });
+
+/** 上传成功后自动入队导入任务并唤醒 worker，无需等 30s 轮询。入队失败不阻塞上传。 */
+function autoIngestUpload(spaceId: string, sourcePath: string, sourceTitle: string): void {
+  void enqueueIngest(spaceId, sourcePath, undefined, sourceTitle)
+    .then(() => {
+      wakeIngestWorker();
+    })
+    .catch(() => {
+      // 入队失败仅提示，不阻塞上传
+    });
+}
 
 const searchBodySchema = z.object({
   query: z.string().default(""),
@@ -237,6 +250,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       import_ext: ext,
     });
     safeWriteFile(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text);
+    autoIngestUpload(spaceId, sourceFileName, safeName);
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
       c,
@@ -296,6 +310,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
       path.join(sourcesDir, sourceFileName),
       formatFrontmatter(fm) + "\n" + extractedText,
     );
+    autoIngestUpload(spaceId, sourceFileName, safeName);
     const stat = fs.statSync(path.join(sourcesDir, sourceFileName));
     return jsonOk(
       c,
@@ -408,6 +423,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
     const result = await runIngest(spaceId, sourcePath, (message, step, totalSteps) => {
       void markIngestJobProcessing(spaceId, job.id, { message, step, totalSteps });
     });
+    markSourceIngested(spaceId, sourcePath);
     // 更新任务完成状态
     await completeIngestJob(
       spaceId,

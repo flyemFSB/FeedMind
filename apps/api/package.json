@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --import tsx --watch src/server.ts",
-    "build": "tsc -b && node -e \"require('fs').cpSync('src/mastra/skills','dist/mastra/skills',{recursive:true})\"",
+    "dev": "tsx watch src/server.ts < NUL",
+    "build": "tsc -b",
     "start": "node dist/server.js",
     "lint": "eslint src --ext .ts",
     "test": "vitest run --pass-with-no-tests",
@@ -38,8 +38,9 @@
     "exa-js": "^2.13.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
-    "hono": "^4.12.29",
+    "hono": "^4.13.0",
     "pino": "^10.3.1",
+    "rss-parser": "^3.13.0",
     "tsx": "^4.22.4",
     "zod": "catalog:"
   },

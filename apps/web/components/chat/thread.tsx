@@ -5,14 +5,14 @@
 "use client";
 
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { MessageParts } from "./message-parts";
+import { VirtualMessages } from "./virtual-messages";
 import { Composer } from "./composer";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { cn } from "@/lib/utils";
@@ -96,23 +96,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
               </div>
             </ConversationEmptyState>
           ) : (
-            <AnimatePresence initial={false}>
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-                  className="min-w-0"
-                >
-                  <MessageParts
-                    message={message}
-                    isLastMessage={message.id === messages[messages.length - 1]?.id}
-                    isStreaming={isStreaming}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            <VirtualMessages messages={messages} isStreaming={isStreaming} />
           )}
         </ConversationContent>
         <ConversationScrollButton>

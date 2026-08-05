@@ -7,7 +7,7 @@ import type { WikiPageListItem } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/hooks/use-wiki";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { wikiTypeColor, wikiTypeLabel } from "./constants";
+import { sortWikiTypes, wikiTypeColor, wikiTypeLabel } from "./constants";
 import { useTranslation } from "react-i18next";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
@@ -18,7 +18,7 @@ interface WikiPageListProps {
 }
 
 export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -33,9 +33,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
     return true;
   });
 
-  const filterTypes = () => {
-    return [...new Set(pages.map((page) => page.type))].sort((a, b) => a.localeCompare(b, "zh-CN"));
-  };
+  const filterTypes = () => sortWikiTypes([...new Set(pages.map((page) => page.type))]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -76,7 +74,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
         {filterTypes().map((t) => (
           <FilterChip
             key={t}
-            label={wikiTypeLabel(t)}
+            label={wikiTypeLabel(t, i18n.language)}
             active={typeFilter === t}
             onClick={() => setTypeFilter(t)}
           />
@@ -129,6 +127,7 @@ function CategorizedPageList({
   activePageId: string | null;
   onPageSelect: (pageId: string) => void;
 }) {
+  const { i18n } = useTranslation();
   const grouped = pages.reduce<Record<string, WikiPageListItem[]>>((acc, page) => {
     const t = page.type || "other";
     if (!acc[t]) acc[t] = [];
@@ -136,7 +135,7 @@ function CategorizedPageList({
     return acc;
   }, {});
 
-  const sortedTypes = Object.keys(grouped).sort((a, b) => a.localeCompare(b, "zh-CN"));
+  const sortedTypes = sortWikiTypes(Object.keys(grouped));
 
   return (
     <motion.div
@@ -149,13 +148,13 @@ function CategorizedPageList({
         <motion.div key={type} layout className="mb-4">
           <div className="flex items-center gap-2 px-3 py-1.5 mb-0.5">
             <span
-              className="inline-block h-2 w-2 rounded-full shrink-0"
+              className="inline-block h-2.5 w-2.5 rounded-full shrink-0"
               style={{
                 backgroundColor: wikiTypeColor(type),
               }}
             />
             <span className="text-[12px] font-medium text-editorial-ink-muted">
-              {wikiTypeLabel(type)}
+              {wikiTypeLabel(type, i18n.language)}
             </span>
             <span className="text-[12px] text-editorial-hairline">{grouped[type].length}</span>
           </div>
@@ -225,9 +224,6 @@ function PageListItem({
       <div className="min-w-0 flex-1">
         <span className="block truncate text-[13px] font-medium">{page.title}</span>
       </div>
-      <span className="shrink-0 text-[12px] text-editorial-ink-muted">
-        {wikiTypeLabel(page.type)}
-      </span>
     </motion.button>
   );
 }

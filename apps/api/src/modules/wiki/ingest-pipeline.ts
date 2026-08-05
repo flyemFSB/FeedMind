@@ -16,6 +16,7 @@ import {
   saveCache,
 } from "@feedmind/wiki-core";
 import type { IngestCacheEntry } from "@feedmind/wiki-core";
+import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
 import { buildAnalysisPrompt, buildGenerationPrompt, buildSystemPrompt } from "./ingest-prompts.js";
 import {
   getWikiDir,
@@ -34,7 +35,8 @@ import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
 import { getRuntimeConfig } from "../models/config-service.js";
 
 const MAX_SOURCE_CHARS = 80_000;
-const activeIngests = new Set<string>();
+// 每空间串行链：同一空间的导入排队执行，并发时后到的等待前一个完成后才开始，而不是直接报错
+const spaceQueues = new Map<string, Promise<void>>();
 
 interface SpaceContext {
   purpose: string;
@@ -340,8 +342,10 @@ function parseGeneratedDocuments(raw: string, warnings: string[]): GeneratedDocu
 
 function normalizeGeneratedContent(document: GeneratedDocument, sourceIdentity: string): string {
   const frontmatter = { ...document.frontmatter };
-  const type = extractString(frontmatter, "type");
-  if (!type) throw new Error(`Concept ${document.path} 缺少非空 type`);
+  const rawType = extractString(frontmatter, "type");
+  if (!rawType) throw new Error(`Concept ${document.path} 缺少非空 type`);
+  // LLM 可能不严格遵守受控枚举，落盘前规约到枚举，未知值回退到 Concept 兜底
+  const type = (WIKI_CONCEPT_TYPES as readonly string[]).includes(rawType) ? rawType : "Concept";
 
   const provenance = extractSourceReferences(frontmatter);
   if (!provenance.includes(sourceIdentity))
@@ -448,8 +452,14 @@ export async function runIngest(
   onProgress?: IngestProgressCallback,
   shouldCancel?: () => boolean,
 ): Promise<IngestResult> {
-  if (activeIngests.has(spaceId)) throw new Error("该空间已有导入任务正在执行");
-  activeIngests.add(spaceId);
+  // 排队：先等该空间上一个导入完成，再执行本次导入
+  const tail = spaceQueues.get(spaceId) ?? Promise.resolve();
+  let finish: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  spaceQueues.set(spaceId, gate);
+  await tail;
 
   const log: string[] = [];
   const warnings: string[] = [];
@@ -553,6 +563,6 @@ export async function runIngest(
       writtenFiles,
     };
   } finally {
-    activeIngests.delete(spaceId);
+    finish();
   }
 }

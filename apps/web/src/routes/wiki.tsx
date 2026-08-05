@@ -393,9 +393,9 @@ function WikiEmptyState() {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
           <BookOpen size={20} className="text-editorial-ink-soft" />
         </div>
-        <h2 className="mb-1 text-[16px] font-semibold text-editorial-ink">
+        <h1 className="mb-1 text-[16px] font-semibold text-editorial-ink">
           {t("wiki.selectPage")}
-        </h2>
+        </h1>
         <p className="text-xs leading-relaxed text-editorial-ink-soft">
           {t("wiki.selectPageDesc")}
         </p>

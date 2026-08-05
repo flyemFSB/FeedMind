@@ -13,8 +13,8 @@ const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** skills 目录位于 src/mastra/skills/（与 Mastra Workspace 发现路径一致） */
-const SKILLS_DIR = path.resolve(__dirname, "../../mastra/skills");
+/** skills 目录位于 data/skills/（与 Mastra Workspace 发现路径一致），不再占用 src 源码目录 */
+const SKILLS_DIR = path.resolve(__dirname, "../../../../../data/skills");
 
 export interface UnpackedSkillMeta {
   name: string;

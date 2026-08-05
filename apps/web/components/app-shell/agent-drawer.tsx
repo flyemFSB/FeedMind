@@ -44,6 +44,11 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const [instantClose, setInstantClose] = useState(false);
   // 会话下拉菜单的 open 受控，删除按钮需要先关菜单再弹确认框
   const [menuOpen, setMenuOpen] = useState(false);
+  // Thread 首次打开后才挂载，避免启动即加载聊天渲染管线（streamdown/mermaid/历史 DOM）
+  const [hasMountedThread, setHasMountedThread] = useState(open);
+  useEffect(() => {
+    if (open) setHasMountedThread(true);
+  }, [open]);
 
   const [isDesktop, setIsDesktop] = useState(true);
 
@@ -228,7 +233,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         </div>
 
         <div className="flex min-h-0 min-w-0 flex-1">
-          <Thread className="bg-editorial-surface-card" />
+          {hasMountedThread && <Thread className="bg-editorial-surface-card" />}
         </div>
 
         <DeleteConfirmDialog

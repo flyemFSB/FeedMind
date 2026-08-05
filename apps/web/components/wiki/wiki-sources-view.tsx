@@ -24,7 +24,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const { data, isLoading } = useWikiSources(spaceId);
   const sources = data?.items ?? [];
 
-  const [ingestingId, setIngestingId] = useState<string | null>(null);
+  const [ingestingIds, setIngestingIds] = useState<Set<string>>(new Set());
   const [ingestResult, setIngestResult] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -65,7 +65,8 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   };
 
   const handleIngest = async (sourceIdentity: string, sourceTitle: string) => {
-    setIngestingId(sourceIdentity);
+    // 用 Set 记录正在导入的来源，允许多个来源同时排队导入、各自独立显示 spinner
+    setIngestingIds((prev) => new Set(prev).add(sourceIdentity));
     setIngestResult(null);
     try {
       const result = await runIngest(spaceId, sourceIdentity);
@@ -78,7 +79,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         `✗ "${sourceTitle}": ${err instanceof Error ? err.message : t("wiki.uploadFailed")}`,
       );
     } finally {
-      setIngestingId(null);
+      setIngestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sourceIdentity);
+        return next;
+      });
     }
   };
 
@@ -95,10 +100,16 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
   const statusBadge = (status: string) => {
     switch (status) {
-      case "ready":
+      case "ingested":
         return (
           <Badge variant="default" className="text-[12px] bg-editorial-semantic-success">
-            {t("wiki.sourceReady")}
+            {t("wiki.sourceIngested")}
+          </Badge>
+        );
+      case "ready":
+        return (
+          <Badge variant="outline" className="text-[12px] text-editorial-ink-muted">
+            {t("wiki.sourcePending")}
           </Badge>
         );
       case "failed":
@@ -195,15 +206,17 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 </div>
                 <motion.button
                   onClick={() => handleIngest(source.identity, source.title)}
-                  disabled={ingestingId === source.identity}
+                  disabled={ingestingIds.has(source.identity)}
                   whileHover={{ scale: 1.08, opacity: 1 }}
                   whileTap={{ scale: 0.9 }}
                   className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
                   title={
-                    ingestingId === source.identity ? t("wiki.ingestingTitle") : t("wiki.runIngest")
+                    ingestingIds.has(source.identity)
+                      ? t("wiki.ingestingTitle")
+                      : t("wiki.runIngest")
                   }
                 >
-                  {ingestingId === source.identity ? (
+                  {ingestingIds.has(source.identity) ? (
                     <MotionSpinner size={12} />
                   ) : (
                     <Play size={12} />

@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   conceptIdFromPath,
   extractSourceReferences,
+  extractString,
   extractStringArray,
   formatFrontmatter,
   parseFrontmatter,
@@ -46,6 +47,21 @@ export function buildSourceFrontmatter(
     kind,
     ...extra,
   };
+}
+
+/** 导入成功后回写来源 frontmatter，供来源列表区分"待导入/已摄入"。 */
+export function markSourceIngested(spaceId: string, sourcePath: string): void {
+  const filePath = getSourceFilePath(spaceId, path.basename(sourcePath));
+  if (!fs.existsSync(filePath)) return;
+  try {
+    const { frontmatter, body } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
+    if (extractString(frontmatter, "status") === "ingested") return;
+    frontmatter.status = "ingested";
+    frontmatter.timestamp = nowISO();
+    safeWriteFile(filePath, formatFrontmatter(frontmatter) + "\n" + body);
+  } catch {
+    // 状态回写失败不阻塞导入结果
+  }
 }
 
 export async function listWikiSources(

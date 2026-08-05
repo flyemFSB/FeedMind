@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -17,8 +18,6 @@ import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { code } from "@streamdown/code";
-import { wikiTypeColor, wikiTypeLabel } from "./constants";
 import { useTranslation } from "react-i18next";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import "katex/dist/katex.min.css";
@@ -73,52 +72,52 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
     );
   }
 
-  const typeColor = wikiTypeColor(page.type);
   const markdown = page.content;
+
+  // components 引用必须稳定，否则重渲染会击穿 Streamdown 的 memo 导致全量重解析
+  const readerComponents = useMemo(
+    () => ({
+      a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
+        const target = href ? resolveInternalTarget(href, page.concept_id) : null;
+        if (target) {
+          return (
+            <motion.button
+              type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.98 }}
+              className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
+              onClick={() => onNavigate(target)}
+            >
+              {children}
+            </motion.button>
+          );
+        }
+
+        return (
+          <motion.a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            whileHover={{ y: -1 }}
+            className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary"
+          >
+            {children}
+          </motion.a>
+        );
+      },
+      table: MarkdownTable,
+    }),
+    [page.concept_id, onNavigate],
+  );
 
   return (
     <div className="h-full overflow-y-auto bg-editorial-canvas">
       <div className="mx-auto w-full max-w-[1040px] px-5 py-5 sm:px-8 sm:py-8">
-        <PageMetadataCard page={page} typeColor={typeColor} onEdit={onEdit} />
+        <PageMetadataCard page={page} onEdit={onEdit} />
 
         <article className="mx-auto max-w-[760px] px-1 pb-16 pt-8 sm:px-5">
-          <div className="wiki-markdown text-[14px] leading-7 text-editorial-ink">
-            <Streamdown
-              mode="static"
-              plugins={{ cjk, code, math }}
-              shikiTheme={["github-light", "github-dark"]}
-              components={{
-                a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
-                  const target = href ? resolveInternalTarget(href, page.concept_id) : null;
-                  if (target) {
-                    return (
-                      <motion.button
-                        type="button"
-                        whileHover={{ y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-hairline-strong"
-                        onClick={() => onNavigate(target)}
-                      >
-                        {children}
-                      </motion.button>
-                    );
-                  }
-
-                  return (
-                    <motion.a
-                      href={href}
-                      target="_blank"
-                      rel="noreferrer"
-                      whileHover={{ y: -1 }}
-                      className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary"
-                    >
-                      {children}
-                    </motion.a>
-                  );
-                },
-                table: MarkdownTable,
-              }}
-            >
+          <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
+            <Streamdown mode="static" plugins={{ cjk, math }} components={readerComponents}>
               {markdown}
             </Streamdown>
           </div>
@@ -195,37 +194,26 @@ function resolveInternalTarget(href: string, currentConceptId: string): string |
   return conceptId || null;
 }
 
-function PageMetadataCard({
-  page,
-  typeColor,
-  onEdit,
-}: {
-  page: WikiPageRead;
-  typeColor: string;
-  onEdit?: () => void;
-}) {
+function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () => void }) {
+  const { t, i18n } = useTranslation();
   return (
-    <section className="px-1 pb-6 pt-2 sm:px-5 sm:pt-4">
+    <section className="mx-auto max-w-[760px] rounded-xl border border-editorial-hairline-strong bg-editorial-surface-card px-4 pb-5 pt-3 shadow-md sm:px-5 sm:pb-5 sm:pt-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="rounded-md px-2 py-1 text-[12px] font-semibold tracking-wide text-white"
-              style={{ backgroundColor: typeColor }}
-            >
-              {wikiTypeLabel(page.type)}
-            </span>
             <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
           </div>
-          <h2 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
+          <h1 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
             {page.title}
-          </h2>
+          </h1>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">
           <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-editorial-ink-muted">
             <CalendarClock size={13} />
-            <span>更新于 {formatUpdatedAt(page.timestamp)}</span>
+            <span>
+              {t("wiki.updatedAt", { date: formatUpdatedAt(page.timestamp, i18n.language) })}
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             {onEdit && (
@@ -237,7 +225,7 @@ function PageMetadataCard({
                 onClick={onEdit}
               >
                 <Pencil size={13} />
-                编辑
+                {t("common.edit")}
               </Button>
             )}
           </div>
@@ -247,15 +235,14 @@ function PageMetadataCard({
       <div className="mt-5 border-t border-editorial-hairline pt-4">
         <div className="space-y-3">
           {page.tags.length > 0 && (
-            <MetadataRow icon={<Tags size={13} />} label="标签">
+            <MetadataRow icon={<Tags size={13} />} label={t("wiki.tags")}>
               {page.tags.map((tag) => (
-                <motion.span
+                <span
                   key={tag}
-                  whileHover={{ scale: 1.04 }}
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
                 >
                   #{tag}
-                </motion.span>
+                </span>
               ))}
             </MetadataRow>
           )}
@@ -265,7 +252,7 @@ function PageMetadataCard({
           )}
 
           {page.resource && (
-            <MetadataRow icon={<ExternalLink size={13} />} label="资源">
+            <MetadataRow icon={<ExternalLink size={13} />} label={t("wiki.resource")}>
               <a
                 href={page.resource}
                 target="_blank"
@@ -326,10 +313,10 @@ function WikiReaderSkeleton() {
   );
 }
 
-function formatUpdatedAt(value: string) {
+function formatUpdatedAt(value: string, locale = "zh-CN") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "2-digit",

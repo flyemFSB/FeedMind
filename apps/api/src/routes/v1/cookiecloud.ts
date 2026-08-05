@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { gunzipSync } from "node:zlib";
 import { PlatformId } from "@feedmind/contracts";
+import { db, cookieStore } from "@feedmind/db";
 import { jsonOk, jsonError } from "../../lib/http.js";
 import {
   saveConfig,
@@ -26,12 +27,17 @@ async function parseBody(c: Context): Promise<Record<string, unknown>> {
 }
 
 // GET /api/v1/cookiecloud/config
-// 获取所有已保存的 CookieCloud 配置（不含密钥与密文）
+// 获取所有已保存的 CookieCloud 配置（不含密文），标记是否有已同步的 Cookie 数据
 cookieCloudRoutes.get("/cookiecloud/config", async (c) => {
   const configs = await getAllConfigs();
+  const storeRows = await db.select({ uuid: cookieStore.uuid }).from(cookieStore);
+  const activeUuids = new Set(storeRows.map((r) => r.uuid));
   return jsonOk(
     c,
-    configs.map(({ password: _, encrypted: __, ...rest }) => rest),
+    configs.map(({ encrypted: _, ...rest }) => ({
+      ...rest,
+      hasData: activeUuids.has(rest.uuid),
+    })),
   );
 });
 

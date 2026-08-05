@@ -8,6 +8,9 @@ import {
   getTaskRss,
   cancelTask,
   deleteTask,
+  listWereadMps,
+  listBiliFavs,
+  listZhCollections,
 } from "../../modules/crawler/service.js";
 
 export const crawlerRoutes = new Hono();
@@ -16,6 +19,27 @@ export const crawlerRoutes = new Hono();
 crawlerRoutes.post("/crawler/tasks", async (c) => {
   const payload = await parseJson(c, taskCreateSchema);
   return jsonOk(c, { data: await createCrawlerTask(payload) }, 201);
+});
+
+// GET /api/v1/crawler/weread/mps
+// 列出微信读书书架中的公众号（供前端选择指定订阅）
+crawlerRoutes.get("/crawler/weread/mps", async (c) => {
+  const data = await listWereadMps();
+  return jsonOk(c, data);
+});
+
+// GET /api/v1/crawler/bili/favs
+// 列出 B站当前登录用户的收藏夹
+crawlerRoutes.get("/crawler/bili/favs", async (c) => {
+  const data = await listBiliFavs();
+  return jsonOk(c, data);
+});
+
+// GET /api/v1/crawler/zh/collections
+// 列出知乎当前登录用户的收藏夹
+crawlerRoutes.get("/crawler/zh/collections", async (c) => {
+  const data = await listZhCollections();
+  return jsonOk(c, data);
 });
 
 crawlerRoutes.get("/crawler/tasks", async (c) => {

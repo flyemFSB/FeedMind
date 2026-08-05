@@ -110,6 +110,24 @@
   --editorial-semantic-error: oklch(0.55 0.23 25);
   --editorial-semantic-warning: oklch(0.65 0.16 85);
   --editorial-semantic-info: oklch(0.55 0.16 250);
+  /* Wiki 知识形态 type 专属颜色：8 种色相可区分，页面列表/图谱/分组共用，明暗自适应 */
+  --wiki-type-concept: oklch(0.62 0.17 280);
+  --wiki-type-principle: oklch(0.62 0.16 235);
+  --wiki-type-method: oklch(0.62 0.16 200);
+  --wiki-type-technology: oklch(0.6 0.17 160);
+  --wiki-type-application: oklch(0.62 0.15 120);
+  --wiki-type-trend: oklch(0.66 0.15 85);
+  --wiki-type-reference: oklch(0.62 0.08 35);
+  --wiki-type-metric: oklch(0.62 0.18 330);
+  /* Wiki 图谱社区着色（按社区分组，明暗自适应） */
+  --wiki-community-0: oklch(0.6 0.18 25);
+  --wiki-community-1: oklch(0.66 0.16 70);
+  --wiki-community-2: oklch(0.62 0.16 115);
+  --wiki-community-3: oklch(0.6 0.18 160);
+  --wiki-community-4: oklch(0.6 0.16 205);
+  --wiki-community-5: oklch(0.6 0.17 250);
+  --wiki-community-6: oklch(0.6 0.18 295);
+  --wiki-community-7: oklch(0.6 0.2 340);
 
   --background: #ffffff;
   --foreground: #37352d;
@@ -185,6 +203,24 @@
   --editorial-semantic-error: oklch(0.65 0.22 25);
   --editorial-semantic-warning: oklch(0.7 0.16 85);
   --editorial-semantic-info: oklch(0.65 0.16 250);
+  /* Wiki 知识形态 type 专属颜色（暗色：提高亮度保证可读） */
+  --wiki-type-concept: oklch(0.74 0.17 280);
+  --wiki-type-principle: oklch(0.74 0.16 235);
+  --wiki-type-method: oklch(0.74 0.16 200);
+  --wiki-type-technology: oklch(0.72 0.17 160);
+  --wiki-type-application: oklch(0.74 0.15 120);
+  --wiki-type-trend: oklch(0.78 0.15 85);
+  --wiki-type-reference: oklch(0.74 0.08 35);
+  --wiki-type-metric: oklch(0.74 0.18 330);
+  /* Wiki 图谱社区着色（暗色：提高亮度保证可读） */
+  --wiki-community-0: oklch(0.72 0.18 25);
+  --wiki-community-1: oklch(0.78 0.16 70);
+  --wiki-community-2: oklch(0.74 0.16 115);
+  --wiki-community-3: oklch(0.72 0.18 160);
+  --wiki-community-4: oklch(0.72 0.16 205);
+  --wiki-community-5: oklch(0.72 0.17 250);
+  --wiki-community-6: oklch(0.72 0.18 295);
+  --wiki-community-7: oklch(0.72 0.2 340);
 
   --background: #191919;
   --foreground: #ffffff;

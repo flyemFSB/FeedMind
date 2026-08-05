@@ -50,7 +50,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { drawerVariants } from "@/lib/motion";
-import { wikiTypeLabel } from "./constants";
+import { sortWikiTypes, wikiTypeColor, wikiTypeLabel } from "./constants";
 import { WikiReader } from "./wiki-reader";
 import { useTranslation } from "react-i18next";
 
@@ -63,30 +63,22 @@ interface WikiGraphViewProps {
 type ColorMode = "type" | "community";
 
 const COMMUNITY_COLORS = [
-  "#60a5fa",
-  "#4ade80",
-  "#fb923c",
-  "#c084fc",
-  "#f87171",
-  "#2dd4bf",
-  "#facc15",
-  "#f472b6",
+  "var(--wiki-community-0)",
+  "var(--wiki-community-1)",
+  "var(--wiki-community-2)",
+  "var(--wiki-community-3)",
+  "var(--wiki-community-4)",
+  "var(--wiki-community-5)",
+  "var(--wiki-community-6)",
+  "var(--wiki-community-7)",
 ];
 
-const GRAPH_TYPE_COLORS: Record<string, string> = {
-  entity: "#5b9cf3",
-  concept: "#ae78e8",
-  source: "#fb923c",
-  overview: "#facc15",
-  index: "#94a3b8",
-};
-
 function nodeColor(type: string): string {
-  return GRAPH_TYPE_COLORS[type.toLowerCase()] ?? "#94a3b8";
+  return wikiTypeColor(type);
 }
 
 export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphViewProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [edges, setEdges] = useState<GraphEdge[]>([]);
   const [communities, setCommunities] = useState<CommunityInfo[]>([]);
@@ -222,7 +214,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-editorial-semantic-error">{error}</p>
         <Button variant="outline" size="sm" onClick={() => void loadGraph()}>
           {t("common.retry")}
         </Button>
@@ -252,6 +244,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
             className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted"
           />
           <Input
+            aria-label={t("wiki.searchNodes")}
             className="h-8 w-[180px] rounded-lg border-editorial-surface-strong pl-8 text-[12px]"
             placeholder={t("wiki.searchNodes")}
             value={searchQuery}
@@ -385,7 +378,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       cx={pos.x}
                       cy={pos.y}
                       r={size}
-                      fill={color}
+                      style={{ fill: color }}
                       animate={{
                         r: isHovered ? size + 1 : size,
                         opacity: isHighlighted ? 0.95 : 0.16,
@@ -417,19 +410,17 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           <div className="absolute bottom-3 left-3 rounded-lg border border-editorial-hairline bg-editorial-surface-card/95 px-3 py-2 text-xs">
             {colorMode === "type" ? (
               <div className="flex flex-col gap-1">
-                {[...new Set(nodes.map((node) => node.type))]
-                  .sort((a, b) => a.localeCompare(b, "zh-CN"))
-                  .map((type) => (
-                    <div key={type} className="flex items-center gap-2">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: nodeColor(type) }}
-                      />
-                      <span className="text-[12px] text-editorial-ink-soft">
-                        {wikiTypeLabel(type)}
-                      </span>
-                    </div>
-                  ))}
+                {sortWikiTypes([...new Set(nodes.map((node) => node.type))]).map((type) => (
+                  <div key={type} className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: nodeColor(type) }}
+                    />
+                    <span className="text-[12px] text-editorial-ink-soft">
+                      {wikiTypeLabel(type, i18n.language)}
+                    </span>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="flex flex-col gap-1">

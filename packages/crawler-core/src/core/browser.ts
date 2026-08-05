@@ -4,11 +4,29 @@
  * 为需要浏览器自动化路由处理器提供共享实例。
  * 处理器在执行开始时调用 createBrowser()，清理时调用 closeBrowser()。
  */
+import { existsSync } from "node:fs";
 import { AgentBrowser } from "@mastra/agent-browser";
 
 let _browserInstance: AgentBrowser | null = null;
 let _refCount = 0;
 let _pendingCreate: Promise<AgentBrowser> | null = null;
+
+/**
+ * 解析浏览器可执行文件：优先系统 Chrome（接近真实浏览器，反检测更稳），
+ * 无系统 Chrome 时返回 undefined 走 playwright 默认浏览器（需已安装）。
+ */
+function resolveChromeExecutable(): string | undefined {
+  const candidates =
+    process.platform === "win32"
+      ? [
+          "C:/Program Files/Google/Chrome/Application/chrome.exe",
+          "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+        ]
+      : process.platform === "darwin"
+        ? ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"]
+        : ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"];
+  return candidates.find((p) => existsSync(p));
+}
 
 /** 获取或创建共享的 AgentBrowser 实例。并发调用只创建一个实例（single-flight）。 */
 export async function createBrowser(): Promise<AgentBrowser> {
@@ -32,6 +50,7 @@ export async function createBrowser(): Promise<AgentBrowser> {
       timeout: 30_000,
       scope: "thread",
       excludeTools: [],
+      executablePath: resolveChromeExecutable(),
     });
     await instance.ensureReady();
     _browserInstance = instance;

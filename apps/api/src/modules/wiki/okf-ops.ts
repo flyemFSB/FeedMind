@@ -15,6 +15,7 @@ import {
   safeWriteFile,
 } from "./space-fs/index.js";
 import { getWikiDir } from "./space-fs/index.js";
+import { WIKI_CONCEPT_TYPES, WIKI_CONCEPT_TYPE_LABELS } from "@feedmind/contracts";
 
 interface ConceptEntry {
   path: string;
@@ -74,6 +75,12 @@ function directSubdirectories(directory: string, directories: string[]): string[
     .sort();
 }
 
+/** 受控枚举中的位置，未知 type 归到最后。 */
+function typeOrder(type: string): number {
+  const index = (WIKI_CONCEPT_TYPES as readonly string[]).indexOf(type);
+  return index === -1 ? WIKI_CONCEPT_TYPES.length : index;
+}
+
 function renderIndex(directory: string, concepts: ConceptEntry[], directories: string[]): string {
   const localConcepts = concepts.filter((concept) => concept.directory === directory);
   const subdirectories = directSubdirectories(directory, directories);
@@ -92,8 +99,12 @@ function renderIndex(directory: string, concepts: ConceptEntry[], directories: s
     byType.set(concept.type, list);
   }
 
-  for (const [type, entries] of [...byType.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    lines.push(`## ${type}`, "");
+  const sortedTypes = [...byType.entries()].sort(
+    ([a], [b]) => typeOrder(a) - typeOrder(b) || a.localeCompare(b),
+  );
+  for (const [type, entries] of sortedTypes) {
+    const zh = WIKI_CONCEPT_TYPE_LABELS[type];
+    lines.push(zh ? `## ${zh} (${type})` : `## ${type}`, "");
     for (const entry of entries) {
       const description = entry.description || "暂无描述。";
       lines.push(`- ${formatConceptLink(entry.title, entry.conceptId)} - ${description}`);

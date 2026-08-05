@@ -9,8 +9,8 @@ const __dirname = dirname(__filename);
 /**
  * 创建 FeedMind Workspace 实例，用于发现和管理 Skills。
  *
- * 目前 skills/ 目录为空，Workspace 不会发现任何技能。
- * 后续在 skills/ 下添加 SKILL.md 子目录后，
+ * skills/ 目录位于 data/skills/（运行时数据，已 gitignore）。
+ * 在该目录下添加 SKILL.md 子目录后，
  * Agent 将自动发现并注入 skill / skill_search / skill_read 工具。
  *
  * 禁用所有 workspace file tools（read_file, write_file 等），
@@ -20,7 +20,7 @@ export function createFeedMindWorkspace(): Workspace {
   return new Workspace({
     id: "feedmind-skills",
     name: "FeedMind Skills",
-    filesystem: new LocalFilesystem({ basePath: resolve(__dirname) }),
+    filesystem: new LocalFilesystem({ basePath: resolve(__dirname, "../../../../data") }),
     skills: ["skills"],
     tools: {
       mastra_workspace_read_file: { enabled: false },

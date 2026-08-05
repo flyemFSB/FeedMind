@@ -32,3 +32,4 @@ minimumReleaseAgeExclude:
   - "@mastra/server@1.48.0"
   - ai@7.0.9
   - shadcn@4.16.1
+  - hono@4.13.0

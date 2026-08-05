@@ -14,6 +14,7 @@ const ROUTE_TO_PLATFORM: Record<string, string> = {
   dy: "douyin",
   xhs: "xiaohongshu",
   zh: "zhihu",
+  weread: "weread",
 };
 
 // ─── 辅助函数 ───────────────────────────────────────────────────
@@ -53,6 +54,56 @@ function toTaskListItem(row: typeof crawlerTasks.$inferSelect): TaskListItem {
 const runningTasks = new Map<string, AbortController>();
 
 // ─── 公开 API ────────────────────────────────────────────────
+
+/** 通用：调路由并解析 RSS item（title=名称，description=id），返回选项列表 */
+async function listRouteOptions(
+  route: string,
+  platform: string,
+): Promise<{ name: string; id: string }[]> {
+  const rows = await db
+    .select({ cookies: cookieStore.cookies })
+    .from(cookieStore)
+    .where(eq(cookieStore.platform, platform));
+  const cookies = rows.map((r) => r.cookies).join("; ") || undefined;
+
+  const handler = getRouteHandler(route);
+  if (!handler) throw new HttpError(500, "ROUTE_MISSING", `${route} 路由不存在`);
+
+  try {
+    const result = await handler({
+      params: {},
+      cookies,
+      abortSignal: new AbortController().signal,
+      maxItems: 100,
+    });
+
+    const items = [...result.rssXml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((m) => {
+      const block = m[1];
+      const name =
+        block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i)?.[1] ?? "";
+      const id =
+        block.match(
+          /<description>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/description>/i,
+        )?.[1] ?? "";
+      return { name: name.trim(), id: id.trim() };
+    });
+
+    return items;
+  } catch {
+    // 抓取失败（网络波动/风控/登录失效），降级返回空列表，避免 500
+    return [];
+  }
+}
+
+/** 微信读书书架公众号列表 */
+export const listWereadMps = (): Promise<{ name: string; id: string }[]> =>
+  listRouteOptions("weread/mps", "weread");
+/** B站当前登录用户收藏夹列表 */
+export const listBiliFavs = (): Promise<{ name: string; id: string }[]> =>
+  listRouteOptions("bili/favs", "bilibili");
+/** 知乎当前登录用户收藏夹列表 */
+export const listZhCollections = (): Promise<{ name: string; id: string }[]> =>
+  listRouteOptions("zh/collections", "zhihu");
 
 export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
   const handler = getRouteHandler(input.route);

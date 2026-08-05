@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, and, sql, desc } from "drizzle-orm";
+import Parser from "rss-parser";
 import { db, feeds, rssSources, cookieStore } from "@feedmind/db";
 import type { FeedRow } from "@feedmind/db";
 import { getRouteHandler } from "@feedmind/crawler-core";
@@ -54,63 +55,55 @@ interface ParsedRssItem {
   description: string;
   link: string;
   guid: string;
-  pubDate: string;
+  pubDate: string | null;
   author?: string;
   category?: string[];
   image?: string;
 }
 
-function parseRssXml(xml: string): { title?: string; items: ParsedRssItem[] } {
+// RSS 源常见 RFC 2822（如 "Wed, 31 Oct 2018 07:00:00 GMT"）或 ISO 格式。
+// 统一转 ISO8601 存储：SQLite 无法解析 RFC 2822，字符串排序会错乱时间序。
+function normalizeDate(raw: string): string | null {
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+// rss-parser 解析 RSS 2.0 / Atom / RDF，自动剥离 CDATA 与 XML 转义、处理命名空间。
+// 通过 customFields 提取 item 级配图（media:content）——该字段不在 rss-parser 默认输出中。
+const rssParser = new Parser({
+  customFields: { item: [["media:content", "media"]] },
+});
+
+async function parseRssXml(xml: string): Promise<{ title?: string; items: ParsedRssItem[] }> {
+  const feed = await rssParser.parseString(xml);
   const items: ParsedRssItem[] = [];
-
-  const channelMatch = xml.match(/<channel>([\s\S]*?)<\/channel>/i);
-  if (!channelMatch) return { items };
-
-  const channelTitle = channelMatch[1].match(
-    /<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i,
-  )?.[1];
-
-  const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
-  let itemMatch;
-  while ((itemMatch = itemRegex.exec(xml)) !== null) {
-    const block = itemMatch[1];
-    const extract = (tag: string): string => {
-      const m = block.match(
-        new RegExp(
-          `<${tag}[^>]*>(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([\\s\\S]*?))<\\/${tag}>`,
-          "i",
-        ),
-      );
-      return (m?.[1] ?? m?.[2] ?? "").trim();
-    };
-    const link = extract("link");
-    const guid = extract("guid") || link;
+  for (const item of feed.items) {
+    const guid = item.guid ?? item.link;
     if (!guid) continue;
 
-    const catBlock = block.match(
-      /<category>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/category>/gi,
-    );
-    const cats: string[] = [];
-    if (catBlock) {
-      for (const c of catBlock) {
-        const m = c.match(/(?:<!\[CDATA\[([\s\S]*?)\]\]>|>([\s\S]*?)<\/category>)/);
-        if (m?.[1] || m?.[2]) cats.push((m[1] || m[2]).trim());
-      }
-    }
-
     items.push({
-      title: extract("title"),
-      description: extract("description"),
-      link,
+      title: item.title?.trim() ?? "(无标题)",
+      description: item.content ?? item.summary ?? "",
+      link: item.link ?? "",
       guid,
-      pubDate: extract("pubDate"),
-      author: extract("author"),
-      category: cats.length > 0 ? cats : undefined,
-      image: extract("image"),
+      pubDate: normalizeDate(item.isoDate ?? item.pubDate ?? ""),
+      author: item.creator ?? undefined,
+      category: item.categories?.length ? item.categories : undefined,
+      image: extractItemImage(item),
     });
   }
+  return { title: feed.title, items };
+}
 
-  return { title: channelTitle, items };
+// 提取 item 缩略图：优先 media:content 的 url，其次图片类型的 enclosure
+function extractItemImage(
+  item: Parser.Item & { media?: Array<{ $?: { url?: string } }> },
+): string | undefined {
+  const mediaUrl = item.media?.[0]?.$?.url;
+  if (mediaUrl) return mediaUrl;
+  if (item.enclosure?.type?.startsWith("image/")) return item.enclosure.url;
+  return undefined;
 }
 
 async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<number> {
@@ -135,7 +128,7 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
       author: item.author ?? null,
       category: item.category ? JSON.stringify(item.category) : null,
       image: item.image ?? null,
-      pubDate: item.pubDate || null,
+      pubDate: item.pubDate ?? null,
       fetchedAt: now,
     });
     inserted++;
@@ -144,11 +137,26 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
   return inserted;
 }
 
+// 每次同步只处理订阅源的最新 maxItems 条，guid 去重后仅添加本地没有的新条目。
+// 不做全量抓取（避免一次灌入 RSS 全部历史），也不删除本地已有记录。
+const MAX_ITEMS_PER_SOURCE = 10;
+
+async function upsertFeedsLimited(
+  sourceId: string,
+  items: ParsedRssItem[],
+  maxItems: number,
+): Promise<number> {
+  const sorted = [...items].sort((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""));
+  const top = sorted.slice(0, maxItems);
+  return upsertFeeds(sourceId, top);
+}
+
 const ROUTE_TO_PLATFORM: Record<string, string> = {
   bili: "bilibili",
   dy: "douyin",
   xhs: "xiaohongshu",
   zh: "zhihu",
+  weread: "weread",
 };
 
 export interface SyncResult {
@@ -175,8 +183,8 @@ export async function syncAll(): Promise<SyncResult> {
         const res = await fetch(source.url, { signal: AbortSignal.timeout(30_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const xml = await res.text();
-        const { items } = parseRssXml(xml);
-        const n = await upsertFeeds(source.id, items);
+        const { items } = await parseRssXml(xml);
+        const n = await upsertFeedsLimited(source.id, items, MAX_ITEMS_PER_SOURCE);
         result.inserted += n;
       } else if (source.type === "social" && source.route) {
         const handler = getRouteHandler(source.route);
@@ -193,19 +201,28 @@ export async function syncAll(): Promise<SyncResult> {
           cookies = rows.map((r) => r.cookies).join("; ") || undefined;
         }
 
+        // 增量去重：该 source 已入库的 guid 列表，传给支持 seen_guids 的路由（weread 等）
+        const seenRows = await db
+          .select({ guid: feeds.guid })
+          .from(feeds)
+          .where(eq(feeds.sourceId, source.id));
+        const seenGuids = seenRows.map((r) => r.guid).filter((g): g is string => !!g);
+        const baseParams = source.params ? JSON.parse(source.params) : {};
+
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 120_000);
 
         const routeResult = await handler({
-          params: source.params ? JSON.parse(source.params) : {},
+          params: seenGuids.length > 0 ? { ...baseParams, seen_guids: seenGuids } : baseParams,
           cookies,
           abortSignal: controller.signal,
-          maxItems: 50,
+          // weread 增量每号最多 10 篇，maxItems 需足够大才能容纳多公众号的新增
+          maxItems: source.route === "weread/shelf" ? 500 : 50,
         });
         clearTimeout(timeout);
 
-        const { items } = parseRssXml(routeResult.rssXml);
-        const n = await upsertFeeds(source.id, items);
+        const { items } = await parseRssXml(routeResult.rssXml);
+        const n = await upsertFeedsLimited(source.id, items, MAX_ITEMS_PER_SOURCE);
         result.inserted += n;
       }
 

@@ -74,7 +74,8 @@ export function readSource(filePath: string, spaceId: string): Record<string, un
       mime_type: "text/plain",
       size_bytes: stat.size,
       content_hash: sha256(body.trim()),
-      status: "ready",
+      // 状态存于来源 frontmatter（导入成功后由 markSourceIngested 回写），缺省待导入
+      status: extractString(frontmatter, "status") ?? "ready",
       metadata: (frontmatter.metadata as Record<string, unknown>) ?? {},
       created_at: extractString(frontmatter, "timestamp") ?? stat.birthtime.toISOString(),
       updated_at: extractString(frontmatter, "timestamp") ?? stat.mtime.toISOString(),

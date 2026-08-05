@@ -11,6 +11,7 @@ const DOMAIN_TO_PLATFORM: Record<string, PlatformId> = {
   ".douyin.com": "douyin",
   ".xiaohongshu.com": "xiaohongshu",
   ".zhihu.com": "zhihu",
+  ".weread.qq.com": "weread",
   ".feishu.cn": "feishu",
 };
 

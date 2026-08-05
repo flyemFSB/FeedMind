@@ -1,7 +1,14 @@
 import { z } from "zod/v4";
 
 // ─── 枚举 ───────────────────────────────────────────────────────
-export const PlatformId = z.enum(["feishu", "xiaohongshu", "douyin", "bilibili", "zhihu"]);
+export const PlatformId = z.enum([
+  "feishu",
+  "xiaohongshu",
+  "douyin",
+  "bilibili",
+  "zhihu",
+  "weread",
+]);
 export type PlatformId = z.infer<typeof PlatformId>;
 
 export const ConnectionStatus = z.enum(["disconnected", "connecting", "connected", "error"]);

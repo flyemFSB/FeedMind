@@ -63,6 +63,33 @@ export type WikiSpaceListItem = z.infer<typeof wikiSpaceListItemSchema>;
 export const wikiPageTypeSchema = z.string().trim().min(1);
 export type WikiPageType = z.infer<typeof wikiPageTypeSchema>;
 
+// ─── 知识形态 type 受控枚举 ─────────────────────────────────
+// 单一数据源：约束 AI 生成、前端分组标签、索引分组顺序。
+// 存储层仍接受任意字符串 type（OKF 规范要求容忍未知类型），此枚举仅用于规约与展示。
+export const WIKI_CONCEPT_TYPES = [
+  "Concept",
+  "Principle",
+  "Method",
+  "Technology",
+  "Application",
+  "Trend",
+  "Reference",
+  "Metric",
+] as const;
+export type WikiConceptType = (typeof WIKI_CONCEPT_TYPES)[number];
+
+/** type → 中文标签（知识形态维度）；未知 type 由消费方回退到原始值或"概念"。 */
+export const WIKI_CONCEPT_TYPE_LABELS: Record<string, string> = {
+  Concept: "概念",
+  Principle: "原理",
+  Method: "方法",
+  Technology: "技术",
+  Application: "应用",
+  Trend: "趋势",
+  Reference: "参考",
+  Metric: "指标",
+};
+
 export const wikiPageCreateSchema = z.object({
   path: z.string().min(1).max(512),
   type: wikiPageTypeSchema.default("Reference"),
@@ -130,6 +157,7 @@ export const wikiSourceStatusSchema = z.enum([
   "queued",
   "ingesting",
   "ready",
+  "ingested",
   "failed",
   "deleted",
 ]);
