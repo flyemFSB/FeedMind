@@ -3,7 +3,6 @@ export function normalizePath(p: string): string {
   return p.replace(/\\/g, "/");
 }
 
-/** 用正斜杠拼接路径段 */
 export function joinPath(...segments: string[]): string {
   return segments
     .map((s) => s.replace(/\\/g, "/"))
@@ -11,20 +10,17 @@ export function joinPath(...segments: string[]): string {
     .replace(/\/+/g, "/");
 }
 
-/** 从路径中提取文件名 */
 export function getFileName(p: string): string {
   const normalized = p.replace(/\\/g, "/");
   return normalized.split("/").pop() ?? p;
 }
 
-/** 获取文件名主体（不含扩展名） */
 export function getFileStem(p: string): string {
   const name = getFileName(p);
   const lastDot = name.lastIndexOf(".");
   return lastDot > 0 ? name.slice(0, lastDot) : name;
 }
 
-/** 获取相对于基路径的相对路径 */
 export function getRelativePath(fullPath: string, basePath: string): string {
   const normalFull = normalizePath(fullPath);
   const normalBase = normalizePath(basePath).replace(/\/$/, "");
@@ -34,7 +30,6 @@ export function getRelativePath(fullPath: string, basePath: string): string {
   return normalFull;
 }
 
-/** 跨平台绝对路径检测 */
 export function isAbsolutePath(p: string): boolean {
   if (!p) return false;
   if (p.startsWith("/")) return true;
@@ -43,10 +38,7 @@ export function isAbsolutePath(p: string): boolean {
   return false;
 }
 
-/**
- * 安全拼接路径：确保在 baseDir 下，拒绝 .. 和绝对路径。
- * 返回安全拼接后的路径，失败则抛异常。
- */
+/** 安全拼接路径：确保在 baseDir 下，拒绝 .. 和绝对路径 */
 export function safeJoin(baseDir: string, userPath: string): string {
   const normalized = normalizePath(userPath);
   if (!normalized || normalized.trim().length === 0) {

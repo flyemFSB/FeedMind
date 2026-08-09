@@ -213,7 +213,7 @@ export function ModelFormDialog({
               </Select>
             </div>
           </div>
-          {/* 模型调用名称 — first position */}
+          {/* 模型调用名称 */}
           <div className="col-span-2">
             <label
               htmlFor="model-api-id-input"
@@ -244,7 +244,7 @@ export function ModelFormDialog({
               />
             )}
           </div>
-          {/* 模型显示名称 — second position */}
+          {/* 模型显示名称 */}
           <div className="col-span-2">
             <label
               htmlFor="model-name-input"

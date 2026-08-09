@@ -1,10 +1,10 @@
 "use client";
 
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
+import type { WikiView } from "@/src/routes/wiki";
 import {
   ClipboardCheck,
   Clock,
-  Database,
   FileText,
   List,
   Network,
@@ -24,19 +24,19 @@ interface WikiSidebarProps {
 const NAV_ITEMS = [
   { id: "pages", icon: FileText, label: "wiki.tabPages", view: "pages" },
   { id: "graph", icon: Network, label: "wiki.tabGraph", view: "graph" },
-  { id: "sources", icon: Database, label: "wiki.tabSources", view: "sources" },
   { id: "history", icon: Clock, label: "wiki.tabImportHistory", view: "history" },
   { id: "lint", icon: ClipboardCheck, label: "wiki.tabLint", view: "lint" },
 ] as const;
 
 export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const search = useSearch({ strict: false }) as { view?: string };
+  // 全局侧边栏读取当前 URL 的 view（合并所有路由 search），仅 /wiki 定义该参数
+  const search = useSearch({ strict: false });
   const currentView = search.view ?? "pages";
   const navigate = useNavigate();
   const isWikiActive = pathname.startsWith("/wiki");
 
-  const goToView = (view: string) => {
+  const goToView = (view: WikiView) => {
     void navigate({ to: "/wiki", search: { view }, replace: false });
   };
 

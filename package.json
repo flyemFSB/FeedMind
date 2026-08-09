@@ -14,16 +14,17 @@
   "scripts": {
     "dev": "chcp 65001 >nul && pnpm run build:packages && concurrently -n api,web -c cyan,green \"pnpm run api:dev\" \"pnpm run web:dev\"",
     "build": "pnpm -r build",
-    "build:packages": "pnpm --filter @feedmind/contracts build && pnpm --filter @feedmind/shared build && pnpm --filter @feedmind/db build && pnpm --filter @feedmind/crawler-core build && pnpm --filter @feedmind/wiki-core build && pnpm --filter @feedmind/env build",
+    "build:packages": "pnpm --filter \"./packages/*\" build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "db:init": "pnpm --filter @feedmind/db db:init",
-    "db:generate": "pnpm --filter @feedmind/db db:generate",
-    "db:migrate": "pnpm --filter @feedmind/db db:migrate",
+    "db:push": "pnpm --filter @feedmind/db db:push",
     "db:reset": "pnpm --filter @feedmind/db db:reset",
     "web:dev": "pnpm --filter @feedmind/web dev",
     "api:dev": "pnpm --filter @feedmind/api dev",
+    "desktop:dev": "chcp 65001 >nul && pnpm run build:packages && pnpm --filter @feedmind/api build && pnpm --filter @feedmind/desktop build && concurrently -k -n web,desktop \"pnpm --filter @feedmind/web dev\" \"pnpm --filter @feedmind/desktop dev\"",
+    "desktop": "pnpm run build && pnpm --filter @feedmind/desktop start",
     "prepare": "husky"
   },
   "devDependencies": {

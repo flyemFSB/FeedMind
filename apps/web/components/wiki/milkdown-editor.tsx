@@ -4,9 +4,6 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import "./milkdown-theme.css";
 
-/**
- * 简单的防抖函数
- */
 function debounce<T extends (...args: Parameters<T>) => void>(fn: T, delay: number): T {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   return ((...args: Parameters<T>) => {

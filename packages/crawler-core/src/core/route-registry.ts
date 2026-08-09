@@ -21,8 +21,3 @@ export function registerRoute(name: string, handler: RouteHandler): void {
 export function getRouteHandler(name: string): RouteHandler | undefined {
   return registry.get(name);
 }
-
-/** 列出所有已注册的路由名。 */
-export function listRoutes(): string[] {
-  return [...registry.keys()];
-}

@@ -21,9 +21,9 @@ export function VirtualMessages({ messages, isStreaming }: VirtualMessagesProps)
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => estimateMessageHeight(messages[index]),
+    estimateSize: (index) => estimateMessageHeight(messages[index]!),
     overscan: 5,
-    getItemKey: (index) => messages[index].id,
+    getItemKey: (index) => messages[index]!.id,
   });
 
   return (
@@ -37,7 +37,7 @@ export function VirtualMessages({ messages, isStreaming }: VirtualMessagesProps)
           style={{ transform: `translateY(${item.start}px)`, paddingBottom: "2rem" }}
         >
           <MessageParts
-            message={messages[item.index]}
+            message={messages[item.index]!}
             isLastMessage={item.index === messages.length - 1}
             isStreaming={isStreaming}
           />

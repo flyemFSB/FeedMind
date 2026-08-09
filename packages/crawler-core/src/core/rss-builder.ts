@@ -71,9 +71,6 @@ export function fromUnixTimestamp(seconds: number): string {
   return toRfc2822(seconds * 1000);
 }
 
-/**
- * 从结构化数据构建 RSS 2.0 XML 字符串。
- */
 export function buildRssXml(feed: RssFeed): string {
   const lang = feed.language ?? DEFAULT_LANGUAGE;
   const ttl = feed.ttl ?? DEFAULT_TTL;
@@ -119,9 +116,6 @@ ${itemsXml}
 </rss>`;
 }
 
-/**
- * 构建带平台前缀的 GUID。
- */
 export function buildGuid(platform: string, contentId: string): string {
   return `${platform}:${contentId}`;
 }

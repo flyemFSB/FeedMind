@@ -1,10 +1,6 @@
 import { Workspace } from "@mastra/core/workspace";
 import { LocalFilesystem } from "@mastra/core/workspace";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { resolveDataDir } from "../lib/data-dir.js";
 
 /**
  * 创建 FeedMind Workspace 实例，用于发现和管理 Skills。
@@ -20,7 +16,7 @@ export function createFeedMindWorkspace(): Workspace {
   return new Workspace({
     id: "feedmind-skills",
     name: "FeedMind Skills",
-    filesystem: new LocalFilesystem({ basePath: resolve(__dirname, "../../../../data") }),
+    filesystem: new LocalFilesystem({ basePath: resolveDataDir() }),
     skills: ["skills"],
     tools: {
       mastra_workspace_read_file: { enabled: false },

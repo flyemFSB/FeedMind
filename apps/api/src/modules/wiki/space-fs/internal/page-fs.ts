@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   conceptIdFromPath,
+  extractGeneratedAt,
   extractString,
   extractStringArray,
   normalizeConceptId,
@@ -61,7 +62,7 @@ export function readPage(filePath: string, spaceId: string): Record<string, unkn
     const bundlePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
     const conceptId = conceptIdFromPath(bundlePath);
     const slug = conceptId.split("/").at(-1) ?? conceptId;
-    const timestamp = extractString(frontmatter, "timestamp") ?? "";
+    const timestamp = extractGeneratedAt(frontmatter) ?? "";
 
     return {
       id: conceptId,
@@ -90,17 +91,17 @@ export function readPageListItem(
   const page = readPage(filePath, spaceId);
   if (!page) return null;
   return {
-    id: page.id,
-    space_id: page.space_id,
-    path: page.path,
-    concept_id: page.concept_id,
-    slug: page.slug,
-    type: page.type,
-    title: page.title,
-    description: page.description,
-    resource: page.resource,
-    tags: page.tags,
-    timestamp: page.timestamp,
+    id: page["id"],
+    space_id: page["space_id"],
+    path: page["path"],
+    concept_id: page["concept_id"],
+    slug: page["slug"],
+    type: page["type"],
+    title: page["title"],
+    description: page["description"],
+    resource: page["resource"],
+    tags: page["tags"],
+    timestamp: page["timestamp"],
   };
 }
 

@@ -38,7 +38,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
         showCloseButton={false}
         className="max-w-lg gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-lg"
       >
-        {/* Header row — no border, kept clean */}
+        {/* 头部行：无边框，保持简洁 */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
           <motion.button
@@ -51,7 +51,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
           </motion.button>
         </div>
 
-        {/* Tab bar — plain buttons, full control over styling */}
+        {/* Tab 栏：用纯按钮，样式完全自控 */}
         <div className="mx-6 mt-3 flex gap-5 border-b border-editorial-surface-strong">
           <motion.button
             onClick={() => setTab("file")}

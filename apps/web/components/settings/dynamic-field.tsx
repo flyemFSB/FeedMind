@@ -19,8 +19,8 @@ import { getToolRuntime } from "@/lib/api/tools";
 interface DynamicFieldProps {
   field: ConfigField;
   value: unknown;
-  toolName?: string;
-  passwordSet?: Record<string, boolean>;
+  toolName?: string | undefined;
+  passwordSet?: Record<string, boolean> | undefined;
   onChange: (key: string, value: unknown) => void;
 }
 

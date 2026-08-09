@@ -59,7 +59,7 @@ export async function createModel(payload: ModelCreate): Promise<ModelRead> {
       })
       .returning();
     clearModelClientCache();
-    return toModelRead(row);
+    return toModelRead(row!);
   } catch (error) {
     if (isUniqueViolation(error))
       throw new HttpError(
@@ -73,14 +73,14 @@ export async function createModel(payload: ModelCreate): Promise<ModelRead> {
 
 export async function updateModel(modelId: number, payload: ModelUpdate): Promise<ModelRead> {
   const values: Partial<ModelInsert> = {
-    type: payload.type,
-    provider: payload.provider,
-    modelName: payload.model_name,
-    modelId: payload.model_id,
-    baseUrl: payload.base_url,
     updatedAt: new Date().toISOString(),
-    contextWindow: payload.context_window ?? null,
-    maxOutput: payload.max_output ?? null,
+    ...(payload.type !== undefined ? { type: payload.type } : {}),
+    ...(payload.provider !== undefined ? { provider: payload.provider } : {}),
+    ...(payload.model_name !== undefined ? { modelName: payload.model_name } : {}),
+    ...(payload.model_id !== undefined ? { modelId: payload.model_id } : {}),
+    ...(payload.base_url !== undefined ? { baseUrl: payload.base_url } : {}),
+    ...(payload.context_window !== undefined ? { contextWindow: payload.context_window } : {}),
+    ...(payload.max_output !== undefined ? { maxOutput: payload.max_output } : {}),
     ...(payload.api_key ? { encryptedApiKey: encryptValue(payload.api_key) } : {}),
   };
 

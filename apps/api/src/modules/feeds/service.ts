@@ -6,6 +6,7 @@ import type { FeedRow } from "@feedmind/db";
 import { getRouteHandler } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
+import { joinCookies } from "../cookiecloud/service.js";
 
 export async function listFeeds(params: {
   source_id?: string;
@@ -81,6 +82,7 @@ async function parseRssXml(xml: string): Promise<{ title?: string; items: Parsed
   for (const item of feed.items) {
     const guid = item.guid ?? item.link;
     if (!guid) continue;
+    const image = extractItemImage(item);
 
     items.push({
       title: item.title?.trim() ?? "(无标题)",
@@ -88,12 +90,12 @@ async function parseRssXml(xml: string): Promise<{ title?: string; items: Parsed
       link: item.link ?? "",
       guid,
       pubDate: normalizeDate(item.isoDate ?? item.pubDate ?? ""),
-      author: item.creator ?? undefined,
-      category: item.categories?.length ? item.categories : undefined,
-      image: extractItemImage(item),
+      ...(item.creator ? { author: item.creator } : {}),
+      ...(item.categories?.length ? { category: item.categories } : {}),
+      ...(image ? { image } : {}),
     });
   }
-  return { title: feed.title, items };
+  return { items, ...(feed.title !== undefined ? { title: feed.title } : {}) };
 }
 
 // 提取 item 缩略图：优先 media:content 的 url，其次图片类型的 enclosure
@@ -146,7 +148,7 @@ async function upsertFeedsLimited(
   items: ParsedRssItem[],
   maxItems: number,
 ): Promise<number> {
-  const sorted = [...items].sort((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""));
+  const sorted = items.toSorted((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""));
   const top = sorted.slice(0, maxItems);
   return upsertFeeds(sourceId, top);
 }
@@ -190,15 +192,15 @@ export async function syncAll(): Promise<SyncResult> {
         const handler = getRouteHandler(source.route);
         if (!handler) throw new Error(`路由 ${source.route} 不存在`);
 
-        const prefix = source.route.split("/")[0];
+        const prefix = source.route.split("/")[0] ?? "";
         const platform = ROUTE_TO_PLATFORM[prefix];
         let cookies: string | undefined;
         if (platform) {
           const rows = await db
-            .select({ cookies: cookieStore.cookies })
+            .select({ uuid: cookieStore.uuid, cookies: cookieStore.cookies })
             .from(cookieStore)
             .where(eq(cookieStore.platform, platform));
-          cookies = rows.map((r) => r.cookies).join("; ") || undefined;
+          cookies = joinCookies(rows) || undefined;
         }
 
         // 增量去重：该 source 已入库的 guid 列表，传给支持 seen_guids 的路由（weread 等）
@@ -214,10 +216,10 @@ export async function syncAll(): Promise<SyncResult> {
 
         const routeResult = await handler({
           params: seenGuids.length > 0 ? { ...baseParams, seen_guids: seenGuids } : baseParams,
-          cookies,
           abortSignal: controller.signal,
           // weread 增量每号最多 10 篇，maxItems 需足够大才能容纳多公众号的新增
           maxItems: source.route === "weread/shelf" ? 500 : 50,
+          ...(cookies !== undefined ? { cookies } : {}),
         });
         clearTimeout(timeout);
 

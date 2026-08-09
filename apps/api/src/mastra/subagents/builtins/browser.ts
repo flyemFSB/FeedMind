@@ -1,23 +1,62 @@
 import { AgentBrowser } from "@mastra/agent-browser";
+import { assertElectronCdp } from "@feedmind/crawler-core";
 import { buildSystemPrompt } from "../../prompts/system.js";
 import type { SubagentTemplate } from "../../tools/task.js";
 
 /**
- * AgentBrowser 实例（headless 模式，服务端使用）
- * 懒初始化：直到第一次 getTools() 调用时才创建浏览器进程，
+ * AgentBrowser 实例（通过 CDP 连接桌面应用内置 Chromium）
+ * 懒初始化：直到第一次 getTools() 调用时才建立连接，
  * 避免应用启动时即初始化浏览器（可能造成不必要的资源占用）。
  */
 let _browserInstance: AgentBrowser | null = null;
 
+/** CDP 端点：桌面应用 --remote-debugging-port 默认 9333，可用 CDP_ENDPOINT 覆盖 */
+const CDP_ENDPOINT = process.env["CDP_ENDPOINT"] ?? "http://127.0.0.1:9333";
+
+/** Agent 浏览器窗口标记：与 apps/desktop 主进程一致（feedmind-agent），
+ * 与爬虫窗口（feedmind-crawler）相互独立，Agent 会话与爬虫任务各占一个隐藏窗口 */
+const AGENT_MARKER = "feedmind-agent";
+
+/**
+ * 定位并激活 Agent 浏览器窗口（按标记 URL，幂等）。
+ * agent-browser 连 CDP 后 activePageIndex 固定为 0，且 setupContextTracking 会在
+ * 新页面创建时自动切换——两者都会让它误驱动 UI 窗口或弹窗，故每次取页前重定位。
+ * 标记缺失时抛错，绝不回退驱动 UI 窗口。
+ */
+async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
+  const manager = await instance.getManagerForThread();
+  const tabs = await manager.listTabs();
+  const idx = tabs.findIndex((t) => t.url.includes(AGENT_MARKER));
+  if (idx < 0) {
+    throw new Error(
+      `CDP 未发现 Agent 浏览器窗口（标记 ${AGENT_MARKER}），请确认 FeedMind 桌面应用已启动`,
+    );
+  }
+  if (!tabs[idx]!.active) {
+    await manager.switchTo(idx);
+  }
+}
+
 function getBrowserInstance(): AgentBrowser {
-  _browserInstance ??= new AgentBrowser({
-    headless: true,
-    viewport: { width: 1280, height: 720 },
-    timeout: 30_000,
-    scope: "thread",
-    excludeTools: [],
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-  });
+  _browserInstance ??= (() => {
+    const instance = new AgentBrowser({
+      // cdpUrl 必须搭配 scope: "shared"，复用桌面应用内置 Chromium，不再自起 Chrome
+      cdpUrl: CDP_ENDPOINT,
+      scope: "shared",
+      viewport: { width: 1280, height: 720 },
+      timeout: 30_000,
+      excludeTools: [],
+    });
+    // 每个浏览器工具执行前都会调 ensureReady：先硬隔离预检（确认端点归属 FeedMind
+    // Electron，否则拒绝），再重定位 Agent 窗口，保证绝不驱动用户主机 Chrome
+    const originalEnsureReady = instance.ensureReady.bind(instance);
+    instance.ensureReady = async () => {
+      await assertElectronCdp();
+      await originalEnsureReady();
+      await activateAgentWindow(instance);
+    };
+    return instance;
+  })();
   return _browserInstance;
 }
 

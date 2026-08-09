@@ -19,7 +19,6 @@
     "db:reset": "tsx src/reset.ts"
   },
   "dependencies": {
-    "@feedmind/shared": "workspace:*",
     "@libsql/client": "^0.17.3",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:"

@@ -28,7 +28,7 @@ interface ConfigFormFields {
   temperature: number;
   top_p: number;
   system_prompt: string;
-  llm_id: string; // string ID from web layer
+  llm_id: string; // web 层传入的字符串模型 ID
 }
 
 const defaultFields: ConfigFormFields = {
@@ -61,11 +61,9 @@ export function RuntimePanel() {
   const sessionConfig = configs.find((c) => c.runtime === "session");
   const wikiConfig = configs.find((c) => c.runtime === "wiki");
 
-  // Local form state
   const [sessionFields, setSessionFields] = useState<ConfigFormFields>(defaultFields);
   const [wikiFields, setWikiFields] = useState<ConfigFormFields>(defaultFields);
 
-  // Sync from API when configs load
   useEffect(() => {
     if (sessionConfig) {
       setSessionFields({

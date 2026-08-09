@@ -38,7 +38,6 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // 从 API 加载连接状态
   const loadConnections = useCallback(async () => {
     setLoading(true);
     try {

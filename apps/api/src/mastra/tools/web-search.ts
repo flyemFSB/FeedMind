@@ -35,17 +35,18 @@ export const webSearchTool = createTool({
       ) => Promise<Array<{ title: string; url: string; content: string }>>;
     }> = [];
 
-    if (webSearch.config?.tavilyApiKey) {
+    if (webSearch.config?.["tavilyApiKey"]) {
       engines.push({
         name: "tavily",
         search: (signal) =>
-          tavilySearch(query, limit, webSearch.config.tavilyApiKey as string, signal),
+          tavilySearch(query, limit, webSearch.config["tavilyApiKey"] as string, signal),
       });
     }
-    if (webSearch.config?.exaApiKey) {
+    if (webSearch.config?.["exaApiKey"]) {
       engines.push({
         name: "exa",
-        search: (signal) => exaSearch(query, limit, webSearch.config.exaApiKey as string, signal),
+        search: (signal) =>
+          exaSearch(query, limit, webSearch.config["exaApiKey"] as string, signal),
       });
     }
     engines.push({
@@ -54,7 +55,7 @@ export const webSearchTool = createTool({
         anysearchSearch(
           query,
           limit,
-          webSearch.config?.anysearchApiKey as string | undefined,
+          webSearch.config?.["anysearchApiKey"] as string | undefined,
           signal,
         ),
     });

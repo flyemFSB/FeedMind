@@ -1,14 +1,13 @@
 import { Mastra } from "@mastra/core";
 import { chatRoute } from "@mastra/ai-sdk";
 import { LibSQLStore } from "@mastra/libsql";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { feedmindAgent } from "./agents/feedmind-agent.js";
 import { getVectorStore } from "./vector-store.js";
 import { ToolConfigClient } from "./tools/search/config.js";
+import { resolveDataDir } from "../lib/data-dir.js";
 
-const thisDir = dirname(fileURLToPath(import.meta.url));
-const mastraDbPath = resolve(thisDir, "..", "..", "..", "..", "data", "mastra.db");
+const mastraDbPath = resolve(resolveDataDir(), "mastra.db");
 
 export function initToolConfig(): void {
   new ToolConfigClient();

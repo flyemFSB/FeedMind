@@ -1,4 +1,3 @@
-// Wiki module barrel exports for cleaner imports
 export * from "./space-registry.js";
 export * from "./space-fs/index.js";
 export * from "./page-store.js";

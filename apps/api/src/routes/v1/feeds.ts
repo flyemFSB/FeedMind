@@ -10,7 +10,11 @@ feedRoutes.get("/feeds", async (c) => {
   const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 50));
   const sourceId = c.req.query("source_id");
 
-  const { data, total } = await listFeeds({ source_id: sourceId, offset, limit });
+  const { data, total } = await listFeeds({
+    offset,
+    limit,
+    ...(sourceId !== undefined ? { source_id: sourceId } : {}),
+  });
   return jsonOk(c, {
     data,
     pagination: { offset, limit, total, has_more: offset + limit < total },

@@ -320,7 +320,7 @@ export const PromptInput = ({
   );
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
-    async (event) => {
+    (event) => {
       event.preventDefault();
 
       const form = event.currentTarget;
@@ -330,39 +330,41 @@ export const PromptInput = ({
       // where user input during async blob conversion would be lost
       form.reset();
 
-      try {
-        // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
-          files.map(async ({ id: _id, ...item }) => {
-            if (item.url?.startsWith("blob:")) {
-              const dataUrl = await convertBlobUrlToDataUrl(item.url);
-              // If conversion failed, keep the original blob URL
-              return {
-                ...item,
-                url: dataUrl ?? item.url,
-              };
+      void (async () => {
+        try {
+          // Convert blob URLs to data URLs asynchronously
+          const convertedFiles: FileUIPart[] = await Promise.all(
+            files.map(async ({ id: _id, ...item }) => {
+              if (item.url?.startsWith("blob:")) {
+                const dataUrl = await convertBlobUrlToDataUrl(item.url);
+                // If conversion failed, keep the original blob URL
+                return {
+                  ...item,
+                  url: dataUrl ?? item.url,
+                };
+              }
+              return item;
+            }),
+          );
+
+          const result = onSubmit({ files: convertedFiles, text }, event);
+
+          // Handle both sync and async onSubmit
+          if (result instanceof Promise) {
+            try {
+              await result;
+              clear();
+            } catch {
+              // Don't clear on error - user may want to retry
             }
-            return item;
-          }),
-        );
-
-        const result = onSubmit({ files: convertedFiles, text }, event);
-
-        // Handle both sync and async onSubmit
-        if (result instanceof Promise) {
-          try {
-            await result;
+          } else {
+            // Sync function completed without throwing, clear inputs
             clear();
-          } catch {
-            // Don't clear on error - user may want to retry
           }
-        } else {
-          // Sync function completed without throwing, clear inputs
-          clear();
+        } catch {
+          // Don't clear on error - user may want to retry
         }
-      } catch {
-        // Don't clear on error - user may want to retry
-      }
+      })();
     },
     [files, onSubmit, clear],
   );

@@ -1,21 +1,35 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { CheckCircle2, Clock, RefreshCw, XCircle, AlertCircle } from "lucide-react";
 import type { IngestJob } from "@feedmind/contracts";
 import { listIngestJobs, cancelIngestJob, retryIngestJob } from "@/lib/api/wiki";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
-import { listContainerVariants, listItemVariants } from "@/lib/motion";
 
 // ─── Props ────────────────────────────────────────────────────
 
 interface WikiImportHistoryProps {
   spaceId: string;
 }
+
+/** 展平后的虚拟行：active/history 组标题 或 单个任务卡片 */
+type VirtualRow =
+  | { kind: "activeHeader"; count: number }
+  | { kind: "activeJob"; job: IngestJob }
+  | { kind: "historyHeader"; count: number }
+  | { kind: "historyJob"; job: IngestJob };
+
+const rowPadding: Record<VirtualRow["kind"], string> = {
+  activeHeader: "0.375rem",
+  activeJob: "0.5rem",
+  historyHeader: "1rem 0 0.375rem",
+  historyJob: "0.375rem",
+};
 
 // ─── Component ─────────────────────────────────────────────────
 
@@ -35,7 +49,7 @@ export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
 
         setJobs(result);
       } catch {
-        // handled by apiFetch toast
+        // 错误由 apiFetch toast 统一提示
       } finally {
         setLoading(false);
       }
@@ -47,7 +61,7 @@ export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
     void loadJobs();
   }, [loadJobs]);
 
-  // Poll for active jobs
+  // 有活动任务时轮询
   useEffect(() => {
     if (!hasActive) return;
 
@@ -74,7 +88,7 @@ export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
       await cancelIngestJob(spaceId, jobId);
       await loadJobs();
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     } finally {
       setCancelling(null);
     }
@@ -85,17 +99,60 @@ export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
       await retryIngestJob(spaceId, jobId);
       await loadJobs();
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     }
   };
 
-  const activeJobs = jobs.filter((j) => j.status === "pending" || j.status === "processing");
-  const historyJobs = jobs
-    .filter((j) => j.status === "done" || j.status === "failed" || j.status === "cancelled")
-    .sort((a, b) => (b.completed_at ?? b.added_at) - (a.completed_at ?? a.added_at));
+  // 滚动容器元素用 state 管理：容器挂载/卸载时触发重渲染，让 virtualizer 的
+  // _willUpdate 重新观测 scrollElement（修复首次挂载时容器未就绪导致空白）
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+  const activeJobs = useMemo(
+    () => jobs.filter((j) => j.status === "pending" || j.status === "processing"),
+    [jobs],
+  );
+  const historyJobs = useMemo(
+    () =>
+      jobs
+        .filter((j) => j.status === "done" || j.status === "failed" || j.status === "cancelled")
+        .sort((a, b) => (b.completed_at ?? b.added_at) - (a.completed_at ?? a.added_at)),
+    [jobs],
+  );
+
+  // 展平为虚拟行：active 组标题 + 任务卡片 + history 组标题 + 任务卡片
+  const rows = useMemo<VirtualRow[]>(() => {
+    const result: VirtualRow[] = [];
+    if (activeJobs.length > 0) {
+      result.push({ kind: "activeHeader", count: activeJobs.length });
+      for (const job of activeJobs) result.push({ kind: "activeJob", job });
+    }
+    if (historyJobs.length > 0) {
+      result.push({ kind: "historyHeader", count: historyJobs.length });
+      for (const job of historyJobs) result.push({ kind: "historyJob", job });
+    }
+    return result;
+  }, [activeJobs, historyJobs]);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: (index) => {
+      const row = rows[index]!;
+      if (row.kind === "activeHeader" || row.kind === "historyHeader") return 26;
+      return row.kind === "activeJob" ? 92 : 58;
+    },
+    overscan: 6,
+    getItemKey: (index) => {
+      const row = rows[index]!;
+      return row.kind === "activeHeader"
+        ? "active-header"
+        : row.kind === "historyHeader"
+          ? "history-header"
+          : `${row.kind}:${row.job.id}`;
+    },
+  });
 
   return (
-    <div className="flex h-full flex-col bg-editorial-surface-card">
+    <div className="flex min-h-0 flex-1 flex-col bg-editorial-surface-card">
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
@@ -115,69 +172,65 @@ export function WikiImportHistory({ spaceId }: WikiImportHistoryProps) {
         </button>
       </div>
 
-      {/* 内容列表 */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {/* Active imports */}
-        {activeJobs.length > 0 && (
-          <div className="mb-5">
-            <h3 className="mb-2 text-[12px] font-semibold text-editorial-primary">
-              {t("wiki.importingCount", { count: activeJobs.length })}
-            </h3>
-            <motion.div
-              className="space-y-2"
-              variants={listContainerVariants}
-              initial="initial"
-              animate="animate"
-            >
-              {activeJobs.map((job) => (
-                <motion.div key={job.id} layout variants={listItemVariants}>
-                  <ActiveJobCard
-                    job={job}
-                    now={now}
-                    onCancel={(id) => void handleCancel(id)}
-                    cancelling={cancelling === job.id}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
+      {/* 内容列表（active + history 统一虚拟化） */}
+      <div ref={setScrollEl} className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+        {loading && jobs.length === 0 ? (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-md" />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
+              <Clock size={18} className="text-editorial-ink-muted" />
+            </div>
+            <p className="text-[13px] font-medium text-editorial-ink">
+              {t("wiki.noImportHistory")}
+            </p>
+          </div>
+        ) : (
+          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const row = rows[item.index]!;
+              return (
+                <div
+                  key={item.key}
+                  ref={virtualizer.measureElement}
+                  data-index={item.index}
+                  className="absolute left-0 top-0 w-full"
+                  style={{
+                    transform: `translateY(${item.start}px)`,
+                    // historyHeader 是 1rem/0/0.375rem 三段值，必须用 padding 简写而非 padding-bottom 单值
+                    padding: rowPadding[row.kind],
+                  }}
+                >
+                  {row.kind === "activeHeader" && (
+                    <h3 className="text-[12px] font-semibold text-editorial-primary">
+                      {t("wiki.importingCount", { count: row.count })}
+                    </h3>
+                  )}
+                  {row.kind === "activeJob" && (
+                    <ActiveJobCard
+                      job={row.job}
+                      now={now}
+                      onCancel={(id) => void handleCancel(id)}
+                      cancelling={cancelling === row.job.id}
+                    />
+                  )}
+                  {row.kind === "historyHeader" && (
+                    <h3 className="text-[12px] font-semibold text-editorial-ink-muted">
+                      {t("wiki.completedCount", { count: row.count })}
+                    </h3>
+                  )}
+                  {row.kind === "historyJob" && (
+                    <HistoryJobCard job={row.job} onRetry={(id) => void handleRetry(id)} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
-
-        {/* History */}
-        <div>
-          <h3 className="mb-2 text-[12px] font-semibold text-editorial-ink-muted">
-            {t("wiki.completedCount", { count: historyJobs.length })}
-          </h3>
-          {loading && jobs.length === 0 ? (
-            <div className="space-y-2">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-md" />
-              ))}
-            </div>
-          ) : historyJobs.length === 0 && activeJobs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
-                <Clock size={18} className="text-editorial-ink-muted" />
-              </div>
-              <p className="text-[13px] font-medium text-editorial-ink">
-                {t("wiki.noImportHistory")}
-              </p>
-            </div>
-          ) : (
-            <motion.div
-              className="space-y-1.5"
-              variants={listContainerVariants}
-              initial="initial"
-              animate="animate"
-            >
-              {historyJobs.map((job) => (
-                <motion.div key={job.id} layout variants={listItemVariants}>
-                  <HistoryJobCard job={job} onRetry={(id) => void handleRetry(id)} />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -263,7 +316,7 @@ function ActiveJobCard({
 // ─── History Job Card ──────────────────────────────────────────
 
 function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const displayName = job.source_title ?? job.source_path.split("/").pop() ?? job.source_path;
 
   const icon =
@@ -276,10 +329,10 @@ function HistoryJobCard({ job, onRetry }: { job: IngestJob; onRetry: (id: string
     );
 
   const time = job.completed_at
-    ? formatTime(job.completed_at)
+    ? formatTime(job.completed_at, t, i18n.language)
     : job.started_at
-      ? formatTime(job.started_at)
-      : formatTime(job.added_at);
+      ? formatTime(job.started_at, t, i18n.language)
+      : formatTime(job.added_at, t, i18n.language);
 
   return (
     <div className="flex items-center gap-3 rounded-lg px-4 py-2.5 hover:bg-editorial-canvas-soft">
@@ -333,29 +386,21 @@ function formatDuration(ms: number): string {
   return `${minutes}m${remainingSeconds}s`;
 }
 
-function formatTime(ts: number): string {
+// 时间显示：7 天内相对（刚刚/X分钟前/X小时前/X天前），超过一周显示本地化具体日期（参照信息流页面）
+function formatTime(ts: number, t: TFunction, lang: string): string {
   const date = new Date(ts);
-  const now = new Date();
-  const isToday =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  const time = date.toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  if (isToday) return `Today ${time}`;
-
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate();
-
-  if (isYesterday) return `Yesterday ${time}`;
-
-  return `${date.getMonth() + 1}/${date.getDate()} ${time}`;
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return t("time.justNow");
+  if (minutes < 60) return t("time.minutesAgo", { n: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("time.hoursAgo", { n: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return t("time.daysAgo", { n: days });
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return new Intl.DateTimeFormat(lang, {
+    month: "long",
+    day: "numeric",
+    ...(sameYear ? {} : { year: "numeric" }),
+  }).format(date);
 }

@@ -48,6 +48,7 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
 
     root.classList.add(theme);
     requestAnimationFrame(() => root.style.removeProperty("transition"));
+    return;
   }, [theme]);
 
   const value: ThemeProviderState = {

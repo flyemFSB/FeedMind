@@ -3,8 +3,8 @@
 import { Button } from "@/components/ui/radix/button";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
-import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
+import { mathjaxPlugin } from "@/lib/math-mathjax";
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { memo } from "react";
@@ -68,7 +68,7 @@ export const MessageAction = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins = { cjk, math, mermaid };
+const streamdownPlugins = { cjk, math: mathjaxPlugin, mermaid };
 
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (

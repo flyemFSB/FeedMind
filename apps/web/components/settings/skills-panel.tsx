@@ -88,13 +88,15 @@ export function SkillsPanel() {
     e.preventDefault();
     setDragOver(false);
     const files = e.dataTransfer.files;
-    if (files.length > 0) void handleFile(files[0]);
+    const file = files[0];
+    if (file) void handleFile(file);
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (files && files.length > 0) {
-      void handleFile(files[0]);
+      const file = files[0];
+      if (file) void handleFile(file);
       e.target.value = "";
     }
   }

@@ -12,6 +12,8 @@ catalog:
 # pnpm v11: onlyBuiltDependencies → allowBuilds
 allowBuilds:
   esbuild: true
+  electron: true
+  electron-winstaller: true
   agent-browser: true
   edgedriver: true
   geckodriver: true
@@ -19,6 +21,10 @@ allowBuilds:
   protobufjs: true
 
 hoist: false
+# drizzle-kit 从自身位置解析驱动与 ORM（二者均未声明为它的 dependencies），需 hoist 到根 node_modules
+publicHoistPattern:
+  - "@libsql/client"
+  - "drizzle-orm"
 linkWorkspacePackages: true
 minimumReleaseAgeExclude:
   - "@hono/node-server@2.0.5"

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   conceptIdFromPath,
-  extractSourceReferences,
+  extractSources,
   extractString,
   extractStringArray,
   formatFrontmatter,
@@ -56,8 +56,8 @@ export function markSourceIngested(spaceId: string, sourcePath: string): void {
   try {
     const { frontmatter, body } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
     if (extractString(frontmatter, "status") === "ingested") return;
-    frontmatter.status = "ingested";
-    frontmatter.timestamp = nowISO();
+    frontmatter["status"] = "ingested";
+    frontmatter["timestamp"] = nowISO();
     safeWriteFile(filePath, formatFrontmatter(frontmatter) + "\n" + body);
   } catch {
     // 状态回写失败不阻塞导入结果
@@ -171,12 +171,13 @@ export async function deleteWikiSource(
     try {
       const wc = fs.readFileSync(wf, "utf-8");
       const { frontmatter, body } = parseFrontmatter(wc);
-      const srcs = extractSourceReferences(frontmatter);
+      const srcs = extractSources(frontmatter);
+      const references = srcs.map((s) => s.resource);
 
-      if (!srcs.includes(slug) && !srcs.includes(fileName)) continue;
+      if (!references.includes(slug) && !references.includes(fileName)) continue;
 
       if (_mode === "delete-orphans") {
-        const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
+        const filtered = srcs.filter((s) => s.resource !== slug && s.resource !== fileName);
         if (filtered.length === 0) {
           safeUnlink(wf);
           deletedPages++;
@@ -185,13 +186,14 @@ export async function deleteWikiSource(
         }
       }
 
-      const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
-      frontmatter.provenance = filtered;
-      delete frontmatter.sources;
+      const filtered = srcs.filter((s) => s.resource !== slug && s.resource !== fileName);
+      if (filtered.length > 0) frontmatter["sources"] = filtered;
+      else delete frontmatter["sources"];
+      delete frontmatter["provenance"];
       safeWriteFile(wf, formatFrontmatter(frontmatter) + "\n" + body);
       updatedPages++;
     } catch {
-      /* skip */
+      /* 单个页面处理失败不阻塞来源删除 */
     }
   }
 
@@ -230,12 +232,12 @@ export async function previewDeleteImpact(
     try {
       const content = fs.readFileSync(wf, "utf-8");
       const { frontmatter } = parseFrontmatter(content);
-      const srcs = extractSourceReferences(frontmatter);
-      if (!srcs.includes(slug) && !srcs.includes(fileName)) {
+      const references = extractSources(frontmatter).map((s) => s.resource);
+      if (!references.includes(slug) && !references.includes(fileName)) {
         unaffected++;
         continue;
       }
-      const filtered = srcs.filter((s: string) => s !== slug && s !== fileName);
+      const filtered = references.filter((s) => s !== slug && s !== fileName);
       if (filtered.length === 0) willDelete.push(wf);
       else willUpdate.push(wf);
     } catch {
@@ -272,7 +274,7 @@ function cleanDeletedConceptLinks(wikiDir: string, deletedConceptIds: Set<string
         (id) => !deletedConceptIds.has(id.replace(/\.md$/i, "")),
       );
       const nextFrontmatter = { ...parsed.frontmatter };
-      if (filteredRelated.length !== related.length) nextFrontmatter.related = filteredRelated;
+      if (filteredRelated.length !== related.length) nextFrontmatter["related"] = filteredRelated;
       if (cleanedBody !== parsed.body || filteredRelated.length !== related.length) {
         safeWriteFile(filePath, formatFrontmatter(nextFrontmatter) + "\n" + cleanedBody);
       }

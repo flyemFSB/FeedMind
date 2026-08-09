@@ -18,10 +18,12 @@ export async function createSource(input: RssSourceCreate): Promise<RssSourceRow
   const { randomUUID } = await import("node:crypto");
   const id = randomUUID();
   const now = new Date().toISOString();
+  // rss 来源用域名作标题；social 用前端传来的收藏夹/公众号名，缺失时回退平台名
+  // （前端传 title 时均为非空，空串场景不会发生，故用 ?? 保留 nullish 语义）
   const title =
-    Boolean(input.title) || input.type === "rss"
+    input.type === "rss"
       ? new URL(input.url).hostname
-      : `${input.platform ?? "社交"} - ${input.url}`;
+      : (input.title?.trim() ?? input.platform ?? "未命名来源");
 
   await db.insert(rssSources).values({
     id,

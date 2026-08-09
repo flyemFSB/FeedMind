@@ -90,7 +90,7 @@ export function SystemPanel() {
                   isActive
                     ? "bg-editorial-surface-strong text-editorial-ink"
                     : "bg-transparent text-editorial-ink-soft hover:bg-editorial-surface-soft"
-                } ${item.value !== themes[themes.length - 1].value ? "border-r border-editorial-hairline" : ""}`}
+                } ${item.value !== themes[themes.length - 1]!.value ? "border-r border-editorial-hairline" : ""}`}
               >
                 <Icon size={14} />
                 {item.label}

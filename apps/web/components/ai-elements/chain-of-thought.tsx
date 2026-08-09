@@ -44,8 +44,8 @@ export const ChainOfThought = memo(
   }: ChainOfThoughtProps) => {
     const [isOpen, setIsOpen] = useControllableState({
       defaultProp: defaultOpen,
-      onChange: onOpenChange,
       prop: open,
+      ...(onOpenChange !== undefined ? { onChange: onOpenChange } : {}),
     });
 
     const chainOfThoughtContext = useMemo(() => ({ isOpen, setIsOpen }), [isOpen, setIsOpen]);

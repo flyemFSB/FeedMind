@@ -19,4 +19,3 @@ export const rssSources = sqliteTable("rss_sources", {
 });
 
 export type RssSourceRow = typeof rssSources.$inferSelect;
-export type RssSourceInsert = typeof rssSources.$inferInsert;

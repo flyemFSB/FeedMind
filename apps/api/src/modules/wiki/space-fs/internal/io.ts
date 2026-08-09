@@ -77,7 +77,7 @@ export function readDirRecursive(
       }
     }
   } catch {
-    /* dir doesn't exist */
+    /* 目录不存在时返回空结果 */
   }
   return results;
 }
@@ -104,7 +104,7 @@ export function collectFileEntries(
       }
     }
   } catch {
-    /* dir doesn't exist */
+    /* 目录不存在时返回空结果 */
   }
   return results;
 }
@@ -114,7 +114,7 @@ export function nowISO(): string {
 }
 
 export function sha256(text: string): string {
-  return crypto.createHash("sha256").update(text).digest("hex");
+  return crypto.hash("sha256", text, { outputEncoding: "hex" });
 }
 
 export function slugify(text: string): string {
@@ -125,7 +125,7 @@ export function slugify(text: string): string {
     .replace(/-+/g, "")
     .replace(/^-|-$/g, "");
   if (base) return base;
-  const hash = crypto.createHash("sha256").update(text).digest("hex").slice(0, 8);
+  const hash = crypto.hash("sha256", text, { outputEncoding: "hex" }).slice(0, 8);
   return `space-${hash}`;
 }
 

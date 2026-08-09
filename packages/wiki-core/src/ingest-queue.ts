@@ -1,6 +1,5 @@
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
 
-/** 创建新的导入队列条目 */
 export function createIngestJob(
   project_id: string,
   source_path: string,
@@ -26,7 +25,6 @@ export function createIngestJob(
   };
 }
 
-/** 从 JSON 字符串加载队列 */
 export function loadQueue(json: string): IngestJob[] {
   try {
     const parsed = JSON.parse(json);
@@ -36,20 +34,17 @@ export function loadQueue(json: string): IngestJob[] {
   }
 }
 
-/** 将队列序列化为 JSON 字符串 */
 export function dumpQueue(queue: IngestJob[]): string {
   return JSON.stringify(queue, null, 2);
 }
 
-/**
- * 将任务插入队列。如果同来源已有 pending/failed 状态的任务，则不重复添加。
- */
+/** 同来源已有 pending/failed 任务时不重复添加 */
 export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
   const existing = queue.findIndex(
     (j) => j.source_path === job.source_path && (j.status === "pending" || j.status === "failed"),
   );
   if (existing >= 0) {
-    if (queue[existing].status === "pending") return queue;
+    if (queue[existing]?.status === "pending") return queue;
     const updated = [...queue];
     updated[existing] = job;
     return updated;
@@ -57,12 +52,10 @@ export function upsertJob(queue: IngestJob[], job: IngestJob): IngestJob[] {
   return [...queue, job];
 }
 
-/** 获取项目中下一个待处理任务 */
 export function nextJob(queue: IngestJob[], project_id: string): IngestJob | null {
   return queue.find((j) => j.project_id === project_id && j.status === "pending") ?? null;
 }
 
-/** 更新任务状态 */
 export function updateJobStatus(
   queue: IngestJob[],
   jobId: string,
@@ -83,7 +76,6 @@ export function updateJobStatus(
   });
 }
 
-/** 增加失败任务的重试计数 */
 export function incrementRetry(queue: IngestJob[], jobId: string): IngestJob[] {
   return queue.map((j) => {
     if (j.id !== jobId) return j;
@@ -96,7 +88,6 @@ export function incrementRetry(queue: IngestJob[], jobId: string): IngestJob[] {
   });
 }
 
-/** 移除早于给定时间戳的已完成/已取消任务 */
 export function pruneQueue(queue: IngestJob[], olderThan: number): IngestJob[] {
   return queue.filter(
     (j) =>

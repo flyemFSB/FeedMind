@@ -22,10 +22,16 @@ export function backendApiPath(path: string): string {
 }
 
 // 通用 API 请求封装：解析统一信封格式，网络/业务错误通过 toast 提示
-export async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+// signal 显式放行 undefined，避免 exactOptionalPropertyTypes 下每次调用都做条件展开
+export type ApiFetchInit = Omit<RequestInit, "signal"> & {
+  signal?: AbortSignal | null | undefined;
+};
+export async function apiFetch<T>(input: RequestInfo, init?: ApiFetchInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(input, init);
+    // ApiFetchInit 显式放行 signal: undefined，传给 fetch 前剥离，保持 RequestInit 兼容
+    const { signal, ...rest } = init ?? {};
+    response = await fetch(input, { ...rest, ...(signal ? { signal } : {}) });
   } catch (error) {
     // AbortError（组件卸载/StrictMode 重挂载）不弹 toast，直接透传
     if (error instanceof DOMException && error.name === "AbortError") throw error;
@@ -36,8 +42,14 @@ export async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promi
   if (!response.ok) {
     const msg = httpMsg(response.status);
     toast.add({ title: msg, type: "error" });
-    throw new Error(msg);
+    // 挂上 HTTP 状态码，供业务侧按状态判断（如 401 登录失效），而非脆弱的中文文案全等比较
+    const err = new Error(msg) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
   }
+
+  // 204 No Content（DELETE 类接口）：无 body，不解析 JSON
+  if (response.status === 204) return undefined as T;
 
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (envelope.error) {

@@ -135,7 +135,7 @@ export function rebuildOkfIndexes(spaceId: string): void {
     ensureDir(path.dirname(indexPath));
     const body = renderIndex(directory, concepts, directories);
     const content =
-      directory === "" ? formatFrontmatter({ okf_version: "0.1" }) + "\n" + body : body;
+      directory === "" ? formatFrontmatter({ okf_version: "0.2" }) + "\n" + body : body;
     safeWriteFile(indexPath, content);
   }
 }

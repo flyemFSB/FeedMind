@@ -11,22 +11,11 @@ export type ChatSessionListItem = {
   updated_at: string;
 };
 
-/** Query key factory for chat sessions */
-export const chatKeys = {
-  all: ["chats"] as const,
-  list: () => [...chatKeys.all, "list"] as const,
-};
-
 const activeThreadStorageKey = "feedmind:active-thread";
 
 export function writeActiveFeedMindThreadId(threadId: string): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(activeThreadStorageKey, threadId);
-}
-
-export function readActiveFeedMindThreadId(): string | null {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(activeThreadStorageKey);
 }
 
 export function clearActiveFeedMindThreadId(): void {

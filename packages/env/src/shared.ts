@@ -17,7 +17,7 @@ export const sharedEnv = createEnv({
   },
   runtimeEnv: process.env,
   skipValidation:
-    !!process.env.SKIP_ENV_VALIDATION ||
-    process.env.npm_lifecycle_event === "lint" ||
-    process.env.npm_lifecycle_event === "typecheck",
+    !!process.env["SKIP_ENV_VALIDATION"] ||
+    process.env["npm_lifecycle_event"] === "lint" ||
+    process.env["npm_lifecycle_event"] === "typecheck",
 });

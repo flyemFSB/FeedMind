@@ -23,7 +23,7 @@ export function parseFrontmatter(content: string): FrontmatterParseResult {
     };
   }
 
-  const yamlPayload = match[1];
+  const yamlPayload = match[1] ?? "";
   const rawBlock = match[0];
   const body = content.slice(rawBlock.length);
 
@@ -77,31 +77,73 @@ export function formatFrontmatter(frontmatter: Record<string, unknown>): string 
   );
 }
 
+/** OKF v0.2 sources 条目：resource 必填，其余为可信度信号。 */
+export interface OkfSourceEntry {
+  id?: string;
+  resource: string;
+  title?: string;
+  author?: string;
+  usage_count?: number;
+  last_modified?: string;
+}
+
 export interface ConceptDocumentInput {
   type: string;
   title?: string;
   description?: string;
   resource?: string;
   tags?: string[];
-  timestamp?: string;
+  generated?: { by: string; at: string };
   frontmatter?: Record<string, unknown>;
   content: string;
 }
 
-/** 构建 OKF Concept 文档，扩展字段原样保留在 frontmatter 中。 */
+/** 扩展字段原样保留在 frontmatter 中 */
 export function buildConceptContent(document: ConceptDocumentInput): string {
   const frontmatter: Record<string, unknown> = {
     ...(document.frontmatter ?? {}),
     type: document.type,
   };
 
-  if (document.title !== undefined) frontmatter.title = document.title;
-  if (document.description !== undefined) frontmatter.description = document.description;
-  if (document.resource !== undefined) frontmatter.resource = document.resource;
-  if (document.tags !== undefined) frontmatter.tags = document.tags;
-  if (document.timestamp !== undefined) frontmatter.timestamp = document.timestamp;
+  if (document.title !== undefined) frontmatter["title"] = document.title;
+  if (document.description !== undefined) frontmatter["description"] = document.description;
+  if (document.resource !== undefined) frontmatter["resource"] = document.resource;
+  if (document.tags !== undefined) frontmatter["tags"] = document.tags;
+  if (document.generated !== undefined) frontmatter["generated"] = document.generated;
 
   return formatFrontmatter(frontmatter) + "\n" + document.content;
+}
+
+/** 解析 sources 对象数组，按 resource 去重；兼容 v0.1 遗留的 provenance 字符串数组与字符串形式的 sources 条目。 */
+export function extractSources(frontmatter: Record<string, unknown>): OkfSourceEntry[] {
+  const byResource = new Map<string, OkfSourceEntry>();
+  const raw = frontmatter["sources"];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === "string" && item.trim()) {
+        byResource.set(item, { resource: item });
+      } else if (item && typeof item === "object" && !Array.isArray(item)) {
+        const entry = item as Record<string, unknown>;
+        if (typeof entry["resource"] === "string" && entry["resource"].trim()) {
+          byResource.set(entry["resource"], entry as unknown as OkfSourceEntry);
+        }
+      }
+    }
+  }
+  for (const resource of extractStringArray(frontmatter, "provenance")) {
+    if (resource.trim()) byResource.set(resource, { resource });
+  }
+  return [...byResource.values()];
+}
+
+/** 读取 generated.at（v0.2 最后内容变更时间）。 */
+export function extractGeneratedAt(frontmatter: Record<string, unknown>): string | undefined {
+  const generated = frontmatter["generated"];
+  if (generated && typeof generated === "object" && !Array.isArray(generated)) {
+    const at = (generated as Record<string, unknown>)["at"];
+    if (typeof at === "string" && at) return at;
+  }
+  return undefined;
 }
 
 export function extractString(
@@ -119,15 +161,6 @@ export function extractStringArray(frontmatter: Record<string, unknown>, key: st
     : [];
 }
 
-export function extractSourceReferences(frontmatter: Record<string, unknown>): string[] {
-  return [
-    ...new Set([
-      ...extractStringArray(frontmatter, "provenance"),
-      ...extractStringArray(frontmatter, "sources"),
-    ]),
-  ];
-}
-
 export function extractType(content: string): string | undefined {
   return extractString(parseFrontmatter(content).frontmatter, "type");
 }
@@ -142,7 +175,19 @@ function mergeStringArrays(existing: unknown, incoming: unknown): string[] | und
   return [...new Set(values)];
 }
 
-/** 合并两个 OKF 文档，同时保留双方的未知扩展字段。 */
+/** 合并两侧 sources，按 resource 去重，后者覆盖前者。 */
+function mergeSourceEntries(
+  oldFrontmatter: Record<string, unknown>,
+  newFrontmatter: Record<string, unknown>,
+): OkfSourceEntry[] {
+  const byResource = new Map<string, OkfSourceEntry>();
+  for (const entry of [...extractSources(oldFrontmatter), ...extractSources(newFrontmatter)]) {
+    byResource.set(entry.resource, entry);
+  }
+  return [...byResource.values()];
+}
+
+/** 保留双方的未知扩展字段 */
 export function mergeConceptContent(existing: string, incoming: string): string {
   const oldDocument = parseFrontmatter(existing);
   const newDocument = parseFrontmatter(incoming);
@@ -150,19 +195,18 @@ export function mergeConceptContent(existing: string, incoming: string): string 
   for (const key of ["type", "title", "created"]) {
     if (oldDocument.frontmatter[key] !== undefined) frontmatter[key] = oldDocument.frontmatter[key];
   }
-  const tags = mergeStringArrays(oldDocument.frontmatter.tags, newDocument.frontmatter.tags);
-  const provenance = mergeStringArrays(
-    extractSourceReferences(oldDocument.frontmatter),
-    extractSourceReferences(newDocument.frontmatter),
-  );
+  const tags = mergeStringArrays(oldDocument.frontmatter["tags"], newDocument.frontmatter["tags"]);
+  const sources = mergeSourceEntries(oldDocument.frontmatter, newDocument.frontmatter);
   const related = mergeStringArrays(
-    oldDocument.frontmatter.related,
-    newDocument.frontmatter.related,
+    oldDocument.frontmatter["related"],
+    newDocument.frontmatter["related"],
   );
-  if (tags) frontmatter.tags = tags;
-  if (provenance) frontmatter.provenance = provenance;
-  if (related) frontmatter.related = related;
-  delete frontmatter.sources;
+  if (tags) frontmatter["tags"] = tags;
+  if (sources.length > 0) frontmatter["sources"] = sources;
+  if (related) frontmatter["related"] = related;
+  // v0.1 遗留字段已并入 sources，落盘时清除，避免新旧两种表述混存
+  delete frontmatter["provenance"];
+  delete frontmatter["timestamp"];
 
   const oldBody = oldDocument.body.trim();
   const newBody = newDocument.body.trim();

@@ -17,7 +17,7 @@ export async function createChatSession(
       title: title?.trim() ?? "新会话",
     })
     .returning();
-  return toRead(row);
+  return toRead(row!);
 }
 
 function toRead(row: ChatSessionRow): ChatSessionRead {

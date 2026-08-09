@@ -3,7 +3,8 @@ import path from "node:path";
 import { extractString, parseFrontmatter, searchPages } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
 import { client } from "@feedmind/db";
-import { getSpaceDir, isSystemFile } from "./space-fs/index.js";
+import { logger } from "../../lib/logger.js";
+import { getSpaceDir, isSystemFile, readDirRecursive } from "./space-fs/index.js";
 
 interface SearchablePage {
   path: string;
@@ -31,28 +32,18 @@ function computeFingerprint(spaceId: string): string {
   if (!fs.existsSync(wikiDir)) return "";
   let count = 0;
   let maxMtime = 0;
-  const walk = (dir: string) => {
-    let entries: fs.Dirent[];
+  const mdFiles = readDirRecursive(
+    wikiDir,
+    (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
+  for (const fullPath of mdFiles) {
+    count++;
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
+      maxMtime = Math.max(maxMtime, fs.statSync(fullPath).mtimeMs);
     } catch {
-      return;
+      /* 忽略不可读文件 */
     }
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else if (entry.name.toLowerCase().endsWith(".md") && !isSystemFile(entry.name)) {
-        count++;
-        try {
-          maxMtime = Math.max(maxMtime, fs.statSync(fullPath).mtimeMs);
-        } catch {
-          /* 忽略不可读文件 */
-        }
-      }
-    }
-  };
-  walk(wikiDir);
+  }
   return `${count}:${maxMtime}`;
 }
 
@@ -62,7 +53,7 @@ async function rebuildSpaceIndex(spaceId: string): Promise<void> {
     sql: "SELECT fingerprint FROM wiki_fts_meta WHERE space_id = ?",
     args: [spaceId],
   });
-  if (meta.rows[0]?.fingerprint === fingerprint) return;
+  if (meta.rows[0]?.["fingerprint"] === fingerprint) return;
 
   const pages = loadSearchablePages(spaceId);
   const statements = [
@@ -84,30 +75,22 @@ function loadSearchablePages(spaceId: string): SearchablePage[] {
   if (!fs.existsSync(wikiDir)) return [];
 
   const pages: SearchablePage[] = [];
-  const loadDir = (dir: string) => {
+  const mdFiles = readDirRecursive(
+    wikiDir,
+    (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
+  );
+  for (const fullPath of mdFiles) {
     try {
-      const entries = fs.readdirSync(dir, { withFileTypes: true });
-      for (const entry of entries) {
-        const fullPath = path.join(dir, entry.name);
-        if (entry.isDirectory()) {
-          loadDir(fullPath);
-        } else if (entry.name.toLowerCase().endsWith(".md") && !isSystemFile(entry.name)) {
-          try {
-            const content = fs.readFileSync(fullPath, "utf-8");
-            const { frontmatter } = parseFrontmatter(content);
-            const title = extractString(frontmatter, "title") ?? entry.name.replace(/\.md$/i, "");
-            const relPath = path.relative(wikiDir, fullPath).replace(/\\/g, "/");
-            pages.push({ path: relPath, title, content });
-          } catch {
-            /* skip unreadable */
-          }
-        }
-      }
+      const content = fs.readFileSync(fullPath, "utf-8");
+      const { frontmatter } = parseFrontmatter(content);
+      const title =
+        extractString(frontmatter, "title") ?? path.basename(fullPath).replace(/\.md$/i, "");
+      const relPath = path.relative(wikiDir, fullPath).replace(/\\/g, "/");
+      pages.push({ path: relPath, title, content });
     } catch {
-      /* skip */
+      /* 不可读文件不进索引，缺失页面由 lint 单独报告 */
     }
-  };
-  loadDir(wikiDir);
+  }
   return pages;
 }
 
@@ -159,12 +142,12 @@ export async function searchWiki(
 
     // bm25 为负值且量级小，转换为可读的正分：标题命中加权、按相关度排序
     const results: WikiSearchResult[] = rows.map((r, i) => {
-      const title = String(r.title);
+      const title = String(r["title"]);
       const titleMatch = title.toLowerCase().includes(trimmed.toLowerCase());
       return {
-        path: String(r.path),
+        path: String(r["path"]),
         title,
-        snippet: String(r.snip ?? ""),
+        snippet: String(r["snip"] ?? ""),
         titleMatch,
         score: (rows.length - i) * 10 + (titleMatch ? 50 : 0),
       };
@@ -172,9 +155,7 @@ export async function searchWiki(
     return { results, mode: "keyword", totalHits: results.length };
   } catch (err) {
     // FTS5 异常时回退到内存关键词搜索，保证搜索功能可用
-    console.error(
-      `[wiki-search] FTS5 查询失败，回退关键词搜索: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    logger.error({ err }, "FTS5 查询失败，回退到关键词搜索");
     return keywordSearch(spaceId, trimmed, topK);
   }
 }

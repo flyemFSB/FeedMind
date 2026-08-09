@@ -2,8 +2,9 @@
 import "./routes/index.js";
 
 // ─── 核心 ─────────────────────────────────────────────────────────
-export { createBrowser, closeBrowser, injectCookies } from "./core/browser.js";
+export { createBrowser, closeBrowser, assertElectronCdp } from "./core/browser.js";
+export { checkCookie, refreshWereadCookies } from "./core/check-cookie.js";
+export { CrawlerAuthError } from "./core/errors.js";
 export { buildRssXml, buildGuid, toRfc2822, fromUnixTimestamp } from "./core/rss-builder.js";
-export type { RssFeed, RssItem } from "./core/rss-builder.js";
-export { registerRoute, getRouteHandler, listRoutes } from "./core/route-registry.js";
-export type { RouteHandlerParams, RouteHandlerResult, RouteHandler } from "./core/types.js";
+export { registerRoute, getRouteHandler } from "./core/route-registry.js";
+export type { RouteHandlerParams, RouteHandler } from "./core/types.js";

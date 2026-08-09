@@ -32,7 +32,7 @@ function readReferenceDefinitions(content: string): Map<string, string> {
   const regex = new RegExp(REFERENCE_DEFINITION_RE.source, "gm");
   let match: RegExpExecArray | null;
   while ((match = regex.exec(content)) !== null) {
-    definitions.set(normalizeReferenceLabel(match[1]), parseTarget(match[2]));
+    definitions.set(normalizeReferenceLabel(match[1] ?? ""), parseTarget(match[2] ?? ""));
   }
   return definitions;
 }
@@ -44,9 +44,9 @@ export function extractMarkdownLinks(content: string): MarkdownLink[] {
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(clean)) !== null) {
-    const rawTarget = match[2].trim();
+    const rawTarget = (match[2] ?? "").trim();
     links.push({
-      label: match[1].trim(),
+      label: (match[1] ?? "").trim(),
       target: parseTarget(rawTarget),
     });
   }
@@ -54,15 +54,15 @@ export function extractMarkdownLinks(content: string): MarkdownLink[] {
   const definitions = readReferenceDefinitions(clean);
   const referenceRegex = new RegExp(REFERENCE_LINK_RE.source, "g");
   while ((match = referenceRegex.exec(clean)) !== null) {
-    const referenceId = normalizeReferenceLabel(match[2] || match[1]);
+    const referenceId = normalizeReferenceLabel(match[2] || match[1] || "");
     const target = definitions.get(referenceId);
-    if (target) links.push({ label: match[1].trim(), target });
+    if (target) links.push({ label: (match[1] ?? "").trim(), target });
   }
 
   const shortcutRegex = new RegExp(SHORTCUT_LINK_RE.source, "g");
   while ((match = shortcutRegex.exec(clean)) !== null) {
-    const target = definitions.get(normalizeReferenceLabel(match[1]));
-    if (target) links.push({ label: match[1].trim(), target });
+    const target = definitions.get(normalizeReferenceLabel(match[1] ?? ""));
+    if (target) links.push({ label: (match[1] ?? "").trim(), target });
   }
 
   return links;

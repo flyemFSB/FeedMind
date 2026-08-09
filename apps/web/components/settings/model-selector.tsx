@@ -21,28 +21,26 @@ import { useTranslation } from "react-i18next";
 
 export function ModelSelector() {
   const { t } = useTranslation();
-  // Use TanStack Query for data fetching — auto-refreshes on cache invalidation
+  // 用 react-query 取数，缓存失效自动刷新
   const { data: models = [], isLoading, isError } = useModels("chat");
   const { data: selectedModelId = "" } = useSelectedModel("chat");
   const setSelectedMutation = useSetSelectedModel("chat");
 
-  // Local state for the dropdown, synced with both server selection and external changes
+  // 下拉本地状态，与服务端选中及外部变更同步
   const [selectedModel, setSelectedModel] = useState("");
   const [loadError, setLoadError] = useState(false);
 
-  // Sync selected model ID from Query when it resolves
   useEffect(() => {
     if (selectedModelId) {
       setSelectedModel(selectedModelId);
     }
   }, [selectedModelId]);
 
-  // Sync load error state
   useEffect(() => {
     setLoadError(isError);
   }, [isError]);
 
-  // Listen for model changes from outside (e.g., agent.ts persistSelectedFeedMindModel)
+  // 监听外部模型变更（如 agent.ts persistSelectedFeedMindModel）
   useEffect(() => {
     const unsubscribe = onSelectedFeedMindModelChange(setSelectedModel);
     return unsubscribe;

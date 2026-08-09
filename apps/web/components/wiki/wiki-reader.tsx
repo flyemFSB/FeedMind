@@ -10,17 +10,28 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, CalendarClock, ExternalLink, Pencil, Tags } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  CalendarClock,
+  CircleDot,
+  ExternalLink,
+  Hourglass,
+  Pencil,
+  ShieldCheck,
+  Tag,
+  Tags,
+} from "lucide-react";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
-import { math } from "@streamdown/math";
+import { mathjaxPlugin } from "@/lib/math-mathjax";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
-import "katex/dist/katex.min.css";
+import { wikiTypeLabel } from "./constants";
 import "streamdown/styles.css";
 import "./wiki-markdown.css";
 
@@ -60,25 +71,12 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
     void loadPage();
   }, [loadPage]);
 
-  if (loading) {
-    return <WikiReaderSkeleton />;
-  }
-
-  if (!page) {
-    return (
-      <div className="flex h-full items-center justify-center bg-editorial-canvas">
-        <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
-      </div>
-    );
-  }
-
-  const markdown = page.content;
-
   // components 引用必须稳定，否则重渲染会击穿 Streamdown 的 memo 导致全量重解析
+  // 必须置于条件 return 之前，否则 loading→loaded 时 hooks 数量变化会崩溃
   const readerComponents = useMemo(
     () => ({
       a: ({ href, children }: ComponentPropsWithoutRef<"a">) => {
-        const target = href ? resolveInternalTarget(href, page.concept_id) : null;
+        const target = href ? resolveInternalTarget(href, page?.concept_id ?? "") : null;
         if (target) {
           return (
             <motion.button
@@ -107,17 +105,35 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
       },
       table: MarkdownTable,
     }),
-    [page.concept_id, onNavigate],
+    [page?.concept_id, onNavigate],
   );
+
+  if (loading) {
+    return <WikiReaderSkeleton />;
+  }
+
+  if (!page) {
+    return (
+      <div className="flex h-full items-center justify-center bg-editorial-canvas">
+        <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
+      </div>
+    );
+  }
+
+  const markdown = stripWikiFootnotes(page.content);
 
   return (
     <div className="h-full overflow-y-auto bg-editorial-canvas">
       <div className="mx-auto w-full max-w-[1040px] px-5 py-5 sm:px-8 sm:py-8">
-        <PageMetadataCard page={page} onEdit={onEdit} />
+        <PageMetadataCard page={page} {...(onEdit !== undefined ? { onEdit } : {})} />
 
         <article className="mx-auto max-w-[760px] px-1 pb-16 pt-8 sm:px-5">
           <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
-            <Streamdown mode="static" plugins={{ cjk, math }} components={readerComponents}>
+            <Streamdown
+              mode="static"
+              plugins={{ cjk, math: mathjaxPlugin }}
+              components={readerComponents}
+            >
               {markdown}
             </Streamdown>
           </div>
@@ -164,6 +180,12 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   );
 }
 
+/** streamdown 不渲染 GFM 脚注（引用变无导航的 ^src 按钮、定义被丢弃），渲染前直接剥离脚注引用与定义 */
+function stripWikiFootnotes(markdown: string): string {
+  const cleaned = markdown.replace(/^\[(\^[\w-]+)\]:\s*.*$/gm, "");
+  return cleaned.replace(/\[\^[\w-]+\]/g, "");
+}
+
 function resolveInternalTarget(href: string, currentConceptId: string): string | null {
   const [rawPath] = href.split(/[?#]/, 1);
   if (!rawPath?.toLowerCase().endsWith(".md")) return null;
@@ -196,6 +218,37 @@ function resolveInternalTarget(href: string, currentConceptId: string): string |
 
 function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () => void }) {
   const { t, i18n } = useTranslation();
+  // OKF v0.2 元数据：status/generated/sources/verified/stale_after 均为可选，缺失时不展示
+  const fm = page.frontmatter ?? {};
+  const status = typeof fm["status"] === "string" ? fm["status"] : "";
+  const statusKey =
+    status === "draft"
+      ? "wiki.statusDraft"
+      : status === "deprecated"
+        ? "wiki.statusDeprecated"
+        : "wiki.statusStable";
+  const sources = Array.isArray(fm["sources"])
+    ? fm["sources"]
+        .map((s) =>
+          typeof s === "string"
+            ? { resource: s }
+            : s && typeof s === "object" && !Array.isArray(s)
+              ? s
+              : null,
+        )
+        .filter(
+          (s): s is Record<string, unknown> => s !== null && typeof s["resource"] === "string",
+        )
+    : [];
+  const verifiedRaw =
+    fm["verified"] == null ? [] : Array.isArray(fm["verified"]) ? fm["verified"] : [fm["verified"]];
+  const verified = verifiedRaw
+    .filter(
+      (v): v is Record<string, unknown> =>
+        v !== null && typeof v === "object" && typeof v["by"] === "string",
+    )
+    .map((v) => v["by"] as string);
+  const staleAfter = typeof fm["stale_after"] === "string" ? fm["stale_after"] : "";
   return (
     <section className="mx-auto max-w-[760px] rounded-xl border border-editorial-hairline-strong bg-editorial-surface-card px-4 pb-5 pt-3 shadow-md sm:px-5 sm:pb-5 sm:pt-4">
       <div className="flex items-start justify-between gap-4">
@@ -204,7 +257,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
             <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
           </div>
           <h1 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
-            {page.title}
+            {page.concept_id === "overview" ? t("wiki.overview") : page.title}
           </h1>
         </div>
 
@@ -234,6 +287,45 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
 
       <div className="mt-5 border-t border-editorial-hairline pt-4">
         <div className="space-y-3">
+          <MetadataRow icon={<Tag size={13} />} label={t("wiki.type")}>
+            <span className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft">
+              {wikiTypeLabel(page.type, i18n.language)}
+            </span>
+          </MetadataRow>
+
+          {status && (
+            <MetadataRow icon={<CircleDot size={13} />} label={t("wiki.status")}>
+              <span className="text-[12px] text-editorial-ink-soft">{t(statusKey)}</span>
+            </MetadataRow>
+          )}
+
+          {sources.length > 0 && (
+            <MetadataRow icon={<BookOpen size={13} />} label={t("wiki.sourcesField")}>
+              {sources.map((s) => (
+                <span
+                  key={String(s["resource"])}
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
+                >
+                  {String(s["resource"])}
+                </span>
+              ))}
+            </MetadataRow>
+          )}
+
+          {verified.length > 0 && (
+            <MetadataRow icon={<ShieldCheck size={13} />} label={t("wiki.verifiedBy")}>
+              <span className="text-[12px] text-editorial-ink-soft">{verified.join("、")}</span>
+            </MetadataRow>
+          )}
+
+          {staleAfter && (
+            <MetadataRow icon={<Hourglass size={13} />} label={t("wiki.staleAfter")}>
+              <span className="text-[12px] text-editorial-ink-soft">
+                {formatDateOnly(staleAfter, i18n.language)}
+              </span>
+            </MetadataRow>
+          )}
+
           {page.tags.length > 0 && (
             <MetadataRow icon={<Tags size={13} />} label={t("wiki.tags")}>
               {page.tags.map((tag) => (
@@ -321,5 +413,15 @@ function formatUpdatedAt(value: string, locale = "zh-CN") {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(date);
+}
+
+function formatDateOnly(value: string, locale = "zh-CN") {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   }).format(date);
 }

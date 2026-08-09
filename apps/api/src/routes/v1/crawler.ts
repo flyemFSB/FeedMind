@@ -21,21 +21,18 @@ crawlerRoutes.post("/crawler/tasks", async (c) => {
   return jsonOk(c, { data: await createCrawlerTask(payload) }, 201);
 });
 
-// GET /api/v1/crawler/weread/mps
 // 列出微信读书书架中的公众号（供前端选择指定订阅）
 crawlerRoutes.get("/crawler/weread/mps", async (c) => {
   const data = await listWereadMps();
   return jsonOk(c, data);
 });
 
-// GET /api/v1/crawler/bili/favs
 // 列出 B站当前登录用户的收藏夹
 crawlerRoutes.get("/crawler/bili/favs", async (c) => {
   const data = await listBiliFavs();
   return jsonOk(c, data);
 });
 
-// GET /api/v1/crawler/zh/collections
 // 列出知乎当前登录用户的收藏夹
 crawlerRoutes.get("/crawler/zh/collections", async (c) => {
   const data = await listZhCollections();
@@ -47,12 +44,15 @@ crawlerRoutes.get("/crawler/tasks", async (c) => {
   const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 20));
   const sort = c.req.query("sort") ?? "-created_at";
 
+  const route = c.req.query("route");
+  const status = c.req.query("status");
+
   const { data, total } = await listTasks({
-    route: c.req.query("route"),
-    status: c.req.query("status"),
     offset,
     limit,
     sort,
+    ...(route !== undefined ? { route } : {}),
+    ...(status !== undefined ? { status } : {}),
   });
 
   const pagination = {

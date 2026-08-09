@@ -1,5 +1,5 @@
 import type { LintResult } from "@feedmind/contracts";
-import { extractType, parseFrontmatter } from "./frontmatter.js";
+import { extractGeneratedAt, extractString, extractType, parseFrontmatter } from "./frontmatter.js";
 import { conceptIdFromPath, extractConceptLinks } from "./links.js";
 import { getRelativePath } from "./paths.js";
 
@@ -11,10 +11,10 @@ export interface LintPage {
 const DATE_HEADING_RE = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/gm;
 
 function readLogDates(body: string): string[] {
-  return [...body.matchAll(DATE_HEADING_RE)].map((match) => match[1]);
+  return [...body.matchAll(DATE_HEADING_RE)].map((match) => match[1] ?? "");
 }
 
-/** 检查 OKF v0.1 的必要结构，并将软约束作为提示返回。 */
+/** 检查 OKF v0.2 的必要结构，并将软约束作为提示返回。 */
 export function runOkfLint(pages: LintPage[], bundleRoot: string): LintResult[] {
   const concepts = new Map<string, LintPage>();
   const reserved = new Set<string>();
@@ -44,20 +44,20 @@ export function runOkfLint(pages: LintPage[], bundleRoot: string): LintResult[] 
     if (reservedName === "index.md") {
       if (parsed.hasFrontmatter) {
         const isRoot = relativePath.toLowerCase() === "index.md";
-        const version = parsed.frontmatter.okf_version;
+        const version = parsed.frontmatter["okf_version"];
         const keys = Object.keys(parsed.frontmatter);
         const hasOnlyVersion = keys.every((key) => key === "okf_version");
         if (
           !parsed.valid ||
           !isRoot ||
           !hasOnlyVersion ||
-          (version !== undefined && version !== "0.1")
+          (version !== undefined && version !== "0.2")
         ) {
           results.push({
             type: "conformance",
             severity: "warning",
             page: shortName,
-            detail: 'index.md 的 frontmatter 只能包含根索引版本号 okf_version: "0.1"。',
+            detail: 'index.md 的 frontmatter 只能包含根索引版本号 okf_version: "0.2"。',
           });
         }
       }
@@ -90,7 +90,7 @@ export function runOkfLint(pages: LintPage[], bundleRoot: string): LintResult[] 
         });
       } else {
         const dates = readLogDates(parsed.body);
-        if (dates.some((date, index) => index > 0 && date > dates[index - 1])) {
+        if (dates.some((date, index) => index > 0 && date > (dates[index - 1] ?? ""))) {
           results.push({
             type: "conformance",
             severity: "warning",
@@ -119,6 +119,18 @@ export function runOkfLint(pages: LintPage[], bundleRoot: string): LintResult[] 
         severity: "warning",
         page: shortName,
         detail: "每个 OKF Concept 都必须包含非空的 type 字段。",
+      });
+    }
+
+    if (
+      extractGeneratedAt(parsed.frontmatter) === undefined &&
+      extractString(parsed.frontmatter, "timestamp") !== undefined
+    ) {
+      results.push({
+        type: "conformance",
+        severity: "warning",
+        page: shortName,
+        detail: "OKF v0.2 已用 generated: { by, at } 取代 timestamp 字段，请迁移。",
       });
     }
 

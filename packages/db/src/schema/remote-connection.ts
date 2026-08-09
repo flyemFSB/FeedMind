@@ -27,4 +27,3 @@ export const remoteConnections = sqliteTable(
 );
 
 export type RemoteConnectionRow = typeof remoteConnections.$inferSelect;
-export type RemoteConnectionInsert = typeof remoteConnections.$inferInsert;

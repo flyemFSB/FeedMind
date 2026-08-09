@@ -2,18 +2,16 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import * as schema from "./schema/index.js";
 import { dbLogger } from "./logger.js";
 
 // 以当前文件位置为基准定位项目根目录，不依赖 CWD
-const thisDir = dirname(fileURLToPath(import.meta.url));
+const thisDir = import.meta.dirname;
 const projectRoot = resolve(thisDir, "..", "..", "..");
-const DB_PATH = process.env.DATABASE_PATH
-  ? resolve(projectRoot, process.env.DATABASE_PATH)
+const DB_PATH = process.env["DATABASE_PATH"]
+  ? resolve(projectRoot, process.env["DATABASE_PATH"])
   : resolve(projectRoot, "data", "feedmind.db");
 
-// 确保目录存在
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 // libsql 客户端（纯 JS 嵌入模式，无需原生编译）

@@ -19,7 +19,7 @@ function base64UrlDecode(s: string): Buffer {
  * 建议通过 @feedmind/env 的 apiEnv.ENCRYPTION_KEY 传入，确保启动时已校验。
  */
 function resolveEncryptionKey(keyOverride?: string): string {
-  const key = (keyOverride ?? process.env.ENCRYPTION_KEY ?? "").trim();
+  const key = (keyOverride ?? process.env["ENCRYPTION_KEY"] ?? "").trim();
   if (!key) {
     throw new Error("ENCRYPTION_KEY is not set. Configure it in .env before starting the server.");
   }
@@ -71,9 +71,4 @@ export function decryptValue(ciphertext: string, keyOverride?: string): string {
   const decipher = createDecipheriv("aes-256-gcm", key, nonce);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
-}
-
-/** 校验 ENCRYPTION_KEY 是否可用 */
-export function validateEncryptionKey(): void {
-  resolveEncryptionKey();
 }

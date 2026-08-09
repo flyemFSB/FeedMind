@@ -1,4 +1,4 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, BookOpen, ChevronDown, Import, MessageCircle, Plus } from "lucide-react";
@@ -10,11 +10,10 @@ import { WikiImportHistory } from "@/components/wiki/wiki-import-history";
 import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
-import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
 import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
 import { WikiLintView } from "@/components/wiki/wiki-lint-view";
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
-import { useWikiSpaces, wikiKeys } from "@/lib/hooks/use-wiki";
+import { useWikiSpaces, wikiOptions } from "@/lib/hooks/use-wiki";
 import { resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,10 +28,26 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 
-type WikiView = "pages" | "graph" | "lint" | "sources" | "history";
-const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "sources", "history"];
+export type WikiView = "pages" | "graph" | "lint" | "history";
+const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "history"];
+
+export type WikiSearch = {
+  // 字段显式含 undefined：validateSearch/navigate 用 undefined 表示"移除该参数"，
+  // exactOptionalPropertyTypes 下需在类型中声明 undefined 才能返回 { page: undefined }
+  view?: WikiView | undefined;
+  space?: string | undefined;
+  page?: string | undefined;
+};
 
 export const Route = createFileRoute("/wiki")({
+  // 子视图/空间/页面存于 URL search params：可分享/刷新保留，官方推荐替代组件内 useState
+  validateSearch: (search: Record<string, unknown>): WikiSearch => ({
+    view: VALID_VIEWS.includes(search["view"] as WikiView)
+      ? (search["view"] as WikiView)
+      : undefined,
+    space: typeof search["space"] === "string" ? search["space"] : undefined,
+    page: typeof search["page"] === "string" ? search["page"] : undefined,
+  }),
   component: MyWikiPage,
 });
 
@@ -40,44 +55,47 @@ function MyWikiPage() {
   const { t } = useTranslation();
   const { openAgentDrawer } = useAppShell();
   const queryClient = useQueryClient();
-  const [spaceId, setSpaceId] = useState<string | null>(null);
-  const [spaceName, setSpaceName] = useState(t("wiki.title"));
-  const [activePageId, setActivePageId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const prevIsEditing = useRef(isEditing);
 
-  // 从 URL 读取当前 Wiki 子视图（由左侧全局导航栏驱动）
-  const search = useSearch({ strict: false }) as { view?: string };
-  const rawView = search.view ?? "pages";
-  const activeView: WikiView = VALID_VIEWS.includes(rawView as WikiView)
-    ? (rawView as WikiView)
-    : "pages";
+  const { view, space, page } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const spaceId = space ?? null;
+  const activePageId = page ?? null;
+  const activeView: WikiView = view ?? "pages";
 
   const { data: spaces = [], isLoading } = useWikiSpaces();
+  // 空间名由列表派生（空间切换即时生效，无独立 state）
+  const spaceName = spaceId
+    ? (spaces.find((s) => s.id === spaceId)?.name ?? t("wiki.title"))
+    : t("wiki.title");
 
-  // Auto-select first space when data loads
+  // 数据加载后无选中空间时，自动导航到第一个空间
   useEffect(() => {
-    if (!isLoading && spaces.length > 0 && !spaceId) {
-      setSpaceId(spaces[0].id);
-      setSpaceName(spaces[0].name);
+    if (!isLoading && spaces.length > 0 && !space) {
+      const first = spaces[0];
+      if (first) void navigate({ search: (prev) => ({ ...prev, space: first.id }) });
     }
-  }, [isLoading, spaces, spaceId]);
+  }, [isLoading, spaces, space, navigate]);
 
-  // Refresh page list when exiting edit mode
+  // 退出编辑模式时刷新页面列表
   useEffect(() => {
     if (prevIsEditing.current && !isEditing && spaceId) {
-      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.pages(spaceId).queryKey });
     }
     prevIsEditing.current = isEditing;
   }, [isEditing, spaceId, queryClient]);
 
-  const handlePageSelect = useCallback((pageId: string) => {
-    setActivePageId(pageId);
-    setIsEditing(false);
-  }, []);
+  const handlePageSelect = useCallback(
+    (pageId: string) => {
+      void navigate({ search: (prev) => ({ ...prev, page: pageId }) });
+      setIsEditing(false);
+    },
+    [navigate],
+  );
 
   const spaceIdRef = useRef(spaceId);
   spaceIdRef.current = spaceId;
@@ -93,7 +111,7 @@ function MyWikiPage() {
           return result.page_id;
         }
       } catch {
-        // handled by apiFetch toast
+        // 错误由 apiFetch toast 统一提示
       }
       return null;
     },
@@ -108,18 +126,19 @@ function MyWikiPage() {
   const handleImportSuccess = useCallback(() => {
     setShowImport(false);
     if (spaceId) {
-      void queryClient.invalidateQueries({ queryKey: wikiKeys.pages(spaceId) });
-      void queryClient.invalidateQueries({ queryKey: wikiKeys.sources(spaceId) });
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.pages(spaceId).queryKey });
     }
   }, [spaceId, queryClient]);
 
-  const handleSpaceSelect = useCallback((s: WikiSpaceListItem) => {
-    setSpaceId(s.id);
-    setSpaceName(s.name);
-    setShowSpaceMenu(false);
-    setActivePageId(null);
-    setIsEditing(false);
-  }, []);
+  const handleSpaceSelect = useCallback(
+    (s: WikiSpaceListItem) => {
+      // 切换空间时清除已选页面（undefined 在 search 中表示删除该参数）
+      void navigate({ search: (prev) => ({ ...prev, space: s.id, page: undefined }) });
+      setShowSpaceMenu(false);
+      setIsEditing(false);
+    },
+    [navigate],
+  );
 
   if (isLoading) {
     return (
@@ -155,11 +174,10 @@ function MyWikiPage() {
         <CreateWikiSpaceDialog
           open={showCreateSpace}
           onClose={() => setShowCreateSpace(false)}
-          onCreated={(id, name) => {
-            setSpaceId(id);
-            setSpaceName(name);
+          onCreated={(id, _name) => {
+            void navigate({ search: (prev) => ({ ...prev, space: id }) });
             setShowCreateSpace(false);
-            void queryClient.invalidateQueries({ queryKey: wikiKeys.spaces() });
+            void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
           }}
         />
       </LayoutWrapper>
@@ -246,7 +264,9 @@ function MyWikiPage() {
                     isEditing={isEditing}
                     onPageSelect={handlePageSelect}
                     onClearPage={() => {
-                      setActivePageId(null);
+                      void navigate({
+                        search: (prev) => ({ ...prev, page: undefined }),
+                      });
                       setIsEditing(false);
                     }}
                     onEdit={() => setIsEditing(true)}
@@ -264,13 +284,8 @@ function MyWikiPage() {
                 {activeView === "lint" && spaceId && (
                   <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
                 )}
-                {activeView === "sources" && spaceId && (
-                  <div className="flex-1 overflow-y-auto">
-                    <WikiSourcesView spaceId={spaceId} />
-                  </div>
-                )}
                 {activeView === "history" && spaceId && (
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex min-h-0 flex-1">
                     <WikiImportHistory spaceId={spaceId} />
                   </div>
                 )}
@@ -292,9 +307,8 @@ function MyWikiPage() {
       <CreateWikiSpaceDialog
         open={showCreateSpace}
         onClose={() => setShowCreateSpace(false)}
-        onCreated={(id, name) => {
-          setSpaceId(id);
-          setSpaceName(name);
+        onCreated={(id, _name) => {
+          void navigate({ search: (prev) => ({ ...prev, space: id }) });
           setShowCreateSpace(false);
         }}
       />

@@ -98,8 +98,7 @@ export async function pollRegistration(deviceCode: string): Promise<Registration
   if (data.client_id && data.client_secret) {
     return { status: "success", appId: data.client_id, appSecret: data.client_secret };
   }
-  // RFC 8628：authorization_pending / slow_down 以 HTTP 400 + error 字段返回，
-  // 均属正常等待；只有明确的错误值才终止流程（与官方 SDK 一致，不看 HTTP 状态码）
+  // authorization_pending / slow_down 属正常等待，仅明确错误值才终止
   if (data.error && data.error !== "authorization_pending" && data.error !== "slow_down") {
     return {
       status: "error",

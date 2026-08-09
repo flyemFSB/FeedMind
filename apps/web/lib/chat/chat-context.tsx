@@ -27,11 +27,10 @@ import {
   getChatSessionMessages,
   createChatSession,
   renameChatSession,
-  chatKeys,
   writeActiveFeedMindThreadId,
-  readActiveFeedMindThreadId,
   clearActiveFeedMindThreadId,
 } from "@/lib/api/chats";
+import { chatOptions } from "@/lib/hooks/use-chats";
 
 /** Mastra Chat 路由地址（通过 SSR proxy 转发到 API 服务） */
 const CHAT_API = "/api/chat/feedmind";
@@ -65,13 +64,10 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 /**
  * ChatProvider — 提供 useChat 上下文给所有子组件
- *
- * 消息持久化由 Agent Memory 自动处理
  */
 export function ChatProvider({ children }: { children: ReactNode }) {
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(() =>
-    readActiveFeedMindThreadId(),
-  );
+  // 每次进入系统默认新对话：不从 localStorage 恢复上次会话，避免首帧加载残留 threadId 导致空对话
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const queryClient = useQueryClient();
 
@@ -151,14 +147,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [setUiMessages],
   );
 
-  // ── 初始化：挂载时加载历史消息 ──
-  useEffect(() => {
-    if (activeThreadId) {
-      void loadSessionMessages(activeThreadId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // ── 确保会话存在（首次发消息时创建 chat_sessions 记录） ──
   const ensureSession = useCallback(async (): Promise<string> => {
     const existing = activeThreadIdRef.current;
@@ -187,7 +175,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const threadId = await ensureSession();
       if (isFirstMessage) {
         renameChatSession(threadId, makeChatTitle(data.text))
-          .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.list() }))
+          .then(() => queryClient.invalidateQueries({ queryKey: chatOptions.list().queryKey }))
           .catch(() => {
             // 命名失败不影响消息发送，忽略
           });

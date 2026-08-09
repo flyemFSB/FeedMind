@@ -12,4 +12,3 @@ export const runtimeConfig = sqliteTable("runtime_config", {
 });
 
 export type RuntimeConfigRow = typeof runtimeConfig.$inferSelect;
-export type RuntimeConfigInsert = typeof runtimeConfig.$inferInsert;

@@ -19,7 +19,6 @@ export function jsonOk<T>(c: Context, data: T, status = 200): Response {
   return c.json<ApiEnvelope<T>>({ data, error: null }, status as 200);
 }
 
-// 统一错误响应包装
 export function jsonError(
   c: Context,
   status: number,

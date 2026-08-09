@@ -16,9 +16,8 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@feedmind/contracts": "workspace:*",
-    "@mastra/agent-browser": "^0.4.1",
-    "cheerio": "^1.2.0"
+    "cheerio": "^1.2.0",
+    "playwright-core": "^1.60.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",

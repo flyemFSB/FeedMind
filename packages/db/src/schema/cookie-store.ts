@@ -1,14 +1,4 @@
-import { sqliteTable, text, primaryKey } from "drizzle-orm/sqlite-core";
-
-// cookie_cloud: CookieCloud 加密数据存储（UUID + 密码 + 加密 blob）
-export const cookieCloud = sqliteTable("cookie_cloud", {
-  uuid: text("uuid").primaryKey(),
-  password: text("password").notNull(),
-  encrypted: text("encrypted").notNull(),
-  cryptoType: text("crypto_type").notNull().default("legacy"),
-});
-
-export type CookieCloudRow = typeof cookieCloud.$inferSelect;
+import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
 
 // cookie_store: 各平台明文 cookie 存储
 export const cookieStore = sqliteTable(
@@ -17,6 +7,9 @@ export const cookieStore = sqliteTable(
     uuid: text("uuid").notNull(),
     platform: text("platform").notNull(),
     cookies: text("cookies").notNull(),
+    // 登录态有效性：true=有效 / false=已失效 / null=未知（尚未校验）
+    valid: integer("valid", { mode: "boolean" }),
+    checkedAt: text("checked_at"),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.uuid, t.platform] }),

@@ -31,13 +31,6 @@ export async function retryIngestJob(spaceId: string, jobId: string): Promise<vo
   getQueueStore().retry(spaceId, jobId);
 }
 
-export async function processNextIngest(spaceId: string): Promise<IngestJob | null> {
-  const job = getQueueStore().nextPending(spaceId);
-  if (!job) return null;
-  getQueueStore().updateStatus(spaceId, job.id, "processing");
-  return job;
-}
-
 export async function completeIngestJob(
   spaceId: string,
   jobId: string,
@@ -47,8 +40,8 @@ export async function completeIngestJob(
 ): Promise<void> {
   getQueueStore().updateStatus(spaceId, jobId, "done", {
     written_files,
-    pages_created,
-    pages_updated,
+    ...(pages_created !== undefined ? { pages_created } : {}),
+    ...(pages_updated !== undefined ? { pages_updated } : {}),
   });
 }
 

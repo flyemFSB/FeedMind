@@ -5,8 +5,8 @@ import {
   checkCache,
   conceptIdFromPath,
   dumpCache,
+  extractSources,
   extractString,
-  extractSourceReferences,
   formatConceptLink,
   loadCache,
   mergeConceptContent,
@@ -37,6 +37,8 @@ import { getRuntimeConfig } from "../models/config-service.js";
 const MAX_SOURCE_CHARS = 80_000;
 // 每空间串行链：同一空间的导入排队执行，并发时后到的等待前一个完成后才开始，而不是直接报错
 const spaceQueues = new Map<string, Promise<void>>();
+// OKF v0.2 生成者标识（actor 约定：agent/tool），写入每个概念的 generated.by
+const INGEST_ACTOR = "feedmind/ingest";
 
 interface SpaceContext {
   purpose: string;
@@ -153,7 +155,7 @@ async function analyzeSource(
 
   for (let index = analyses.length; index < chunks.length; index++) {
     if (shouldCancel?.()) throw new IngestCancelledError();
-    analyses[index] = await stage1Analysis(chunks[index], context, llmClient);
+    analyses[index] = await stage1Analysis(chunks[index]!, context, llmClient);
     ensureDir(path.dirname(pathName));
     safeWriteFile(pathName, JSON.stringify({ sourceHash, analyses }, null, 2));
     report(`正在分析源内容（${index + 1}/${chunks.length}）...`, 2);
@@ -245,8 +247,8 @@ function readSpaceContext(spaceId: string): SpaceContext {
   }
 
   return {
-    purpose: typeof metadata.purpose === "string" ? metadata.purpose : "",
-    schema: typeof metadata.schema === "string" ? metadata.schema : "",
+    purpose: typeof metadata["purpose"] === "string" ? metadata["purpose"] : "",
+    schema: typeof metadata["schema"] === "string" ? metadata["schema"] : "",
     index,
     existingConceptIds: pages.map((page) => page.id),
   };
@@ -268,15 +270,17 @@ async function stage1Analysis(
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     return {
-      keyEntities: Array.isArray(parsed.keyEntities)
-        ? (parsed.keyEntities as AnalysisResult["keyEntities"])
+      keyEntities: Array.isArray(parsed["keyEntities"])
+        ? (parsed["keyEntities"] as AnalysisResult["keyEntities"])
         : [],
-      keyConcepts: Array.isArray(parsed.keyConcepts)
-        ? (parsed.keyConcepts as AnalysisResult["keyConcepts"])
+      keyConcepts: Array.isArray(parsed["keyConcepts"])
+        ? (parsed["keyConcepts"] as AnalysisResult["keyConcepts"])
         : [],
-      mainArguments: Array.isArray(parsed.mainArguments) ? parsed.mainArguments.map(String) : [],
-      connections: Array.isArray(parsed.connections) ? parsed.connections.map(String) : [],
-      summary: typeof parsed.summary === "string" ? parsed.summary : "",
+      mainArguments: Array.isArray(parsed["mainArguments"])
+        ? parsed["mainArguments"].map(String)
+        : [],
+      connections: Array.isArray(parsed["connections"]) ? parsed["connections"].map(String) : [],
+      summary: typeof parsed["summary"] === "string" ? parsed["summary"] : "",
     };
   } catch (err) {
     throw new Error(
@@ -318,12 +322,12 @@ function parseGeneratedDocuments(raw: string, warnings: string[]): GeneratedDocu
     try {
       if (!item || typeof item !== "object") throw new Error(`第 ${index + 1} 个 Concept 不是对象`);
       const document = item as Record<string, unknown>;
-      const documentPath = normalizeConceptPath(String(document.path ?? ""));
-      const frontmatter = document.frontmatter;
+      const documentPath = normalizeConceptPath(String(document["path"] ?? ""));
+      const frontmatter = document["frontmatter"];
       if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
         throw new Error(`Concept ${documentPath} 缺少 frontmatter 对象`);
       }
-      const content = document.content;
+      const content = document["content"];
       if (typeof content !== "string") throw new Error(`Concept ${documentPath} 缺少 content`);
       results.push({
         path: documentPath,
@@ -347,11 +351,16 @@ function normalizeGeneratedContent(document: GeneratedDocument, sourceIdentity: 
   // LLM 可能不严格遵守受控枚举，落盘前规约到枚举，未知值回退到 Concept 兜底
   const type = (WIKI_CONCEPT_TYPES as readonly string[]).includes(rawType) ? rawType : "Concept";
 
-  const provenance = extractSourceReferences(frontmatter);
-  if (!provenance.includes(sourceIdentity))
-    frontmatter.provenance = [...provenance, sourceIdentity];
-  const timestamp = extractString(frontmatter, "timestamp") ?? nowISO();
-  return buildConceptContent({ type, frontmatter, timestamp, content: document.content });
+  // 保证 primary source 记录在 sources 里；extractSources 已按 resource 去重并吸收遗留 provenance
+  const sources = extractSources(frontmatter);
+  if (!sources.some((s) => s.resource === sourceIdentity)) {
+    sources.push({ resource: sourceIdentity });
+  }
+  frontmatter["sources"] = sources;
+  frontmatter["generated"] = { by: INGEST_ACTOR, at: nowISO() };
+  delete frontmatter["provenance"];
+  delete frontmatter["timestamp"];
+  return buildConceptContent({ type, frontmatter, content: document.content });
 }
 
 function processDocuments(
@@ -421,7 +430,7 @@ function updateOverview(spaceId: string, summary: string): string | null {
       type: "Overview",
       title: "Knowledge Bundle Overview",
       description: summary,
-      timestamp: nowISO(),
+      generated: { by: INGEST_ACTOR, at: nowISO() },
       frontmatter: existingFrontmatter,
       content: body,
     }),
@@ -454,10 +463,7 @@ export async function runIngest(
 ): Promise<IngestResult> {
   // 排队：先等该空间上一个导入完成，再执行本次导入
   const tail = spaceQueues.get(spaceId) ?? Promise.resolve();
-  let finish: () => void = () => {};
-  const gate = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
+  const { promise: gate, resolve: finish } = Promise.withResolvers<void>();
   spaceQueues.set(spaceId, gate);
   await tail;
 
@@ -522,6 +528,8 @@ export async function runIngest(
       );
     }
     if (documents.length === 0) {
+      // 与"源内容本就为空"区分：这是 LLM 生成失败，落 warn 而非静默当成功空结果
+      logger.warn({ spaceId, sourceIdentity }, "LLM 未生成 OKF Concept，导入空结果");
       warnings.push("LLM 未生成 OKF Concept");
       return { pagesCreated: 0, pagesUpdated: 0, warnings, log, writtenFiles: [] };
     }

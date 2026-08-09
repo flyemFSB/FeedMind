@@ -25,7 +25,6 @@ const INTERNAL_HOSTS = [
   "internal",
 ];
 
-/** 检查 hostname 是否为私网地址 */
 async function checkSSRF(urlStr: string): Promise<void> {
   const url = new URL(urlStr);
   const host = url.hostname.toLowerCase();
@@ -42,7 +41,7 @@ async function fetchViaFirecrawl(
   apiKey?: string,
 ): Promise<string | null> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
   const response = await fetch("https://api.firecrawl.dev/v2/scrape", {
     method: "POST",
@@ -81,13 +80,12 @@ URLs must include the schema (https://example.com, not example.com).`,
     url: z.string().url().describe("The exact URL to fetch. Must include http:// or https://."),
   }),
   execute: async ({ url }, { abortSignal }) => {
-    // SSRF 防护：先验证目标地址
     await checkSSRF(url);
 
     // 从数据库加载工具配置（含 Firecrawl API Key，可选）
     await ToolConfigClient.getInstance().load(abortSignal);
     const toolConfig = ToolConfigClient.getInstance().getTool("web_fetch");
-    const firecrawlApiKey = toolConfig?.config?.firecrawlApiKey as string | undefined;
+    const firecrawlApiKey = toolConfig?.config?.["firecrawlApiKey"] as string | undefined;
 
     // 通过 Firecrawl v2 抓取（无 API Key 时自动使用匿名模式，有免费额度）
     const markdown = await fetchViaFirecrawl(url, AbortSignal.timeout(15_000), firecrawlApiKey);

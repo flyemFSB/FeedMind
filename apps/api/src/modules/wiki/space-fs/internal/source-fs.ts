@@ -1,11 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  extractSourceReferences,
-  extractString,
-  parseFrontmatter,
-  safeJoin,
-} from "@feedmind/wiki-core";
+import { extractSources, extractString, parseFrontmatter, safeJoin } from "@feedmind/wiki-core";
 import { isSystemFile, readDirRecursive, readFileSafe, sha256 } from "./io.js";
 import { getSpaceDir, getRawSourcesDir, getWikiDir } from "./paths.js";
 
@@ -17,7 +12,7 @@ export function walkSources(spaceId: string): string[] {
     try {
       withMtime.push({ path: f, mtime: fs.statSync(f).mtimeMs });
     } catch {
-      /* file deleted between readdir and stat */
+      /* readdir 与 stat 之间文件可能已被删除 */
     }
   }
   withMtime.sort((a, b) => b.mtime - a.mtime);
@@ -35,12 +30,11 @@ export function sourcePageCounts(spaceId: string): Map<string, number> {
     try {
       const content = fs.readFileSync(wf, "utf-8");
       const { frontmatter } = parseFrontmatter(content);
-      const srcs = extractSourceReferences(frontmatter);
-      for (const s of srcs) {
-        counts.set(s, (counts.get(s) ?? 0) + 1);
+      for (const s of extractSources(frontmatter)) {
+        counts.set(s.resource, (counts.get(s.resource) ?? 0) + 1);
       }
     } catch {
-      /* skip unreadable */
+      /* 不可读文件不计入来源页数 */
     }
   }
   return counts;
@@ -69,14 +63,14 @@ export function readSource(filePath: string, spaceId: string): Record<string, un
       title: extractString(frontmatter, "title") ?? slug,
       kind: extractString(frontmatter, "kind") ?? "text",
       original_name: fileName,
-      original_uri: (frontmatter.original_uri as string) ?? null,
+      original_uri: (frontmatter["original_uri"] as string) ?? null,
       storage_path: path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/"),
       mime_type: "text/plain",
       size_bytes: stat.size,
       content_hash: sha256(body.trim()),
       // 状态存于来源 frontmatter（导入成功后由 markSourceIngested 回写），缺省待导入
       status: extractString(frontmatter, "status") ?? "ready",
-      metadata: (frontmatter.metadata as Record<string, unknown>) ?? {},
+      metadata: (frontmatter["metadata"] as Record<string, unknown>) ?? {},
       created_at: extractString(frontmatter, "timestamp") ?? stat.birthtime.toISOString(),
       updated_at: extractString(frontmatter, "timestamp") ?? stat.mtime.toISOString(),
     };
@@ -93,19 +87,19 @@ export function readSourceListItem(
   const base = readSource(filePath, spaceId);
   if (!base) return null;
   const pageCount =
-    pageCounts.get(base.id as string) ?? pageCounts.get(base.identity as string) ?? 0;
+    pageCounts.get(base["id"] as string) ?? pageCounts.get(base["identity"] as string) ?? 0;
   return {
-    id: base.id,
-    space_id: base.space_id,
-    identity: base.identity,
-    title: base.title,
-    kind: base.kind,
-    original_name: base.original_name,
-    mime_type: base.mime_type,
-    status: base.status,
+    id: base["id"],
+    space_id: base["space_id"],
+    identity: base["identity"],
+    title: base["title"],
+    kind: base["kind"],
+    original_name: base["original_name"],
+    mime_type: base["mime_type"],
+    status: base["status"],
     page_count: pageCount,
-    created_at: base.created_at,
-    updated_at: base.updated_at,
+    created_at: base["created_at"],
+    updated_at: base["updated_at"],
   };
 }
 

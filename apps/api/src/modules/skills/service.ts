@@ -3,18 +3,15 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { SkillRead } from "@feedmind/contracts";
 import { parseFrontmatter } from "@feedmind/wiki-core";
+import { resolveDataDir } from "../../lib/data-dir.js";
 
 const execFileAsync = promisify(execFile);
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 /** skills 目录位于 data/skills/（与 Mastra Workspace 发现路径一致），不再占用 src 源码目录 */
-const SKILLS_DIR = path.resolve(__dirname, "../../../../../data/skills");
+const SKILLS_DIR = path.resolve(resolveDataDir(), "skills");
 
 export interface UnpackedSkillMeta {
   name: string;
@@ -40,14 +37,13 @@ function isInsideSkillsDir(target: string): boolean {
 function parseSkillMeta(content: string): UnpackedSkillMeta {
   const { frontmatter } = parseFrontmatter(content);
   return {
-    name: (frontmatter.name as string) || "",
-    description: (frontmatter.description as string) || "",
-    version: frontmatter.version as string | undefined,
-    author: frontmatter.author as string | undefined,
+    name: (frontmatter["name"] as string) || "",
+    description: (frontmatter["description"] as string) || "",
+    ...(frontmatter["version"] !== undefined ? { version: frontmatter["version"] as string } : {}),
+    ...(frontmatter["author"] !== undefined ? { author: frontmatter["author"] as string } : {}),
   };
 }
 
-/** 列举已安装的技能 */
 export async function listSkills(): Promise<SkillRead[]> {
   await ensureSkillsDir();
   const entries = await fsp.readdir(SKILLS_DIR, { withFileTypes: true });
@@ -166,7 +162,6 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
   }
 }
 
-/** 删除技能 */
 export async function deleteSkill(rawName: string): Promise<void> {
   const name = sanitizeName(rawName);
   if (!name) throw new Error("无效的技能名称。");

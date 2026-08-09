@@ -11,7 +11,13 @@
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import { createBrowser, closeBrowser, injectCookies } from "../core/browser.js";
+import {
+  createBrowser,
+  closeBrowser,
+  ensureCookies,
+  blockHeavyResources,
+} from "../core/browser.js";
+import { CrawlerAuthError } from "../core/errors.js";
 
 /** 书架中的公众号条目 */
 interface WereadMp {
@@ -49,12 +55,14 @@ interface WereadFetchResult {
 const SHELF_SCRIPT = `(async function(){
   var res = await fetch('/web/shelf/sync?synckey=0&teenmode=0&album=1', { credentials: 'include' });
   var o = await res.json();
+  // 仅 -2010（登录态失效）判失效；-2041（上下文错误）等业务码不代表 Cookie 失效
+  var authFailed = !res.ok || o.errCode === -2010;
   var mps = (o.books || []).filter(function(b){ return String(b.bookId || '').indexOf('MP_WXS_') === 0; })
     .map(function(b){
       var m = String(b.deepLink || '').match(/[?&]v=([^&]+)/);
       return { name: b.title, bookId: b.bookId, hash: m ? m[1] : null };
     });
-  return JSON.stringify({ mps: mps });
+  return JSON.stringify({ authFailed: authFailed, errCode: o.errCode || 0, mps: mps });
 })()`;
 
 /**
@@ -136,36 +144,29 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   // 增量去重：已入库 guid 集合；每个公众号默认取最新 10 篇（per_mp 可调，1-20）
-  const seenGuids = Array.isArray(params.seen_guids)
-    ? (params.seen_guids as string[]).filter(Boolean)
+  const seenGuids = Array.isArray(params["seen_guids"])
+    ? (params["seen_guids"] as string[]).filter(Boolean)
     : [];
-  const perMp = Math.min(20, Math.max(1, Number(params.per_mp) || 10));
+  const perMp = Math.min(20, Math.max(1, Number(params["per_mp"]) || 10));
   // 指定单个公众号（bookId 形如 MP_WXS_xxx）；为空则拉取书架全部公众号
-  const mpId = String(params.mp_id ?? "");
+  const mpId = String(params["mp_id"] ?? "");
 
   try {
-    const browser = await createBrowser();
+    const page = await createBrowser();
     try {
-      await browser.ensureReady();
-      const manager = await browser.getManagerForThread();
-      const page = manager.getPage();
-
       // 屏蔽非关键资源，加快加载
-      await page.route("**/*", (route) => {
-        const type = route.request().resourceType();
-        if (["image", "media", "font", "stylesheet"].includes(type)) {
-          void route.abort();
-        } else {
-          void route.continue();
-        }
-      });
+      await blockHeavyResources(page);
 
-      await injectCookies(page, cookies, ".qq.com");
+      await ensureCookies(page, cookies, "weread.qq.com");
 
       // 先访问首页拿书架（确定公众号与阅读器页 URL）
       await page.goto("https://weread.qq.com/", { waitUntil: "domcontentloaded", timeout: 60_000 });
-      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => "{}");
-      const shelfData = JSON.parse(shelfRaw) as { mps?: WereadMp[] };
+      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => {
+        // 页面加载/脚本失败：抛错让任务失败，而非静默返回空书架误导用户
+        throw new Error("微信读书书架页面加载失败");
+      });
+      const shelfData = JSON.parse(shelfRaw) as { mps?: WereadMp[]; authFailed?: boolean };
+      if (shelfData.authFailed) throw new CrawlerAuthError("微信读书登录态已失效");
       const mps = shelfData.mps ?? [];
       const targetMps = mpId ? mps.filter((m) => m.bookId === mpId) : mps;
 
@@ -195,12 +196,24 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
       }
 
       // 在阅读器页上下文执行完整抓取（增量去重 + 每号 perMp 篇 + 可选指定公众号）
-      const raw = await page.evaluate<string>(
+      const evaluatePromise = page.evaluate<string>(
         buildFetchAllScript(perMp, seenGuids, mpId ? [mpId] : []),
         {
           timeout: 240_000,
         },
       );
+      // 取消时提前结束等待，尽快释放爬虫窗口；页面上下文随后被 closeBrowser 导航销毁，吞掉 evaluate 后续拒绝
+      const raw = await Promise.race([
+        evaluatePromise,
+        new Promise<never>((_, reject) => {
+          const onCancel = () => reject(new Error("任务已取消"));
+          if (controller.signal.aborted) onCancel();
+          else controller.signal.addEventListener("abort", onCancel, { once: true });
+        }),
+      ]).catch((err) => {
+        evaluatePromise.catch(() => {});
+        throw err;
+      });
       const data = JSON.parse(raw) as WereadFetchResult;
 
       const items = (data.results ?? [])
@@ -215,7 +228,7 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
           guid: buildGuid("weread", `${src.bookId}:${a.reviewId}`),
           pubDate: a.time ? fromUnixTimestamp(a.time) : new Date().toUTCString(),
           author: src.name,
-          category: src.name ? [src.name] : undefined,
+          ...(src.name ? { category: [src.name] } : {}),
         }));
 
       return {
@@ -244,26 +257,19 @@ const shelfMpsHandler: RouteHandler = async ({ cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const browser = await createBrowser();
+    const page = await createBrowser();
     try {
-      await browser.ensureReady();
-      const manager = await browser.getManagerForThread();
-      const page = manager.getPage();
+      await blockHeavyResources(page);
 
-      await page.route("**/*", (route) => {
-        const type = route.request().resourceType();
-        if (["image", "media", "font", "stylesheet"].includes(type)) {
-          void route.abort();
-        } else {
-          void route.continue();
-        }
-      });
-
-      await injectCookies(page, cookies, ".qq.com");
+      await ensureCookies(page, cookies, "weread.qq.com");
 
       await page.goto("https://weread.qq.com/", { waitUntil: "domcontentloaded", timeout: 60_000 });
-      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => "{}");
-      const data = JSON.parse(shelfRaw) as { mps?: WereadMp[] };
+      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => {
+        // 页面加载/脚本失败：抛错让任务失败，而非静默返回空列表误导用户
+        throw new Error("微信读书书架页面加载失败");
+      });
+      const data = JSON.parse(shelfRaw) as { mps?: WereadMp[]; authFailed?: boolean };
+      if (data.authFailed) throw new CrawlerAuthError("微信读书登录态已失效");
       const mps = data.mps ?? [];
 
       const items = mps.map((m) => ({

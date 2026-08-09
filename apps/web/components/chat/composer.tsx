@@ -56,6 +56,7 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
           onStop={() => void stop()}
           disabled={!isLoading && !input.trim()}
           aria-label={isLoading ? t("common.stop") : t("common.send")}
+          className="ml-auto"
         />
       </PromptInputFooter>
     </PromptInput>

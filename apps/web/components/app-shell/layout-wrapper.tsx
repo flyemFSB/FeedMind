@@ -26,9 +26,9 @@ export function LayoutWrapper({
       {showTopbar && (
         <Topbar
           title={title}
-          subtitle={subtitle}
           showModelSelector={showModelSelector}
           rightContent={topRightContent}
+          {...(subtitle !== undefined ? { subtitle } : {})}
         />
       )}
 

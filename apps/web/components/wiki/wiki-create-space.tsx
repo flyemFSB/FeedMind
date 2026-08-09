@@ -48,7 +48,7 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
       setName("");
       setPurpose("");
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     } finally {
       setCreating(false);
     }

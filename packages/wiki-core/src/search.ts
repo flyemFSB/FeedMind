@@ -47,10 +47,7 @@ const STOP_WORDS = new Set([
   "those",
 ]);
 
-/**
- * 将搜索查询分词为可检索的 token。
- * 处理中日韩文（CJK）二元分词。
- */
+/** 查询分词，CJK 字符额外生成相邻二元组 */
 export function tokenizeQuery(query: string): string[] {
   const tokens = new Set<string>();
   const rawTokens = query.toLowerCase().split(/[\s,，。！？、；：""''（）()\-_//\\·~～…]+/);
@@ -65,7 +62,7 @@ export function tokenizeQuery(query: string): string[] {
 
     const chars = [...token];
     for (let i = 0; i < chars.length - 1; i++) {
-      tokens.add(chars[i] + chars[i + 1]);
+      tokens.add((chars[i] ?? "") + (chars[i + 1] ?? ""));
     }
     for (const ch of chars) {
       if (ch.length === 1 && !STOP_WORDS.has(ch)) tokens.add(ch);
@@ -75,14 +72,12 @@ export function tokenizeQuery(query: string): string[] {
   return [...tokens];
 }
 
-/** 用于搜索的页面内容 */
 export interface SearchablePage {
   path: string;
   title: string;
   content: string;
 }
 
-/** 按关键词搜索 Wiki 页面 */
 export function searchPages(
   pages: SearchablePage[],
   query: string,

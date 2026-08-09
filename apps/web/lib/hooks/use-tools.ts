@@ -1,16 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listTools, updateAllToolConfigs } from "@/lib/api/tools";
 
-export const toolKeys = {
+export const toolOptions = {
   all: ["tools"] as const,
-  list: () => [...toolKeys.all, "list"] as const,
+  list: () =>
+    queryOptions({
+      queryKey: [...toolOptions.all, "list"] as const,
+      queryFn: ({ signal }) => listTools(signal),
+    }),
 };
 
 export function useTools(options?: { enabled?: boolean }) {
   return useQuery({
-    queryKey: toolKeys.list(),
-    queryFn: ({ signal }) => listTools(signal),
-    enabled: options?.enabled,
+    ...toolOptions.list(),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -20,7 +23,7 @@ export function useUpdateAllToolConfigs() {
     mutationFn: (configs: Parameters<typeof updateAllToolConfigs>[0]) =>
       updateAllToolConfigs(configs),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: toolKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: toolOptions.list().queryKey });
     },
   });
 }

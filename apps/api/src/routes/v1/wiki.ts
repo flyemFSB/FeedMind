@@ -13,7 +13,6 @@ import {
 import { z } from "zod";
 import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 
-// 集中导入 Wiki 模块
 import {
   listWikiSpaces,
   getWikiSpace,
@@ -140,7 +139,15 @@ wikiRoutes.get("/wiki/spaces/:spaceId/pages", async (c) => {
   const q = c.req.query("q");
   const limit = Math.max(1, Math.min(200, Number(c.req.query("limit")) || 50));
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
-  return jsonOk(c, await listWikiPages(spaceId, { type, q, limit, offset }));
+  return jsonOk(
+    c,
+    await listWikiPages(spaceId, {
+      limit,
+      offset,
+      ...(type !== undefined ? { type } : {}),
+      ...(q !== undefined ? { q } : {}),
+    }),
+  );
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -186,7 +193,14 @@ wikiRoutes.get("/wiki/spaces/:spaceId/sources", async (c) => {
   const status = c.req.query("status");
   const limit = Math.max(1, Math.min(200, Number(c.req.query("limit")) || 50));
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
-  return jsonOk(c, await listWikiSources(spaceId, { status, limit, offset }));
+  return jsonOk(
+    c,
+    await listWikiSources(spaceId, {
+      limit,
+      offset,
+      ...(status !== undefined ? { status } : {}),
+    }),
+  );
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -424,7 +438,6 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
       void markIngestJobProcessing(spaceId, job.id, { message, step, totalSteps });
     });
     markSourceIngested(spaceId, sourcePath);
-    // 更新任务完成状态
     await completeIngestJob(
       spaceId,
       job.id,
@@ -469,7 +482,6 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   }
   const folderContext = body.folderContext as string | undefined;
 
-  // 获取源标题用于导入历史展示
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
 
   return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));

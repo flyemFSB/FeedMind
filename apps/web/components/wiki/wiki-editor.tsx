@@ -38,13 +38,13 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
     setLoading(true);
     try {
       const result = await getWikiPage(spaceId, pageId);
-      if (loadId !== loadIdRef.current) return; // stale
+      if (loadId !== loadIdRef.current) return; // 过期响应，丢弃
       setPage(result);
       setTitle(result.title);
       setContent(result.content);
       setPath(result.path);
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     } finally {
       if (loadId === loadIdRef.current) setLoading(false);
     }
@@ -64,7 +64,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
       await updateWikiPage(spaceId, pageId, payload);
       onSave();
     } catch {
-      // handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     } finally {
       setSaving(false);
     }
@@ -101,7 +101,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
       <div className="flex items-center justify-between gap-4 border-b border-editorial-surface-strong px-6 py-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Input
-            aria-label={t("wiki.title")}
+            aria-label={t("wiki.pageTitle")}
             className="h-7 border-0 bg-transparent px-0 text-[16px] font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-1 focus-visible:ring-editorial-hairline-strong focus-visible:rounded-sm"
             value={title}
             onChange={(e) => setTitle(e.target.value)}

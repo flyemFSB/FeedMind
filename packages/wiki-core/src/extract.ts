@@ -307,7 +307,6 @@ export async function extractDocument(
   fileName: string,
   existingText?: string,
 ): Promise<ExtractedDocument> {
-  // 检查文件大小限制
   try {
     const stat = await fsPromises.stat(filePath);
     if (stat.size > MAX_FILE_SIZE) {
@@ -319,7 +318,7 @@ export async function extractDocument(
       };
     }
   } catch {
-    /* file may not exist, continue to let format handler deal with it */
+    /* 文件可能不存在，交给后续格式处理器兜底 */
   }
 
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";

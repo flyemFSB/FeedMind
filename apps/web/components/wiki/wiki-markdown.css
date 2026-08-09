@@ -96,9 +96,3 @@
 .wiki-markdown tr:last-child td {
   border-bottom: 0;
 }
-
-.wiki-markdown .katex-display {
-  margin: 1.5rem 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-}

@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { crawlerTasks, db, cookieStore } from "@feedmind/db";
 import type { TaskCreate, TaskListItem, TaskRead, TaskStatus } from "@feedmind/contracts";
 import { getRouteHandler } from "@feedmind/crawler-core";
+import { CrawlerAuthError } from "@feedmind/crawler-core";
 import type { RouteHandlerParams } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { DbStore } from "./db-store.js";
 import { logger } from "../../lib/logger.js";
 import { apiEnv } from "../../env.js";
+import { joinCookies } from "../cookiecloud/service.js";
 
 const ROUTE_TO_PLATFORM: Record<string, string> = {
   bili: "bilibili",
@@ -61,10 +63,10 @@ async function listRouteOptions(
   platform: string,
 ): Promise<{ name: string; id: string }[]> {
   const rows = await db
-    .select({ cookies: cookieStore.cookies })
+    .select({ uuid: cookieStore.uuid, cookies: cookieStore.cookies })
     .from(cookieStore)
     .where(eq(cookieStore.platform, platform));
-  const cookies = rows.map((r) => r.cookies).join("; ") || undefined;
+  const cookies = joinCookies(rows) || undefined;
 
   const handler = getRouteHandler(route);
   if (!handler) throw new HttpError(500, "ROUTE_MISSING", `${route} 路由不存在`);
@@ -72,13 +74,13 @@ async function listRouteOptions(
   try {
     const result = await handler({
       params: {},
-      cookies,
       abortSignal: new AbortController().signal,
       maxItems: 100,
+      ...(cookies !== undefined ? { cookies } : {}),
     });
 
     const items = [...result.rssXml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((m) => {
-      const block = m[1];
+      const block = m[1] ?? "";
       const name =
         block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i)?.[1] ?? "";
       const id =
@@ -89,8 +91,17 @@ async function listRouteOptions(
     });
 
     return items;
-  } catch {
-    // 抓取失败（网络波动/风控/登录失效），降级返回空列表，避免 500
+  } catch (err) {
+    // 登录态失效：落库标记 + 透出 401，让前端能提示而非静默空列表
+    if (err instanceof CrawlerAuthError) {
+      await db
+        .update(cookieStore)
+        .set({ valid: false, checkedAt: new Date().toISOString() })
+        .where(eq(cookieStore.platform, platform));
+      throw new HttpError(401, "COOKIE_EXPIRED", `${platform} Cookie 已失效，请重新同步`);
+    }
+    // 其他失败（网络波动/风控）降级返回空列表，避免 500
+    logger.warn({ err, route, platform }, "拉取选项列表失败，已降级返回空列表");
     return [];
   }
 }
@@ -115,12 +126,16 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
   const now = new Date().toISOString();
 
   // 从 cookie_store 自动获取 cookie
-  const prefix = input.route.split("/")[0];
+  const prefix = input.route.split("/")[0] ?? "";
   const platform = ROUTE_TO_PLATFORM[prefix];
   const cookies = platform
-    ? (await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all())
-        .map((r) => r.cookies)
-        .join("; ")
+    ? joinCookies(
+        await db
+          .select({ uuid: cookieStore.uuid, cookies: cookieStore.cookies })
+          .from(cookieStore)
+          .where(eq(cookieStore.platform, platform))
+          .all(),
+      ) || null
     : null;
 
   const paramsStr = JSON.stringify(input.params);
@@ -141,10 +156,17 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
   };
 
   await db.transaction(async (tx) => {
+    // 同时检查 queued：任务插入即置 queued，转 running 发生在事务外的异步任务里，
+    // 只查 running 会让两次快速创建同路由同时通过检查（TOCTOU）
     const running = await tx
       .select({ count: count() })
       .from(crawlerTasks)
-      .where(and(eq(crawlerTasks.route, input.route), eq(crawlerTasks.status, "running")));
+      .where(
+        and(
+          eq(crawlerTasks.route, input.route),
+          inArray(crawlerTasks.status, ["running", "queued"]),
+        ),
+      );
 
     if (Number(running[0]?.count ?? 0) > 0) {
       throw new HttpError(409, "CONFLICT", `路由 ${input.route} 已有任务正在运行`);
@@ -180,17 +202,39 @@ async function runCrawlerTask(
 
     const params: RouteHandlerParams = {
       params: input.params,
-      cookies: cookies ?? undefined,
       abortSignal: controller.signal,
       maxItems: input.max_items,
+      ...(cookies != null ? { cookies } : {}),
     };
 
     await store.updateTaskStatus(taskId, "running");
     const result = await handler(params);
+    // 执行期间被取消（含排队期间取消）：保持 cancelled，不覆盖为 completed
+    if (controller.signal.aborted) {
+      await db
+        .update(crawlerTasks)
+        .set({ status: "cancelled", finishedAt: sql`(current_timestamp)` })
+        .where(eq(crawlerTasks.id, taskId))
+        .catch(() => {});
+      return;
+    }
     await store.updateTaskRss(taskId, result.rssXml);
     await store.updateTaskStatus(taskId, "completed");
-    logger.info({ taskId, route: input.route }, "爬虫任务完成");
+    // itemCount 区分"真爬到内容"与"静默空结果"（登录态失效/收藏夹为空时两者日志此前无法区分）
+    logger.info(
+      { taskId, route: input.route, itemCount: result.metadata?.itemCount ?? 0 },
+      "爬虫任务完成",
+    );
   } catch (err) {
+    // 用户取消触发的 abort：保持 cancelled，不覆盖为 failed
+    if (controller.signal.aborted) {
+      await db
+        .update(crawlerTasks)
+        .set({ status: "cancelled", finishedAt: sql`(current_timestamp)` })
+        .where(eq(crawlerTasks.id, taskId))
+        .catch(() => {});
+      return;
+    }
     logger.error({ err, taskId }, "爬虫任务执行失败");
     try {
       await db

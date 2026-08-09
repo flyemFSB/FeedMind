@@ -19,10 +19,9 @@ export function ToolsPanel() {
   const [initialized, setInitialized] = useState(false);
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
-  // Init local state when data arrives
   useEffect(() => {
     if (initialTools.length > 0 && !initialized) {
-      setActiveTool(initialTools[0].name);
+      setActiveTool(initialTools[0]!.name);
       setConfigs(Object.fromEntries(initialTools.map((t) => [t.name, { ...t.config }])));
       setInitialized(true);
     }
@@ -85,7 +84,7 @@ export function ToolsPanel() {
     );
   }
 
-  const currentTool = initialTools.find((t) => t.name === activeTool) ?? initialTools[0];
+  const currentTool = initialTools.find((t) => t.name === activeTool) ?? initialTools[0]!;
   const toolConfig = configs[currentTool.name] ?? {};
 
   return (

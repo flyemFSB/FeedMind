@@ -31,7 +31,3 @@ export const crawlerTasks = sqliteTable(
     statusIdx: index("idx_crawler_tasks_status").on(table.status),
   }),
 );
-
-// ─── 类型 ────────────────────────────────────────────────────────
-export type CrawlerTaskRow = typeof crawlerTasks.$inferSelect;
-export type CrawlerTaskInsert = typeof crawlerTasks.$inferInsert;

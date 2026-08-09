@@ -116,7 +116,3 @@ export function getQueueStore(): QueueStore {
   _instance ??= new JsonQueueStore();
   return _instance;
 }
-
-export function setQueueStore(store: QueueStore): void {
-  _instance = store;
-}

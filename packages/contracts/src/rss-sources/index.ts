@@ -25,8 +25,8 @@ export const rssSourceSchema = z.object({
   url: z.string(),
   title: z.string(),
   params: z.string().nullable(),
-  last_synced_at: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
+  lastSyncedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
 export type RssSource = z.infer<typeof rssSourceSchema>;

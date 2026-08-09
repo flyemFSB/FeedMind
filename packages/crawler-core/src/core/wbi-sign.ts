@@ -33,10 +33,9 @@ export async function getWbiVerifyString(signal?: AbortSignal): Promise<string> 
     Referer: "https://www.bilibili.com/",
   };
 
-  // 1. 获取 nav 信息
   const navRes = await fetch("https://api.bilibili.com/x/web-interface/nav", {
     headers,
-    signal,
+    ...(signal ? { signal } : {}),
   });
   const navJson = (await navRes.json()) as {
     data?: { wbi_img?: { img_url?: string; sub_url?: string } };
@@ -48,10 +47,9 @@ export async function getWbiVerifyString(signal?: AbortSignal): Promise<string> 
   const subUrl: string = wbiImg.sub_url;
   const r = extractKeyFromUrl(imgUrl) + extractKeyFromUrl(subUrl);
 
-  // 2. 从 JS 文件获取排列表
   const jsRes = await fetch("https://s1.hdslb.com/bfs/seed/laputa-header/bili-header.umd.js", {
     headers: { Referer: "https://space.bilibili.com/1" },
-    signal,
+    ...(signal ? { signal } : {}),
   });
   const jsText = await jsRes.text();
   const arrayMatch = jsText.match(/\[(?:\d+,){63}\d+\]/);
@@ -59,7 +57,6 @@ export async function getWbiVerifyString(signal?: AbortSignal): Promise<string> 
 
   const array: number[] = JSON.parse(arrayMatch[0]);
 
-  // 3. 用排列表重排
   const o: string[] = [];
   for (const t of array) {
     const ch = r.charAt(t);
@@ -80,10 +77,9 @@ export function addWbiVerifyInfo(params: string, wbiVerifyString: string): strin
   searchParams.sort();
   const verifyParam = searchParams.toString();
   const wts = Math.round(Date.now() / 1000);
-  const wRid = crypto
-    .createHash("md5")
-    .update(`${verifyParam}&wts=${wts}${wbiVerifyString}`)
-    .digest("hex");
+  const wRid = crypto.hash("md5", `${verifyParam}&wts=${wts}${wbiVerifyString}`, {
+    outputEncoding: "hex",
+  });
   return `${params}&w_rid=${wRid}&wts=${wts}`;
 }
 
@@ -101,7 +97,6 @@ export function addDmVerifyInfo(params: string, dmImgList: string): string {
  * 使用高斯分布的鼠标轨迹模拟
  */
 export function getDmImgList(): string {
-  // 高斯分布生成器
   function gaussian(mean: number, std: number): number {
     const u1 = Math.random();
     const u2 = Math.random();

@@ -116,7 +116,7 @@ async function detectCommunities(
     const possibleEdges = n > 1 ? (n * (n - 1)) / 2 : 1;
     const cohesion = intraEdges / possibleEdges;
 
-    const sorted = [...memberIds].sort(
+    const sorted = memberIds.toSorted(
       (a, b) => (nodeInfo.get(b)?.linkCount ?? 0) - (nodeInfo.get(a)?.linkCount ?? 0),
     );
     const topNodes = sorted.slice(0, 5).map((id) => nodeInfo.get(id)?.label ?? id);

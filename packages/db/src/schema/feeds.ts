@@ -26,4 +26,3 @@ export const feeds = sqliteTable(
 );
 
 export type FeedRow = typeof feeds.$inferSelect;
-export type FeedInsert = typeof feeds.$inferInsert;

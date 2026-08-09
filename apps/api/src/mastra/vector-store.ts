@@ -1,12 +1,11 @@
 import { LibSQLVector } from "@mastra/libsql";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import { resolveDataDir } from "../lib/data-dir.js";
 
 let instance: LibSQLVector | null = null;
 
 function getDbPath(): string {
-  const thisDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(thisDir, "..", "..", "..", "..", "data", "mastra.db");
+  return resolve(resolveDataDir(), "mastra.db");
 }
 
 export function getVectorStore(): LibSQLVector {

@@ -20,6 +20,8 @@ htmlcov/
 .nox/
 dist/
 *.egg-info/
+# electron-builder 打包产物
+release/
 
 # Node / Bun / Next.js
 node_modules/
@@ -67,5 +69,16 @@ _tmp_*
 tmp/
 temp/
 
+# Playwright MCP 输出（页面快照/控制台日志）
+.playwright-mcp/
+
 # Documentation
 docs/
+
+# 本地草稿/实验目录
+.scratch/
+
+# Claude Code 项目配置
+# .claude/settings.json 跟随仓库（跨机器/团队共享插件与配置）；
+# 个人本地配置不进 git
+.claude/settings.local.json

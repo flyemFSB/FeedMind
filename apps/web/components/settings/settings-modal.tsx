@@ -48,7 +48,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [deletingModel, setDeletingModel] = useState<LLMModel | null>(null);
   const [showEmbeddingForm, setShowEmbeddingForm] = useState(false);
   const [editingEmbeddingModel, setEditingEmbeddingModel] = useState<LLMModel | null>(null);
-  // Fetch data only when dialog is open (avoids unnecessary API calls on page load)
+  // 仅弹窗打开时才拉取，避免页面加载即发请求
   const { data: chatModels = [] } = useModels("chat", { enabled: open });
   const { data: embeddingModels = [] } = useModels("embedding", { enabled: open });
 

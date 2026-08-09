@@ -5,6 +5,7 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 
 const MCP_URL = "https://api.anysearch.com/mcp";
 const CLIENT_INFO = { name: "feedmind", version: "0.1.0" };
@@ -35,9 +36,9 @@ function parseResults(content: unknown[]): McpSearchResult[] {
         const results = parsed?.data?.results ?? parsed?.results ?? parsed;
         if (Array.isArray(results)) {
           return results.map((r: Record<string, unknown>) => ({
-            title: String(r.title ?? r.name ?? ""),
-            url: String(r.url ?? r.link ?? ""),
-            content: String(r.content ?? r.description ?? r.snippet ?? ""),
+            title: String(r["title"] ?? r["name"] ?? ""),
+            url: String(r["url"] ?? r["link"] ?? ""),
+            content: String(r["content"] ?? r["description"] ?? r["snippet"] ?? ""),
           }));
         }
       } catch {
@@ -46,7 +47,7 @@ function parseResults(content: unknown[]): McpSearchResult[] {
         return lines.map((line) => {
           const match = line.match(/^\[(.+?)\]\((.+?)\)\s*-?\s*(.*)/);
           if (match) {
-            return { title: match[1], url: match[2], content: match[3] };
+            return { title: match[1] ?? "", url: match[2] ?? "", content: match[3] ?? "" };
           }
           return { title: line, url: "", content: "" };
         });
@@ -64,7 +65,7 @@ export async function anysearchSearch(
 ): Promise<McpSearchResult[]> {
   const headers: Record<string, string> = {};
   if (apiKey) {
-    headers.Authorization = `Bearer ${apiKey}`;
+    headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
   const transport = new StreamableHTTPClientTransport(new URL(MCP_URL), {
@@ -74,7 +75,9 @@ export async function anysearchSearch(
   const client = new Client(CLIENT_INFO, { capabilities: {} });
 
   try {
-    await client.connect(transport);
+    // SDK 的 StreamableHTTPClientTransport 在 exactOptionalPropertyTypes 下与 Transport 接口
+    // 结构不兼容（可选字段带 | undefined），运行时实现是完整的，此处显式断言
+    await client.connect(transport as Transport);
 
     // 列出可用工具，先找 search 工具
     const { tools } = await client.listTools();
@@ -94,7 +97,7 @@ export async function anysearchSearch(
         arguments: { query, max_results: maxResults },
       },
       undefined,
-      { signal },
+      { ...(signal ? { signal } : {}) },
     );
 
     const content = Array.isArray(result.content) ? result.content : [];

@@ -20,7 +20,7 @@ export const feishuConfigSchema = z.object({
   appSecret: z.string(),
   verificationToken: z.string().optional(),
   encryptKey: z.string().optional(),
-  // OAuth tokens
+  // OAuth 令牌
   tenantAccessToken: z.string().optional(),
   tokenExpiresAt: z.number().optional(),
   // 用户绑定
@@ -29,7 +29,7 @@ export const feishuConfigSchema = z.object({
   feishuUnionId: z.string().optional(),
   userName: z.string().optional(),
   avatarUrl: z.string().optional(),
-  // Webhook
+  // Webhook 地址
   webhookUrl: z.string().optional(),
 });
 export type FeishuConfig = z.infer<typeof feishuConfigSchema>;

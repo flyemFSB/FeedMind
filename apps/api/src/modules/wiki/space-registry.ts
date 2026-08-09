@@ -27,19 +27,19 @@ export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
   const items: WikiSpaceListItem[] = [];
 
   for (const entry of registry) {
-    const spaceId = entry.id as string;
+    const spaceId = entry["id"] as string;
     const meta = await readSpaceMeta(spaceId);
     const pageCount = countFiles(path.join(getSpaceDir(spaceId), "wiki"), ".md");
     const sourceCount = countFiles(path.join(getSpaceDir(spaceId), "raw", "sources"));
 
     items.push({
       id: spaceId,
-      name: (meta?.name as string) ?? (entry.name as string) ?? spaceId,
-      template: (meta?.template ?? "general") as WikiSpaceListItem["template"],
+      name: (meta?.["name"] as string) ?? (entry["name"] as string) ?? spaceId,
+      template: (meta?.["template"] ?? "general") as WikiSpaceListItem["template"],
       page_count: pageCount,
       source_count: sourceCount,
-      created_at: (meta?.created_at as string) ?? "",
-      updated_at: (meta?.updated_at as string) ?? "",
+      created_at: (meta?.["created_at"] as string) ?? "",
+      updated_at: (meta?.["updated_at"] as string) ?? "",
     });
   }
 
@@ -52,19 +52,19 @@ export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
 
   return {
     id: spaceId,
-    name: (meta.name as string) ?? spaceId,
-    template: (meta.template ?? "general") as WikiSpaceRead["template"],
-    purpose: (meta.purpose as string) ?? "",
-    schema: (meta.schema as string) ?? "",
-    settings: (meta.settings as WikiSpaceSettings) ?? {
+    name: (meta["name"] as string) ?? spaceId,
+    template: (meta["template"] ?? "general") as WikiSpaceRead["template"],
+    purpose: (meta["purpose"] as string) ?? "",
+    schema: (meta["schema"] as string) ?? "",
+    settings: (meta["settings"] as WikiSpaceSettings) ?? {
       language: "zh-CN",
       enabledPageTypes: [],
       extraDirs: [],
     },
     page_count: countFiles(path.join(getSpaceDir(spaceId), "wiki"), ".md"),
     source_count: countFiles(path.join(getSpaceDir(spaceId), "raw", "sources")),
-    created_at: (meta.created_at as string) ?? "",
-    updated_at: (meta.updated_at as string) ?? "",
+    created_at: (meta["created_at"] as string) ?? "",
+    updated_at: (meta["updated_at"] as string) ?? "",
   };
 }
 
@@ -100,7 +100,7 @@ export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpa
     template: payload.template ?? "general",
     purpose: payload.purpose ?? "",
     schema: payload.schema ?? "",
-    settings: meta.settings as WikiSpaceSettings,
+    settings: meta["settings"] as WikiSpaceSettings,
     page_count: 0,
     source_count: 0,
     created_at: now,
@@ -115,13 +115,13 @@ export async function updateWikiSpace(
   const meta = await readSpaceMeta(spaceId);
   if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
 
-  if (payload.name !== undefined) meta.name = payload.name;
-  if (payload.purpose !== undefined) meta.purpose = payload.purpose;
-  if (payload.schema !== undefined) meta.schema = payload.schema;
+  if (payload.name !== undefined) meta["name"] = payload.name;
+  if (payload.purpose !== undefined) meta["purpose"] = payload.purpose;
+  if (payload.schema !== undefined) meta["schema"] = payload.schema;
   if (payload.settings !== undefined) {
-    meta.settings = { ...(meta.settings as object), ...payload.settings };
+    meta["settings"] = { ...(meta["settings"] as object), ...payload.settings };
   }
-  meta.updated_at = nowISO();
+  meta["updated_at"] = nowISO();
   writeSpaceMeta(spaceId, meta);
 
   return getWikiSpace(spaceId);
@@ -134,7 +134,7 @@ export async function deleteWikiSpace(spaceId: string): Promise<{ success: boole
   await deleteSpaceDir(spaceId);
 
   const registry = await readRegistry();
-  const updated = registry.filter((e) => e.id !== spaceId);
+  const updated = registry.filter((e) => e["id"] !== spaceId);
   writeRegistry(updated);
 
   return { success: true };

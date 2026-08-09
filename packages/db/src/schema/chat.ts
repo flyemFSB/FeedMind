@@ -31,4 +31,3 @@ export const chatSessions = sqliteTable(
 );
 
 export type ChatSessionRow = typeof chatSessions.$inferSelect;
-export type ChatSessionInsert = typeof chatSessions.$inferInsert;

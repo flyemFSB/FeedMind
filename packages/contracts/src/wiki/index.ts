@@ -98,7 +98,6 @@ export const wikiPageCreateSchema = z.object({
   resource: z.string().max(2048).optional(),
   content: z.string().default(""),
   tags: z.array(z.string()).default([]),
-  timestamp: z.string().optional(),
   frontmatter: z.record(z.string(), z.unknown()).default({}),
 });
 export type WikiPageCreate = z.infer<typeof wikiPageCreateSchema>;
@@ -111,7 +110,6 @@ export const wikiPageUpdateSchema = z.object({
   resource: z.string().max(2048).optional(),
   content: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  timestamp: z.string().optional(),
   frontmatter: z.record(z.string(), z.unknown()).optional(),
 });
 export type WikiPageUpdate = z.infer<typeof wikiPageUpdateSchema>;

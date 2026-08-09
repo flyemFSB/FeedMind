@@ -189,16 +189,14 @@ export const taskTool = createTool({
     const requestContext = (ctx as ToolExecutionContext).requestContext;
     const startTime = performance.now();
 
-    // 1. 查找 subagent 模板
     const template = subagentRegistry[type];
     if (!template) {
       throw new Error(`未知的 subagent 类型: ${type}`);
     }
 
-    // 2. 构造完整的 prompt（附加 context）
     const fullPrompt = context ? `[上下文]\n${context}\n\n[任务]\n${prompt}` : prompt;
 
-    // 3. 动态创建 Agent 实例（模型由 resolveChatModel 统一解析）
+    // 模型由 resolveChatModel 统一解析
     const taskId = `task-${++taskCounter}-${Date.now()}`;
     const subagent = new Agent({
       id: taskId,
@@ -208,10 +206,9 @@ export const taskTool = createTool({
       tools: template.getTools(),
     });
 
-    // 4. 执行
     const result = await subagent.generate(fullPrompt, {
-      maxSteps: template.maxSteps,
-      requestContext,
+      ...(template.maxSteps !== undefined ? { maxSteps: template.maxSteps } : {}),
+      ...(requestContext !== undefined ? { requestContext } : {}),
     });
 
     const duration = Math.round(performance.now() - startTime);
@@ -228,7 +225,7 @@ export const taskTool = createTool({
       result: result.text,
       duration,
       type,
-      usage,
+      ...(usage !== undefined ? { usage } : {}),
     };
   },
 });

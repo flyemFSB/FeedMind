@@ -13,7 +13,7 @@
  */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Message,
   MessageContent,
@@ -56,7 +56,6 @@ interface MessagePartsProps {
   isStreaming: boolean;
 }
 
-/** 提取用户消息纯文本 */
 function userText(message: UIMessage): string {
   return message.parts
     .filter((p): p is { type: "text"; text: string } => p.type === "text")
@@ -99,11 +98,10 @@ function isToolError(state: string | undefined, output: unknown): boolean {
   return (
     typeof obj === "object" &&
     obj !== null &&
-    typeof (obj as Record<string, unknown>).error === "string"
+    typeof (obj as Record<string, unknown>)["error"] === "string"
   );
 }
 
-/** 从错误输出中提取可读错误信息 */
 function extractErrorText(output: unknown): string {
   if (typeof output === "string") {
     try {
@@ -119,7 +117,11 @@ function extractErrorText(output: unknown): string {
   }
   if (typeof output === "object" && output !== null) {
     const d = output as Record<string, unknown>;
-    return typeof d.error === "string" ? d.error : typeof d.message === "string" ? d.message : "";
+    return typeof d["error"] === "string"
+      ? (d["error"] as string)
+      : typeof d["message"] === "string"
+        ? (d["message"] as string)
+        : "";
   }
   return "";
 }
@@ -181,6 +183,40 @@ function useChainSteps(
   }, [message.parts, isLastMessage, isStreaming]);
 }
 
+// 流式 markdown 的解析（unified 管道）代价与文本总长成正比，
+// 每个 token 都重解析会让长回答的 CPU 随文本增长持续走高（O(n²)）。
+// 流式中把提交给 Streamdown 的文本节流到固定间隔，间隔内仅累积文本；
+// 结束流式时立即提交最终文本，保证内容不丢。
+const STREAM_THROTTLE_MS = 100;
+
+function StreamingText({ text, streaming }: { text: string; streaming: boolean }) {
+  const [throttled, setThrottled] = useState(text);
+  const lastCommitRef = useRef(0);
+
+  useEffect(() => {
+    if (!streaming) {
+      setThrottled(text);
+      return;
+    }
+    const now = performance.now();
+    if (now - lastCommitRef.current >= STREAM_THROTTLE_MS) {
+      lastCommitRef.current = now;
+      setThrottled(text);
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        lastCommitRef.current = performance.now();
+        setThrottled(text);
+      },
+      STREAM_THROTTLE_MS - (now - lastCommitRef.current),
+    );
+    return () => clearTimeout(timer);
+  }, [text, streaming]);
+
+  return <MessageResponse isAnimating={streaming}>{throttled}</MessageResponse>;
+}
+
 export function MessageParts({ message, isLastMessage, isStreaming }: MessagePartsProps) {
   const { t } = useTranslation();
   const { regenerate } = useChatContext();
@@ -193,7 +229,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
     if (isStreaming) setChainOpen(true);
   }, [isStreaming]);
 
-  const sourceParts: Array<{ url?: string; title?: string }> = [];
+  const sourceParts: Array<{ url?: string | undefined; title?: string | undefined }> = [];
   for (const part of message.parts) {
     if (part.type === "source-url" || part.type === "source-document") {
       const url = partField(part, "url") as string | undefined;
@@ -259,17 +295,14 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
 
           {/* ---- 展示内容（文本） ---- */}
           {message.parts.map((part, i) => {
-            if (part.type === "text") {
-              return (
-                <MessageResponse
-                  key={`${message.id}-${i}`}
-                  isAnimating={isLastMessage && isStreaming && i === lastTextPartIndex}
-                >
-                  {(part as { text: string }).text}
-                </MessageResponse>
-              );
-            }
-            return null;
+            if (part.type !== "text") return null;
+            return (
+              <StreamingText
+                key={`${message.id}-${i}`}
+                text={(part as { text: string }).text}
+                streaming={isLastMessage && isStreaming && i === lastTextPartIndex}
+              />
+            );
           })}
 
           {/* ---- 来源引用（可折叠） ---- */}
@@ -484,10 +517,10 @@ function OutputVisual({ output, outputText }: { output: unknown; outputText: str
 
   // 搜索结果 → 域名徽章
   const results = parsed
-    ? Array.isArray(parsed.results)
-      ? parsed.results
-      : Array.isArray(parsed.items)
-        ? parsed.items
+    ? Array.isArray(parsed["results"])
+      ? parsed["results"]
+      : Array.isArray(parsed["items"])
+        ? parsed["items"]
         : null
     : null;
   if (results) {
@@ -530,7 +563,6 @@ function OutputVisual({ output, outputText }: { output: unknown; outputText: str
   return <div className="text-editorial-ink-soft">{outputText || "（无输出）"}</div>;
 }
 
-/** 从 URL 提取域名（www.xx.com） */
 function domainOf(url: string): string {
   try {
     return new URL(url).hostname;
@@ -556,20 +588,19 @@ function formatOutput(output: unknown): string {
   return String(output);
 }
 
-/** 从工具输出提取人类可读摘要 */
 function summarizeOutput(data: unknown): string {
   if (!data || typeof data !== "object") return String(data ?? "");
 
   const d = data as Record<string, unknown>;
 
   // 错误对象：直接展示错误码
-  if (typeof d.error === "string") {
-    return `⚠️ ${d.error}`;
+  if (typeof d["error"] === "string") {
+    return `⚠️ ${d["error"]}`;
   }
 
   // 搜索结果：显示数量
-  if (Array.isArray(d.results) || Array.isArray(d.items)) {
-    const items = (d.results ?? d.items ?? []) as unknown[];
+  if (Array.isArray(d["results"]) || Array.isArray(d["items"])) {
+    const items = (d["results"] ?? d["items"] ?? []) as unknown[];
     return `已检索 ${items.length} 个结果`;
   }
   if (Array.isArray(data)) {
@@ -577,13 +608,13 @@ function summarizeOutput(data: unknown): string {
   }
 
   // 页面内容：显示标题和摘要
-  if (d.title && typeof d.title === "string") {
-    const snippet = d.snippet ?? d.description ?? d.content ?? "";
+  if (d["title"] && typeof d["title"] === "string") {
+    const snippet = d["snippet"] ?? d["description"] ?? d["content"] ?? "";
     const snippetStr = typeof snippet === "string" ? snippet.slice(0, 120) : "";
-    return `📄 ${d.title}${snippetStr ? ": " + snippetStr : ""}`;
+    return `📄 ${d["title"]}${snippetStr ? ": " + snippetStr : ""}`;
   }
-  if (d.url && typeof d.url === "string") {
-    return `🔗 ${d.url}`;
+  if (d["url"] && typeof d["url"] === "string") {
+    return `🔗 ${d["url"]}`;
   }
 
   // 一般对象：显示键摘要

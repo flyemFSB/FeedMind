@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2023",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
@@ -19,9 +19,7 @@
       "@/*": ["./*"]
     }
   },
-  "references": [
-    { "path": "../../packages/contracts" }
-  ],
+  "references": [{ "path": "../../packages/contracts" }],
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",

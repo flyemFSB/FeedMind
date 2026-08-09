@@ -1,102 +1,26 @@
-import { Hono, type Context } from "hono";
-import { gunzipSync } from "node:zlib";
+import { Hono } from "hono";
 import { PlatformId } from "@feedmind/contracts";
-import { db, cookieStore } from "@feedmind/db";
+import { checkCookie } from "@feedmind/crawler-core";
 import { jsonOk, jsonError } from "../../lib/http.js";
+import { logger } from "../../lib/logger.js";
 import {
-  saveConfig,
-  storeEncrypted,
-  getEncrypted,
-  getAllConfigs,
   getCookies,
   getAllCookies,
   saveManualCookies,
-  decrypt,
+  checkPlatformCookie,
+  replacePlatformCookies,
 } from "../../modules/cookiecloud/service.js";
+import { getLoginHandler } from "../../modules/cookiecloud/bridge.js";
 
+// Cookie 管理路由（历史前缀保留 cookiecloud；CookieCloud 扩展同步已移除）
 export const cookieCloudRoutes = new Hono();
 
-async function parseBody(c: Context): Promise<Record<string, unknown>> {
-  const contentEncoding = c.req.header("content-encoding") ?? "";
-  if (contentEncoding.includes("gzip")) {
-    const buf = await c.req.raw.arrayBuffer();
-    const decompressed = gunzipSync(Buffer.from(buf));
-    return JSON.parse(decompressed.toString("utf-8"));
-  }
-  return c.req.json().catch(() => ({}));
-}
-
-// GET /api/v1/cookiecloud/config
-// 获取所有已保存的 CookieCloud 配置（不含密文），标记是否有已同步的 Cookie 数据
-cookieCloudRoutes.get("/cookiecloud/config", async (c) => {
-  const configs = await getAllConfigs();
-  const storeRows = await db.select({ uuid: cookieStore.uuid }).from(cookieStore);
-  const activeUuids = new Set(storeRows.map((r) => r.uuid));
-  return jsonOk(
-    c,
-    configs.map(({ encrypted: _, ...rest }) => ({
-      ...rest,
-      hasData: activeUuids.has(rest.uuid),
-    })),
-  );
-});
-
-// POST /api/v1/cookiecloud/config
-// 保存 UUID + 密码配置
-cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
-  const body = await parseBody(c);
-  const uuid = body.uuid as string | undefined;
-  const password = body.password as string | undefined;
-  const crypto_type = (body.crypto_type as string) || "legacy";
-
-  if (!uuid || !password) {
-    return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 password 不能为空");
-  }
-
-  await saveConfig(uuid, password, crypto_type);
-  return jsonOk(c, { action: "done" });
-});
-
-// POST /api/v1/cookiecloud/update
-// CookieCloud 扩展上传加密数据，自动解密并写入 cookie_cloud
-cookieCloudRoutes.post("/cookiecloud/update", async (c) => {
-  const body = await parseBody(c);
-  const uuid = body.uuid as string | undefined;
-  const encrypted = body.encrypted as string | undefined;
-  const crypto_type = (body.crypto_type as string) || "legacy";
-
-  if (!uuid || !encrypted) {
-    return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 encrypted 不能为空");
-  }
-
-  await storeEncrypted(uuid, encrypted, crypto_type);
-  return c.json({ action: "done" });
-});
-
-// GET /api/v1/cookiecloud/get/:uuid
-// CookieCloud 协议要求根对象直接包含 encrypted 与 crypto_type。
-cookieCloudRoutes.get("/cookiecloud/get/:uuid", async (c) => {
-  const uuid = c.req.param("uuid");
-  const row = await getEncrypted(uuid);
-
-  if (!row) {
-    return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的数据");
-  }
-
-  return c.json({
-    encrypted: row.encrypted,
-    crypto_type: row.cryptoType,
-  });
-});
-
-// GET /api/v1/cookiecloud/cookies
 // 获取所有平台的明文 cookie
 cookieCloudRoutes.get("/cookiecloud/cookies", async (c) => {
   const cookies = await getAllCookies();
   return jsonOk(c, cookies);
 });
 
-// GET /api/v1/cookiecloud/cookies/:platform
 // 获取指定平台的明文 cookie
 cookieCloudRoutes.get("/cookiecloud/cookies/:platform", async (c) => {
   const platformParam = c.req.param("platform");
@@ -108,30 +32,51 @@ cookieCloudRoutes.get("/cookiecloud/cookies/:platform", async (c) => {
   return jsonOk(c, cookies);
 });
 
-// POST /api/v1/cookiecloud/decrypt
-// 手动解密（不需要预先配置密码）
-cookieCloudRoutes.post("/cookiecloud/decrypt", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const { uuid, password } = body;
+// 校验指定平台 Cookie 登录态并更新 valid/checkedAt（账号 Cookie 刷新按钮）
+cookieCloudRoutes.post("/cookiecloud/check/:platform", async (c) => {
+  const platformParam = c.req.param("platform");
+  const result = PlatformId.safeParse(platformParam);
+  if (!result.success) {
+    return jsonError(c, 400, "INVALID_PLATFORM", `无效的平台: ${platformParam}`);
+  }
+  const data = await checkPlatformCookie(result.data);
+  return jsonOk(c, data);
+});
 
-  if (!uuid || !password) {
-    return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 password 不能为空");
+// 应用内浏览器登录：Electron 主进程打开登录窗口，用户完成后捕获会话 Cookie 并入库
+cookieCloudRoutes.post("/cookiecloud/login/:platform", async (c) => {
+  const platformParam = c.req.param("platform");
+  const result = PlatformId.safeParse(platformParam);
+  if (!result.success) {
+    return jsonError(c, 400, "INVALID_PLATFORM", `无效的平台: ${platformParam}`);
   }
 
-  const row = await getEncrypted(uuid);
-  if (!row) {
-    return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的数据，请先上传");
+  const handler = getLoginHandler();
+  if (!handler) {
+    return jsonError(c, 503, "DESKTOP_ONLY", "浏览器登录仅桌面应用支持，请使用 FeedMind 桌面应用");
   }
 
   try {
-    const data = decrypt(uuid, row.encrypted, password, row.cryptoType);
-    return jsonOk(c, data);
-  } catch {
-    return jsonError(c, 400, "DECRYPT_FAILED", "解密失败，请检查密码是否正确");
+    const loginResult = await handler(result.data);
+    if (loginResult.valid && loginResult.cookies) {
+      // 应用内登录捕获后再校验一次登录态，避免把过期/残留 Cookie 当成功写库；
+      // null 表示该平台不支持校验（douyin），仍接受
+      const check = await checkCookie(result.data, loginResult.cookies);
+      if (check === false) {
+        return jsonOk(c, {
+          valid: false,
+          reason: "登录后校验未通过，请确认账号已正确登录",
+        });
+      }
+      await replacePlatformCookies(result.data, loginResult.cookies);
+    }
+    return jsonOk(c, loginResult);
+  } catch (err) {
+    logger.error({ err, platform: result.data }, "浏览器登录失败");
+    return jsonError(c, 500, "LOGIN_FAILED", "登录失败，请重试");
   }
 });
 
-// POST /api/v1/cookiecloud/cookies
 // 保存手动输入的 cookie（账号 Cookie）
 cookieCloudRoutes.post("/cookiecloud/cookies", async (c) => {
   const body = await c.req.json().catch(() => ({}));
@@ -141,6 +86,11 @@ cookieCloudRoutes.post("/cookiecloud/cookies", async (c) => {
     return jsonError(c, 400, "MISSING_FIELDS", "platform 和 cookies 不能为空");
   }
 
-  await saveManualCookies(platform, cookies);
+  const platformResult = PlatformId.safeParse(platform);
+  if (!platformResult.success) {
+    return jsonError(c, 400, "INVALID_PLATFORM", `无效的平台: ${platform}`);
+  }
+
+  await saveManualCookies(platformResult.data, cookies);
   return jsonOk(c, { action: "done" });
 });

@@ -58,7 +58,7 @@ export const WIKI_TYPE_ORDER: string[] = [...WIKI_CONCEPT_TYPES];
 /** 按受控枚举顺序排序 type，未知 type 归到最后。 */
 export function sortWikiTypes(types: string[]): string[] {
   const order = new Map(WIKI_TYPE_ORDER.map((t, i) => [t, i]));
-  return [...types].sort((a, b) => {
+  return types.toSorted((a, b) => {
     const ai = order.get(a) ?? WIKI_TYPE_ORDER.length;
     const bi = order.get(b) ?? WIKI_TYPE_ORDER.length;
     return ai - bi || a.localeCompare(b, "zh-CN");

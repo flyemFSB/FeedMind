@@ -61,7 +61,7 @@
 - **来源管理** — 附加 URL 或上传文件（PDF、Word、图片）作为参考资料
 - **AI 导入流水线** — LLM 自动分析源内容，生成结构化 Wiki 页面
 - **质量检查** — 死链检测、内容审核、重复检测
-- **OKF v0.1 规范支持** — Google Open Knowledge Format 标准兼容，包含自动索引生成、引用验证、标签体系、更新日志模板
+- **OKF v0.2 规范支持** — Google Open Knowledge Format 标准兼容，含来源/生成者/信任信号（sources、generated、verified、status、stale_after）、自动索引生成、标签体系、更新日志模板
 
 ### 🕷️ 爬虫引擎
 
@@ -128,6 +128,21 @@ pnpm run dev
 | **REST API**     | http://localhost:18790                | Hono 后端            |
 | **API 文档**     | http://localhost:18790/api/v1/docs    | Scalar UI 交互式文档 |
 | **OpenAPI JSON** | http://localhost:18790/api/v1/openapi | 机器可读规范         |
+
+### 桌面应用（Electron）
+
+FeedMind 可打包为 Windows 桌面应用：主进程内嵌 API，爬虫与 Agent 浏览器通过 CDP 驱动应用内置 Chromium（隐藏爬虫窗口），不再自起 Chrome。
+
+```bash
+# 开发模式：Vite（热更新） + Electron，爬虫经 CDP 连接内置 Chromium
+pnpm run desktop:dev
+
+# 生产模式：构建全部产物并直接运行桌面应用（内置 HTTP 服务同源提供 UI 与 API）
+pnpm run desktop
+
+# 打包 Windows 安装程序（NSIS）
+pnpm --filter @feedmind/desktop dist
+```
 
 ### 常用命令
 

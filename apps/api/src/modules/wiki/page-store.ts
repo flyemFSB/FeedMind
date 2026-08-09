@@ -3,7 +3,6 @@ import {
   buildConceptContent,
   normalizeConceptId,
   parseFrontmatter,
-  extractStringArray,
   extractConceptLinks,
 } from "@feedmind/wiki-core";
 import type {
@@ -36,25 +35,27 @@ function toWikiPageRead(data: Record<string, unknown>): WikiPageRead {
   return data as unknown as WikiPageRead;
 }
 
+// 编辑器保存的写入者标识（OKF v0.2 actor 约定：human:）
+const EDIT_ACTOR = "human:user";
+
 function buildPageFile(
   type: string,
   title: string,
   description: string | undefined,
   resource: string | undefined,
   tags: string[] | undefined,
-  timestamp: string,
   frontmatter: Record<string, unknown> | undefined,
   content: string,
 ): string {
   return buildConceptContent({
     type,
     title,
-    description,
-    resource,
-    tags,
-    timestamp,
-    frontmatter,
+    generated: { by: EDIT_ACTOR, at: nowISO() },
     content,
+    ...(description !== undefined ? { description } : {}),
+    ...(resource !== undefined ? { resource } : {}),
+    ...(tags !== undefined ? { tags } : {}),
+    ...(frontmatter !== undefined ? { frontmatter } : {}),
   });
 }
 
@@ -103,22 +104,19 @@ export async function createWikiPage(
   const normalizedPath = normalizePageRelPath(payload.path);
   const absPath = path.join(getSpaceDir(spaceId), normalizedPath);
 
-  // 检查是否存在（避免竞态条件）
+  // 目标已存在时报 409
   if (readPageRaw(absPath) !== null) {
     throw new HttpError(409, "HTTP_ERROR", `OKF concept already exists (${payload.path})`);
   }
 
   ensureDir(path.dirname(absPath));
-  const timestamp = payload.timestamp ?? nowISO();
 
-  // 直接构建文件内容，无需额外读取
   const content = buildPageFile(
     payload.type,
     payload.title,
     payload.description,
     payload.resource,
     payload.tags,
-    timestamp,
     payload.frontmatter,
     payload.content,
   );
@@ -128,7 +126,6 @@ export async function createWikiPage(
   rebuildOkfIndexes(spaceId);
   appendOkfLog(spaceId, `创建概念“${payload.path}”。`);
 
-  // 直接从内存数据解析，避免重复 IO
   const parsedData = readPage(absPath, spaceId);
   if (!parsedData) throw new HttpError(500, "INTERNAL_ERROR", "Created OKF concept cannot be read");
   return toWikiPageRead(parsedData);
@@ -146,7 +143,6 @@ export async function updateWikiPage(
     throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
   const existing = toWikiPageRead(existingData);
 
-  const timestamp = payload.timestamp ?? nowISO();
   const frontmatter = {
     ...existing.frontmatter,
     ...(payload.frontmatter ?? {}),
@@ -165,7 +161,6 @@ export async function updateWikiPage(
     payload.description ?? existing.description,
     payload.resource ?? existing.resource ?? undefined,
     payload.tags ?? existing.tags,
-    timestamp,
     frontmatter,
     payload.content ?? existing.content,
   );
@@ -205,17 +200,17 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
   }
   const pathTarget = decodedTarget.split(/[?#]/, 1)[0]?.trim() ?? "";
   const normalizedTarget = normalizeConceptId(pathTarget);
-  const exact = pages.find((page) => page.concept_id === normalizedTarget);
+  const exact = pages.find((page) => page["concept_id"] === normalizedTarget);
   if (exact) return resolvedPage(exact);
 
   const matches = pages.filter((page) => {
-    const title = String(page.title).toLowerCase();
+    const title = String(page["title"]).toLowerCase();
     return (
       title === pathTarget.toLowerCase() ||
-      String(page.slug).toLowerCase() === pathTarget.toLowerCase()
+      String(page["slug"]).toLowerCase() === pathTarget.toLowerCase()
     );
   });
-  if (matches.length === 1) return resolvedPage(matches[0]);
+  if (matches.length === 1) return resolvedPage(matches[0]!);
   if (matches.length > 1) {
     return {
       resolved: false,
@@ -240,9 +235,9 @@ export async function resolveWikiLink(spaceId: string, target: string): Promise<
 function resolvedPage(page: Record<string, unknown>): WikiResolveResult {
   return {
     resolved: true,
-    page_id: String(page.id),
-    slug: String(page.slug),
-    title: String(page.title),
+    page_id: String(page["id"]),
+    slug: String(page["slug"]),
+    title: String(page["title"]),
     status: "resolved",
     candidates: [],
   };
@@ -250,10 +245,10 @@ function resolvedPage(page: Record<string, unknown>): WikiResolveResult {
 
 function candidatePage(page: Record<string, unknown>) {
   return {
-    page_id: String(page.id),
-    path: String(page.path),
-    title: String(page.title),
-    slug: String(page.slug),
+    page_id: String(page["id"]),
+    path: String(page["path"]),
+    title: String(page["title"]),
+    slug: String(page["slug"]),
   };
 }
 
@@ -271,24 +266,20 @@ export async function getWikiBacklinks(
   const targetId = normalizeConceptId(decodedPageId);
   for (const filePath of walkPages(spaceId)) {
     const page = readPage(filePath, spaceId);
-    if (!page || page.id === targetId) continue;
+    if (!page || page["id"] === targetId) continue;
 
     const raw = readPageRaw(filePath);
     if (!raw) continue;
     const { body } = parseFrontmatter(raw);
-    const links = extractConceptLinks(body, String(page.concept_id));
+    const links = extractConceptLinks(body, String(page["concept_id"]));
     if (links.includes(targetId)) {
       backlinks.push({
-        page_id: String(page.id),
-        slug: String(page.slug),
-        title: String(page.title),
-        path: String(page.path),
+        page_id: String(page["id"]),
+        slug: String(page["slug"]),
+        title: String(page["title"]),
+        path: String(page["path"]),
       });
     }
   }
   return backlinks;
-}
-
-export function getPageProvenance(page: WikiPageRead): string[] {
-  return extractStringArray(page.frontmatter, "provenance");
 }

@@ -4,7 +4,7 @@ export function parseTokenCount(value: string | null | undefined): number | unde
   const upper = value.toUpperCase().trim();
   const match = upper.match(/^([\d.]+)\s*(K|M)?$/);
   if (!match) return undefined;
-  const num = parseFloat(match[1]);
+  const num = parseFloat(match[1] ?? "");
   if (Number.isNaN(num)) return undefined;
   const unit = match[2];
   if (unit === "M") return Math.round(num * 1_000_000);

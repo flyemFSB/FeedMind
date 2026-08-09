@@ -37,7 +37,7 @@ export function WikiLintView({ spaceId, onPageSelect }: WikiLintViewProps) {
       const result = await getLintItems(spaceId);
       setItems(result);
     } catch {
-      // errors handled by apiFetch toast
+      // 错误由 apiFetch toast 统一提示
     } finally {
       setLoading(false);
     }

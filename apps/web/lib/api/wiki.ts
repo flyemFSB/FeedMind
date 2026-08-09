@@ -7,9 +7,7 @@ import type {
   WikiPageRead,
   WikiPageUpdate,
   WikiResolveResult,
-  WikiSearchResponse,
   WikiSourceCreate,
-  WikiSourceListItem,
   WikiSourceRead,
   WikiSpaceCreate,
   WikiSpaceListItem,
@@ -26,10 +24,6 @@ export function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
 
 export function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpaceRead> {
   return apiPost("/wiki/spaces", payload);
-}
-
-export function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}`));
 }
 
 export function updateWikiSpace(spaceId: string, payload: WikiSpaceUpdate): Promise<WikiSpaceRead> {
@@ -88,42 +82,11 @@ export function getWikiBacklinks(spaceId: string, pageId: string): Promise<WikiB
 }
 
 // ─── Sources ───────────────────────────────────────────────────
-export function listWikiSources(
-  spaceId: string,
-  params?: { status?: string; limit?: number; offset?: number },
-): Promise<{ items: WikiSourceListItem[]; total: number }> {
-  const searchParams = new URLSearchParams();
-  if (params?.status) searchParams.set("status", params.status);
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.offset) searchParams.set("offset", String(params.offset));
-  const qs = searchParams.toString();
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources${qs ? `?${qs}` : ""}`));
-}
-
 export function createWikiSource(
   spaceId: string,
   payload: WikiSourceCreate,
 ): Promise<WikiSourceRead> {
   return apiPost(`/wiki/spaces/${spaceId}/sources/text`, payload);
-}
-
-export function getWikiSource(spaceId: string, sourceId: string): Promise<WikiSourceRead> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/${sourceId}`));
-}
-
-export function deleteWikiSource(
-  spaceId: string,
-  sourceId: string,
-  mode: "detach" | "delete-orphans" = "detach",
-): Promise<{ deleted_pages: number; updated_pages: number }> {
-  return apiDelete(`/wiki/spaces/${spaceId}/sources/${sourceId}?mode=${mode}`);
-}
-
-export function previewDeleteImpact(
-  spaceId: string,
-  sourceId: string,
-): Promise<{ willDelete: string[]; willUpdate: string[]; unaffected: number }> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/${sourceId}/delete-impact`));
 }
 
 // ─── File Upload ────────────────────────────────────────────────
@@ -137,15 +100,6 @@ export function uploadWikiFile(
     method: "POST",
     body: formData,
   });
-}
-
-// ─── Search ────────────────────────────────────────────────────
-export function searchWiki(
-  spaceId: string,
-  query: string,
-  topK?: number,
-): Promise<WikiSearchResponse> {
-  return apiPost(`/wiki/spaces/${spaceId}/search`, { query, topK });
 }
 
 // ─── Graph ─────────────────────────────────────────────────────
@@ -172,19 +126,6 @@ export function getWikiGraphInsights(spaceId: string): Promise<{
   edgeCount: number;
 }> {
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/graph/insights`));
-}
-
-// ─── Direct Ingest ──────────────────────────────────────────────
-export function runIngest(
-  spaceId: string,
-  sourcePath: string,
-): Promise<{
-  pagesCreated: number;
-  pagesUpdated: number;
-  warnings: string[];
-  log: string[];
-}> {
-  return apiPost(`/wiki/spaces/${spaceId}/ingest`, { sourcePath });
 }
 
 // ─── Ingest Jobs ─────────────────────────────────────────────

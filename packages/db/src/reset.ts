@@ -11,7 +11,7 @@ try {
   );
 
   for (const row of tables.rows) {
-    await db.run(sql`drop table if exists ${sql.identifier(String(row.name))}`);
+    await db.run(sql`drop table if exists ${sql.identifier(String(row["name"]))}`);
   }
 } finally {
   await client.execute("pragma foreign_keys = on");

@@ -16,9 +16,6 @@ export interface KnowledgeGap {
   suggestion: string;
 }
 
-/**
- * 发现跨社区或跨类型的连接。
- */
 export function findSurprisingConnections(
   nodes: GraphNode[],
   edges: GraphEdge[],
@@ -76,9 +73,6 @@ export function findSurprisingConnections(
   return scored.slice(0, limit);
 }
 
-/**
- * 基于图结构检测知识缺口。
- */
 export function detectKnowledgeGaps(
   nodes: GraphNode[],
   edges: GraphEdge[],
