@@ -117,10 +117,61 @@ function getUiUrl(): string {
   );
 }
 
-// 模块级持有窗口引用：macOS 关窗后需据此判断重建，不能依赖 getAllWindows（隐藏窗口恒存在）
+// 模块级持有主窗口引用：macOS 关窗后需据此判断重建，不能依赖 getAllWindows
 let mainWindow: BrowserWindow | null = null;
-let crawlerWindow: BrowserWindow | null = null;
-let agentWindow: BrowserWindow | null = null;
+
+// agent 隐藏窗口标记：与 crawler-core / mastra 一致，据此区分生命周期策略
+const AGENT_MARKER = "feedmind-agent";
+// agent 空闲判定：超过该时长无浏览器活动则销毁窗口，释放渲染进程内存
+const AGENT_IDLE_MS = 5 * 60 * 1000;
+
+// 惰性隐藏窗口：按需创建。crawler 窗口任务结束即销毁；agent 窗口空闲超时销毁
+const markedWindows = new Map<string, { win: BrowserWindow; timer: NodeJS.Timeout | null }>();
+
+// 拒绝媒体权限（camera/mic/screen）：授予后 Chromium 会拉起 audio / video_capture 常驻
+// utility 进程，窗口销毁也不退出，白占内存。应用自身无媒体功能，全局拒绝无副作用。
+const MEDIA_PERMISSIONS = new Set(["media", "display-capture"]);
+
+// 每次使用标记窗口后刷新空闲计时：仅 agent 窗口启用空闲销毁，crawler 由 closeBrowser 触发销毁
+function refreshIdleTimer(marker: string): void {
+  const entry = markedWindows.get(marker);
+  if (!entry) return;
+  if (entry.timer) clearTimeout(entry.timer);
+  entry.timer = null;
+  if (marker !== AGENT_MARKER) return;
+  entry.timer = setTimeout(() => void destroyMarkedWindow(marker), AGENT_IDLE_MS);
+}
+
+// 补建后必须等加载完成再返回：crawler-core 按窗口 URL 标记选页
+async function ensureMarkedWindow(marker: string): Promise<void> {
+  const existing = markedWindows.get(marker);
+  if (existing && !existing.win.isDestroyed()) {
+    if (existing.win.webContents.getURL().includes(marker)) {
+      refreshIdleTimer(marker);
+      return;
+    }
+    await existing.win.loadURL(`data:text/html,<title>${marker}</title>`);
+    refreshIdleTimer(marker);
+    return;
+  }
+  const win = await createMarkedWindow(marker);
+  markedWindows.set(marker, { win, timer: null });
+  win.on("closed", () => {
+    if (markedWindows.get(marker)?.win === win) markedWindows.delete(marker);
+  });
+  refreshIdleTimer(marker);
+}
+
+// 窗口关闭后清掉会话里浏览站点注册的 Service Worker——应用自身不注册 SW，
+// 否则 SW 渲染进程在窗口销毁后仍常驻内存（实测小红书 SW 占 ~150MB working set）。
+async function destroyMarkedWindow(marker: string): Promise<void> {
+  const entry = markedWindows.get(marker);
+  if (!entry) return;
+  if (entry.timer) clearTimeout(entry.timer);
+  if (!entry.win.isDestroyed()) entry.win.close();
+  markedWindows.delete(marker);
+  await session.defaultSession.clearStorageData({ storages: ["serviceworkers"] }).catch(() => {});
+}
 
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -148,22 +199,24 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-/** 隐藏窗口标记：crawler-core / Agent 浏览器按标记选页，绝不依赖 CDP target 顺序 */
-const CRAWLER_MARKER = "feedmind-crawler";
-const AGENT_MARKER = "feedmind-agent";
-
 /** 创建标记页隐藏窗口：爬虫与 Agent 各用独立窗口，会话互不踩踏 */
-function createMarkedWindow(marker: string): BrowserWindow {
+async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
   const win = new BrowserWindow({
     width: 1280,
     height: 720,
     show: false,
-    webPreferences: { backgroundThrottling: false, sandbox: true, spellcheck: false },
+    webPreferences: {
+      backgroundThrottling: false,
+      sandbox: true,
+      spellcheck: false,
+      // 禁自动播放：防爬虫/Agent 访问的视频站拉起常驻 audio 服务进程
+      autoplayPolicy: "user-gesture-required",
+    },
   });
   win.webContents.setUserAgent(
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
   );
-  void win.loadURL(`data:text/html,<title>${marker}</title>`);
+  await win.loadURL(`data:text/html,<title>${marker}</title>`);
   return win;
 }
 
@@ -266,8 +319,23 @@ async function openLoginWindow(platform: string): Promise<string> {
 async function bootstrap(): Promise<void> {
   prepareEnv();
 
+  // 拒绝媒体权限，防止爬虫/Agent 访问的站点拉起 audio/video_capture 常驻进程。
+  // check 与 request 两个 handler 必须成对设置：部分 Web API 先做 check 再发正式请求，只设 request 会漏。
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(!MEDIA_PERMISSIONS.has(permission));
+  });
+  session.defaultSession.setPermissionCheckHandler(
+    (_wc, permission) => !MEDIA_PERMISSIONS.has(permission),
+  );
+
   // API 在 API 模块导入前完成环境准备，故延迟加载
-  const { startApi, setLoginHandler, startKeepAlive } = await import("@feedmind/api/server-core");
+  const {
+    startApi,
+    setLoginHandler,
+    setMarkedWindowFactory,
+    setMarkedWindowDestroyer,
+    startKeepAlive,
+  } = await import("@feedmind/api/server-core");
 
   // 生产模式同源 serve Web 构建产物；dev 模式由 Vite dev server 提供
   const webDist = process.env["VITE_DEV_SERVER_URL"]
@@ -283,31 +351,24 @@ async function bootstrap(): Promise<void> {
     return { valid: cookies.length > 0, cookies };
   });
 
+  // 注册惰性窗口工厂与销毁器：crawler 任务结束即销毁（closeBrowser 触发），
+  // agent 空闲 5 分钟超时销毁（refreshIdleTimer 调度）
+  setMarkedWindowFactory(ensureMarkedWindow);
+  setMarkedWindowDestroyer(destroyMarkedWindow);
+
   mainWindow = createMainWindow();
   await loadWithRetry(mainWindow, getUiUrl());
 
-  // 爬虫与 Agent 各用独立隐藏窗口：CDP 端按标记选页，双窗口互不干扰，
-  // Agent 会话不再与爬虫任务踩踏同一窗口
-  crawlerWindow = createMarkedWindow(CRAWLER_MARKER);
-  agentWindow = createMarkedWindow(AGENT_MARKER);
-
-  // 保活调度（weread 30 分钟刷 skey）需爬虫窗口已就绪，故放最后
+  // 保活调度（weread 30 分钟刷 skey）首次触发时经 createBrowser 惰性补建爬虫窗口
   startKeepAlive();
 }
 
 // macOS 惯例：关闭全部窗口后应用驻留，点 Dock 重建窗口
 app.on("activate", () => {
   if (mainWindow === null) {
-    crawlerWindow?.close();
-    crawlerWindow = null;
-    agentWindow?.close();
-    agentWindow = null;
+    // 惰性隐藏窗口常驻（show:false，不计入窗口栈），重建主窗口即可复用
     mainWindow = createMainWindow();
-    void loadWithRetry(mainWindow, getUiUrl()).then(() => {
-      // 重建隐藏窗口，保证 CDP 端随时能按标记定位
-      crawlerWindow = createMarkedWindow(CRAWLER_MARKER);
-      agentWindow = createMarkedWindow(AGENT_MARKER);
-    });
+    void loadWithRetry(mainWindow, getUiUrl());
   }
 });
 

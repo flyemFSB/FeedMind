@@ -12,9 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WikiRouteImport } from './routes/wiki'
 import { Route as SourcesRouteImport } from './routes/sources'
 import { Route as FeedsRouteImport } from './routes/feeds'
+import { Route as DailyReportRouteImport } from './routes/daily-report'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FeedsIndexRouteImport } from './routes/feeds.index'
+import { Route as DailyReportIndexRouteImport } from './routes/daily-report.index'
 
 const WikiRoute = WikiRouteImport.update({
   id: '/wiki',
@@ -29,6 +31,11 @@ const SourcesRoute = SourcesRouteImport.update({
 const FeedsRoute = FeedsRouteImport.update({
   id: '/feeds',
   path: '/feeds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DailyReportRoute = DailyReportRouteImport.update({
+  id: '/daily-report',
+  path: '/daily-report',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -46,13 +53,20 @@ const FeedsIndexRoute = FeedsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => FeedsRoute,
 } as any)
+const DailyReportIndexRoute = DailyReportIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DailyReportRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/daily-report/': typeof DailyReportIndexRoute
   '/feeds/': typeof FeedsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -60,28 +74,49 @@ export interface FileRoutesByTo {
   '/chat': typeof ChatRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/daily-report': typeof DailyReportIndexRoute
   '/feeds': typeof FeedsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
+  '/daily-report/': typeof DailyReportIndexRoute
   '/feeds/': typeof FeedsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chat' | '/feeds' | '/sources' | '/wiki' | '/feeds/'
+  fullPaths:
+    | '/'
+    | '/chat'
+    | '/daily-report'
+    | '/feeds'
+    | '/sources'
+    | '/wiki'
+    | '/daily-report/'
+    | '/feeds/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/sources' | '/wiki' | '/feeds'
-  id: '__root__' | '/' | '/chat' | '/feeds' | '/sources' | '/wiki' | '/feeds/'
+  to: '/' | '/chat' | '/sources' | '/wiki' | '/daily-report' | '/feeds'
+  id:
+    | '__root__'
+    | '/'
+    | '/chat'
+    | '/daily-report'
+    | '/feeds'
+    | '/sources'
+    | '/wiki'
+    | '/daily-report/'
+    | '/feeds/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ChatRoute: typeof ChatRoute
+  DailyReportRoute: typeof DailyReportRouteWithChildren
   FeedsRoute: typeof FeedsRouteWithChildren
   SourcesRoute: typeof SourcesRoute
   WikiRoute: typeof WikiRoute
@@ -110,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/daily-report': {
+      id: '/daily-report'
+      path: '/daily-report'
+      fullPath: '/daily-report'
+      preLoaderRoute: typeof DailyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
@@ -131,8 +173,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedsIndexRouteImport
       parentRoute: typeof FeedsRoute
     }
+    '/daily-report/': {
+      id: '/daily-report/'
+      path: '/'
+      fullPath: '/daily-report/'
+      preLoaderRoute: typeof DailyReportIndexRouteImport
+      parentRoute: typeof DailyReportRoute
+    }
   }
 }
+
+interface DailyReportRouteChildren {
+  DailyReportIndexRoute: typeof DailyReportIndexRoute
+}
+
+const DailyReportRouteChildren: DailyReportRouteChildren = {
+  DailyReportIndexRoute: DailyReportIndexRoute,
+}
+
+const DailyReportRouteWithChildren = DailyReportRoute._addFileChildren(
+  DailyReportRouteChildren,
+)
 
 interface FeedsRouteChildren {
   FeedsIndexRoute: typeof FeedsIndexRoute
@@ -147,6 +208,7 @@ const FeedsRouteWithChildren = FeedsRoute._addFileChildren(FeedsRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRoute,
+  DailyReportRoute: DailyReportRouteWithChildren,
   FeedsRoute: FeedsRouteWithChildren,
   SourcesRoute: SourcesRoute,
   WikiRoute: WikiRoute,

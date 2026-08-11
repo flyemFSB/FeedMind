@@ -70,6 +70,33 @@ function truncateByChars(text: string, maxChars: number): string {
   return Array.from(text).slice(0, maxChars).join("");
 }
 
+/**
+ * 抓取网页正文（SSRF 防护 + Firecrawl + 截断）。供 web_fetch 工具与日报提炼步共用，
+ * 保证所有外部 URL 抓取走同一套防护。maxChars 控制返回长度上限：
+ * web_fetch 工具为聊天上下文节约，默认 4096；日报提炼步传入更大上限以覆盖正文主体。
+ */
+export async function fetchArticleText(
+  url: string,
+  signal?: AbortSignal,
+  maxChars: number = MAX_OUTPUT_CHARS,
+): Promise<string> {
+  await checkSSRF(url);
+
+  // 从数据库加载工具配置（含 Firecrawl API Key，可选）
+  await ToolConfigClient.getInstance().load(signal ?? AbortSignal.timeout(5_000));
+  const toolConfig = ToolConfigClient.getInstance().getTool("web_fetch");
+  const firecrawlApiKey = toolConfig?.config?.["firecrawlApiKey"] as string | undefined;
+
+  // 通过 Firecrawl v2 抓取（无 API Key 时自动使用匿名模式，有免费额度）
+  const markdown = await fetchViaFirecrawl(url, AbortSignal.timeout(15_000), firecrawlApiKey);
+
+  if (markdown) {
+    return truncateByChars(markdown, maxChars);
+  }
+
+  throw new Error(`无法抓取页面内容: ${url}，请检查 URL 是否正确或稍后重试。`);
+}
+
 export const webFetchTool = createTool({
   id: "web_fetch",
   description: `Fetch the contents of a web page at a given URL.
@@ -80,20 +107,6 @@ URLs must include the schema (https://example.com, not example.com).`,
     url: z.string().url().describe("The exact URL to fetch. Must include http:// or https://."),
   }),
   execute: async ({ url }, { abortSignal }) => {
-    await checkSSRF(url);
-
-    // 从数据库加载工具配置（含 Firecrawl API Key，可选）
-    await ToolConfigClient.getInstance().load(abortSignal);
-    const toolConfig = ToolConfigClient.getInstance().getTool("web_fetch");
-    const firecrawlApiKey = toolConfig?.config?.["firecrawlApiKey"] as string | undefined;
-
-    // 通过 Firecrawl v2 抓取（无 API Key 时自动使用匿名模式，有免费额度）
-    const markdown = await fetchViaFirecrawl(url, AbortSignal.timeout(15_000), firecrawlApiKey);
-
-    if (markdown) {
-      return truncateByChars(markdown, MAX_OUTPUT_CHARS);
-    }
-
-    throw new Error(`无法抓取页面内容: ${url}，请检查 URL 是否正确或稍后重试。`);
+    return fetchArticleText(url, abortSignal);
   },
 });

@@ -8,6 +8,8 @@ import { initDatabase } from "@feedmind/db";
 import { createApp } from "./app.js";
 import { apiEnv, validateApiRuntime } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
+import { startDailyReportScheduler } from "./modules/daily-report/schedule-sync.js";
+import { setMastra } from "./modules/daily-report/mastra-holder.js";
 import { createMastra, initToolConfig } from "./mastra/index.js";
 import { startLongConnection } from "./modules/remote-connection/feishu-service.js";
 
@@ -35,10 +37,14 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
   await startLongConnection();
 
   const mastra = createMastra();
+  setMastra(mastra);
   const app = createApp();
 
   const mastraServer = new MastraServer({ app, mastra });
   await mastraServer.init();
+
+  // 日报定时调度：Mastra schedules 承担触发，schedule_tasks 记账/UI 由同步层镜像
+  await startDailyReportScheduler(mastra);
 
   const webDist = options.webDist ? path.resolve(options.webDist) : undefined;
 
@@ -117,8 +123,9 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
 }
 
 // ─── 桌面应用桥 ───────────────────────────────────────────────
-// Electron 主进程通过 @feedmind/api/server-core 引用，注册应用内登录与启动保活
+// Electron 主进程通过 @feedmind/api/server-core 引用，注册应用内登录、惰性隐藏窗口与启动保活
 export { setLoginHandler, getLoginHandler } from "./modules/cookiecloud/bridge.js";
+export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";
 export { startKeepAlive } from "./modules/cookiecloud/keepalive.js";
 
 /** Web 构建产物常见文件的 MIME 映射（覆盖 Vite 输出） */

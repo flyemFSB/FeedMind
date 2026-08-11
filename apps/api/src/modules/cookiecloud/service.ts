@@ -67,13 +67,23 @@ export async function saveManualCookies(platform: string, cookies: string): Prom
 }
 
 /**
- * 用会话捕获/保活刷新后的 Cookie 替换某平台全部记录。
- * 先删旧行再插入，避免同平台多行 Cookie（含过期 skey）拼接注入时互相覆盖。
+ * 删行而非 upsert：避免同平台多行 Cookie 拼接注入时互相覆盖。
+ * valid 由调用方此刻确认（登录校验/保活刷新），删行会丢该状态，故一并落库。
  */
-export async function replacePlatformCookies(platform: string, cookies: string): Promise<void> {
+export async function replacePlatformCookies(
+  platform: string,
+  cookies: string,
+  valid: boolean | null = null,
+): Promise<void> {
   const uuid = "session";
   await db.transaction(async (tx) => {
     await tx.delete(cookieStore).where(eq(cookieStore.platform, platform));
-    await tx.insert(cookieStore).values({ uuid, platform, cookies });
+    await tx.insert(cookieStore).values({
+      uuid,
+      platform,
+      cookies,
+      valid,
+      checkedAt: valid !== null ? new Date().toISOString() : null,
+    });
   });
 }

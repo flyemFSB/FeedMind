@@ -2,11 +2,23 @@
 
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Rss, Globe, ExternalLink, RefreshCw, Search, X } from "lucide-react";
+import {
+  Rss,
+  Globe,
+  ExternalLink,
+  RefreshCw,
+  Search,
+  X,
+  Trash2,
+  Check,
+  SquareCheckBig,
+} from "lucide-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useTranslation, Trans } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { toast } from "@/components/ui/toast";
@@ -18,7 +30,13 @@ import {
   Zhihu,
   Weread,
 } from "@/components/icons/remote-connection-icons";
-import { useFeeds, useRssSources, useSyncFeeds, useMarkFeedRead } from "@/lib/hooks/use-feeds";
+import {
+  useFeeds,
+  useRssSources,
+  useSyncFeeds,
+  useMarkFeedRead,
+  useDeleteFeeds,
+} from "@/lib/hooks/use-feeds";
 import type { FeedItem, RssSource } from "@/lib/api/feeds";
 
 // 字段显式含 undefined：validateSearch 用 undefined 表示"移除该参数"，
@@ -58,6 +76,10 @@ const PLATFORM_LABELS: Record<string, string> = {
 function FeedsIndexPage() {
   const { t, i18n } = useTranslation();
   const [refreshing, setRefreshing] = useState(false);
+  // 选择模式：与浏览互斥，避免卡片点击在"打开链接/勾选"间语义打架
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteOpen, setDeleteOpen] = useState(false);
   // 顶部来源筛选与关键词查询存于 URL search params（可分享/刷新保留）
   const { filter = "all", keyword = "" } = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -80,6 +102,7 @@ function FeedsIndexPage() {
   const { data: sourceList = [] } = useRssSources();
   const syncMutation = useSyncFeeds();
   const markReadMutation = useMarkFeedRead();
+  const deleteMutation = useDeleteFeeds();
   const sources = useMemo(() => new Map(sourceList.map((s) => [s.id, s])), [sourceList]);
 
   const handleSync = async () => {
@@ -173,6 +196,54 @@ function FeedsIndexPage() {
     );
   }, [filteredFeeds, keyword]);
 
+  // ─── 选择模式 ────────────────────────────────────────────────
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  // 全选作用于当前可见列表（受筛选/搜索影响），半选态据此判定
+  const visibleIds = searchedFeeds.map((f) => f.id);
+  const selectedVisibleCount = visibleIds.filter((id) => selected.has(id)).length;
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  const someVisibleSelected = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+
+  const toggleSelectAllVisible = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const id of visibleIds) {
+        if (allVisibleSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = async () => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    try {
+      await deleteMutation.mutateAsync(ids);
+      setDeleteOpen(false);
+      toast.add({
+        title: t("feeds.deleteSelectedSuccess", { count: ids.length }),
+        type: "success",
+      });
+      exitSelectMode();
+    } catch {
+      // apiFetch 已 toast 错误；缓存回滚由 useDeleteFeeds 处理
+    }
+  };
+
   const categoriesFor = (item: FeedItem): string[] => {
     if (!item.category) return [];
     try {
@@ -196,54 +267,119 @@ function FeedsIndexPage() {
         {/* 来源筛选条 + 关键词查询：吸顶 + 半透明毛玻璃，仅在内容就绪后显示 */}
         {!isLoading && (
           <div className="sticky top-0 z-10 mb-3 space-y-2 bg-background/90 py-2 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-                {filterItems.map(({ key, count }) => {
-                  const active = filter === key;
-                  const Icon = FILTER_ICONS[key] ?? Globe;
-                  const label =
-                    key === "all"
-                      ? t("feeds.all")
-                      : t(PLATFORM_LABELS[key] ?? "feeds.unknownSource");
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setFilter(key)}
-                      aria-pressed={active}
-                      className={cn(
-                        "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
-                        active
-                          ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
-                          : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
-                      )}
-                    >
-                      <Icon size={12} />
-                      {label}
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 text-[11px] tabular-nums",
-                          active
-                            ? "bg-editorial-accent/15 font-semibold text-editorial-accent"
-                            : "bg-editorial-surface-strong font-medium text-editorial-ink-muted",
-                        )}
+            <AnimatePresence mode="wait" initial={false}>
+              {selectMode ? (
+                <motion.div
+                  key="select"
+                  variants={fadeSlideVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      indeterminate={someVisibleSelected}
+                      onCheckedChange={() => toggleSelectAllVisible()}
+                      aria-label={t("feeds.selectAll")}
+                      className="cursor-pointer"
+                    />
+                    <span className="text-[13px] font-medium text-editorial-ink tabular-nums">
+                      {t("feeds.selectedCount", { count: selected.size })}
+                    </span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <Button
+                        onClick={exitSelectMode}
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
                       >
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <Button
-                onClick={() => void handleSync()}
-                disabled={refreshing}
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
-              >
-                {refreshing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
-                {refreshing ? t("feeds.syncing") : t("feeds.sync")}
-              </Button>
-            </div>
+                        <X size={14} />
+                        {t("feeds.exitSelect")}
+                      </Button>
+                      <Button
+                        onClick={() => setDeleteOpen(true)}
+                        disabled={selected.size === 0}
+                        size="sm"
+                        className="h-8 shrink-0 gap-1.5 rounded-lg bg-destructive-strong px-3 text-[12px] text-destructive-foreground hover:brightness-[0.93]"
+                      >
+                        <Trash2 size={14} />
+                        {t("feeds.deleteSelected")}
+                        <span className="tabular-nums">({selected.size})</span>
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="normal"
+                  variants={fadeSlideVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                      {filterItems.map(({ key, count }) => {
+                        const active = filter === key;
+                        const Icon = FILTER_ICONS[key] ?? Globe;
+                        const label =
+                          key === "all"
+                            ? t("feeds.all")
+                            : t(PLATFORM_LABELS[key] ?? "feeds.unknownSource");
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setFilter(key)}
+                            aria-pressed={active}
+                            className={cn(
+                              "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+                              active
+                                ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
+                                : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
+                            )}
+                          >
+                            <Icon size={12} />
+                            {label}
+                            <span
+                              className={cn(
+                                "rounded-full px-1.5 text-[11px] tabular-nums",
+                                active
+                                  ? "bg-editorial-accent/15 font-semibold text-editorial-accent"
+                                  : "bg-editorial-surface-strong font-medium text-editorial-ink-muted",
+                              )}
+                            >
+                              {count}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      onClick={() => setSelectMode(true)}
+                      disabled={feeds.length === 0}
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                    >
+                      <SquareCheckBig size={14} />
+                      {t("feeds.select")}
+                    </Button>
+                    <Button
+                      onClick={() => void handleSync()}
+                      disabled={refreshing}
+                      size="sm"
+                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                    >
+                      {refreshing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
+                      {refreshing ? t("feeds.syncing") : t("feeds.sync")}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {/* 搜索框常驻：选择模式可先搜索再批量选择，输入焦点不因模式切换丢失 */}
             <div className="relative">
               <Search
                 size={14}
@@ -349,15 +485,45 @@ function FeedsIndexPage() {
                         href={item.link ?? undefined}
                         target={item.link ? "_blank" : undefined}
                         rel={item.link ? "noopener noreferrer" : undefined}
-                        onClick={() => {
+                        onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
+                          if (selectMode) {
+                            e.preventDefault();
+                            toggleSelect(item.id);
+                            return;
+                          }
                           if (!item.isRead) void handleMarkRead(item.id);
                         }}
+                        // 空格在 <a> 上默认滚动而不触发点击，选择模式下手动拦截；回车走 onClick 已能切换
+                        onKeyDown={(e: React.KeyboardEvent<HTMLAnchorElement>) => {
+                          if (selectMode && e.key === " ") {
+                            e.preventDefault();
+                            toggleSelect(item.id);
+                          }
+                        }}
                         className={cn(
-                          "group flex flex-col overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card",
+                          "group relative flex flex-col overflow-hidden rounded-lg border bg-editorial-surface-card",
+                          selectMode
+                            ? selected.has(item.id)
+                              ? "cursor-pointer border-editorial-accent bg-editorial-accent/[0.04] ring-1 ring-editorial-accent"
+                              : "cursor-pointer border-editorial-hairline"
+                            : "border-editorial-hairline",
                           "hover:border-editorial-hairline-strong hover:bg-editorial-surface-soft",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent focus-visible:ring-offset-1",
                         )}
                       >
+                        {selectMode && (
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "absolute left-2.5 top-2.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-md border transition-colors",
+                              selected.has(item.id)
+                                ? "border-editorial-accent bg-editorial-accent text-white"
+                                : "border-white/70 bg-black/25 text-white/80 backdrop-blur-sm",
+                            )}
+                          >
+                            <Check size={13} strokeWidth={3} />
+                          </span>
+                        )}
                         {item.image && (
                           <div className="aspect-[16/9] w-full overflow-hidden bg-editorial-surface-soft">
                             <motion.img
@@ -463,6 +629,15 @@ function FeedsIndexPage() {
           )}
         </AnimatePresence>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => void handleDeleteSelected()}
+        title={t("feeds.deleteSelectedTitle")}
+        description={t("feeds.deleteSelectedConfirm", { count: selected.size })}
+        confirming={deleteMutation.isPending}
+      />
     </div>
   );
 }

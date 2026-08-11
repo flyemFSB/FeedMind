@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { RssSourceCreate, RssSourceUpdate } from "@feedmind/contracts";
-import { db, rssSources } from "@feedmind/db";
+import { db, rssSources, feeds } from "@feedmind/db";
 import type { RssSourceRow } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
 
@@ -57,5 +57,10 @@ export async function deleteSource(id: string): Promise<void> {
     .where(eq(rssSources.id, id))
     .limit(1);
   if (!existing) throw new HttpError(404, "NOT_FOUND", "订阅源不存在");
-  await db.delete(rssSources).where(eq(rssSources.id, id));
+  // 级联删除该来源下的全部条目，避免删除来源后遗留孤儿内容；
+  // 两次删除置于同一事务，避免半删状态（来源没了条目还在 / 反之亦然）
+  await db.transaction(async (tx) => {
+    await tx.delete(feeds).where(eq(feeds.sourceId, id));
+    await tx.delete(rssSources).where(eq(rssSources.id, id));
+  });
 }

@@ -43,6 +43,35 @@ function resetConnection(): void {
   _connecting = null;
 }
 
+// 惰性窗口工厂：桌面模式由 Electron 主进程注册"按标记创建隐藏窗口"实现；
+// standalone（无桌面）为 null，补建时跳过，最终仍报"未发现窗口"提示
+let _markedWindowFactory: ((marker: string) => Promise<void>) | null = null;
+
+export function setMarkedWindowFactory(fn: (marker: string) => Promise<void>): void {
+  _markedWindowFactory = fn;
+}
+
+export async function ensureMarkedWindow(marker: string): Promise<void> {
+  if (_markedWindowFactory) {
+    await _markedWindowFactory(marker);
+  }
+}
+
+// 惰性窗口销毁器：桌面模式由 Electron 主进程注册"按标记销毁隐藏窗口"实现。
+// 注册后 closeBrowser 采用"任务结束即销毁"模式（跳过归还导航，直接销毁窗口）
+let _markedWindowDestroyer: ((marker: string) => Promise<void>) | null = null;
+
+export function setMarkedWindowDestroyer(fn: (marker: string) => Promise<void>): void {
+  _markedWindowDestroyer = fn;
+}
+
+// 未注册 destroyer（常驻模式）时为空操作
+export async function destroyMarkedWindow(marker: string): Promise<void> {
+  if (_markedWindowDestroyer) {
+    await _markedWindowDestroyer(marker);
+  }
+}
+
 /**
  * 建立 CDP 连接并校验确为 FeedMind Electron 内置 Chromium。
  *
@@ -96,29 +125,39 @@ async function ensureConnected(): Promise<Page> {
 
   _connecting ??= (async () => {
     try {
-      const browser = await connectElectron();
-      browser.on("disconnected", resetConnection);
+      // 惰性补建：第一轮选不到爬虫窗口时请求创建，再重连重选。
+      // 必须重连而非复用旧连接——CDP 对 show:false 新窗口的 target 感知不可靠
+      // （Electron 14+ 不回放 Target.attachedToTarget），新连接才会枚举全部 target
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const browser = await connectElectron();
+        browser.on("disconnected", resetConnection);
 
-      const pages = browser.contexts()[0]?.pages() ?? [];
-      const selected = pages.find((p) => p.url().includes(CRAWLER_MARKER));
-      if (!selected) {
-        throw new Error(
-          `CDP 未发现爬虫窗口（标记 ${CRAWLER_MARKER}），请确认 FeedMind 桌面应用已启动`,
-        );
+        const pages = browser.contexts()[0]?.pages() ?? [];
+        const selected = pages.find((p) => p.url().includes(CRAWLER_MARKER));
+        if (selected) {
+          // 窗口被关闭（如 macOS 重建）但 CDP 连接仍在时，同步重置缓存，下次任务重新选页
+          selected.on("close", () => {
+            if (_page === selected) resetConnection();
+          });
+          _browser = browser;
+          _page = selected;
+          return selected;
+        }
+
+        await browser.close().catch(() => {});
+        if (attempt === 0) {
+          await ensureMarkedWindow(CRAWLER_MARKER);
+          // 窗口创建+加载约 45ms，留出 target 注册余量
+          await new Promise((r) => setTimeout(r, 300));
+        }
       }
-      // 窗口被关闭（如 macOS 重建）但 CDP 连接仍在时，同步重置缓存，下次任务重新选页
-      selected.on("close", () => {
-        if (_page === selected) resetConnection();
-      });
-
-      _browser = browser;
-      _page = selected;
-      return selected;
     } catch (err) {
       // 连接失败/标记缺失：清空缓存再抛，避免 rejected promise 毒化后续所有任务
       resetConnection();
       throw err;
     }
+    resetConnection();
+    throw new Error(`CDP 未发现爬虫窗口（标记 ${CRAWLER_MARKER}），请确认 FeedMind 桌面应用已启动`);
   })();
   return _connecting;
 }
@@ -146,9 +185,14 @@ export async function createBrowser(): Promise<Page> {
   }
 }
 
-/** 释放爬虫窗口独占权，允许下一个任务执行。归还前把窗口导航回标记页，保证随时可识别。 */
+/**
+ * 释放爬虫窗口独占权，允许下一个任务执行。
+ * 常驻模式：归还前导航回标记页，保证随时可识别；
+ * 销毁模式（注册了 destroyer）：任务结束即销毁窗口，无需归还导航，下次任务惰性补建。
+ */
 export async function closeBrowser(): Promise<void> {
-  if (_page && !_page.isClosed()) {
+  const destroyAfter = _markedWindowDestroyer != null;
+  if (_page && !_page.isClosed() && !destroyAfter) {
     // 导航带超时：渲染进程卡死时不阻塞锁释放，避免后续任务死锁
     await Promise.race([
       _page.goto(CRAWLER_URL, { waitUntil: "domcontentloaded" }),
@@ -157,6 +201,9 @@ export async function closeBrowser(): Promise<void> {
   }
   _releaseLock?.();
   _releaseLock = null;
+  if (destroyAfter) {
+    await destroyMarkedWindow(CRAWLER_MARKER);
+  }
 }
 
 /** 屏蔽图片/媒体/字体/样式等非关键资源，加速爬取页面加载 */

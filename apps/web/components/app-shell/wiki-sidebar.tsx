@@ -3,6 +3,7 @@
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import type { WikiView } from "@/src/routes/wiki";
 import {
+  CalendarDays,
   ClipboardCheck,
   Clock,
   FileText,
@@ -109,6 +110,12 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
           label="feeds.sourceManagement"
           active={pathname === "/sources"}
           onClick={() => void navigate({ to: "/sources" })}
+        />
+        <NavIconButton
+          icon={CalendarDays}
+          label="dailyReport.title"
+          active={pathname === "/daily-report"}
+          onClick={() => void navigate({ to: "/daily-report" })}
         />
       </nav>
 

@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -b",
     "lint": "eslint src --ext .ts",
-    "test": "vitest run --pass-with-no-tests",
+    "test": "vitest run --project wiki-core",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {

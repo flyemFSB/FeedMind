@@ -332,7 +332,15 @@
     "addSuccess": "订阅源已添加",
     "deleteSuccess": "已删除",
     "deleteSource": "删除来源",
-    "deleteSourceConfirm": "确定删除来源「{name}」吗？删除后无法恢复。",
+    "deleteSourceConfirm": "确定删除来源「{name}」吗？该来源下已抓取的内容将一并删除，删除后无法恢复。",
+    "select": "选择",
+    "exitSelect": "取消选择",
+    "selectAll": "全选",
+    "selectedCount": "已选 {count} 条",
+    "deleteSelected": "删除",
+    "deleteSelectedTitle": "删除所选内容",
+    "deleteSelectedConfirm": "确定删除选中的 {count} 条内容吗？删除后无法恢复。",
+    "deleteSelectedSuccess": "已删除 {count} 条",
     "syncSuccess": "同步完成",
     "syncDone": "同步完成，新增 {inserted} 条",
     "syncPartial": "同步完成，新增 {inserted} 条，{failed} 个失败",
@@ -385,6 +393,36 @@
     "minutesAgo": "{n} 分钟前",
     "hoursAgo": "{n} 小时前",
     "daysAgo": "{n} 天前"
+  },
+  "dailyReport": {
+    "title": "日报",
+    "schedule": "定时任务",
+    "taskName": "每日日报",
+    "cronLabel": "触发时刻（cron 表达式）",
+    "enabled": "启用",
+    "save": "保存",
+    "trigger": "立即生成",
+    "generating": "生成中...",
+    "needSaveFirst": "尚未保存任务，请先保存",
+    "saved": "定时任务已保存",
+    "triggered": "日报已生成",
+    "triggerStarted": "已开始生成日报",
+    "triggerFailed": "日报生成失败",
+    "history": "历史视频",
+    "noVideos": "暂无日报记录，点击\"立即生成\"开始",
+    "view": "查看",
+    "openInNewTab": "新窗口打开",
+    "stage": {
+      "sync": "抓取中",
+      "extract": "提炼中",
+      "tts": "配音中",
+      "render": "渲染中"
+    },
+    "status": {
+      "running": "生成中",
+      "success": "成功",
+      "failed": "失败"
+    }
   },
   "error": {
     "title": "页面出现异常",

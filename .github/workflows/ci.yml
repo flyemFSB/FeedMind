@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# PR 反复提交时取消上一个还在跑的 job，避免排队浪费
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      # pnpm v11 用 pnpm/setup（pnpm/action-setup 的继任者）；pnpm 版本自动取自 packageManager 字段
+      - name: 安装 pnpm 与 Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      # CI 下 pnpm 自动启用 frozen-lockfile，锁文件与 package.json 不一致会失败
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      # 共享包是 TS 源码，测试与 typecheck 经 workspace 解析 dist 产物，必须先构建
+      - name: 构建共享包
+        run: pnpm build:packages
+
+      - name: 类型检查
+        run: pnpm typecheck
+
+      - name: 代码检查
+        run: pnpm lint
+
+      - name: 测试
+        run: pnpm test

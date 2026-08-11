@@ -70,6 +70,14 @@ export async function markFeedRead(id: string): Promise<void> {
   await apiFetch<{ action: string }>(backendApiPath(`/feeds/${id}/read`), { method: "POST" });
 }
 
+export async function deleteFeeds(ids: string[]): Promise<void> {
+  await apiFetch(backendApiPath("/feeds"), {
+    method: "DELETE",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+}
+
 // ─── RSS 订阅源 ─────────────────────────────────────────────────
 
 export async function listRssSources(): Promise<RssSource[]> {

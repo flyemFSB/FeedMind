@@ -24,7 +24,8 @@ async function keepaliveWeread(): Promise<void> {
   const cookies = joinCookies(rows);
   const result = await refreshWereadCookies(cookies);
   if (result.valid && result.cookies) {
-    await replacePlatformCookies("weread", result.cookies);
+    // 保活刷新即已确认登录态有效，valid 落 true，避免下轮校验前被读成"未知"
+    await replacePlatformCookies("weread", result.cookies, true);
     logger.info("微信读书 Cookie 保活刷新完成");
   } else {
     await checkPlatformCookie("weread");

@@ -1,5 +1,5 @@
 import { AgentBrowser } from "@mastra/agent-browser";
-import { assertElectronCdp } from "@feedmind/crawler-core";
+import { assertElectronCdp, ensureMarkedWindow } from "@feedmind/crawler-core";
 import { buildSystemPrompt } from "../../prompts/system.js";
 import type { SubagentTemplate } from "../../tools/task.js";
 
@@ -25,16 +25,27 @@ const AGENT_MARKER = "feedmind-agent";
  */
 async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
   const manager = await instance.getManagerForThread();
-  const tabs = await manager.listTabs();
-  const idx = tabs.findIndex((t) => t.url.includes(AGENT_MARKER));
-  if (idx < 0) {
-    throw new Error(
-      `CDP 未发现 Agent 浏览器窗口（标记 ${AGENT_MARKER}），请确认 FeedMind 桌面应用已启动`,
-    );
+  // 使用信号：每次会话都刷新 agent 窗口空闲计时（窗口不存在则惰性补建），
+  // 保证长会话期间不会被空闲超时误销毁
+  await ensureMarkedWindow(AGENT_MARKER);
+  // 惰性补建：第一轮选不到 agent 窗口时请求创建后重试（target 注册需留出时间）
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const tabs = await manager.listTabs();
+    const idx = tabs.findIndex((t) => t.url.includes(AGENT_MARKER));
+    if (idx >= 0) {
+      if (!tabs[idx]!.active) {
+        await manager.switchTo(idx);
+      }
+      return;
+    }
+    if (attempt === 0) {
+      await ensureMarkedWindow(AGENT_MARKER);
+      await new Promise((r) => setTimeout(r, 300));
+    }
   }
-  if (!tabs[idx]!.active) {
-    await manager.switchTo(idx);
-  }
+  throw new Error(
+    `CDP 未发现 Agent 浏览器窗口（标记 ${AGENT_MARKER}），请确认 FeedMind 桌面应用已启动`,
+  );
 }
 
 function getBrowserInstance(): AgentBrowser {

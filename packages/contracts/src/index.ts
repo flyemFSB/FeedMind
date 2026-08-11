@@ -9,3 +9,4 @@ export * from "./tools/index.js";
 export * from "./wiki/index.js";
 export * from "./rss-sources/index.js";
 export * from "./feeds/index.js";
+export * from "./daily-report/index.js";

@@ -7,3 +7,4 @@ export * from "./remote-connection.js";
 export * from "./cookie-store.js";
 export * from "./rss-sources.js";
 export * from "./feeds.js";
+export * from "./daily-report.js";

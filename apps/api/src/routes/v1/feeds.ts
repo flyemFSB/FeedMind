@@ -1,6 +1,13 @@
 import { Hono } from "hono";
-import { jsonOk, jsonError } from "../../lib/http.js";
-import { listFeeds, markRead, markAllRead, syncAll } from "../../modules/feeds/service.js";
+import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
+import {
+  listFeeds,
+  markRead,
+  markAllRead,
+  syncAll,
+  deleteFeeds,
+} from "../../modules/feeds/service.js";
+import { feedDeleteSchema } from "@feedmind/contracts";
 import { logger } from "../../lib/logger.js";
 
 export const feedRoutes = new Hono();
@@ -31,6 +38,12 @@ feedRoutes.post("/feeds/read-all", async (c) => {
   if (!sourceId) return jsonError(c, 400, "MISSING_PARAM", "需要 source_id 参数");
   await markAllRead(sourceId);
   return jsonOk(c, { action: "done" });
+});
+
+feedRoutes.delete("/feeds", async (c) => {
+  const { ids } = await parseJson(c, feedDeleteSchema);
+  await deleteFeeds(ids);
+  return c.body(null, 204);
 });
 
 feedRoutes.post("/feeds/sync", async (c) => {

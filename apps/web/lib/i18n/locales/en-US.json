@@ -332,7 +332,15 @@
     "addSuccess": "Subscription added",
     "deleteSuccess": "Deleted",
     "deleteSource": "Delete Source",
-    "deleteSourceConfirm": "Delete this source? This cannot be undone.",
+    "deleteSourceConfirm": "Delete this source? All content fetched from it will also be deleted. This cannot be undone.",
+    "select": "Select",
+    "exitSelect": "Cancel selection",
+    "selectAll": "Select all",
+    "selectedCount": "{count} selected",
+    "deleteSelected": "Delete",
+    "deleteSelectedTitle": "Delete selected items",
+    "deleteSelectedConfirm": "Delete the {count} selected items? This cannot be undone.",
+    "deleteSelectedSuccess": "Deleted {count} items",
     "syncSuccess": "Sync complete",
     "syncDone": "Sync complete, {inserted} new items",
     "syncPartial": "Sync complete, {inserted} new, {failed} failed",
@@ -385,6 +393,36 @@
     "minutesAgo": "{n} min ago",
     "hoursAgo": "{n} hours ago",
     "daysAgo": "{n} days ago"
+  },
+  "dailyReport": {
+    "title": "Daily Report",
+    "schedule": "Scheduled Task",
+    "taskName": "Daily Brief",
+    "cronLabel": "Trigger time (cron expression)",
+    "enabled": "Enabled",
+    "save": "Save",
+    "trigger": "Generate now",
+    "generating": "Generating...",
+    "needSaveFirst": "Save the task first",
+    "saved": "Schedule saved",
+    "triggered": "Report generated",
+    "triggerStarted": "Report generation started",
+    "triggerFailed": "Report failed",
+    "history": "History",
+    "noVideos": "No reports yet. Click \"Generate now\" to start",
+    "view": "View",
+    "openInNewTab": "Open in new tab",
+    "stage": {
+      "sync": "Syncing",
+      "extract": "Extracting",
+      "tts": "Narrating",
+      "render": "Rendering"
+    },
+    "status": {
+      "running": "Generating",
+      "success": "Success",
+      "failed": "Failed"
+    }
   },
   "error": {
     "title": "Page Error",

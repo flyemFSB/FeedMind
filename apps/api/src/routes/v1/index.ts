@@ -10,6 +10,7 @@ import { remoteConnectionRoutes } from "./remote-connection.js";
 import { cookieCloudRoutes } from "./cookiecloud.js";
 import { rssSourceRoutes } from "./rss-sources.js";
 import { feedRoutes } from "./feeds.js";
+import { dailyReportRoutes } from "./daily-report.js";
 
 export const v1Router = new Hono();
 
@@ -24,3 +25,4 @@ v1Router.route("/", remoteConnectionRoutes);
 v1Router.route("/", cookieCloudRoutes);
 v1Router.route("/", rssSourceRoutes);
 v1Router.route("/", feedRoutes);
+v1Router.route("/", dailyReportRoutes);

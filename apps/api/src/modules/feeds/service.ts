@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, and, sql, desc } from "drizzle-orm";
+import { eq, and, inArray, sql, desc } from "drizzle-orm";
 import Parser from "rss-parser";
 import { db, feeds, rssSources, cookieStore } from "@feedmind/db";
 import type { FeedRow } from "@feedmind/db";
@@ -47,6 +47,11 @@ export async function markRead(feedId: string): Promise<void> {
 
 export async function markAllRead(sourceId: string): Promise<void> {
   await db.update(feeds).set({ isRead: 1 }).where(eq(feeds.sourceId, sourceId));
+}
+
+export async function deleteFeeds(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await db.delete(feeds).where(inArray(feeds.id, ids));
 }
 
 // ─── 同步 ─────────────────────────────────────────────────────

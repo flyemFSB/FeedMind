@@ -53,6 +53,24 @@ const SEED_TOOLS = [
     is_enabled: true,
     sort_order: 1,
   },
+  {
+    name: "fish_tts",
+    category: "utility",
+    display_name: "Fish 配音",
+    description:
+      "日报视频配音（Fish Audio 在线 TTS）。配置 API Key 后优先使用，否则回退 edge-tts。",
+    config_fields: JSON.stringify([
+      {
+        key: "apiKey",
+        type: "password",
+        label: "Fish Audio API Key",
+        description: "从 fish.audio 获取（免费模型 s2.1-pro-free）",
+        link: "https://fish.audio/",
+      },
+    ]),
+    is_enabled: true,
+    sort_order: 2,
+  },
 ];
 
 export async function initDatabase(): Promise<void> {

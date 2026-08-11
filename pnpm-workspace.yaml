@@ -19,6 +19,7 @@ allowBuilds:
   geckodriver: true
   tesseract.js: true
   protobufjs: true
+  msedge-tts: true
 
 hoist: false
 # drizzle-kit 从自身位置解析驱动与 ORM（二者均未声明为它的 dependencies），需 hoist 到根 node_modules

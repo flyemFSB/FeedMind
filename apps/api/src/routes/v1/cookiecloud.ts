@@ -62,13 +62,14 @@ cookieCloudRoutes.post("/cookiecloud/login/:platform", async (c) => {
       // 应用内登录捕获后再校验一次登录态，避免把过期/残留 Cookie 当成功写库；
       // null 表示该平台不支持校验（douyin），仍接受
       const check = await checkCookie(result.data, loginResult.cookies);
+      // check 为 null（douyin 不支持校验）时仍接受，valid 落 null
       if (check === false) {
         return jsonOk(c, {
           valid: false,
           reason: "登录后校验未通过，请确认账号已正确登录",
         });
       }
-      await replacePlatformCookies(result.data, loginResult.cookies);
+      await replacePlatformCookies(result.data, loginResult.cookies, check);
     }
     return jsonOk(c, loginResult);
   } catch (err) {

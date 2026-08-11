@@ -3,6 +3,7 @@ import {
   listFeeds,
   syncFeeds,
   markFeedRead,
+  deleteFeeds,
   listRssSources,
   addRssSource,
   removeRssSource,
@@ -54,6 +55,29 @@ export function useMarkFeedRead() {
       queryClient.setQueryData<FeedItem[]>(feedOptions.list().queryKey, (old) =>
         old?.map((f) => (f.id === feedId ? { ...f, isRead: 1 } : f)),
       );
+    },
+  });
+}
+
+export function useDeleteFeeds() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteFeeds,
+    // 乐观移除已删条目，确认后立即从界面消失并触发剩余卡片 layout 动画；
+    // 失败时用快照回滚，避免已删内容闪回
+    onMutate: async (ids) => {
+      const key = feedOptions.list().queryKey;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<FeedItem[]>(key);
+      queryClient.setQueryData<FeedItem[]>(key, (old) => old?.filter((f) => !ids.includes(f.id)));
+      return { previous };
+    },
+    onError: (_err, _ids, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(feedOptions.list().queryKey, ctx.previous);
+    },
+    onSettled: () => {
+      // 兜底与后端对齐（如并发同步新增的条目），后台静默刷新不闪骨架屏
+      void queryClient.invalidateQueries({ queryKey: feedOptions.list().queryKey });
     },
   });
 }
