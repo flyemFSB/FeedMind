@@ -23,20 +23,6 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [TanStackRouterVite({ autoCodeSplitting: true }), tailwindcss(), react()],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id: string) {
-          if (
-            id.includes("react-markdown") ||
-            id.includes("rehype-highlight") ||
-            id.includes("rehype-raw") ||
-            id.includes("remark-gfm")
-          ) {
-            return "markdown";
-          }
-        },
-      },
-    },
-  },
+  // 不再手写 manualChunks：rolldown/vite 8 的自动 code splitting 已按需拆分（mermaid/milkdown
+  // 等重库均为懒加载链），手写分组反而会合并出 2.9MB 大 chunk（曾把 mathjax-full 并进 markdown）。
 });

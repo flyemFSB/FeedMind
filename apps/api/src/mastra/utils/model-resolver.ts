@@ -1,4 +1,4 @@
-import { resolveModelClient } from "../agents/model-cache.js";
+import { resolveModelClient } from "../../modules/models/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
 import { cachedGet } from "./cached-get.js";
 import type { createOpenAICompatible } from "@ai-sdk/openai-compatible";

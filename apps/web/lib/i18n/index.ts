@@ -12,7 +12,7 @@ const SUPPORTED_LANGUAGES = ["zh-CN", "en-US"];
 
 void i18n
   .use(LanguageDetector) // 自动检测浏览器语言
-  .use(initReactI18next) // 绑定 React
+  .use(initReactI18next)
   .init({
     resources: {
       "zh-CN": { translation: zhCN },

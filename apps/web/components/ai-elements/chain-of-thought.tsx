@@ -1,16 +1,11 @@
 "use client";
 
-import { useControllableState } from "@radix-ui/react-use-controllable-state";
-import { Badge } from "@/components/ui/radix/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/radix/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
-import { createContext, memo, useContext, useMemo } from "react";
+import { createContext, memo, useCallback, useContext, useMemo, useState } from "react";
 
 interface ChainOfThoughtContextValue {
   isOpen: boolean;
@@ -42,11 +37,18 @@ export const ChainOfThought = memo(
     children,
     ...props
   }: ChainOfThoughtProps) => {
-    const [isOpen, setIsOpen] = useControllableState({
-      defaultProp: defaultOpen,
-      prop: open,
-      ...(onOpenChange !== undefined ? { onChange: onOpenChange } : {}),
-    });
+    // 受控/非受控桥接：外部传 open 时受控，否则内部 state。
+    // Header 与 Content 各自渲染独立 Collapsible Root，经 Context 共享同一状态。
+    const isControlled = open !== undefined;
+    const [internalOpen, setInternalOpen] = useState(defaultOpen);
+    const isOpen = isControlled ? open : internalOpen;
+    const setIsOpen = useCallback(
+      (next: boolean) => {
+        if (!isControlled) setInternalOpen(next);
+        onOpenChange?.(next);
+      },
+      [isControlled, onOpenChange],
+    );
 
     const chainOfThoughtContext = useMemo(() => ({ isOpen, setIsOpen }), [isOpen, setIsOpen]);
 
@@ -119,7 +121,8 @@ export const ChainOfThoughtContent = memo(
         <CollapsibleContent
           className={cn(
             "mt-2 space-y-3",
-            "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+            // base-ui Panel 状态属性：data-open / data-closed / data-starting-style / data-ending-style
+            "data-[open]:slide-in-from-top-2 text-popover-foreground outline-none data-[open]:animate-in data-[ending-style]:animate-out data-[ending-style]:fade-out-0",
             className,
           )}
           {...props}

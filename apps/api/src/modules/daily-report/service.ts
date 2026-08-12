@@ -9,7 +9,7 @@ import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { resolveDataDir } from "../../lib/data-dir.js";
 import { syncAll } from "../feeds/service.js";
-import { dailyReportWorkflow } from "../../mastra/workflows/daily-report.js";
+import { dailyReportWorkflow } from "../../mastra/workflows/daily-report/index.js";
 import { synthesizeNarration } from "./tts-service.js";
 import { renderReportVideo } from "./render-service.js";
 import { getMastra } from "./mastra-holder.js";

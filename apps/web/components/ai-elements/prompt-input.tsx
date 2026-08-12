@@ -5,8 +5,8 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-} from "@/components/ui/radix/input-group";
-import { Spinner } from "@/components/ui/radix/spinner";
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
 import { CornerDownLeftIcon, SquareIcon, XIcon } from "lucide-react";
@@ -533,12 +533,13 @@ export const PromptInputSubmit = ({
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
+      // base-ui Button 事件为 BaseUIEvent 包装（含 preventBaseUIHandler），原生 MouseEvent 兼容
       if (isGenerating && onStop) {
         e.preventDefault();
         onStop();
         return;
       }
-      onClick?.(e);
+      onClick?.(e as Parameters<NonNullable<typeof onClick>>[0]);
     },
     [isGenerating, onStop, onClick],
   );

@@ -27,13 +27,11 @@ crawlerRoutes.get("/crawler/weread/mps", async (c) => {
   return jsonOk(c, data);
 });
 
-// 列出 B站当前登录用户的收藏夹
 crawlerRoutes.get("/crawler/bili/favs", async (c) => {
   const data = await listBiliFavs();
   return jsonOk(c, data);
 });
 
-// 列出知乎当前登录用户的收藏夹
 crawlerRoutes.get("/crawler/zh/collections", async (c) => {
   const data = await listZhCollections();
   return jsonOk(c, data);

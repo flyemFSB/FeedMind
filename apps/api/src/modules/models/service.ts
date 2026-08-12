@@ -10,7 +10,7 @@ import type {
 import { db, model, type ModelRow, type ModelInsert } from "@feedmind/db";
 import { decryptValue, encryptValue } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
-import { clearModelClientCache } from "../../mastra/agents/model-cache.js";
+import { clearModelClientCache } from "./model-cache.js";
 
 function toModelRead(row: ModelRow): ModelRead {
   return {

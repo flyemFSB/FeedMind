@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
-import { dailyReportWorkflow } from "./daily-report.js";
+import { dailyReportWorkflow } from "./daily-report/index.js";
 
 const RUN_INIT = { runId: "test-run", scheduleId: "daily-video", feeds: [] };
 

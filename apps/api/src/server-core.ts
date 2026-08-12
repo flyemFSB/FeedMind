@@ -4,7 +4,7 @@ import path from "node:path";
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
 import { MastraServer } from "@mastra/hono";
-import { initDatabase } from "@feedmind/db";
+import { initDatabase, initDbPragmas } from "@feedmind/db";
 import { createApp } from "./app.js";
 import { apiEnv, validateApiRuntime } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
@@ -25,6 +25,8 @@ export interface StartApiOptions {
 export async function startApi(options: StartApiOptions = {}): Promise<ServerType> {
   validateApiRuntime();
 
+  // 先切 WAL/同步级别再建表写种子：所有后续 DB 访问都走优化后的连接参数
+  await initDbPragmas();
   await initDatabase();
 
   if (apiEnv.DISABLE_INGEST_WORKER !== "1") {

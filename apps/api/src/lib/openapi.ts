@@ -53,7 +53,6 @@ const healthRoute = createRoute({
 
 export const openapiApp = new OpenAPIHono();
 
-// 注册已文档化的路由
 const healthHandler: RouteHandler<typeof healthRoute> = async (c) => {
   try {
     const result = await getHealth();

@@ -14,7 +14,8 @@ export const feedRoutes = new Hono();
 
 feedRoutes.get("/feeds", async (c) => {
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit")) || 50));
+  // 上限 5000：前端虚拟化一次性拉全量（无分页 UI），上限过小会截掉 pubDate 较旧的来源条目
+  const limit = Math.min(5000, Math.max(1, Number(c.req.query("limit")) || 50));
   const sourceId = c.req.query("source_id");
 
   const { data, total } = await listFeeds({

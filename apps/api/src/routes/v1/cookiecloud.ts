@@ -15,13 +15,11 @@ import { getLoginHandler } from "../../modules/cookiecloud/bridge.js";
 // Cookie 管理路由（历史前缀保留 cookiecloud；CookieCloud 扩展同步已移除）
 export const cookieCloudRoutes = new Hono();
 
-// 获取所有平台的明文 cookie
 cookieCloudRoutes.get("/cookiecloud/cookies", async (c) => {
   const cookies = await getAllCookies();
   return jsonOk(c, cookies);
 });
 
-// 获取指定平台的明文 cookie
 cookieCloudRoutes.get("/cookiecloud/cookies/:platform", async (c) => {
   const platformParam = c.req.param("platform");
   const result = PlatformId.safeParse(platformParam);

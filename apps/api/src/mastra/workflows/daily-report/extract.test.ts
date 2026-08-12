@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExtractFeed } from "@feedmind/contracts";
-import { buildExtractItems } from "./extract-service.js";
+import { buildExtractItems } from "./extract.js";
 
 const feed: ExtractFeed = {
   title: "标题A",

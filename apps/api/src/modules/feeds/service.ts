@@ -7,6 +7,7 @@ import { getRouteHandler } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { joinCookies } from "../cookiecloud/service.js";
+import { shouldBackfillTitle } from "../rss-sources/service.js";
 
 export async function listFeeds(params: {
   source_id?: string;
@@ -81,7 +82,10 @@ const rssParser = new Parser({
   customFields: { item: [["media:content", "media"]] },
 });
 
-async function parseRssXml(xml: string): Promise<{ title?: string; items: ParsedRssItem[] }> {
+// 导出供测试直接验证解析/兜底逻辑
+export async function parseRssXml(
+  xml: string,
+): Promise<{ title?: string; items: ParsedRssItem[] }> {
   const feed = await rssParser.parseString(xml);
   const items: ParsedRssItem[] = [];
   for (const item of feed.items) {
@@ -90,7 +94,10 @@ async function parseRssXml(xml: string): Promise<{ title?: string; items: Parsed
     const image = extractItemImage(item);
 
     items.push({
-      title: item.title?.trim() ?? "(无标题)",
+      // title 可能是空串（上游 RSS 常见 bug），?? 兜不住，需显式回退；
+      // 回退顺序：link 路径最后一段 slug（如 langchain 空标题条的 slug 即完整标题）→ 占位符
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- 空串也算缺失，必须用 || 而非 ??
+      title: item.title?.trim() || fallbackTitle(item.link ?? "") || "(无标题)",
       description: item.content ?? item.summary ?? "",
       link: item.link ?? "",
       guid,
@@ -101,6 +108,16 @@ async function parseRssXml(xml: string): Promise<{ title?: string; items: Parsed
     });
   }
   return { items, ...(feed.title !== undefined ? { title: feed.title } : {}) };
+}
+
+// 空标题兜底：取 link 路径最后一段 slug（如 "building-monday-com-sidekick"），连字符转空格；
+// 中文/无 slug 时返回空串，由调用方继续兜底占位符
+function fallbackTitle(link: string): string {
+  const seg = link.split("?")[0]?.split("/").filter(Boolean).pop();
+  if (!seg) return "";
+  return decodeURIComponent(seg)
+    .replace(/\.(html?|aspx?|php)$/i, "")
+    .replace(/[-_]+/g, " ");
 }
 
 // 提取 item 缩略图：优先 media:content 的 url，其次图片类型的 enclosure
@@ -148,14 +165,37 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
 // 不做全量抓取（避免一次灌入 RSS 全部历史），也不删除本地已有记录。
 const MAX_ITEMS_PER_SOURCE = 10;
 
+// 排序 → 排除已入库 guid → 按上限截断。
+// 顺序很重要：必须先去重再截断——若先截断，上游条目数超过上限时，
+// 最旧的未入库条目会被已存在条目挤掉名额，永远无法插入（docs.langchain.com changelog 即此类：
+// 11 条中 4 条 pubDate 相同，被截的第 11 条永远进不了 top 10）。
+export function pickFreshItems(
+  items: ParsedRssItem[],
+  seenGuids: Iterable<string>,
+  maxItems: number,
+): ParsedRssItem[] {
+  const seen = new Set(seenGuids);
+  return items
+    .toSorted((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""))
+    .filter((item) => !seen.has(item.guid))
+    .slice(0, maxItems);
+}
+
 async function upsertFeedsLimited(
   sourceId: string,
   items: ParsedRssItem[],
   maxItems: number,
 ): Promise<number> {
-  const sorted = items.toSorted((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""));
-  const top = sorted.slice(0, maxItems);
-  return upsertFeeds(sourceId, top);
+  const seenRows = await db
+    .select({ guid: feeds.guid })
+    .from(feeds)
+    .where(eq(feeds.sourceId, sourceId));
+  const fresh = pickFreshItems(
+    items,
+    seenRows.map((r) => r.guid),
+    maxItems,
+  );
+  return upsertFeeds(sourceId, fresh);
 }
 
 const ROUTE_TO_PLATFORM: Record<string, string> = {
@@ -185,14 +225,21 @@ export async function syncAll(): Promise<SyncResult> {
   };
 
   for (const source of sources) {
+    // 回填 channel.title 后合并进末尾的 lastSyncedAt 更新，避免两次写库
+    let backfillTitle: string | undefined;
     try {
       if (source.type === "rss") {
         const res = await fetch(source.url, { signal: AbortSignal.timeout(30_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const xml = await res.text();
-        const { items } = await parseRssXml(xml);
+        const { title: feedTitle, items } = await parseRssXml(xml);
         const n = await upsertFeedsLimited(source.id, items, MAX_ITEMS_PER_SOURCE);
         result.inserted += n;
+        // 站点自报名称（channel.title，如 "LangChain Blog"）比创建时的域名兜底友好；
+        // 仅当 title 仍是域名兜底形态时回填（用户手动改过的名不覆盖）
+        if (feedTitle?.trim() && shouldBackfillTitle(source.title, source.url)) {
+          backfillTitle = feedTitle.trim();
+        }
       } else if (source.type === "social" && source.route) {
         const handler = getRouteHandler(source.route);
         if (!handler) throw new Error(`路由 ${source.route} 不存在`);
@@ -236,7 +283,11 @@ export async function syncAll(): Promise<SyncResult> {
       const now = new Date().toISOString();
       await db
         .update(rssSources)
-        .set({ lastSyncedAt: now, updatedAt: now })
+        .set({
+          lastSyncedAt: now,
+          updatedAt: now,
+          ...(backfillTitle ? { title: backfillTitle } : {}),
+        })
         .where(eq(rssSources.id, source.id));
 
       result.succeeded++;

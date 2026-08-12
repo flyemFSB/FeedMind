@@ -22,9 +22,9 @@ import {
   Tag,
   Tags,
 } from "lucide-react";
-import { Streamdown } from "streamdown";
+import { Streamdown, type MathPlugin } from "streamdown";
 import { cjk } from "@streamdown/cjk";
-import { mathjaxPlugin } from "@/lib/math-mathjax";
+import { loadMathPlugin } from "@/lib/math-mathjax";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,18 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [backlinks, setBacklinks] = useState<WikiBacklink[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // math 渲染器（mathjax-full ~2MB）异步加载：wiki 页面含公式才下载，不进首屏
+  const [mathPlugin, setMathPlugin] = useState<MathPlugin | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void loadMathPlugin().then((p) => {
+      if (!cancelled) setMathPlugin(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const loadIdRef = useRef(0);
 
   const loadPage = useCallback(async () => {
@@ -131,7 +143,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
           <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
             <Streamdown
               mode="static"
-              plugins={{ cjk, math: mathjaxPlugin }}
+              plugins={{ cjk, ...(mathPlugin ? { math: mathPlugin } : {}) }}
               components={readerComponents}
             >
               {markdown}

@@ -1,7 +1,7 @@
 import type { ExtractFeed, ExtractItem } from "@feedmind/contracts";
-import { logger } from "../../lib/logger.js";
-import { extractAgent } from "../../mastra/agents/extract-agent.js";
-import { fetchArticleText } from "../../mastra/tools/web-fetch.js";
+import { logger } from "../../../lib/logger.js";
+import { extractAgent } from "../../agents/extract-agent.js";
+import { fetchArticleText } from "../../tools/web-fetch.js";
 
 // 提炼步正文上限：仅作防病态超长页的护栏，不设限长文会无界膨胀。
 // 依据（2026-08 实测 8 条 feeds 全文）：中位 ~9.6k、最大 13.2k；weixin 源 description 最大 ~20k。

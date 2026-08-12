@@ -39,6 +39,24 @@ app.commandLine.appendSwitch("remote-allow-origins", "*");
 // 移除默认应用菜单（含 Edit/View 快捷键），官方 performance 文档建议在 ready 前调用
 Menu.setApplicationMenu(null);
 
+// 低内存模式：settings.json 置 lowMemoryMode: true 或环境变量 FEEDMIND_LOW_MEMORY=1 开启。
+// 关闭硬件加速可省 GPU 进程内存，代价是 UI 滚动/动画流畅度，故默认关闭、按需手动开。
+// 必须在 ready 前调用，故提前到模块顶层（prepareEnv 太晚）。
+function readLowMemoryMode(): boolean {
+  if (process.env["FEEDMIND_LOW_MEMORY"] === "1") return true;
+  try {
+    const settingsPath = path.join(app.getPath("userData"), "settings.json");
+    if (!existsSync(settingsPath)) return false;
+    return (
+      (JSON.parse(readFileSync(settingsPath, "utf8")) as { lowMemoryMode?: boolean })
+        .lowMemoryMode === true
+    );
+  } catch {
+    return false;
+  }
+}
+if (readLowMemoryMode()) app.disableHardwareAcceleration();
+
 /**
  * 在 API 模块加载前备好关键环境变量。
  * 主进程产物经 tsc 编译到 dist/，API 内部基于 import.meta.url 推算的"项目根"会失效，
@@ -170,7 +188,66 @@ async function destroyMarkedWindow(marker: string): Promise<void> {
   if (entry.timer) clearTimeout(entry.timer);
   if (!entry.win.isDestroyed()) entry.win.close();
   markedWindows.delete(marker);
-  await session.defaultSession.clearStorageData({ storages: ["serviceworkers"] }).catch(() => {});
+  // 清掉会话里浏览站点注册的 SW 与各类站点存储：UI 不用 localStorage（无本地存储可误伤），
+  // 否则 SW 渲染进程在窗口销毁后仍常驻内存（实测小红书 SW 占 ~150MB working set），
+  // 站点 CacheStorage/IndexedDB 也会留盘。HTTP cache 一并清，任务后内存回到基线。
+  await session.defaultSession
+    .clearStorageData({
+      storages: ["serviceworkers", "cachestorage", "indexdb", "localstorage"],
+    })
+    .catch(() => {});
+  await session.defaultSession.clearCache().catch(() => {});
+}
+
+// 长跑内存监控：每 5 分钟采样主进程堆占用，连续 3 次（15 分钟）上升即告警疑似泄漏。
+// 用 heapUsed 而非 RSS 判断——RSS 会随磁盘缓存/原生库波动，堆持续增长才是泄漏信号。
+// 诊断用途只打日志，不做主动 GC：V8 自动回收优于 --expose-gc 手动干预。
+const MEMORY_SAMPLE_MS = 5 * 60 * 1000;
+const MEMORY_RISING_WARN_STREAK = 3;
+// 标记窗口渲染进程 working set 上限：正常页面 100-300MB，重页面（视频站）可能更高，
+// 超过 1.5GB 说明渲染进程失控，强制销毁窗口释放，下次使用按需重建。
+const MARKED_WINDOW_MEMORY_LIMIT_MB = 1536;
+function startMemoryMonitor(): void {
+  let lastHeap = process.memoryUsage().heapUsed;
+  let risingStreak = 0;
+  setInterval(() => {
+    const { rss, heapUsed } = process.memoryUsage();
+    risingStreak = heapUsed > lastHeap ? risingStreak + 1 : 0;
+    lastHeap = heapUsed;
+    // eslint-disable-next-line no-console -- 诊断日志，desktop 主进程无 pino 基础设施
+    console.log(
+      JSON.stringify({
+        level: risingStreak >= MEMORY_RISING_WARN_STREAK ? "warn" : "info",
+        event: "memory-sample",
+        rssMB: Math.round(rss / 1024 / 1024),
+        heapMB: Math.round(heapUsed / 1024 / 1024),
+        risingStreak,
+      }),
+    );
+    void checkMarkedWindowMemory();
+  }, MEMORY_SAMPLE_MS);
+}
+
+// 标记窗口渲染进程内存兜底：超过上限则销毁窗口（下次 ensureMarkedWindow 重建）。
+// 仅对 agent 窗口生效——crawler 窗口由任务生命周期管理，任务中途销毁会断爬取。
+async function checkMarkedWindowMemory(): Promise<void> {
+  const entry = markedWindows.get(AGENT_MARKER);
+  if (!entry || entry.win.isDestroyed()) return;
+  const metrics = app.getAppMetrics();
+  const pid = entry.win.webContents.getOSProcessId();
+  const proc = metrics.find((m) => m.pid === pid);
+  if (proc && proc.memory.workingSetSize > MARKED_WINDOW_MEMORY_LIMIT_MB * 1024 * 1024) {
+    // eslint-disable-next-line no-console -- 诊断日志，desktop 主进程无 pino 基础设施
+    console.log(
+      JSON.stringify({
+        level: "warn",
+        event: "marked-window-memory-limit",
+        marker: AGENT_MARKER,
+        workingSetMB: Math.round(proc.memory.workingSetSize / 1024 / 1024),
+      }),
+    );
+    await destroyMarkedWindow(AGENT_MARKER);
+  }
 }
 
 function createMainWindow(): BrowserWindow {
@@ -361,6 +438,9 @@ async function bootstrap(): Promise<void> {
 
   // 保活调度（weread 30 分钟刷 skey）首次触发时经 createBrowser 惰性补建爬虫窗口
   startKeepAlive();
+
+  // 长跑内存监控：启动后开始采样，日志里可观察堆趋势，连续上升会打 warn
+  startMemoryMonitor();
 }
 
 // macOS 惯例：关闭全部窗口后应用驻留，点 Dock 重建窗口

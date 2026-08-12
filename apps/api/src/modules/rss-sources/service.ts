@@ -14,15 +14,27 @@ export async function getSource(id: string): Promise<RssSourceRow> {
   return row;
 }
 
+// www.langchain.com → langchain.com：hostname 只是兜底标题，去掉无信息的 www 前缀
+export function stripWww(hostname: string): string {
+  return hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+}
+
+// 当前 title 是否仍是创建时的域名兜底形态（含旧数据可能带 www 前缀）；
+// 是则允许用 RSS channel.title 回填（见 feeds/syncAll），用户手动改过的名不覆盖
+export function shouldBackfillTitle(title: string, url: string): boolean {
+  const host = new URL(url).hostname;
+  return title === host || title === stripWww(host);
+}
+
 export async function createSource(input: RssSourceCreate): Promise<RssSourceRow> {
   const { randomUUID } = await import("node:crypto");
   const id = randomUUID();
   const now = new Date().toISOString();
-  // rss 来源用域名作标题；social 用前端传来的收藏夹/公众号名，缺失时回退平台名
+  // rss 来源用域名作标题（首次同步后回填为 RSS 自报站点名，见 feeds/syncAll）；social 用前端传来的收藏夹/公众号名，缺失时回退平台名
   // （前端传 title 时均为非空，空串场景不会发生，故用 ?? 保留 nullish 语义）
   const title =
     input.type === "rss"
-      ? new URL(input.url).hostname
+      ? stripWww(new URL(input.url).hostname)
       : (input.title?.trim() ?? input.platform ?? "未命名来源");
 
   await db.insert(rssSources).values({

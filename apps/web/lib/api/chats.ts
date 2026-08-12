@@ -27,9 +27,22 @@ export async function listChatSessions(): Promise<ChatSessionListItem[]> {
   return apiFetch<ChatSessionListItem[]>(backendApiPath("/chats"));
 }
 
-/** 读取会话消息 */
-export async function getChatSessionMessages(threadId: string): Promise<UIMessage[]> {
-  return apiFetch<UIMessage[]>(backendApiPath(`/chats/${encodeURIComponent(threadId)}/messages`));
+/** 读取会话消息（分页：page=0 为最新一页，递增向前翻更早的消息） */
+export interface ChatMessagesPage {
+  messages: UIMessage[];
+  total: number;
+  page: number;
+  hasMore: boolean;
+}
+
+export async function getChatSessionMessages(
+  threadId: string,
+  page = 0,
+  limit = 30,
+): Promise<ChatMessagesPage> {
+  return apiFetch<ChatMessagesPage>(
+    backendApiPath(`/chats/${encodeURIComponent(threadId)}/messages?page=${page}&limit=${limit}`),
+  );
 }
 
 /** 创建新会话 */

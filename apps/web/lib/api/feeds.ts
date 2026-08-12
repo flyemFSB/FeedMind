@@ -53,7 +53,8 @@ export interface FeedSyncResult {
 
 // ─── Feeds ──────────────────────────────────────────────────────
 
-const FEED_PAGE_SIZE = 100;
+// 列表一次性拉全量（虚拟化渲染，无分页 UI）：上限需容纳全部订阅源条目，否则沉底来源被截断看不到
+const FEED_PAGE_SIZE = 5000;
 
 export async function listFeeds(): Promise<FeedItem[]> {
   const res = await apiFetch<{ data: FeedItem[] }>(

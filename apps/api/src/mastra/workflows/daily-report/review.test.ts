@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
-import { parseReview, reviewAndFix } from "./review-service.js";
+import { parseReview, reviewAndFix } from "./review.js";
 
 const items: ExtractItem[] = [
   { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },

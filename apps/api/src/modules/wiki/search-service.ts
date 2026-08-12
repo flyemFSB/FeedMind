@@ -1,5 +1,6 @@
-import fs from "node:fs";
 import path from "node:path";
+import { existsSync } from "node:fs";
+import { readFile, stat } from "node:fs/promises";
 import { extractString, parseFrontmatter, searchPages } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
 import { client } from "@feedmind/db";
@@ -12,9 +13,14 @@ interface SearchablePage {
   content: string;
 }
 
-// 内存缓存：spaceId -> cached pages（用于 FTS5 不适用的短查询回退）
-const pageCache = new Map<string, { pages: SearchablePage[]; timestamp: number }>();
-const CACHE_DURATION = 5000; // 5 秒缓存
+// 目录指纹计算（全目录 stat）开销随文件数增长，且每次搜索都跑。
+// 节流：5 秒内复用上次指纹；指纹变化才触发页面重读 / FTS 重建。
+// 单机单进程缓存，多进程同时改 wiki 时最多延迟 5 秒感知。
+const FP_TTL_MS = 5000;
+const fpCache = new Map<string, { fingerprint: string; checkedAt: number }>();
+
+// 页面内容缓存：按指纹失效（取代固定 TTL，文件没动就不重复读盘）
+const pageCache = new Map<string, { pages: SearchablePage[]; fingerprint: string }>();
 
 // ─── SQLite FTS5 索引 ────────────────────────────────────────────
 // 使用 trigram 分词器：支持 CJK 子串匹配（无需分词，3 字符滑动窗口）
@@ -27,35 +33,41 @@ async function ensureFtsTables(): Promise<void> {
 
 // 目录指纹：.md 文件数 + 最大 mtime。本地文件型 wiki 无法自动感知改动，
 // 用指纹对比判断索引是否需要重建（直接编辑文件或 API 操作都会改变 mtime）。
-function computeFingerprint(spaceId: string): string {
+// stat 异步化 + 节流缓存：避免每次搜索同步阻塞事件循环扫全目录。
+async function computeFingerprint(spaceId: string): Promise<string> {
+  const now = Date.now();
+  const cached = fpCache.get(spaceId);
+  if (cached && now - cached.checkedAt < FP_TTL_MS) return cached.fingerprint;
+
   const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
-  if (!fs.existsSync(wikiDir)) return "";
-  let count = 0;
-  let maxMtime = 0;
+  if (!existsSync(wikiDir)) return "";
+
   const mdFiles = readDirRecursive(
     wikiDir,
     (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
   );
-  for (const fullPath of mdFiles) {
+  const stats = await Promise.all(mdFiles.map((f) => stat(f).catch(() => null)));
+  let count = 0;
+  let maxMtime = 0;
+  for (const s of stats) {
+    if (!s) continue;
     count++;
-    try {
-      maxMtime = Math.max(maxMtime, fs.statSync(fullPath).mtimeMs);
-    } catch {
-      /* 忽略不可读文件 */
-    }
+    maxMtime = Math.max(maxMtime, s.mtimeMs);
   }
-  return `${count}:${maxMtime}`;
+  const fingerprint = `${count}:${maxMtime}`;
+  fpCache.set(spaceId, { fingerprint, checkedAt: now });
+  return fingerprint;
 }
 
 async function rebuildSpaceIndex(spaceId: string): Promise<void> {
-  const fingerprint = computeFingerprint(spaceId);
+  const fingerprint = await computeFingerprint(spaceId);
   const meta = await client.execute({
     sql: "SELECT fingerprint FROM wiki_fts_meta WHERE space_id = ?",
     args: [spaceId],
   });
   if (meta.rows[0]?.["fingerprint"] === fingerprint) return;
 
-  const pages = loadSearchablePages(spaceId);
+  const pages = await loadSearchablePages(spaceId);
   const statements = [
     { sql: "DELETE FROM wiki_fts WHERE space_id = ?", args: [spaceId] },
     ...pages.map((p) => ({
@@ -70,46 +82,47 @@ async function rebuildSpaceIndex(spaceId: string): Promise<void> {
   });
 }
 
-function loadSearchablePages(spaceId: string): SearchablePage[] {
+// 读取页面内容异步化（Promise.all 并行），避免大 wiki 全量同步读盘阻塞事件循环
+async function loadSearchablePages(spaceId: string): Promise<SearchablePage[]> {
   const wikiDir = path.join(getSpaceDir(spaceId), "wiki");
-  if (!fs.existsSync(wikiDir)) return [];
+  if (!existsSync(wikiDir)) return [];
 
-  const pages: SearchablePage[] = [];
   const mdFiles = readDirRecursive(
     wikiDir,
     (_f, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
   );
-  for (const fullPath of mdFiles) {
-    try {
-      const content = fs.readFileSync(fullPath, "utf-8");
-      const { frontmatter } = parseFrontmatter(content);
-      const title =
-        extractString(frontmatter, "title") ?? path.basename(fullPath).replace(/\.md$/i, "");
-      const relPath = path.relative(wikiDir, fullPath).replace(/\\/g, "/");
-      pages.push({ path: relPath, title, content });
-    } catch {
-      /* 不可读文件不进索引，缺失页面由 lint 单独报告 */
-    }
-  }
+  const loaded = await Promise.all(
+    mdFiles.map(async (fullPath) => {
+      try {
+        const content = await readFile(fullPath, "utf-8");
+        const { frontmatter } = parseFrontmatter(content);
+        const title =
+          extractString(frontmatter, "title") ?? path.basename(fullPath).replace(/\.md$/i, "");
+        const relPath = path.relative(wikiDir, fullPath).replace(/\\/g, "/");
+        return { path: relPath, title, content } as SearchablePage;
+      } catch {
+        return null; // 不可读文件不进索引，缺失页面由 lint 单独报告
+      }
+    }),
+  );
+  return loaded.filter((p): p is SearchablePage => p !== null);
+}
+
+async function cachedPages(spaceId: string): Promise<SearchablePage[]> {
+  const fingerprint = await computeFingerprint(spaceId);
+  const entry = pageCache.get(spaceId);
+  if (entry?.fingerprint === fingerprint) return entry.pages;
+  const pages = await loadSearchablePages(spaceId);
+  pageCache.set(spaceId, { pages, fingerprint });
   return pages;
 }
 
-function cachedPages(spaceId: string): SearchablePage[] {
-  const cacheEntry = pageCache.get(spaceId);
-  if (cacheEntry && Date.now() - cacheEntry.timestamp < CACHE_DURATION) {
-    return cacheEntry.pages;
-  }
-  const pages = loadSearchablePages(spaceId);
-  pageCache.set(spaceId, { pages, timestamp: Date.now() });
-  return pages;
-}
-
-function keywordSearch(
+async function keywordSearch(
   spaceId: string,
   query: string,
   topK: number,
-): { results: WikiSearchResult[]; mode: string; totalHits: number } {
-  const results = searchPages(cachedPages(spaceId), query, topK);
+): Promise<{ results: WikiSearchResult[]; mode: string; totalHits: number }> {
+  const results = searchPages(await cachedPages(spaceId), query, topK);
   return { results, mode: "keyword", totalHits: results.length };
 }
 

@@ -28,11 +28,7 @@ import {
   ChainOfThoughtSearchResults,
   ChainOfThoughtSearchResult,
 } from "@/components/ai-elements/chain-of-thought";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/radix/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/sources";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useChatContext } from "@/lib/chat/chat-context";
@@ -381,7 +377,7 @@ function ReasoningChainStep({ text, isActive }: { text: string; isActive: boolea
 
 /**
  * 思考链中的工具调用步骤：
- * - 独立可展开/收起（radix Collapsible），默认收起
+ * - 独立可展开/收起（base-ui Collapsible），默认收起
  * - 状态用图标而非文字标记：流式转圈 / 成功绿勾 / 失败红叉
  * - 展开后高交互展示输入输出（复制 / 原始数据折叠）
  */
@@ -415,7 +411,7 @@ function ToolChainStep({
             <CheckCircle size={14} className="text-green-600" />
           )}
           {hasContent && (
-            <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform data-[state=open]:rotate-180" />
+            <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform data-[panel-open]:rotate-180" />
           )}
         </CollapsibleTrigger>
         {hasContent && (

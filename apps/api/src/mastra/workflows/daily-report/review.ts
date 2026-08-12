@@ -1,8 +1,8 @@
 import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
 import { z } from "zod";
-import { logger } from "../../lib/logger.js";
-import { reviewAgent } from "../../mastra/agents/review-agent.js";
-import { buildScript } from "./script-service.js";
+import { logger } from "../../../lib/logger.js";
+import { reviewAgent } from "../../agents/review-agent.js";
+import { buildScript } from "./script.js";
 
 // 审稿总尝试次数（含首次评估与重写）：初始 1 次 + 重试上限 2 次
 const MAX_ATTEMPTS = 3;

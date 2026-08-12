@@ -31,21 +31,19 @@ import {
   clearActiveFeedMindThreadId,
 } from "@/lib/api/chats";
 import { chatOptions } from "@/lib/hooks/use-chats";
+import { makeChatTitle, prependOlderPage } from "@/lib/chat/chat-utils";
 
 /** Mastra Chat 路由地址（通过 SSR proxy 转发到 API 服务） */
 const CHAT_API = "/api/chat/feedmind";
 
-const TITLE_MAX_LEN = 15;
-
-/** 按首条消息生成会话标题：折叠空白并截断 */
-function makeChatTitle(text: string): string {
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return "新会话";
-  return clean.length > TITLE_MAX_LEN ? `${clean.slice(0, TITLE_MAX_LEN)}…` : clean;
-}
-
 export interface ChatContextValue {
   messages: UIMessage[];
+  /** 更早的历史消息（分页加载，渲染时拼接在 messages 之前） */
+  olderMessages: UIMessage[];
+  /** 是否还有更早的消息可加载 */
+  hasOlder: boolean;
+  isLoadingOlder: boolean;
+  loadOlderMessages: () => Promise<void>;
   sendMessage: (data: { text: string }) => Promise<void>;
   status: ReturnType<typeof useChat>["status"];
   stop: () => Promise<void>;
@@ -69,6 +67,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // 每次进入系统默认新对话：不从 localStorage 恢复上次会话，避免首帧加载残留 threadId 导致空对话
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  // 分页：messages 只持有最新一页（useChat 管理），更早的消息拼在 olderMessages
+  const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const loadedPagesRef = useRef(0);
   const queryClient = useQueryClient();
 
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
@@ -126,13 +129,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // ── 消息加载（从 Memory API 读取历史） ──
+  // ── 消息加载（从 Memory API 读取历史，分页：page=0 为最新一页） ──
   const loadSessionMessages = useCallback(
     async (threadId: string) => {
       setIsLoadingHistory(true);
       try {
-        const loaded = await getChatSessionMessages(threadId);
-        setUiMessages(loaded);
+        const loaded = await getChatSessionMessages(threadId, 0);
+        setUiMessages(loaded.messages);
+        setOlderMessages([]);
+        setHasOlder(loaded.hasMore);
+        loadedPagesRef.current = 0;
       } catch (err) {
         console.error("[Chat] 加载历史消息失败:", err);
         if ((err as Error)?.message?.includes("不存在")) {
@@ -146,6 +152,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [setUiMessages],
   );
+
+  // ── 加载更早的历史消息（prepend 到 olderMessages） ──
+  const loadOlderMessages = useCallback(async () => {
+    const threadId = activeThreadIdRef.current;
+    if (!threadId || isLoadingOlder) return;
+    setIsLoadingOlder(true);
+    try {
+      const nextPage = loadedPagesRef.current + 1;
+      const loaded = await getChatSessionMessages(threadId, nextPage);
+      setOlderMessages((prev) => prependOlderPage(prev, loaded.messages));
+      setHasOlder(loaded.hasMore);
+      loadedPagesRef.current = nextPage;
+    } catch (err) {
+      console.error("[Chat] 加载更早消息失败:", err);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [isLoadingOlder]);
 
   // ── 确保会话存在（首次发消息时创建 chat_sessions 记录） ──
   const ensureSession = useCallback(async (): Promise<string> => {
@@ -203,6 +227,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
+    setOlderMessages([]);
+    setHasOlder(false);
+    loadedPagesRef.current = 0;
     // 新会话应清除上一条消息的错误状态，避免错误横幅残留
     clearError();
   }, [setUiMessages, clearError]);
@@ -212,12 +239,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
+    setOlderMessages([]);
+    setHasOlder(false);
+    loadedPagesRef.current = 0;
     clearError();
   }, [setUiMessages, clearError]);
 
   const value = useMemo<ChatContextValue>(
     () => ({
       messages,
+      olderMessages,
+      hasOlder,
+      isLoadingOlder,
+      loadOlderMessages,
       sendMessage,
       status,
       stop,
@@ -233,6 +267,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }),
     [
       messages,
+      olderMessages,
+      hasOlder,
+      isLoadingOlder,
+      loadOlderMessages,
       sendMessage,
       status,
       stop,

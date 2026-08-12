@@ -1,7 +1,7 @@
 import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
 import { dailyReportScriptSchema } from "@feedmind/contracts";
-import { logger } from "../../lib/logger.js";
-import { scriptAgent } from "../../mastra/agents/script-agent.js";
+import { logger } from "../../../lib/logger.js";
+import { scriptAgent } from "../../agents/script-agent.js";
 
 export interface ScriptDeps {
   /** 生成脚本 JSON 文本；默认走 scriptAgent（LLM 纯文本输出） */

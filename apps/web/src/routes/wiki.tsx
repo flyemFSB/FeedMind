@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowLeft, BookOpen, ChevronDown, Import, MessageCircle, Plus } from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
@@ -10,8 +10,12 @@ import { WikiImportHistory } from "@/components/wiki/wiki-import-history";
 import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
-import { WikiGraphView } from "@/components/wiki/wiki-graph-view";
 import { WikiLintView } from "@/components/wiki/wiki-lint-view";
+// 图谱视图（sigma WebGL 渲染，含 graphology/cytoscape 等重依赖 ~1.5MB）仅在用户切到
+// graph 视图时渲染，lazy 化避免进首屏加载链（wiki 路由 chunk 从 1.9MB 降到 ~400KB）
+const WikiGraphView = lazy(() =>
+  import("@/components/wiki/wiki-graph-view").then((m) => ({ default: m.WikiGraphView })),
+);
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { useWikiSpaces, wikiOptions } from "@/lib/hooks/use-wiki";
 import { resolveWikiLink } from "@/lib/api/wiki";
@@ -275,11 +279,19 @@ function MyWikiPage() {
                   />
                 )}
                 {activeView === "graph" && spaceId && (
-                  <WikiGraphView
-                    spaceId={spaceId}
-                    onPageSelect={handlePageSelect}
-                    onNavigate={handleConceptLinkClick}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="flex min-h-0 flex-1 items-center justify-center">
+                        <Skeleton className="size-8 rounded-full" />
+                      </div>
+                    }
+                  >
+                    <WikiGraphView
+                      spaceId={spaceId}
+                      onPageSelect={handlePageSelect}
+                      onNavigate={handleConceptLinkClick}
+                    />
+                  </Suspense>
                 )}
                 {activeView === "lint" && spaceId && (
                   <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />

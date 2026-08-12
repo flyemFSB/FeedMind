@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 
 interface MotionSpinnerProps {
@@ -10,21 +9,15 @@ interface MotionSpinnerProps {
   strokeWidth?: number;
 }
 
+// 纯 CSS 旋转（animate-spin）：与项目其他 spinner（ui/spinner、message-parts 等）保持一致。
+// 原 motion JS 动画在系统开启"减少动画"时退化为静态圆圈，loading 反馈消失——UX 缺陷
 export function MotionSpinner({ className, size = 16, strokeWidth = 2 }: MotionSpinnerProps) {
-  const shouldReduceMotion = useReducedMotion();
-
   return (
-    <motion.span
+    <Loader2
       aria-hidden="true"
-      className={cn("inline-flex shrink-0", className)}
-      animate={shouldReduceMotion ? { opacity: 0.65 } : { rotate: 360 }}
-      transition={
-        shouldReduceMotion
-          ? { duration: 0.12 }
-          : { duration: 0.9, ease: "linear", repeat: Infinity }
-      }
-    >
-      <Loader2 size={size} strokeWidth={strokeWidth} />
-    </motion.span>
+      className={cn("inline-block shrink-0 animate-spin", className)}
+      size={size}
+      strokeWidth={strokeWidth}
+    />
   );
 }

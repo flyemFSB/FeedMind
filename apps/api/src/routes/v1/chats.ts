@@ -1,11 +1,12 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { toAISdkV5Messages } from "@mastra/ai-sdk/ui";
 import { jsonOk, parseJson } from "../../lib/http.js";
+import { logger } from "../../lib/logger.js";
 import {
   createChatSession,
   deleteChatSession,
   getChatSession,
+  getChatSessionMessagesPage,
   listChatSessions,
   updateChatSessionTitle,
 } from "../../modules/chats/service.js";
@@ -32,18 +33,26 @@ chatRoutes.get("/chats/:sessionId", async (c) =>
   jsonOk(c, await getChatSession(c.req.param("sessionId"))),
 );
 
-/** 从 Memory 读取会话消息 */
+/** 读取会话消息（分页：page=0 为最新一页，递增向前翻更早的消息） */
 chatRoutes.get("/chats/:sessionId/messages", async (c) => {
   const threadId = c.req.param("sessionId");
-  const memory = await feedmindAgent.getMemory();
-  if (!memory) return jsonOk(c, []);
-  const { messages } = await memory.recall({ threadId, perPage: false });
-  return jsonOk(c, toAISdkV5Messages(messages));
+  const page = Math.max(0, Number(c.req.query("page") ?? 0));
+  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 30)));
+  return jsonOk(c, await getChatSessionMessagesPage(threadId, page, limit));
 });
 
-chatRoutes.delete("/chats/:sessionId", async (c) =>
-  jsonOk(c, await deleteChatSession(c.req.param("sessionId"))),
-);
+chatRoutes.delete("/chats/:sessionId", async (c) => {
+  const sessionId = c.req.param("sessionId");
+  // 同步清理 Agent Memory 中的 thread：只删 feedmind.db 的会话行会让
+  // mastra.db 里的消息永久残留，长期运行无限膨胀。失败不阻塞删除主流程。
+  const memory = await feedmindAgent.getMemory();
+  if (memory) {
+    await memory
+      .deleteThread(sessionId)
+      .catch((err: unknown) => logger.error({ err }, "清理 Agent Memory thread 失败"));
+  }
+  return jsonOk(c, await deleteChatSession(sessionId));
+});
 
 /** 更新会话标题（按首条消息自动命名） */
 chatRoutes.patch("/chats/:sessionId", async (c) => {

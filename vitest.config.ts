@@ -42,6 +42,13 @@ export default defineConfig({
           setupFiles: ["./vitest.setup.ts"],
         },
       },
+      {
+        test: {
+          name: "web",
+          root: `${root}/apps/web`,
+          include: ["lib/**/*.test.ts"],
+        },
+      },
     ],
   },
 });

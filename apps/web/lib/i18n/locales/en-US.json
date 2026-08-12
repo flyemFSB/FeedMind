@@ -53,7 +53,9 @@
     "preview": "Preview",
     "sourcesCount": "Used {count} sources",
     "errorTitle": "Chat failed",
-    "scrollToBottom": "Scroll to bottom"
+    "scrollToBottom": "Scroll to bottom",
+    "loadOlder": "Load older messages",
+    "loadingOlder": "Loading…"
   },
   "wiki": {
     "title": "My Wiki",

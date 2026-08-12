@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/radix/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { BookIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
@@ -36,7 +32,8 @@ export const SourcesContent = ({ className, ...props }: SourcesContentProps) => 
   <CollapsibleContent
     className={cn(
       "mt-3 flex w-fit flex-col gap-2",
-      "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+      // base-ui Panel 状态属性：data-open / data-ending-style
+      "data-[open]:slide-in-from-top-2 outline-none data-[open]:animate-in data-[ending-style]:animate-out data-[ending-style]:fade-out-0",
       className,
     )}
     {...props}

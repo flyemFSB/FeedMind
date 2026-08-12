@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   conceptIdFromPath,
+  extractDocument,
   extractSources,
   extractString,
   extractStringArray,
@@ -46,6 +47,204 @@ export function buildSourceFrontmatter(
     timestamp,
     kind,
     ...extra,
+  };
+}
+
+/** 上传文件类型分类与大小上限（业务不变量，任何上传入口统一执行） */
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
+const BINARY_EXTS = new Set(["pdf", "doc", "docx", "pptx", "xlsx", "xls", "odt", "odp", "ods"]);
+const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
+const IMAGE_MIME_MAP: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+};
+
+// 文件名净化：只保留安全字符与单个扩展名，防止路径穿越与重名污染
+function sanitizeFileName(name: string): string {
+  const normalized = name.replace(/\\/g, "/");
+  const parts = normalized.split("/");
+  const base = parts[parts.length - 1] ?? name;
+  return (
+    base
+      .replace(/[^a-zA-Z0-9一-鿿._-]/g, "")
+      .replace(/^\.+/, "")
+      .replace(/\.{2,}/g, ".") || "untitled"
+  );
+}
+
+function slugFromName(name: string): string {
+  const stem = name.includes(".") ? name.slice(0, name.lastIndexOf(".")) : name;
+  return (
+    stem
+      .toLowerCase()
+      .replace(/[^a-z0-9一-鿿-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "") || "untitled"
+  );
+}
+
+/**
+ * 落盘上传的源文件并生成可导入的 .md 源：文本原文写入；二进制临时落盘提取后清理；
+ * 图片存入 raw/assets 并在 sources 生成引用。返回与列表一致的 WikiSourceRead。
+ */
+export async function saveUploadedSource(
+  spaceId: string,
+  fileName: string,
+  bytes: Uint8Array,
+): Promise<WikiSourceRead> {
+  if (bytes.length > MAX_UPLOAD_BYTES) {
+    throw new HttpError(413, "HTTP_ERROR", `文件大小超过 10MB 限制: ${fileName}`);
+  }
+  const safeName = sanitizeFileName(fileName);
+  const ext = safeName.includes(".") ? (safeName.split(".").pop()?.toLowerCase() ?? "") : "";
+  const slug = slugFromName(safeName);
+  const sourceFileName = `${slug}.md`;
+
+  const sourcesDir = path.join(getSpaceDir(spaceId), "raw", "sources");
+  ensureDir(sourcesDir);
+  const now = nowISO();
+
+  if (TEXT_EXTS.has(ext)) {
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    const fm = buildSourceFrontmatter(safeName, "file", now, {
+      resource: safeName,
+      original_name: safeName,
+      original_uri: safeName,
+      mime_type: ext === "md" ? "text/markdown" : `text/${ext}`,
+      size_bytes: bytes.length,
+      import_ext: ext,
+    });
+    safeWriteFile(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n" + text);
+    return readUploadedSource(
+      spaceId,
+      sourceFileName,
+      slug,
+      safeName,
+      "file",
+      now,
+      ext === "md" ? "text/markdown" : `text/${ext}`,
+      text,
+    );
+  }
+
+  if (BINARY_EXTS.has(ext)) {
+    const binPath = path.join(sourcesDir, safeName);
+    fs.writeFileSync(binPath, Buffer.from(bytes));
+    let extractedText: string;
+    let docMime = "application/octet-stream";
+    let warnings: string[] = [];
+    try {
+      const doc = await extractDocument(binPath, safeName);
+      extractedText = doc.text;
+      docMime = doc.mimeType;
+      warnings = doc.warnings;
+    } catch (err) {
+      extractedText = `[提取失败: ${err instanceof Error ? err.message : String(err)}]`;
+    } finally {
+      // 无论提取成功与否，都清理临时二进制文件
+      safeUnlink(binPath);
+    }
+    const fm = buildSourceFrontmatter(safeName, "file", now, {
+      resource: safeName,
+      original_name: safeName,
+      original_uri: safeName,
+      mime_type: docMime,
+      size_bytes: bytes.length,
+      status: "ready",
+      import_ext: ext,
+    });
+    safeWriteFile(
+      path.join(sourcesDir, sourceFileName),
+      formatFrontmatter(fm) + "\n" + extractedText,
+    );
+    return readUploadedSource(
+      spaceId,
+      sourceFileName,
+      slug,
+      safeName,
+      "file",
+      now,
+      docMime,
+      extractedText,
+      { import_ext: ext, extract_warnings: warnings },
+    );
+  }
+
+  if (IMAGE_EXTS.has(ext)) {
+    const assetsDir = path.join(getSpaceDir(spaceId), "raw", "assets");
+    ensureDir(assetsDir);
+    const assetPath = path.join(assetsDir, safeName);
+    fs.writeFileSync(assetPath, Buffer.from(bytes));
+    const imageMime = IMAGE_MIME_MAP[ext] ?? "application/octet-stream";
+    const imageMarkdown = `![${safeName}](../assets/${safeName})`;
+    const fm = buildSourceFrontmatter(safeName, "image", now, {
+      resource: safeName,
+      original_name: safeName,
+      original_uri: safeName,
+      mime_type: imageMime,
+      size_bytes: bytes.length,
+      status: "ready",
+      import_ext: ext,
+    });
+    safeWriteFile(
+      path.join(sourcesDir, sourceFileName),
+      formatFrontmatter(fm) + "\n" + imageMarkdown,
+    );
+    return readUploadedSource(
+      spaceId,
+      sourceFileName,
+      slug,
+      safeName,
+      "image",
+      now,
+      imageMime,
+      imageMarkdown,
+      {
+        import_ext: ext,
+        asset_path: `raw/assets/${safeName}`,
+      },
+    );
+  }
+
+  throw new HttpError(400, "HTTP_ERROR", `不支持的文件类型: .${ext}`);
+}
+
+// 读取刚落盘的源文件并组装响应结构（与列表/详情读取保持一致）
+// kind 沿用历史 "file"/"image" 标记（image 为图片引用源，已入 contracts 枚举）
+function readUploadedSource(
+  spaceId: string,
+  sourceFileName: string,
+  slug: string,
+  title: string,
+  kind: "file" | "image",
+  now: string,
+  mimeType: string,
+  contentHashInput: string,
+  metadata: Record<string, unknown> = {},
+): WikiSourceRead {
+  const stat = fs.statSync(path.join(getSpaceDir(spaceId), "raw", "sources", sourceFileName));
+  return {
+    id: slug,
+    space_id: spaceId,
+    identity: sourceFileName,
+    title,
+    kind,
+    original_name: title,
+    original_uri: title,
+    storage_path: `raw/sources/${sourceFileName}`,
+    mime_type: mimeType,
+    size_bytes: stat.size,
+    content_hash: sha256(contentHashInput),
+    status: "ready",
+    metadata,
+    page_count: 0,
+    created_at: now,
+    updated_at: now,
   };
 }
 

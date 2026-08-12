@@ -2,11 +2,9 @@ import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
 import { buildSystemPrompt } from "../prompts/system.js";
-import { resolveModelClient } from "./model-cache.js";
+import { resolveModelClient } from "../../modules/models/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
 import { getConfig } from "../../modules/models/config-service.js";
-import { getVectorStore } from "../vector-store.js";
-import { lazyEmbedder } from "../utils/lazy-embedder.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
@@ -80,15 +78,12 @@ ${getSubagentDescriptions()}
     }
   },
   memory: new Memory({
-    vector: getVectorStore(),
-    // lazyEmbedder 是运行时解析的懒加载嵌入器，返回类型与 Mastra 静态 EmbeddingModel 不完全一致，
-    // 此处仅需满足 Memory 构造的形态要求，故显式断言。
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    embedder: lazyEmbedder as any,
     options: {
       // ObservationalMemory 默认用 google/gemini-2.5-flash 后台 Agent，
       // 本项目未注册该模型 provider，OM 激活时会因模型解析失败抛未捕获异常导致进程崩溃。
       // 禁用 OM，保留基础消息历史 Memory。
+      // 语义召回（semanticRecall）未启用：不注册 vector/embedder，
+      // 避免白开一个 LibSQLVector 常驻连接；需要语义检索时再接入。
       observationalMemory: false,
     },
   }),

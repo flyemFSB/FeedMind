@@ -6,9 +6,9 @@ import {
   extractOutputSchema,
   type ExtractItem,
 } from "@feedmind/contracts";
-import { buildExtractItems } from "../../modules/daily-report/extract-service.js";
-import { buildScript } from "../../modules/daily-report/script-service.js";
-import { reviewAndFix } from "../../modules/daily-report/review-service.js";
+import { buildExtractItems } from "./extract.js";
+import { buildScript } from "./script.js";
+import { reviewAndFix } from "./review.js";
 
 /**
  * 日报管线 workflow：fetch → extract → script → review → tts → render。

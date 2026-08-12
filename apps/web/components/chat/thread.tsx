@@ -37,10 +37,24 @@ function readableError(err: Error): string {
 }
 
 export function Thread({ className, contentClassName }: ThreadProps) {
-  const { messages, status, isLoadingHistory, sendMessage, error, clearError, regenerate } =
-    useChatContext();
+  const {
+    messages,
+    olderMessages,
+    hasOlder,
+    isLoadingOlder,
+    loadOlderMessages,
+    status,
+    isLoadingHistory,
+    sendMessage,
+    error,
+    clearError,
+    regenerate,
+  } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
+
+  // 渲染视图 = 分页加载的更早消息 + 最新一页（useChat 管理，流式 append）
+  const allMessages = useMemo(() => [...olderMessages, ...messages], [olderMessages, messages]);
 
   // 使用 useMemo 避免每次渲染都重新创建建议数组
   const suggestions = useMemo(
@@ -64,7 +78,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                 <span className="text-[13px]">{t("chat.loadingHistory")}</span>
               </div>
             </div>
-          ) : messages.length === 0 ? (
+          ) : allMessages.length === 0 ? (
             <ConversationEmptyState
               icon={
                 <div className="flex size-12 items-center justify-center">
@@ -96,7 +110,21 @@ export function Thread({ className, contentClassName }: ThreadProps) {
               </div>
             </ConversationEmptyState>
           ) : (
-            <VirtualMessages messages={messages} isStreaming={isStreaming} />
+            <>
+              {hasOlder && (
+                <div className="mb-2 flex justify-center">
+                  <button
+                    type="button"
+                    disabled={isLoadingOlder}
+                    onClick={() => void loadOlderMessages()}
+                    className="cursor-pointer rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-1.5 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent disabled:cursor-default disabled:opacity-60"
+                  >
+                    {isLoadingOlder ? t("chat.loadingOlder") : t("chat.loadOlder")}
+                  </button>
+                </div>
+              )}
+              <VirtualMessages messages={allMessages} isStreaming={isStreaming} />
+            </>
           )}
         </ConversationContent>
         <ConversationScrollButton>

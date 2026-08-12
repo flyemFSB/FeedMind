@@ -1,3 +1,4 @@
+import { markFeedReadInCache, removeFeedsFromCache } from "./feed-cache";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listFeeds,
@@ -41,7 +42,10 @@ export function useSyncFeeds() {
   return useMutation({
     mutationFn: syncFeeds,
     onSuccess: () => {
+      // 同步会更新 lastSyncedAt 与条目数，订阅管理页（sources）同样需要刷新，
+      // 否则同步后页面看起来毫无变化（后端已生效但缓存未失效）
       void queryClient.invalidateQueries({ queryKey: feedOptions.list().queryKey });
+      void queryClient.invalidateQueries({ queryKey: feedOptions.sources().queryKey });
     },
   });
 }
@@ -53,7 +57,7 @@ export function useMarkFeedRead() {
     // 已读是幂等标记，成功后直接更新缓存，避免整表刷新
     onSuccess: (_data, feedId) => {
       queryClient.setQueryData<FeedItem[]>(feedOptions.list().queryKey, (old) =>
-        old?.map((f) => (f.id === feedId ? { ...f, isRead: 1 } : f)),
+        old ? markFeedReadInCache(old, feedId) : old,
       );
     },
   });
@@ -69,7 +73,9 @@ export function useDeleteFeeds() {
       const key = feedOptions.list().queryKey;
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<FeedItem[]>(key);
-      queryClient.setQueryData<FeedItem[]>(key, (old) => old?.filter((f) => !ids.includes(f.id)));
+      queryClient.setQueryData<FeedItem[]>(key, (old) =>
+        old ? removeFeedsFromCache(old, ids) : old,
+      );
       return { previous };
     },
     onError: (_err, _ids, ctx) => {

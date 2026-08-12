@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ExtractItem } from "@feedmind/contracts";
-import { buildScript, fallbackScript, parseScriptJson } from "./script-service.js";
+import { buildScript, fallbackScript, parseScriptJson } from "./script.js";
 
 const items: ExtractItem[] = [
   { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },

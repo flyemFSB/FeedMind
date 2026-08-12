@@ -1,14 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/radix/button";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
-import { mermaid } from "@streamdown/mermaid";
-import { mathjaxPlugin } from "@/lib/math-mathjax";
+import { loadMathPlugin } from "@/lib/math-mathjax";
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
-import { memo } from "react";
-import { Streamdown } from "streamdown";
+import { memo, useEffect, useMemo, useState } from "react";
+import { Streamdown, type MathPlugin, type DiagramPlugin } from "streamdown";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -68,16 +67,44 @@ export const MessageAction = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-const streamdownPlugins = { cjk, math: mathjaxPlugin, mermaid };
-
+// math（mathjax-full ~2MB）与 mermaid（~1MB+）渲染器都是重库：
+// 静态 import 会让它们全部进首屏加载链。改为挂载后异步加载：
+// 首屏只含 streamdown 核心，消息里出现公式/图表时才下载渲染器。
 export const MessageResponse = memo(
-  ({ className, ...props }: MessageResponseProps) => (
-    <Streamdown
-      className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
-      plugins={streamdownPlugins}
-      {...props}
-    />
-  ),
+  ({ className, ...props }: MessageResponseProps) => {
+    const [mathPlugin, setMathPlugin] = useState<MathPlugin | null>(null);
+    const [mermaidPlugin, setMermaidPlugin] = useState<DiagramPlugin | null>(null);
+
+    useEffect(() => {
+      let cancelled = false;
+      void loadMathPlugin().then((p) => {
+        if (!cancelled) setMathPlugin(p);
+      });
+      void import("@streamdown/mermaid").then((m) => {
+        if (!cancelled) setMermaidPlugin(m.mermaid);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+
+    const plugins = useMemo(
+      () => ({
+        cjk,
+        ...(mathPlugin ? { math: mathPlugin } : {}),
+        ...(mermaidPlugin ? { mermaid: mermaidPlugin } : {}),
+      }),
+      [mathPlugin, mermaidPlugin],
+    );
+
+    return (
+      <Streamdown
+        className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
+        plugins={plugins}
+        {...props}
+      />
+    );
+  },
   (prevProps, nextProps) =>
     prevProps.children === nextProps.children && nextProps.isAnimating === prevProps.isAnimating,
 );

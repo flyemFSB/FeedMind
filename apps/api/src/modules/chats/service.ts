@@ -1,8 +1,10 @@
 import { desc, eq } from "drizzle-orm";
+import { toAISdkV5Messages } from "@mastra/ai-sdk/ui";
 import type { ChatSessionListItem, ChatSessionRead } from "@feedmind/contracts";
 import { chatSessions, db, type ChatSessionRow } from "@feedmind/db";
 import { toIsoString } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
+import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 
 /** 创建新会话；未指定 threadId 时自动生成 UUID */
 export async function createChatSession(
@@ -77,4 +79,39 @@ export async function deleteChatSession(agentThreadId: string): Promise<ChatSess
     .returning();
   if (!row) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
   return toRead(row);
+}
+
+/** 分页读取 Agent Memory 消息（page=0 为最新一页，递增向前翻更早的消息） */
+export interface ChatMessagesPage {
+  messages: ReturnType<typeof toAISdkV5Messages>;
+  total: number;
+  page: number;
+  hasMore: boolean;
+}
+
+export async function getChatSessionMessagesPage(
+  threadId: string,
+  page: number,
+  limit: number,
+): Promise<ChatMessagesPage> {
+  const empty: ChatMessagesPage = { messages: [], total: 0, page, hasMore: false };
+  const memory = await feedmindAgent.getMemory();
+  if (!memory) return empty;
+
+  // 先取 total（perPage=1 仅拉 1 条，开销可忽略），Mastra 升序返回，
+  // 最新一页 = 最后一页（totalPages - 1 - page）
+  const { total } = await memory.recall({ threadId, perPage: 1 });
+  if (total === 0) return empty;
+  const totalPages = Math.ceil(total / limit);
+  const { messages } = await memory.recall({
+    threadId,
+    perPage: limit,
+    page: Math.max(0, totalPages - 1 - page),
+  });
+  return {
+    messages: toAISdkV5Messages(messages),
+    total,
+    page,
+    hasMore: page + 1 < totalPages,
+  };
 }

@@ -147,7 +147,7 @@ export const wikiPageListItemSchema = wikiPageReadSchema.pick({
 export type WikiPageListItem = z.infer<typeof wikiPageListItemSchema>;
 
 // ─── Wiki 来源 ─────────────────────────────────────────────────
-export const wikiSourceKindSchema = z.enum(["file", "text", "url", "clip", "generated"]);
+export const wikiSourceKindSchema = z.enum(["file", "text", "url", "clip", "generated", "image"]);
 export type WikiSourceKind = z.infer<typeof wikiSourceKindSchema>;
 
 export const wikiSourceStatusSchema = z.enum([
