@@ -54,6 +54,8 @@ export function extractMarkdownLinks(content: string): MarkdownLink[] {
   const definitions = readReferenceDefinitions(clean);
   const referenceRegex = new RegExp(REFERENCE_LINK_RE.source, "g");
   while ((match = referenceRegex.exec(clean)) !== null) {
+    // collapsed reference（[text][]）的空 label 需回退到链接文本，|| 是语义需要而非类型兜底
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- 空 label 必须触发回退，?? 只对 null/undefined 生效
     const referenceId = normalizeReferenceLabel(match[2] || match[1] || "");
     const target = definitions.get(referenceId);
     if (target) links.push({ label: (match[1] ?? "").trim(), target });

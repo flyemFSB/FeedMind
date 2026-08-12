@@ -1,5 +1,4 @@
 import fsPromises from "node:fs/promises";
-import type { Worksheet as ExcelWorksheet, Cell as ExcelCell } from "exceljs";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -8,48 +7,54 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 export interface ExtractedDocument {
   text: string;
   wordCount: number;
-  pageCount?: number;
+  pageCount?: number; // anydoc 不暴露页数，保留字段以兼容旧消费者，恒为空
   warnings: string[];
   mimeType: string;
 }
 
 // ─── 格式检测 ────────────────────────────────────────────────────
 
-const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "csv", "json", "yaml", "yml", "xml", "rtf"]);
+// anydoc 不覆盖的格式才需要本地分支；其余（pdf/docx/pptx/xlsx/rtf/csv/epub/doc/ppt…）
+// 全部交给 anydoc 按文件内容检测，扩展名只做 mimeType 映射
+const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "json", "yaml", "yml", "xml"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
-function detectFormat(fileName: string): string {
+function detectFormat(fileName: string): "text" | "image" | "document" {
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   if (TEXT_EXTS.has(ext)) return "text";
   if (IMAGE_EXTS.has(ext)) return "image";
-  if (ext === "pdf") return "pdf";
-  if (ext === "docx") return "docx";
-  if (ext === "pptx") return "pptx";
-  if (ext === "xlsx" || ext === "xls") return "xlsx";
-  if (ext === "odt" || ext === "odp" || ext === "ods") return "office";
-  return "unknown";
+  return "document";
 }
 
 function mimeFromExt(ext: string): string {
   const map: Record<string, string> = {
     pdf: "application/pdf",
+    doc: "application/msword",
     docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    docm: "application/vnd.ms-word.document.macroEnabled.12",
+    ppt: "application/vnd.ms-powerpoint",
     pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    pptm: "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
+    pps: "application/vnd.ms-powerpoint",
+    ppsx: "application/vnd.openxmlformats-officedocument.presentationml.slideshow",
     xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
+    xlsb: "application/vnd.ms-excel.sheet.binary.macroEnabled.12",
     odt: "application/vnd.oasis.opendocument.text",
     odp: "application/vnd.oasis.opendocument.presentation",
     ods: "application/vnd.oasis.opendocument.spreadsheet",
+    rtf: "application/rtf",
+    epub: "application/epub+zip",
+    csv: "text/csv",
     md: "text/markdown",
     txt: "text/plain",
     html: "text/html",
     htm: "text/html",
-    csv: "text/csv",
     json: "application/json",
     yaml: "text/yaml",
     yml: "text/yaml",
     xml: "text/xml",
-    rtf: "application/rtf",
     png: "image/png",
     jpg: "image/jpeg",
     jpeg: "image/jpeg",
@@ -77,191 +82,38 @@ async function extractTextFile(
   };
 }
 
-// ─── PDF ───────────────────────────────────────────────────────────
+// ─── anydoc 统一转换 ──────────────────────────────────────────────
 
-async function extractPdf(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  const { PDFParse } = await import("pdf-parse");
-  const buf = await fsPromises.readFile(filePath);
-
-  let text: string;
-  let pageCount: number | undefined;
+async function extractDocumentFile(filePath: string, fileName: string): Promise<ExtractedDocument> {
+  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   try {
-    // pdf-parse v2 按类调用，getText 返回整篇文本与分页结果
-    const parser = new PDFParse({ data: buf });
-    const result = await parser.getText();
-    // 释放 pdfjs worker，避免长进程内多次解析累积线程
-    void parser.destroy();
-    text = result.text ?? "";
-    pageCount = result.pages?.length ?? undefined;
-  } catch (err) {
-    return {
-      text: `# ${fileName}\n\n[PDF text extraction failed: ${err instanceof Error ? err.message : String(err)}]`,
-      wordCount: 0,
-      mimeType: "application/pdf",
-      warnings: [`PDF extraction failed: ${err instanceof Error ? err.message : String(err)}`],
-    };
-  }
-
-  const cleanText = text.trim();
-  return {
-    text: `# ${fileName}\n\n${cleanText || "(empty PDF)"}`,
-    wordCount: cleanText.split(/\s+/).filter(Boolean).length,
-    pageCount,
-    mimeType: "application/pdf",
-    warnings: [],
-  };
-}
-
-// ─── DOCX ──────────────────────────────────────────────────────────
-
-async function extractDocx(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  const mammoth = await import("mammoth");
-
-  try {
-    // 使用 extractRawText 获取干净纯文本（最适合 LLM 导入）
-    const result = await mammoth.extractRawText({ path: filePath });
-    const text = result.value.trim();
-    return {
-      text: `# ${fileName}\n\n${text || "(empty document)"}`,
-      wordCount: text.split(/\s+/).filter(Boolean).length,
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      warnings: result.messages
-        .filter((m: { type: string }) => m.type === "warning")
-        .map((m: { message: string }) => m.message),
-    };
-  } catch (err) {
-    return {
-      text: `# ${fileName}\n\n[DOCX extraction failed]`,
-      wordCount: 0,
-      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      warnings: [`DOCX extraction failed: ${err instanceof Error ? err.message : String(err)}`],
-    };
-  }
-}
-
-// ─── PPTX（via officeparser）───────────────────────────────────────
-
-async function extractPptx(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  try {
-    const buf = await fsPromises.readFile(filePath);
-    const officeparser = await import("officeparser");
-    const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
-    const text = (rawText ?? "").trim();
-
-    if (!text) {
-      return {
-        text: `# ${fileName}\n\n(no text content found in presentation)`,
-        wordCount: 0,
-        mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        warnings: [],
-      };
-    }
-
-    const clean = text.replace(/\n{3,}/g, "\n\n");
-    return {
-      text: `# ${fileName}\n\n${clean}`,
-      wordCount: clean.split(/\s+/).filter(Boolean).length,
-      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      warnings: [],
-    };
-  } catch (err) {
-    return {
-      text: `# ${fileName}\n\n[PPTX extraction failed]`,
-      wordCount: 0,
-      mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      warnings: [`PPTX extraction failed: ${err instanceof Error ? err.message : String(err)}`],
-    };
-  }
-}
-
-// ─── XLSX/XLS（via exceljs）────────────────────────────────────────
-
-async function extractXlsx(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  const ExcelJS = await import("exceljs");
-
-  try {
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(filePath);
-
-    const parts: string[] = [`# ${fileName}`];
-
-    workbook.eachSheet((worksheet: ExcelWorksheet) => {
-      parts.push(`\n## Sheet: ${worksheet.name} (${worksheet.rowCount} rows)`);
-
-      const headerRow = worksheet.getRow(1);
-      const headers: string[] = [];
-      headerRow.eachCell((cell: ExcelCell) => headers.push(cell.text));
-      if (headers.length > 0) {
-        parts.push(`| ${headers.join(" | ")} |`);
-        parts.push(`| ${headers.map(() => "---").join(" | ")} |`);
-      }
-
-      for (let i = 2; i <= Math.min(worksheet.rowCount, 200); i++) {
-        const row = worksheet.getRow(i);
-        const cells: string[] = [];
-        let rowEmpty = true;
-        row.eachCell((cell: ExcelCell) => {
-          cells.push(cell.text);
-          if (cell.text.trim()) rowEmpty = false;
-        });
-        if (!rowEmpty) {
-          parts.push(`| ${cells.join(" | ")} |`);
-        }
-      }
-
-      if (worksheet.rowCount > 200) {
-        parts.push(`\n_(${worksheet.rowCount - 200} more rows truncated)_`);
-      }
-    });
-
-    const text = parts.join("\n");
+    // 官方推荐路径 API：格式从文件内容检测（CSV 等无签名格式回退扩展名），
+    // 转换在 libuv 线程池执行，不阻塞事件循环
+    const { toMarkdown } = await import("@firecrawl/anydoc");
+    const markdown = (await toMarkdown(filePath)).trim();
+    const text = `# ${fileName}\n\n${markdown || "(empty document)"}`;
     return {
       text,
       wordCount: text.split(/\s+/).filter(Boolean).length,
-      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      mimeType: mimeFromExt(ext),
       warnings: [],
     };
   } catch (err) {
+    // 仅当无法产出有意义内容时抛错，code 为 ConvertErrorCode：
+    // unsupported | malformed | encrypted | resourceLimit | missingPart | io
+    const e = err as { code?: string; message?: string };
+    const reason =
+      e.code === "unsupported"
+        ? "不支持的格式"
+        : e.code === "encrypted"
+          ? "文档已加密"
+          : "文档转换失败";
+    const detail = e.message ? `（${e.message}）` : "";
     return {
-      text: `# ${fileName}\n\n[XLSX extraction failed]`,
+      text: `# ${fileName}\n\n[${reason}${detail}]`,
       wordCount: 0,
-      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      warnings: [`XLSX extraction failed: ${err instanceof Error ? err.message : String(err)}`],
-    };
-  }
-}
-
-// ─── Office 格式（ODT/ODP/ODS）────────────────────────────────────
-
-async function extractOfficeFile(filePath: string, fileName: string): Promise<ExtractedDocument> {
-  try {
-    const buf = await fsPromises.readFile(filePath);
-    const officeparser = await import("officeparser");
-    const rawText = (await officeparser.parseOffice(buf)) as unknown as string | undefined;
-    const text = (rawText ?? "").trim();
-
-    if (!text) {
-      return {
-        text: `# ${fileName}\n\n(no content extracted)`,
-        wordCount: 0,
-        mimeType: "application/vnd.oasis.opendocument.text",
-        warnings: [],
-      };
-    }
-
-    const clean = text.replace(/\n{3,}/g, "\n\n");
-    return {
-      text: `# ${fileName}\n\n${clean}`,
-      wordCount: clean.split(/\s+/).filter(Boolean).length,
-      mimeType: "application/vnd.oasis.opendocument.text",
-      warnings: [],
-    };
-  } catch (err) {
-    return {
-      text: `# ${fileName}\n\n[Office document extraction failed]`,
-      wordCount: 0,
-      mimeType: "application/vnd.oasis.opendocument.text",
-      warnings: [`Extraction failed: ${err instanceof Error ? err.message : String(err)}`],
+      mimeType: mimeFromExt(ext),
+      warnings: [`${reason}: ${e.code ?? "unknown"}${detail}`],
     };
   }
 }
@@ -321,30 +173,13 @@ export async function extractDocument(
     /* 文件可能不存在，交给后续格式处理器兜底 */
   }
 
-  const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
-  const format = detectFormat(fileName);
-
-  switch (format) {
+  switch (detectFormat(fileName)) {
     case "text":
       return extractTextFile(filePath, fileName, existingText);
-    case "pdf":
-      return extractPdf(filePath, fileName);
-    case "docx":
-      return extractDocx(filePath, fileName);
-    case "pptx":
-      return extractPptx(filePath, fileName);
-    case "xlsx":
-      return extractXlsx(filePath, fileName);
-    case "office":
-      return extractOfficeFile(filePath, fileName);
     case "image":
       return extractImageInfo(filePath, fileName);
     default:
-      return {
-        text: `# ${fileName}\n\n[Unsupported file format: .${ext}]`,
-        wordCount: 0,
-        mimeType: mimeFromExt(ext),
-        warnings: [`Unsupported format: .${ext}`],
-      };
+      // 未知扩展名也交给 anydoc：内容级检测能识别错标/无扩展名文件，识别不了会抛 unsupported
+      return extractDocumentFile(filePath, fileName);
   }
 }

@@ -82,3 +82,4 @@ docs/
 # .claude/settings.json 跟随仓库（跨机器/团队共享插件与配置）；
 # 个人本地配置不进 git
 .claude/settings.local.json
+.pi-subagents/
