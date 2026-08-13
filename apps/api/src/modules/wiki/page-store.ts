@@ -91,9 +91,23 @@ export async function listWikiPages(
 
 export async function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {
   const filePath = findPageById(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  if (!filePath)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "页面不存在",
+      {},
+      { i18nKey: "apiError.wikiPageNotFound" },
+    );
   const data = readPage(filePath, spaceId);
-  if (!data) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  if (!data)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "页面不存在",
+      {},
+      { i18nKey: "apiError.wikiPageNotFound" },
+    );
   return toWikiPageRead(data);
 }
 
@@ -106,7 +120,13 @@ export async function createWikiPage(
 
   // 目标已存在时报 409
   if (readPageRaw(absPath) !== null) {
-    throw new HttpError(409, "HTTP_ERROR", `OKF concept already exists (${payload.path})`);
+    throw new HttpError(
+      409,
+      "HTTP_ERROR",
+      "同名页面已存在",
+      {},
+      { i18nKey: "apiError.wikiPageExists" },
+    );
   }
 
   ensureDir(path.dirname(absPath));
@@ -127,7 +147,14 @@ export async function createWikiPage(
   appendOkfLog(spaceId, `创建概念“${payload.path}”。`);
 
   const parsedData = readPage(absPath, spaceId);
-  if (!parsedData) throw new HttpError(500, "INTERNAL_ERROR", "Created OKF concept cannot be read");
+  if (!parsedData)
+    throw new HttpError(
+      500,
+      "INTERNAL_ERROR",
+      "页面创建失败，请重试",
+      {},
+      { i18nKey: "apiError.wikiPageCreateFailed" },
+    );
   return toWikiPageRead(parsedData);
 }
 
@@ -137,10 +164,23 @@ export async function updateWikiPage(
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
   const filePath = findPageById(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  if (!filePath)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "页面不存在",
+      {},
+      { i18nKey: "apiError.wikiPageNotFound" },
+    );
   const existingData = readPage(filePath, spaceId);
   if (!existingData)
-    throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "页面不存在",
+      {},
+      { i18nKey: "apiError.wikiPageNotFound" },
+    );
   const existing = toWikiPageRead(existingData);
 
   const frontmatter = {
@@ -152,7 +192,13 @@ export async function updateWikiPage(
   const nextFilePath = path.join(getSpaceDir(spaceId), normalizedPath);
 
   if (nextFilePath !== filePath && readPageRaw(nextFilePath) !== null) {
-    throw new HttpError(409, "HTTP_ERROR", `OKF concept already exists (${nextPath})`);
+    throw new HttpError(
+      409,
+      "HTTP_ERROR",
+      "同名页面已存在",
+      {},
+      { i18nKey: "apiError.wikiPageExists" },
+    );
   }
 
   const content = buildPageFile(
@@ -175,13 +221,27 @@ export async function updateWikiPage(
   appendOkfLog(spaceId, `更新概念“${pageId}”。`);
 
   const data = readPage(nextFilePath, spaceId);
-  if (!data) throw new HttpError(500, "INTERNAL_ERROR", "Updated OKF concept cannot be read");
+  if (!data)
+    throw new HttpError(
+      500,
+      "INTERNAL_ERROR",
+      "页面更新失败，请重试",
+      {},
+      { i18nKey: "apiError.wikiPageUpdateFailed" },
+    );
   return toWikiPageRead(data);
 }
 
 export async function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
   const filePath = findPageById(spaceId, pageId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `OKF concept does not exist (${pageId})`);
+  if (!filePath)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "页面不存在",
+      {},
+      { i18nKey: "apiError.wikiPageNotFound" },
+    );
   safeUnlink(filePath);
   invalidatePageCache(spaceId);
   rebuildOkfIndexes(spaceId);

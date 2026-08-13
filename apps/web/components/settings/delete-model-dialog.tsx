@@ -24,7 +24,7 @@ export function DeleteModelDialog({ model, onClose, onDeleted }: DeleteModelDial
         onDeleted();
         toast.add({ title: t("settings.modelDeleted"), type: "success" });
       },
-      onError: () => toast.add({ title: t("settings.modelDeleteFailed"), type: "error" }),
+      // 错误由 apiFetch toast 统一提示，此处不重复弹「删除失败」
     });
   }
 

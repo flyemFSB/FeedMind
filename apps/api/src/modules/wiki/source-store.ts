@@ -287,13 +287,27 @@ export async function listWikiSources(
 
 export async function getWikiSource(spaceId: string, sourceId: string): Promise<WikiSourceRead> {
   const filePath = findSourceBySlug(spaceId, sourceId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki source does not exist (${sourceId})`);
+  if (!filePath)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "来源文件不存在",
+      {},
+      { i18nKey: "apiError.sourceNotFound" },
+    );
 
   const base = readSource(filePath, spaceId) as unknown as Omit<
     WikiSourceRead,
     "page_count"
   > | null;
-  if (!base) throw new HttpError(404, "HTTP_ERROR", `Wiki source does not exist (${sourceId})`);
+  if (!base)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "来源文件不存在",
+      {},
+      { i18nKey: "apiError.sourceNotFound" },
+    );
 
   const pageCounts = sourcePageCounts(spaceId);
   const pageCount =
@@ -310,7 +324,13 @@ export async function createWikiSource(
   const absPath = getSourceFilePath(spaceId, fileName);
 
   if (fs.existsSync(absPath)) {
-    throw new HttpError(409, "HTTP_ERROR", `Source with same name already exists (${slug})`);
+    throw new HttpError(
+      409,
+      "HTTP_ERROR",
+      "同名来源文件已存在",
+      {},
+      { i18nKey: "apiError.sourceExists" },
+    );
   }
 
   ensureDir(path.dirname(absPath));
@@ -350,7 +370,14 @@ export async function deleteWikiSource(
   _mode: "detach" | "delete-orphans" = "detach",
 ): Promise<{ deleted_pages: number; updated_pages: number }> {
   const filePath = findSourceBySlug(spaceId, sourceId);
-  if (!filePath) throw new HttpError(404, "HTTP_ERROR", `Wiki source does not exist (${sourceId})`);
+  if (!filePath)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "来源文件不存在",
+      {},
+      { i18nKey: "apiError.sourceNotFound" },
+    );
 
   const fileName = path.basename(filePath);
   const slug = path.basename(filePath, path.extname(filePath));

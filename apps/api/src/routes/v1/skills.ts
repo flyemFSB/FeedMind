@@ -12,13 +12,13 @@ skillsRoutes.get("/skills", async (c) => {
 skillsRoutes.post("/skills", async (c) => {
   const contentType = c.req.header("content-type") ?? "";
   if (!contentType.includes("multipart/form-data")) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type must be multipart/form-data");
+    return jsonError(c, 400, "VALIDATION_ERROR", "文件上传请求格式不正确");
   }
 
   const formData = await c.req.parseBody();
   const file = formData["file"];
   if (!file || !(file instanceof File)) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "Missing 'file' field");
+    return jsonError(c, 400, "VALIDATION_ERROR", "缺少上传文件");
   }
 
   const name = (formData["name"] as string) || file.name.replace(/\.(zip|tar\.gz)$/i, "");

@@ -63,8 +63,7 @@ export function EmbeddingModelDialog({
             toast.add({ title: t("settings.embeddingModelSaved"), type: "success" });
             onSubmit();
           },
-          onError: () =>
-            toast.add({ title: t("settings.embeddingModelSaveFailed"), type: "error" }),
+          // 错误由 apiFetch toast 统一提示，避免重复
         },
       );
     } else {
@@ -82,8 +81,7 @@ export function EmbeddingModelDialog({
             toast.add({ title: t("settings.embeddingModelSaved"), type: "success" });
             onSubmit();
           },
-          onError: () =>
-            toast.add({ title: t("settings.embeddingModelSaveFailed"), type: "error" }),
+          // 错误由 apiFetch toast 统一提示，避免重复
         },
       );
     }

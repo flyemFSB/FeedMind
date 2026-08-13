@@ -65,13 +65,15 @@ export async function listToolsRuntime(): Promise<ToolRead[]> {
 
 export async function getTool(name: string): Promise<ToolRead> {
   const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "工具不存在", {}, { i18nKey: "apiError.toolNotFound" });
   return maskSensitiveFields(row);
 }
 
 export async function getToolRuntime(name: string): Promise<{ config: Record<string, unknown> }> {
   const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "工具不存在", {}, { i18nKey: "apiError.toolNotFound" });
   const fields = JSON.parse(row.configFields) as ConfigField[];
   const config: Record<string, unknown> = JSON.parse(row.config);
   for (const f of fields) {
@@ -84,7 +86,8 @@ export async function getToolRuntime(name: string): Promise<{ config: Record<str
 
 export async function updateToolConfig(name: string, payload: ToolConfigUpdate): Promise<ToolRead> {
   const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "tool not found");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "工具不存在", {}, { i18nKey: "apiError.toolNotFound" });
 
   const fields = JSON.parse(row.configFields) as ConfigField[];
   const currentConfig = JSON.parse(row.config) as Record<string, unknown>;
@@ -109,6 +112,13 @@ export async function updateToolConfig(name: string, payload: ToolConfigUpdate):
   await db.update(tools).set(updateValues).where(eq(tools.name, name));
 
   const [updated] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!updated) throw new HttpError(500, "INTERNAL", "update failed");
+  if (!updated)
+    throw new HttpError(
+      500,
+      "INTERNAL",
+      "工具配置更新失败，请重试",
+      {},
+      { i18nKey: "apiError.toolUpdateFailed" },
+    );
   return maskSensitiveFields(updated);
 }

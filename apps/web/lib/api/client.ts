@@ -1,5 +1,6 @@
 import { toast } from "@/components/ui/toast";
 import type { ApiEnvelope } from "@feedmind/contracts";
+import i18n from "@/lib/i18n";
 
 export type { ApiEnvelope };
 
@@ -35,12 +36,15 @@ export async function apiFetch<T>(input: RequestInfo, init?: ApiFetchInit): Prom
   } catch (error) {
     // AbortError（组件卸载/StrictMode 重挂载）不弹 toast，直接透传
     if (error instanceof DOMException && error.name === "AbortError") throw error;
-    toast.add({ title: "无法连接到后端服务，请检查后端是否已启动", type: "error" });
-    throw new Error("无法连接到后端服务");
+    const msg = i18n.t("error.networkUnreachable", {
+      defaultValue: "无法连接到后端服务，请检查后端是否已启动",
+    });
+    toast.add({ title: msg, type: "error" });
+    throw new Error(msg);
   }
 
   if (!response.ok) {
-    const msg = httpMsg(response.status);
+    const msg = await errorMessage(response);
     toast.add({ title: msg, type: "error" });
     // 挂上 HTTP 状态码，供业务侧按状态判断（如 401 登录失效），而非脆弱的中文文案全等比较
     const err = new Error(msg) as Error & { status?: number };
@@ -53,31 +57,61 @@ export async function apiFetch<T>(input: RequestInfo, init?: ApiFetchInit): Prom
 
   const envelope = (await response.json()) as ApiEnvelope<T>;
   if (envelope.error) {
-    toast.add({ title: envelope.error.message, type: "error" });
-    throw new Error(envelope.error.message);
+    const title = resolveErrorMsg(envelope.error.message, envelope.error.i18n);
+    toast.add({ title, type: "error" });
+    // 挂上 HTTP 状态码与错误码，供业务侧按状态判断（如 401 登录失效），而非脆弱的中文文案全等比较
+    const err = new Error(title) as Error & { status?: number; code?: string };
+    err.status = response.status;
+    err.code = envelope.error.code;
+    throw err;
   }
   if (envelope.data == null) {
-    toast.add({ title: "后端返回数据为空", type: "error" });
-    throw new Error("后端返回数据为空");
+    const msg = i18n.t("error.emptyData", {
+      defaultValue: "服务响应数据异常，请刷新后重试",
+    });
+    toast.add({ title: msg, type: "error" });
+    throw new Error(msg);
   }
   return envelope.data;
 }
 
-const _msgs: Record<number, string> = {
-  400: "请求参数有误",
-  401: "登录状态已失效",
-  403: "没有操作权限",
-  404: "请求的资源不存在",
-  409: "已存在同名模型",
-  422: "请求参数校验失败",
-  500: "服务器暂时不可用",
-  502: "网关服务异常",
-  503: "服务暂时不可用",
-  504: "服务响应超时",
-};
+// 信封错误消息：按翻译锚点 key 查词条（zh/en 双语资源），词条缺失时按 i18next
+// 多级 fallback 链降级到通用文案，最后才用 API message 兜底
+// （API message 是调试/兼容信息，不直接作为界面文案）
+function resolveErrorMsg(
+  fallback: string,
+  i18nInfo?: { key: string; params?: Record<string, string | number> | undefined },
+): string {
+  if (!i18nInfo) return fallback;
+  return i18n.t([i18nInfo.key, "apiError.unknown"], {
+    ...i18nInfo.params,
+    defaultValue: fallback,
+  });
+}
 
+// 后端业务错误统一走 { data, error } 信封；仅当响应体不是信封
+// （代理层 502/504、静态网关 HTML）才回退状态码兜底文案，
+// 避免「系统错误 500」这类丢失原因的模糊提示
+// 信封内 message 的语义化/兜底职责见 resolveErrorMsg
+export async function errorMessage(response: Response): Promise<string> {
+  const body = await response.text().catch(() => null);
+  if (body) {
+    try {
+      const envelope = JSON.parse(body) as ApiEnvelope<never>;
+      if (envelope.error?.message) {
+        return resolveErrorMsg(envelope.error.message, envelope.error.i18n);
+      }
+    } catch {
+      // 解析失败说明响应体不是信封（如网关 HTML），回退状态码文案
+    }
+  }
+  return httpMsg(response.status);
+}
+
+// 状态码兜底文案（非信封响应，如代理层网关错误）：zh/en 词条在 error.http.*，
+// 词条缺失时用带状态码的通用文案兜底（i18next 标准多级 fallback）
 function httpMsg(status: number): string {
-  return _msgs[status] ?? `请求失败（${status}）`;
+  return i18n.t(`error.http.${status}`, { defaultValue: `请求失败（${status}）` });
 }
 
 // ─── HTTP verb helpers ─────────────────────────────────────────

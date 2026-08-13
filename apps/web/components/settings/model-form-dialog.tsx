@@ -142,7 +142,7 @@ export function ModelFormDialog({
             toast.add({ title: t("settings.modelUpdated"), type: "success" });
             onSubmit();
           },
-          onError: () => toast.add({ title: t("settings.modelUpdateFailed"), type: "error" }),
+          // 错误由 apiFetch toast 统一提示，避免重复
         },
       );
     } else {
@@ -151,7 +151,7 @@ export function ModelFormDialog({
           toast.add({ title: t("settings.modelAdded"), type: "success" });
           onSubmit();
         },
-        onError: () => toast.add({ title: t("settings.modelAddFailed"), type: "error" }),
+        // 错误由 apiFetch toast 统一提示，避免重复
       });
     }
   }

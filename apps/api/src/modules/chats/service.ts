@@ -54,7 +54,8 @@ export async function getChatSession(agentThreadId: string): Promise<ChatSession
     .from(chatSessions)
     .where(eq(chatSessions.agentThreadId, agentThreadId))
     .limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "会话不存在", {}, { i18nKey: "apiError.chatNotFound" });
   return toRead(row);
 }
 
@@ -68,7 +69,8 @@ export async function updateChatSessionTitle(
     .set({ title: title.trim(), updatedAt: new Date().toISOString() })
     .where(eq(chatSessions.agentThreadId, agentThreadId))
     .returning();
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "会话不存在", {}, { i18nKey: "apiError.chatNotFound" });
   return toRead(row);
 }
 
@@ -77,7 +79,8 @@ export async function deleteChatSession(agentThreadId: string): Promise<ChatSess
     .delete(chatSessions)
     .where(eq(chatSessions.agentThreadId, agentThreadId))
     .returning();
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "会话不存在");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "会话不存在", {}, { i18nKey: "apiError.chatNotFound" });
   return toRead(row);
 }
 

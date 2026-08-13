@@ -42,7 +42,16 @@ export async function markRead(feedId: string): Promise<void> {
     .from(feeds)
     .where(eq(feeds.id, feedId))
     .limit(1);
-  if (!existing) throw new HttpError(404, "NOT_FOUND", "条目不存在");
+  if (!existing)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "条目不存在",
+      {},
+      {
+        i18nKey: "apiError.feedItemNotFound",
+      },
+    );
   await db.update(feeds).set({ isRead: 1 }).where(eq(feeds.id, feedId));
 }
 

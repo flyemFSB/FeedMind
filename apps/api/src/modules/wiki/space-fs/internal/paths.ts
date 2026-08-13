@@ -16,7 +16,7 @@ export function validateSpaceId(spaceId: string): void {
     spaceId.includes("/") ||
     spaceId.includes("\\")
   ) {
-    throw new HttpError(400, "VALIDATION_ERROR", `无效的 spaceId: ${spaceId}`);
+    throw new HttpError(400, "VALIDATION_ERROR", "空间标识无效");
   }
 }
 
@@ -64,7 +64,7 @@ export function normalizePageRelPath(p: string): string {
     throw new HttpError(
       400,
       "VALIDATION_ERROR",
-      err instanceof Error ? err.message : "Invalid OKF concept path",
+      err instanceof Error ? err.message : "页面路径不合法",
     );
   }
 }

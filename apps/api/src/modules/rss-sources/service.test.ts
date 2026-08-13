@@ -175,7 +175,12 @@ describe("DELETE /feeds 路由", () => {
         const e = error as { status: number; code: string; message: string };
         return jsonError(c, e.status, e.code, e.message);
       }
-      return jsonError(c, 500, "INTERNAL_SERVER_ERROR", "服务器暂时不可用");
+      return jsonError(
+        c,
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "操作未完成，请重试；若问题持续，请查看应用日志后反馈",
+      );
     });
     app.route("/", feedRoutes);
 

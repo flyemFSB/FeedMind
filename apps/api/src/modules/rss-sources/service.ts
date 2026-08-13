@@ -10,7 +10,14 @@ export async function listSources(): Promise<RssSourceRow[]> {
 
 export async function getSource(id: string): Promise<RssSourceRow> {
   const [row] = await db.select().from(rssSources).where(eq(rssSources.id, id)).limit(1);
-  if (!row) throw new HttpError(404, "NOT_FOUND", "订阅源不存在");
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "订阅源不存在",
+      {},
+      { i18nKey: "apiError.rssSourceNotFound" },
+    );
   return row;
 }
 
@@ -68,7 +75,14 @@ export async function deleteSource(id: string): Promise<void> {
     .from(rssSources)
     .where(eq(rssSources.id, id))
     .limit(1);
-  if (!existing) throw new HttpError(404, "NOT_FOUND", "订阅源不存在");
+  if (!existing)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "订阅源不存在",
+      {},
+      { i18nKey: "apiError.rssSourceNotFound" },
+    );
   // 级联删除该来源下的全部条目，避免删除来源后遗留孤儿内容；
   // 两次删除置于同一事务，避免半删状态（来源没了条目还在 / 反之亦然）
   await db.transaction(async (tx) => {

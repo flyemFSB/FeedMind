@@ -10,7 +10,7 @@ runtimeConfigRoutes.get("/runtime-configs", async (c) => jsonOk(c, await getAllC
 runtimeConfigRoutes.put("/runtime-configs/:runtime", async (c) => {
   const runtime = c.req.param("runtime");
   if (runtime !== "session" && runtime !== "wiki") {
-    throw new HttpError(422, "VALIDATION_ERROR", "runtime must be 'session' or 'wiki'");
+    throw new HttpError(422, "VALIDATION_ERROR", "运行类型只能是 session 或 wiki");
   }
   const payload = await parseJson(c, runtimeConfigUpdateSchema);
   return jsonOk(c, await updateConfig(runtime, payload));

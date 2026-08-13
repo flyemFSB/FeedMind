@@ -48,6 +48,8 @@ export default defineConfig({
           root: `${root}/apps/web`,
           include: ["lib/**/*.test.ts"],
         },
+        // 与 apps/web/vite.config.ts 的 tsconfigPaths 对齐，否则测试无法解析 @/ 别名
+        resolve: { alias: { "@": `${root}/apps/web` } },
       },
     ],
   },

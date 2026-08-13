@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { fadeSlideVariants, motionSpring } from "@/lib/motion";
 import { toast } from "@/components/ui/toast";
+import { apiPost } from "@/lib/api/client";
+import i18n from "@/lib/i18n";
 
 interface FeishuConfigPanelProps {
   onConnected: () => void;
@@ -64,16 +66,12 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
   const saveConfig = async (id: string, secret: string) => {
     setSaving(true);
     try {
-      const res = await fetch("/api/v1/remote-connections/feishu/config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appId: id.trim(), appSecret: secret.trim() }),
+      // 统一走 apiFetch：错误由信封 message 透传 toast（含网络失败），
+      // 避免手写 fetch 只落一句模糊的「保存失败」
+      await apiPost("/remote-connections/feishu/config", {
+        appId: id.trim(),
+        appSecret: secret.trim(),
       });
-      const json = await res.json();
-      if (json.error) {
-        toast.add({ title: json.error.message, type: "error" });
-        return false;
-      }
       toast.add({ title: fp("verificationPassed"), type: "success" });
       setStoredAppId(id.trim());
       setStoredAppSecret(secret.trim());
@@ -82,7 +80,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
       doneTimerRef.current = setTimeout(() => setStep("showConfig"), 1000);
       return true;
     } catch {
-      toast.add({ title: fp("saveFailed"), type: "error" });
+      // apiFetch 已 toast 具体错误，此处只返回失败状态
       return false;
     } finally {
       setSaving(false);
@@ -92,7 +90,8 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
   const handleCopy = (text: string, label: string) => {
     void navigator.clipboard
       .writeText(text)
-      .then(() => toast.add({ title: `${label} ${fp("copiedSuffix")}`, type: "success" }));
+      .then(() => toast.add({ title: `${label} ${fp("copiedSuffix")}`, type: "success" }))
+      .catch(() => toast.add({ title: t("settings.copyFailed"), type: "error" }));
   };
 
   const handleSave = async () => {
@@ -107,14 +106,19 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
     setScanState("waiting");
     setScanError("");
     try {
-      const res = await fetch("/api/v1/remote-connections/feishu/register/begin", {
-        method: "POST",
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      scanRef.current = { deviceCode: json.data.deviceCode, interval: json.data.interval };
-      setQrUrl(json.data.qrUrl);
+      // 统一走 apiFetch：网络失败/业务错误由信封 message 透传 toast，
+      // 不再把 fetch 英文异常（"Failed to fetch"）展示在扫码区
+      const data = await apiPost<{
+        deviceCode: string;
+        qrUrl: string;
+        interval: number;
+        expireIn: number;
+      }>("/remote-connections/feishu/register/begin", {});
+      scanRef.current = { deviceCode: data.deviceCode, interval: data.interval };
+      setQrUrl(data.qrUrl);
     } catch (err) {
+      // setScanError 非空以阻断下方 useEffect 的自动重试循环；
+      // 具体原因已由 apiFetch toast 提示
       setScanState("idle");
       setScanError(err instanceof Error ? err.message : fp("createSessionFailed"));
     }
@@ -154,7 +158,13 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
               clearInterval(timer);
               scanRef.current = null;
               setScanState("idle");
-              setScanError(json.data.error ?? fp("authFailed"));
+              // 按飞书错误码查词条（scanErrors.*），未知码回退后端中文消息（defaultValue）
+              const errText = json.data.error ?? fp("authFailed");
+              setScanError(
+                i18n.t(`remoteConnection.feishuPanel.scanErrors.${json.data.errorCode}`, {
+                  defaultValue: errText,
+                }),
+              );
             }
           } catch {
             /* 网络抖动继续轮询 */

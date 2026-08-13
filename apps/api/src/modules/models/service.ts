@@ -62,11 +62,7 @@ export async function createModel(payload: ModelCreate): Promise<ModelRead> {
     return toModelRead(row!);
   } catch (error) {
     if (isUniqueViolation(error))
-      throw new HttpError(
-        409,
-        "HTTP_ERROR",
-        "model with the same type, model ID, endpoint, and API key already exists",
-      );
+      throw new HttpError(409, "HTTP_ERROR", "相同类型、模型 ID、接口地址和 API Key 的模型已存在");
     throw error;
   }
 }
@@ -86,23 +82,27 @@ export async function updateModel(modelId: number, payload: ModelUpdate): Promis
 
   try {
     const [row] = await db.update(model).set(values).where(eq(model.id, modelId)).returning();
-    if (!row) throw new HttpError(404, "HTTP_ERROR", "model not found");
+    if (!row)
+      throw new HttpError(
+        404,
+        "HTTP_ERROR",
+        "模型不存在",
+        {},
+        { i18nKey: "apiError.modelNotFound" },
+      );
     clearModelClientCache();
     return toModelRead(row);
   } catch (error) {
     if (isUniqueViolation(error))
-      throw new HttpError(
-        409,
-        "HTTP_ERROR",
-        "model with the same type, model ID, endpoint, and API key already exists",
-      );
+      throw new HttpError(409, "HTTP_ERROR", "相同类型、模型 ID、接口地址和 API Key 的模型已存在");
     throw error;
   }
 }
 
 export async function deleteModel(modelId: number): Promise<{ deleted: boolean }> {
   const [row] = await db.delete(model).where(eq(model.id, modelId)).returning({ id: model.id });
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "model not found");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "模型不存在", {}, { i18nKey: "apiError.modelNotFound" });
   clearModelClientCache();
   return { deleted: true };
 }
@@ -126,13 +126,15 @@ export async function setSelectedModel(
       .from(model)
       .where(eq(model.id, payload.id))
       .limit(1);
-    if (!m) throw new HttpError(404, "HTTP_ERROR", "model not found");
-    if (m.type !== modelType)
+    if (!m)
       throw new HttpError(
-        400,
+        404,
         "HTTP_ERROR",
-        `model type mismatch: expected ${modelType}, got ${m.type}`,
+        "模型不存在",
+        {},
+        { i18nKey: "apiError.modelNotFound" },
       );
+    if (m.type !== modelType) throw new HttpError(400, "HTTP_ERROR", "模型类型不匹配");
 
     await tx
       .update(model)
@@ -148,7 +150,8 @@ export async function setSelectedModel(
 
 export async function getModelRuntime(modelId: number): Promise<ModelRuntimeRead> {
   const [row] = await db.select().from(model).where(eq(model.id, modelId)).limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", "model not found");
+  if (!row)
+    throw new HttpError(404, "HTTP_ERROR", "模型不存在", {}, { i18nKey: "apiError.modelNotFound" });
 
   return {
     model_name: row.modelName,

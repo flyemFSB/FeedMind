@@ -25,7 +25,16 @@ export async function listSchedules(): Promise<ScheduleTaskRow[]> {
 
 export async function getSchedule(id: string): Promise<ScheduleTaskRow> {
   const [row] = await db.select().from(scheduleTasks).where(eq(scheduleTasks.id, id)).limit(1);
-  if (!row) throw new HttpError(404, "NOT_FOUND", "定时任务不存在");
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "定时任务不存在",
+      {},
+      {
+        i18nKey: "apiError.scheduleNotFound",
+      },
+    );
   return row;
 }
 
@@ -77,7 +86,16 @@ export async function listVideos(): Promise<VideoRow[]> {
 
 async function getVideo(id: string): Promise<VideoRow> {
   const [row] = await db.select().from(videos).where(eq(videos.id, id)).limit(1);
-  if (!row) throw new HttpError(404, "NOT_FOUND", "日报记录不存在");
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "日报记录不存在",
+      {},
+      {
+        i18nKey: "apiError.reportNotFound",
+      },
+    );
   return row;
 }
 
@@ -89,7 +107,16 @@ async function updateStage(videoId: string, stage: string | null): Promise<void>
 // 读取产物文件供 web 端查看/播放；占位文件仅作为渲染失败的兜底
 export async function getVideoFile(id: string): Promise<{ buffer: Buffer; name: string }> {
   const video = await getVideo(id);
-  if (!video.filePath) throw new HttpError(404, "NOT_FOUND", "视频文件尚未生成");
+  if (!video.filePath)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "视频文件尚未生成",
+      {},
+      {
+        i18nKey: "apiError.videoNotReady",
+      },
+    );
   const buffer = await readFile(video.filePath);
   return { buffer, name: `${video.reportDate}.mp4` };
 }

@@ -18,12 +18,7 @@ export function safeWriteFile(filePath: string, content: string): void {
   try {
     fs.writeFileSync(filePath, content, "utf-8");
   } catch (err: unknown) {
-    throw new HttpError(
-      500,
-      "INTERNAL_ERROR",
-      `File write failed: ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
-    );
+    throw new HttpError(500, "INTERNAL_ERROR", "文件写入失败，请重试", {}, { cause: err });
   }
 }
 
@@ -31,12 +26,7 @@ export function safeUnlink(filePath: string): void {
   try {
     fs.unlinkSync(filePath);
   } catch (err: unknown) {
-    throw new HttpError(
-      500,
-      "INTERNAL_ERROR",
-      `File delete failed: ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
-    );
+    throw new HttpError(500, "INTERNAL_ERROR", "文件删除失败，请重试", {}, { cause: err });
   }
 }
 
@@ -44,12 +34,7 @@ export function safeRename(oldPath: string, newPath: string): void {
   try {
     fs.renameSync(oldPath, newPath);
   } catch (err: unknown) {
-    throw new HttpError(
-      500,
-      "INTERNAL_ERROR",
-      `File rename failed: ${err instanceof Error ? err.message : String(err)}`,
-      { cause: err },
-    );
+    throw new HttpError(500, "INTERNAL_ERROR", "文件重命名失败，请重试", {}, { cause: err });
   }
 }
 

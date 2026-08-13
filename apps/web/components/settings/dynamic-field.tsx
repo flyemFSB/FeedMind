@@ -112,7 +112,9 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
           const val = res.config[field.key];
           setRealKey(typeof val === "string" ? val : "");
         })
-        .catch(() => toast.add({ title: t("settings.readKeyFailed"), type: "error" }));
+        .catch(() => {
+          // 错误由 apiFetch toast 统一提示，避免重复弹「读取密钥失败」
+        });
     }
   }
 
@@ -121,7 +123,7 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
     if (keyToCopy) {
       void navigator.clipboard
         .writeText(keyToCopy)
-        .then(() => toast.add({ title: t("settings.copied"), type: "success" }));
+        .then(() => toast.add({ title: t("common.copied"), type: "success" }));
     }
   }
 

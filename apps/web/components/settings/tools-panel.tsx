@@ -64,7 +64,7 @@ export function ToolsPanel() {
       setTouched(new Set());
       toast.add({ title: t("settings.toolSaved"), type: "success" });
     } catch {
-      toast.add({ title: t("settings.saveFailed"), type: "error" });
+      // 错误由 apiFetch toast 统一提示，避免重复
     }
   }
 

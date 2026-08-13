@@ -58,7 +58,7 @@ export function SkillsPanel() {
       void queryClient.invalidateQueries({ queryKey: skillKeys.list() });
       toast.add({ title: t("settings.skillDeleted"), type: "success" });
     },
-    onError: () => toast.add({ title: t("settings.deleteFailed"), type: "error" }),
+    // 错误由 apiFetch toast 统一提示，避免重复
   });
 
   const handleFile = useCallback(

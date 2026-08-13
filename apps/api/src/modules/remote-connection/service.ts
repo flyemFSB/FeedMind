@@ -49,7 +49,14 @@ export async function getConnection(id: string): Promise<RemoteConnection> {
     .from(remoteConnections)
     .where(eq(remoteConnections.id, id))
     .limit(1);
-  if (!row) throw new HttpError(404, "NOT_FOUND", "连接不存在");
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      "连接不存在",
+      {},
+      { i18nKey: "apiError.connectionNotFound" },
+    );
   return rowToObj(row);
 }
 

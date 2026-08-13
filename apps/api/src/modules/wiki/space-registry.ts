@@ -48,7 +48,14 @@ export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
 
 export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
   const meta = await readSpaceMeta(spaceId);
-  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
+  if (!meta)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "Wiki 空间不存在",
+      {},
+      { i18nKey: "apiError.wikiSpaceNotFound" },
+    );
 
   return {
     id: spaceId,
@@ -71,7 +78,13 @@ export async function getWikiSpace(spaceId: string): Promise<WikiSpaceRead> {
 export async function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpaceRead> {
   const spaceId = slugify(payload.name);
   if (await readSpaceMeta(spaceId)) {
-    throw new HttpError(409, "HTTP_ERROR", `Space with same name already exists (${spaceId})`);
+    throw new HttpError(
+      409,
+      "HTTP_ERROR",
+      "同名 Wiki 空间已存在",
+      {},
+      { i18nKey: "apiError.wikiSpaceExists" },
+    );
   }
 
   const now = nowISO();
@@ -113,7 +126,14 @@ export async function updateWikiSpace(
   payload: WikiSpaceUpdate,
 ): Promise<WikiSpaceRead> {
   const meta = await readSpaceMeta(spaceId);
-  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
+  if (!meta)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "Wiki 空间不存在",
+      {},
+      { i18nKey: "apiError.wikiSpaceNotFound" },
+    );
 
   if (payload.name !== undefined) meta["name"] = payload.name;
   if (payload.purpose !== undefined) meta["purpose"] = payload.purpose;
@@ -129,7 +149,14 @@ export async function updateWikiSpace(
 
 export async function deleteWikiSpace(spaceId: string): Promise<{ success: boolean }> {
   const meta = await readSpaceMeta(spaceId);
-  if (!meta) throw new HttpError(404, "HTTP_ERROR", `Wiki space does not exist (${spaceId})`);
+  if (!meta)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "Wiki 空间不存在",
+      {},
+      { i18nKey: "apiError.wikiSpaceNotFound" },
+    );
 
   await deleteSpaceDir(spaceId);
 

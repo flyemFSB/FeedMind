@@ -20,7 +20,7 @@ export const modelRoutes = new Hono();
 function parseModelId(value: string): number {
   const modelId = Number(value);
   if (!Number.isInteger(modelId) || modelId <= 0) {
-    throw new HttpError(422, "VALIDATION_ERROR", "model id must be a positive integer");
+    throw new HttpError(422, "VALIDATION_ERROR", "模型 ID 必须是正整数");
   }
   return modelId;
 }

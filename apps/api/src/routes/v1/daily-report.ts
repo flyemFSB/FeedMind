@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { scheduleUpsertSchema, triggerReportSchema } from "@feedmind/contracts";
 import { jsonError, jsonOk, parseJson } from "../../lib/http.js";
+import { logger } from "../../lib/logger.js";
 import {
   listSchedules,
   upsertSchedule,
@@ -39,13 +40,17 @@ dailyReportRoutes.get("/daily-report/videos/:id/file", async (c) => {
       },
     });
   } catch (err) {
+    const notFound =
+      err instanceof Error && "status" in err && (err as { status: number }).status === 404;
+    logger.error({ err, videoId: c.req.param("id") }, "读取日报视频失败");
     return jsonError(
       c,
-      err instanceof Error && "status" in err && (err as { status: number }).status === 404
-        ? 404
-        : 500,
+      notFound ? 404 : 500,
       "VIDEO_FILE_ERROR",
-      err instanceof Error ? err.message : "视频文件读取失败",
+      // 不向用户透传 fs 内部错误（ENOENT 等英文路径信息）
+      notFound ? "视频文件不存在或已删除" : "视频文件读取失败，请重试",
+      {},
+      notFound ? { key: "apiError.videoFileNotFound" } : { key: "apiError.videoFileReadFailed" },
     );
   }
 });

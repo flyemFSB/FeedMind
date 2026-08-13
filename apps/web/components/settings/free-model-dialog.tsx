@@ -54,7 +54,7 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
       setShowKey(false);
       onClose();
     } catch {
-      toast.add({ title: t("settings.modelAddFailed"), type: "error" });
+      // 错误由 apiFetch toast 统一提示，避免重复
     }
   }
 

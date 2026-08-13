@@ -7,6 +7,7 @@ import {
   beginRegistration,
   pollRegistration,
 } from "../modules/remote-connection/feishu-registration.js";
+import { HttpError } from "./http.js";
 
 // ─── Schemas ─────────────────────────────────────────────────
 
@@ -85,6 +86,14 @@ const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),
     message: z.string(),
+    // 与 contracts 信封保持同一结构（i18n 锚点 + 参数），openapi 文档类型与实现一致
+    i18n: z
+      .object({
+        key: z.string(),
+        params: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
+      })
+      .optional(),
+    details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 
@@ -112,15 +121,28 @@ const registerBeginHandler: RouteHandler<typeof registerBeginRoute> = async (c) 
     const data = await beginRegistration();
     return c.json({ data, error: null }, 200);
   } catch (err) {
+    // HttpError 已带用户可读消息与 i18n 锚点（网络失败/授权失败），原样透传
+    const e = err instanceof HttpError ? err : null;
+    // beginRegistration 只抛 502（网络失败/授权失败），断言收窄到 schema 声明的 502
+    const status = (e?.status ?? 502) as 502;
     return c.json(
       {
         data: null,
         error: {
-          code: "REGISTER_BEGIN_FAILED",
-          message: err instanceof Error ? err.message : "创建注册会话失败",
+          code: e?.code ?? "REGISTER_BEGIN_FAILED",
+          message: e?.message ?? (err instanceof Error ? err.message : "创建注册会话失败"),
+          details: e?.details ?? {},
+          ...(e?.i18nKey
+            ? {
+                i18n: {
+                  key: e.i18nKey,
+                  ...(e.i18nParams ? { params: e.i18nParams } : {}),
+                },
+              }
+            : {}),
         },
       },
-      502,
+      status,
     );
   }
 };

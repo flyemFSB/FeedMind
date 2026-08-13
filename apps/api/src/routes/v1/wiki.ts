@@ -176,12 +176,12 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   const spaceId = c.req.param("spaceId");
   validateSpaceId(spaceId);
   if (!(c.req.header("Content-Type") ?? "").includes("multipart/form-data")) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "Content-Type 必须为 multipart/form-data");
+    return jsonError(c, 400, "VALIDATION_ERROR", "文件上传请求格式不正确");
   }
   const formData = await c.req.parseBody();
   const file = formData["file"];
   if (!file || !(file instanceof File)) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "缺少 file 字段");
+    return jsonError(c, 400, "VALIDATION_ERROR", "缺少上传文件");
   }
   const source = await saveUploadedSource(
     spaceId,
@@ -259,7 +259,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await c.req.json().catch(() => ({}));
   const sourcePath = body.sourcePath as string;
-  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath is required");
+  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "缺少 sourcePath 参数");
   if (sourcePath.includes("..") || sourcePath.startsWith("/") || sourcePath.startsWith("\\")) {
     return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath 包含非法路径字符");
   }

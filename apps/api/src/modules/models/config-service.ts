@@ -88,7 +88,14 @@ export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
     .from(runtimeConfig)
     .where(eq(runtimeConfig.runtime, runtime))
     .limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "运行配置不存在",
+      {},
+      { i18nKey: "apiError.runtimeConfigNotFound" },
+    );
 
   if (runtime === "session") {
     const selected = await resolveSelectedModel();
@@ -117,7 +124,14 @@ export async function updateConfig(
     .where(eq(runtimeConfig.runtime, runtime))
     .returning();
 
-  if (!updated) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
+  if (!updated)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "运行配置不存在",
+      {},
+      { i18nKey: "apiError.runtimeConfigNotFound" },
+    );
 
   const resolved = await resolveModelName(updated.llmId);
   return toConfigRead(updated, resolved.modelName, resolved.modelId, resolved.provider);
@@ -137,7 +151,14 @@ export async function getRuntimeConfig(runtime: string): Promise<{
     .from(runtimeConfig)
     .where(eq(runtimeConfig.runtime, runtime))
     .limit(1);
-  if (!row) throw new HttpError(404, "HTTP_ERROR", `runtime "${runtime}" not found`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "HTTP_ERROR",
+      "运行配置不存在",
+      {},
+      { i18nKey: "apiError.runtimeConfigNotFound" },
+    );
 
   let modelName = "";
   let modelId = "";
@@ -171,6 +192,11 @@ export async function getRuntimeConfig(runtime: string): Promise<{
       400,
       "MODEL_NOT_CONFIGURED",
       `Runtime "${runtime}" 没有关联的模型。请在设置页面 → 模型配置中添加模型并关联到此 runtime。`,
+      {},
+      {
+        i18nKey: "apiError.modelNotConfigured",
+        i18nParams: { runtime },
+      },
     );
   }
 

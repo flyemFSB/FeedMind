@@ -51,7 +51,16 @@ cookieCloudRoutes.post("/cookiecloud/login/:platform", async (c) => {
 
   const handler = getLoginHandler();
   if (!handler) {
-    return jsonError(c, 503, "DESKTOP_ONLY", "浏览器登录仅桌面应用支持，请使用 FeedMind 桌面应用");
+    return jsonError(
+      c,
+      503,
+      "DESKTOP_ONLY",
+      "浏览器登录仅桌面应用支持，请使用 FeedMind 桌面应用",
+      {},
+      {
+        key: "apiError.desktopOnly",
+      },
+    );
   }
 
   try {
@@ -72,7 +81,14 @@ cookieCloudRoutes.post("/cookiecloud/login/:platform", async (c) => {
     return jsonOk(c, loginResult);
   } catch (err) {
     logger.error({ err, platform: result.data }, "浏览器登录失败");
-    return jsonError(c, 500, "LOGIN_FAILED", "登录失败，请重试");
+    return jsonError(
+      c,
+      500,
+      "LOGIN_FAILED",
+      "登录失败，请重试",
+      {},
+      { key: "apiError.loginFailed" },
+    );
   }
 });
 

@@ -69,7 +69,18 @@ async function listRouteOptions(
   const cookies = joinCookies(rows) || undefined;
 
   const handler = getRouteHandler(route);
-  if (!handler) throw new HttpError(500, "ROUTE_MISSING", `${route} 路由不存在`);
+  if (!handler) {
+    // 路由未注册属于内部配置错误，不向用户暴露内部路由名；细节进 details 供日志排查
+    throw new HttpError(
+      500,
+      "ROUTE_MISSING",
+      "爬取任务执行失败，请重试",
+      { route },
+      {
+        i18nKey: "apiError.crawlerRouteMissing",
+      },
+    );
+  }
 
   try {
     const result = await handler({
@@ -98,7 +109,16 @@ async function listRouteOptions(
         .update(cookieStore)
         .set({ valid: false, checkedAt: new Date().toISOString() })
         .where(eq(cookieStore.platform, platform));
-      throw new HttpError(401, "COOKIE_EXPIRED", `${platform} Cookie 已失效，请重新同步`);
+      throw new HttpError(
+        401,
+        "COOKIE_EXPIRED",
+        `${platform} Cookie 已失效，请重新同步`,
+        {},
+        {
+          i18nKey: "apiError.crawlerCookieExpired",
+          i18nParams: { platform },
+        },
+      );
     }
     // 其他失败（网络波动/风控）降级返回空列表，避免 500
     logger.warn({ err, route, platform }, "拉取选项列表失败，已降级返回空列表");
@@ -119,7 +139,16 @@ export const listZhCollections = (): Promise<{ name: string; id: string }[]> =>
 export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
   const handler = getRouteHandler(input.route);
   if (!handler) {
-    throw new HttpError(400, "INVALID_ROUTE", `未知路由: ${input.route}`);
+    throw new HttpError(
+      400,
+      "INVALID_ROUTE",
+      `未知路由: ${input.route}`,
+      {},
+      {
+        i18nKey: "apiError.crawlerUnknownRoute",
+        i18nParams: { route: input.route },
+      },
+    );
   }
 
   const id = randomUUID();
@@ -169,7 +198,16 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
       );
 
     if (Number(running[0]?.count ?? 0) > 0) {
-      throw new HttpError(409, "CONFLICT", `路由 ${input.route} 已有任务正在运行`);
+      throw new HttpError(
+        409,
+        "CONFLICT",
+        `路由 ${input.route} 已有任务正在运行`,
+        {},
+        {
+          i18nKey: "apiError.crawlerRouteBusy",
+          i18nParams: { route: input.route },
+        },
+      );
     }
 
     await tx.insert(crawlerTasks).values(rowValues);
@@ -290,7 +328,17 @@ export async function listTasks(params: {
 
 export async function getTask(taskId: string): Promise<TaskRead> {
   const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
-  if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      `任务 ${taskId} 不存在`,
+      {},
+      {
+        i18nKey: "apiError.crawlerTaskNotFound",
+        i18nParams: { taskId },
+      },
+    );
   return toTaskRead(row);
 }
 
@@ -301,12 +349,27 @@ export async function getTaskRss(taskId: string): Promise<string> {
     .where(eq(crawlerTasks.id, taskId))
     .get();
 
-  if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      `任务 ${taskId} 不存在`,
+      {},
+      {
+        i18nKey: "apiError.crawlerTaskNotFound",
+        i18nParams: { taskId },
+      },
+    );
   if (!row.rssOutput)
     throw new HttpError(
       404,
       "NOT_FOUND",
       `任务 ${taskId} 尚未生成 RSS 输出（状态: ${row.status}）`,
+      {},
+      {
+        i18nKey: "apiError.crawlerNoRssOutput",
+        i18nParams: { taskId, status: row.status },
+      },
     );
 
   return row.rssOutput;
@@ -314,10 +377,29 @@ export async function getTaskRss(taskId: string): Promise<string> {
 
 export async function cancelTask(taskId: string): Promise<TaskRead> {
   const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
-  if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      `任务 ${taskId} 不存在`,
+      {},
+      {
+        i18nKey: "apiError.crawlerTaskNotFound",
+        i18nParams: { taskId },
+      },
+    );
 
   if (row.status !== "running" && row.status !== "queued") {
-    throw new HttpError(409, "CONFLICT", `任务状态为 ${row.status}，无法取消`);
+    throw new HttpError(
+      409,
+      "CONFLICT",
+      `任务状态为 ${row.status}，无法取消`,
+      {},
+      {
+        i18nKey: "apiError.crawlerCannotCancel",
+        i18nParams: { status: row.status },
+      },
+    );
   }
 
   const controller = runningTasks.get(taskId);
@@ -333,7 +415,17 @@ export async function cancelTask(taskId: string): Promise<TaskRead> {
 
 export async function deleteTask(taskId: string): Promise<void> {
   const row = await db.select().from(crawlerTasks).where(eq(crawlerTasks.id, taskId)).get();
-  if (!row) throw new HttpError(404, "NOT_FOUND", `任务 ${taskId} 不存在`);
+  if (!row)
+    throw new HttpError(
+      404,
+      "NOT_FOUND",
+      `任务 ${taskId} 不存在`,
+      {},
+      {
+        i18nKey: "apiError.crawlerTaskNotFound",
+        i18nParams: { taskId },
+      },
+    );
 
   const controller = runningTasks.get(taskId);
   if (controller) controller.abort();

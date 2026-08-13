@@ -8,6 +8,8 @@
 
 import { gzipSync } from "node:zlib";
 
+import { HttpError } from "../../lib/http.js";
+
 const REGISTRATION_URL = "https://accounts.feishu.cn/oauth/v1/app/registration";
 
 const REGISTRATION_ADDONS = {
@@ -35,6 +37,20 @@ interface RegistrationData {
   client_secret?: string;
 }
 
+// 飞书错误码 → 用户可读中文；不暴露英文 error_description（安全 + 语义）
+const FEISHU_ERROR_ZH: Record<string, string> = {
+  access_denied: "授权被拒绝，请重新扫码",
+  expired_token: "二维码已过期，请重新扫码",
+  invalid_grant: "授权已失效，请重新扫码",
+  invalid_client: "应用凭据无效，请重新扫码",
+  unsupported_grant_type: "不支持的授权方式",
+};
+
+function feishuErrorZh(code?: string): string {
+  if (code && FEISHU_ERROR_ZH[code]) return FEISHU_ERROR_ZH[code];
+  return "授权失败或二维码已过期，请重新扫码";
+}
+
 async function postRegistration(
   url: string,
   body: Record<string, string>,
@@ -60,14 +76,36 @@ export async function beginRegistration(): Promise<{
   interval: number;
   expireIn: number;
 }> {
-  const { data } = await postRegistration(REGISTRATION_URL, {
-    action: "begin",
-    archetype: "PersonalAgent",
-    auth_method: "client_secret",
-    request_user_info: "open_id",
-  });
+  let data: RegistrationData;
+  try {
+    ({ data } = await postRegistration(REGISTRATION_URL, {
+      action: "begin",
+      archetype: "PersonalAgent",
+      auth_method: "client_secret",
+      request_user_info: "open_id",
+    }));
+  } catch {
+    // fetch 网络错误不向用户暴露英文 TypeError
+    throw new HttpError(
+      502,
+      "REGISTER_BEGIN_FAILED",
+      "无法连接飞书服务，请检查网络后重试",
+      {},
+      {
+        i18nKey: "apiError.feishuNetworkError",
+      },
+    );
+  }
   if (!data.device_code || !data.verification_uri_complete) {
-    throw new Error(data.error_description ?? "注册会话创建失败");
+    throw new HttpError(
+      502,
+      "REGISTER_BEGIN_FAILED",
+      feishuErrorZh(data.error),
+      {},
+      {
+        i18nKey: "apiError.feishuAuthFailed",
+      },
+    );
   }
   const qrUrl = new URL(data.verification_uri_complete);
   qrUrl.searchParams.set("from", "sdk");
@@ -87,6 +125,8 @@ export interface RegistrationPollResult {
   appId?: string;
   appSecret?: string;
   error?: string;
+  // 飞书原始错误码（如 access_denied），供前端按词条翻译（zh/en 双语）
+  errorCode?: string;
 }
 
 export async function pollRegistration(deviceCode: string): Promise<RegistrationPollResult> {
@@ -102,7 +142,8 @@ export async function pollRegistration(deviceCode: string): Promise<Registration
   if (data.error && data.error !== "authorization_pending" && data.error !== "slow_down") {
     return {
       status: "error",
-      error: data.error_description ?? data.error ?? "授权失败或二维码已过期",
+      error: feishuErrorZh(data.error),
+      errorCode: data.error,
     };
   }
   return { status: "pending" };
