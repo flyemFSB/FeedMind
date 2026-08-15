@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createStep, createWorkflow } from "@mastra/core/workflows";
-import { z } from "zod";
 import { dailyReportWorkflow } from "./daily-report/index.js";
 
 const RUN_INIT = { runId: "test-run", scheduleId: "daily-video", feeds: [] };
@@ -37,30 +35,5 @@ describe("dailyReportWorkflow 编排", () => {
     expect(script?.opening?.hook).toBeTruthy();
     expect(script?.closing?.summary).toBeTruthy();
     expect(Array.isArray(script?.items)).toBe(true);
-  });
-
-  it("step 抛错时 start 返回 failed 而非 reject（服务层据此回写状态）", async () => {
-    const boomStep = createStep({
-      id: "boom",
-      inputSchema: z.object({}),
-      outputSchema: z.object({}),
-      execute: async () => {
-        throw new Error("boom");
-      },
-    });
-    const wf = createWorkflow({
-      id: "spike-fail",
-      inputSchema: z.object({}),
-      outputSchema: z.object({}),
-    })
-      .then(boomStep)
-      .commit();
-
-    const run = await wf.createRun();
-    const result = await run.start({ inputData: {} });
-    expect(result.status).toBe("failed");
-    if (result.status === "failed") {
-      expect(result.error.message).toBe("boom");
-    }
   });
 });

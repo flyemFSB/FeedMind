@@ -12,22 +12,24 @@ const PRIVATE_IPS = [
   /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/,
   /^192\.168\.\d+\.\d+$/,
   /^::1$/,
-  /^fc00:/,
-  /^fd00:/,
-  /^fe80:/,
+  // IPv6 按网段前缀：ULA 为 fc00::/7（fc00-fdff），链路本地为 fe80::/10（fe80-febf）
+  /^f[cd][0-9a-f]{2}:/,
+  /^fe[89ab][0-9a-f]:/,
 ];
 const INTERNAL_HOSTS = [
   "localhost",
   "localhost.localdomain",
   "127.0.0.1",
   "0.0.0.0",
-  "[::1]",
+  "::1",
   "internal",
 ];
 
-async function checkSSRF(urlStr: string): Promise<void> {
+/** SSRF 防护：拒绝内网主机名与私网 IP 段。导出供测试直接验证。 */
+export async function checkSSRF(urlStr: string): Promise<void> {
   const url = new URL(urlStr);
-  const host = url.hostname.toLowerCase();
+  // URL.hostname 对 IPv6 带方括号（如 [fc00::1]），剥掉后正则才能命中私网段
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (INTERNAL_HOSTS.includes(host)) throw new Error(`SSRF blocked: ${host}`);
   if (PRIVATE_IPS.some((re) => re.test(host)))
     throw new Error(`SSRF blocked: private IP (${host})`);

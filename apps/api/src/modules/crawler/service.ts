@@ -92,13 +92,15 @@ async function listRouteOptions(
 
     const items = [...result.rssXml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((m) => {
       const block = m[1] ?? "";
-      const name =
-        block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i)?.[1] ?? "";
-      const id =
-        block.match(
-          /<description>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/description>/i,
-        )?.[1] ?? "";
-      return { name: name.trim(), id: id.trim() };
+      const titleMatch = block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i);
+      const descMatch = block.match(
+        /<description>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/description>/i,
+      );
+      // 组 1 为 CDATA 分支，组 2 为普通文本分支，两者都可能命中
+      return {
+        name: (titleMatch?.[1] ?? titleMatch?.[2] ?? "").trim(),
+        id: (descMatch?.[1] ?? descMatch?.[2] ?? "").trim(),
+      };
     });
 
     return items;
