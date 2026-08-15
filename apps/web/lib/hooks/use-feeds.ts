@@ -10,7 +10,6 @@ import {
   removeRssSource,
   listCookies,
   checkPlatformCookie,
-  browserLogin,
   listCrawlerOptions,
   type FeedItem,
 } from "@/lib/api/feeds";
@@ -125,17 +124,6 @@ export function useCookies() {
 export function useCheckPlatformCookie() {
   return useMutation({
     mutationFn: checkPlatformCookie,
-  });
-}
-
-/** 应用内浏览器登录：登录成功后刷新 Cookie 列表与状态 */
-export function useBrowserLogin() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: browserLogin,
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
-    },
   });
 }
 

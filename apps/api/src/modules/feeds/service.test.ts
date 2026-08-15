@@ -45,41 +45,33 @@ describe("parseRssXml 空标题兜底", () => {
   });
 });
 
-describe("pickFreshItems 先去重后截断", () => {
-  // 模拟 docs.langchain.com changelog：11 条中 4 条 pubDate 相同，最旧条目从未入库
+describe("pickFreshItems 按库内最新时间戳增量", () => {
   const items = [
-    { guid: "g10", pubDate: "2026-07-24", title: "", description: "", link: "" },
-    { guid: "g9", pubDate: "2026-05-29", title: "", description: "", link: "" },
-    { guid: "g8", pubDate: "2026-05-12", title: "", description: "", link: "" },
-    { guid: "g7", pubDate: "2026-04-07", title: "", description: "", link: "" },
-    { guid: "g6", pubDate: "2026-03-10", title: "", description: "", link: "" },
-    { guid: "g5", pubDate: "2026-02-12", title: "", description: "", link: "" },
-    { guid: "g4", pubDate: "2026-02-12", title: "", description: "", link: "" },
-    { guid: "g3", pubDate: "2026-02-12", title: "", description: "", link: "" },
-    { guid: "g2", pubDate: "2026-02-12", title: "", description: "", link: "" },
-    { guid: "g1", pubDate: "2026-02-12", title: "", description: "", link: "" },
-    { guid: "g0", pubDate: "2026-02-12", title: "", description: "", link: "" },
+    { guid: "a", pubDate: "2026-08-01T00:00:00Z", title: "", description: "", link: "" },
+    { guid: "b", pubDate: "2026-07-01T00:00:00Z", title: "", description: "", link: "" },
+    { guid: "c", pubDate: "2026-06-01T00:00:00Z", title: "", description: "", link: "" },
+    { guid: "d", pubDate: null, title: "", description: "", link: "" },
   ];
 
-  it("上游条目数超上限时，未入库的最旧条目不被已存在条目挤掉", () => {
-    const seen = new Set(items.slice(0, 10).map((i) => i.guid));
-    const fresh = pickFreshItems(items, seen, 10);
-    expect(fresh.map((i) => i.guid)).toEqual(["g0"]);
+  it("只接受比库内最新 feed 更新的条目", () => {
+    const fresh = pickFreshItems(items, "2026-07-15T00:00:00Z", 10);
+    expect(fresh.map((i) => i.guid)).toEqual(["a"]);
   });
 
-  it("全部已入库时不重复插入", () => {
-    const fresh = pickFreshItems(
-      items,
-      items.map((i) => i.guid),
-      10,
-    );
+  // 核心回归：源返回的前 10 条都是已入库的旧条目时，不得继续灌第 11 条起的更旧历史
+  it("没有比库内最新更新的条目时返回空，不反复灌历史", () => {
+    const fresh = pickFreshItems(items, "2026-08-01T00:00:00Z", 10);
     expect(fresh).toEqual([]);
   });
 
-  it("新条目优先于旧条目，且受上限约束", () => {
-    const seen = new Set(["g9", "g8"]);
-    const fresh = pickFreshItems(items, seen, 3);
-    expect(fresh.map((i) => i.guid)).toEqual(["g10", "g7", "g6"]);
+  it("首次同步（无阈值）全量接受前 maxItems 条", () => {
+    const fresh = pickFreshItems(items, null, 2);
+    expect(fresh.map((i) => i.guid)).toEqual(["a", "b"]);
+  });
+
+  it("阈值存在时无 pubDate 条目被拒绝，新条目受上限约束", () => {
+    const fresh = pickFreshItems(items, "2026-01-01T00:00:00Z", 1);
+    expect(fresh.map((i) => i.guid)).toEqual(["a"]);
   });
 });
 

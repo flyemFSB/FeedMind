@@ -2,13 +2,24 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "motion/react";
-import { Plus, Trash2, Rss, Globe, User, LogIn, RefreshCw, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Rss,
+  Globe,
+  User,
+  Cookie,
+  RefreshCw,
+  AlertCircle,
+  CircleHelp,
+} from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useTranslation } from "react-i18next";
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { CookieCloudGuideDialog } from "@/components/ui/cookiecloud-guide-dialog";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
@@ -23,12 +34,11 @@ import {
   useRssSources,
   useAddRssSource,
   useRemoveRssSource,
-  useSyncFeeds,
   useCookies,
   useCheckPlatformCookie,
-  useBrowserLogin,
   useCrawlerOptions,
 } from "@/lib/hooks/use-feeds";
+import { saveCookieCloudConfig } from "@/lib/api/feeds";
 import type { RssSource } from "@/lib/api/feeds";
 
 export const Route = createFileRoute("/sources")({
@@ -137,10 +147,27 @@ function SourcesPage() {
   const { data: sources = [] } = useRssSources();
   const addSourceMutation = useAddRssSource();
   const removeSourceMutation = useRemoveRssSource();
-  const syncMutation = useSyncFeeds();
   const { data: cookieRows = [] } = useCookies();
   const checkCookieMutation = useCheckPlatformCookie();
-  const loginMutation = useBrowserLogin();
+
+  // CookieCloud 扩展配置：UUID + 密码（保存后扩展推送的加密数据可解密入库）
+  const [cookiecloudUuid, setCookiecloudUuid] = useState("");
+  const [cookiecloudPassword, setCookiecloudPassword] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [savingCloud, setSavingCloud] = useState(false);
+
+  const handleSaveCookieCloud = async () => {
+    if (!cookiecloudUuid.trim() || !cookiecloudPassword.trim()) return;
+    setSavingCloud(true);
+    try {
+      await saveCookieCloudConfig(cookiecloudUuid.trim(), cookiecloudPassword);
+      toast.add({ title: t("feeds.cookieCloudSaved"), type: "success" });
+    } catch {
+      // apiFetch 已 toast 错误，避免重复提示
+    } finally {
+      setSavingCloud(false);
+    }
+  };
 
   const [addTab, setAddTab] = useState<"rss" | "social">("rss");
   const [rssUrl, setRssUrl] = useState("");
@@ -163,8 +190,6 @@ function SourcesPage() {
   // 正在校验的平台（刷新按钮 loading）；批量校验期间由全局按钮反馈，避免单槽位 variables 闪现错误平台
   const checkingPlatform =
     !checkingAll && checkCookieMutation.isPending ? checkCookieMutation.variables : null;
-  // 正在浏览器登录的平台
-  const loggingInPlatform = loginMutation.isPending ? loginMutation.variables : null;
 
   // 基础状态：每平台取 checkedAt 最新一行的 valid（服务器记录）
   const baseCookieStatus = useMemo(() => {
@@ -268,25 +293,6 @@ function SourcesPage() {
     }
   };
 
-  const handleSync = async () => {
-    try {
-      const result = await syncMutation.mutateAsync();
-      if (result.failed) {
-        toast.add({
-          title: t("feeds.syncPartial", {
-            inserted: result.inserted ?? 0,
-            failed: result.failed,
-          }),
-          type: "warning",
-        });
-      } else {
-        toast.add({ title: t("feeds.syncSuccess"), type: "success" });
-      }
-    } catch {
-      // apiFetch 已 toast 错误，避免重复提示
-    }
-  };
-
   // 校验指定平台 Cookie 有效性（刷新按钮），后端落库并更新界面状态
   const handleCheckCookie = async (platformId: string) => {
     if (checkingPlatform || checkingAll) return;
@@ -324,29 +330,7 @@ function SourcesPage() {
     }
   };
 
-  // 应用内浏览器登录：Electron 打开登录窗口，完成后自动捕获 Cookie 并校验
-  const handleBrowserLogin = async (platformId: string) => {
-    try {
-      const result = await loginMutation.mutateAsync(platformId);
-      toast.add({
-        title: result.valid
-          ? t("feeds.loginSuccess", { platform: platformId })
-          : t("feeds.loginCancelled"),
-        type: result.valid ? "success" : "info",
-      });
-      if (result.valid) {
-        const check = await checkCookieMutation.mutateAsync(platformId).catch(() => null);
-        if (check?.valid != null) {
-          setCookieOverlay((prev) => ({
-            ...prev,
-            [platformId]: check.valid ? "valid" : "expired",
-          }));
-        }
-      }
-    } catch {
-      // apiFetch 已 toast 错误，避免重复提示
-    }
-  };
+  // 应用内浏览器登录已移除：Cookie 由 CookieCloud 扩展 / 手动粘贴维护，平台行按钮改为单平台校验（handleCheckCookie）
 
   // 批量校验所有平台 Cookie 有效性（账号 Cookie 标题右侧通用按钮）
   const handleCheckAllCookies = async () => {
@@ -385,15 +369,6 @@ function SourcesPage() {
               <div>
                 <p className="text-[12px] text-editorial-ink-soft">{t("feeds.pasteLinkHint")}</p>
               </div>
-              <Button
-                onClick={() => void handleSync()}
-                disabled={syncMutation.isPending}
-                size="sm"
-                className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
-              >
-                {syncMutation.isPending ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
-                {t("feeds.sync")}
-              </Button>
             </div>
 
             {/* 添加区：RSS / 社交媒体 双入口 */}
@@ -647,6 +622,67 @@ function SourcesPage() {
 
         {/* 右：Cookie 管理 */}
         <div className="flex w-96 shrink-0 flex-col gap-6 p-6 pl-8 max-lg:w-72 max-sm:w-full max-sm:p-4 max-sm:pl-4">
+          {/* CookieCloud 扩展配置 */}
+          <div className="flex flex-col gap-4">
+            <div>
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                  <Cookie size={15} className="text-editorial-ink-soft" />
+                  <h2 className="text-[16px] font-semibold text-editorial-ink">CookieCloud</h2>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setGuideOpen(true)}
+                  className="h-7 gap-1 px-2 text-[12px] font-medium text-editorial-accent"
+                >
+                  <CircleHelp size={14} />
+                  {t("feeds.cookieCloudGuide")}
+                </Button>
+              </div>
+              <p className="mt-1 text-[12px] text-editorial-ink-muted">
+                {t("feeds.cookieCloudDesc")}
+              </p>
+            </div>
+            <div className="rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 transition-all duration-150 ease-out hover:border-editorial-hairline-strong hover:shadow-sm">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
+                    {t("feeds.cookieUuidLabel")}
+                  </label>
+                  <input
+                    value={cookiecloudUuid}
+                    onChange={(e) => setCookiecloudUuid(e.target.value)}
+                    placeholder={t("feeds.cookieUuidPlaceholder")}
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
+                    {t("feeds.cookiePasswordLabel")}
+                  </label>
+                  <input
+                    type="password"
+                    value={cookiecloudPassword}
+                    onChange={(e) => setCookiecloudPassword(e.target.value)}
+                    placeholder={t("feeds.cookiePasswordPlaceholder")}
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                  />
+                </div>
+                <Button
+                  onClick={() => void handleSaveCookieCloud()}
+                  disabled={!cookiecloudUuid.trim() || !cookiecloudPassword.trim() || savingCloud}
+                  size="sm"
+                  className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
+                >
+                  {savingCloud ? <MotionSpinner size={14} /> : <Cookie size={14} />}
+                  {t("feeds.cookieSaveConfig")}
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-4">
             <div>
               <div className="flex items-center justify-between gap-2.5">
@@ -712,18 +748,18 @@ function SourcesPage() {
                       {stateLabel}
                     </span>
                     <Button
-                      onClick={() => void handleBrowserLogin(platform.id)}
-                      disabled={state === "valid" || loggingInPlatform !== null}
+                      onClick={() => void handleCheckCookie(platform.id)}
+                      disabled={state === "valid" || checkingPlatform !== null}
                       size="sm"
                       variant="ghost"
                       className="h-7 shrink-0 gap-1 px-2 text-[12px]"
                     >
-                      {loggingInPlatform === platform.id ? (
+                      {checkingPlatform === platform.id ? (
                         <MotionSpinner size={12} />
                       ) : (
-                        <LogIn size={13} />
+                        <RefreshCw size={13} />
                       )}
-                      {state === "valid" ? t("feeds.cookieLoggedIn") : t("feeds.goLogin")}
+                      {t("feeds.cookieCheck")}
                     </Button>
                   </motion.div>
                 );
@@ -744,6 +780,7 @@ function SourcesPage() {
           deleteTarget ? t("feeds.deleteSourceConfirm", { name: deleteTarget.title }) : undefined
         }
       />
+      <CookieCloudGuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
     </LayoutWrapper>
   );
 }

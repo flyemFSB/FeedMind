@@ -1,139 +1,139 @@
 /**
- * 微信读书路由 handlers
+ * 微信读书路由 handlers（HTTP 直连模式）
  *
  * 借道微信读书网页版接口拉取书架中订阅的公众号文章：
- * - /web/shelf/sync     拉书架（含公众号），任意页面上下文可调，需登录 cookie
- * - /web/mp/articles    拉文章列表，必须在阅读器页（/web/mp/reader/）上下文请求，否则 -2041
- * - /web/mp/content     拉正文，提取 #js_content，只需 cookie
+ * - /web/shelf/sync  拉书架（含公众号），需登录 cookie
+ * - /web/mp/articles 拉文章列表
+ * - /web/mp/content  拉正文，提取 #js_content
  *
- * 全程在微信读书同域内 fetch，不打开 mp.weixin.qq.com，规避验证码。
+ * 全程 Node fetch 直连，不创建浏览器窗口：cookie 由 CookieCloud 扩展从
+ * 用户 Chrome 实时同步（Electron 环境内登录的 cookie 会被风控标记，
+ * articles 恒 -2041，直连用户 Chrome cookie 则正常）。
  */
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import {
-  createBrowser,
-  closeBrowser,
-  ensureCookies,
-  blockHeavyResources,
-} from "../core/browser.js";
+import * as cheerio from "cheerio";
 import { CrawlerAuthError } from "../core/errors.js";
+
+const UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
+
+// 列表/正文请求间隔：微信读书风控严格，过快会触发限制（we-mp-rss 实测 1-2s 安全）
+const GAP_LIST_MS = 1000;
+const GAP_CONTENT_MS = 1500;
 
 /** 书架中的公众号条目 */
 interface WereadMp {
   name: string;
   bookId: string;
-  hash?: string | null;
 }
 
-/** 完整抓取脚本返回的单条结果 */
-interface WereadArticleResult {
+/** 单篇公众号文章 */
+interface WereadArticle {
   reviewId: string;
-  originalId: string;
   title: string;
   time: number;
   content: string;
+  originalId?: string;
 }
 
+/** 单个公众号的抓取结果 */
 interface WereadSourceResult {
   name: string;
-  bookId?: string;
+  bookId: string;
   err?: string;
-  list?: WereadArticleResult[];
+  list?: WereadArticle[];
 }
 
-interface WereadFetchResult {
-  onReader: boolean;
-  mps: WereadMp[];
-  results: WereadSourceResult[];
+interface ShelfResponse {
+  errCode?: number;
+  books?: Array<{ title?: string; bookId?: string }>;
 }
 
-/**
- * 轻量书架脚本：只拉书架并提取公众号（含阅读器页 hash）。
- * 用于在导航到阅读器页之前确定目标 URL。
- */
-const SHELF_SCRIPT = `(async function(){
-  var res = await fetch('/web/shelf/sync?synckey=0&teenmode=0&album=1', { credentials: 'include' });
-  var o = await res.json();
-  // 仅 -2010（登录态失效）判失效；-2041（上下文错误）等业务码不代表 Cookie 失效
-  var authFailed = !res.ok || o.errCode === -2010;
-  var mps = (o.books || []).filter(function(b){ return String(b.bookId || '').indexOf('MP_WXS_') === 0; })
-    .map(function(b){
-      var m = String(b.deepLink || '').match(/[?&]v=([^&]+)/);
-      return { name: b.title, bookId: b.bookId, hash: m ? m[1] : null };
-    });
-  return JSON.stringify({ authFailed: authFailed, errCode: o.errCode || 0, mps: mps });
-})()`;
+interface ArticlesResponse {
+  errCode?: number;
+  reviews?: Array<{
+    subReviews?: Array<{
+      review?: {
+        reviewId?: string;
+        createTime?: number;
+        mpInfo?: { title?: string; originalId?: string };
+      };
+    }>;
+  }>;
+}
 
-/**
- * 完整抓取脚本：书架 → 逐个公众号文章列表 + 正文。
- * 必须在阅读器页上下文执行（articles 请求依赖页面上下文/签名）。
- * @param maxPerMp 每个公众号最多抓取的正文篇数
- * @param seenGuids 已入库的 guid 集合，命中则跳过（增量去重）
- * @param mpIds 只抓取指定公众号 bookId；为空则抓取书架全部
- */
-function buildFetchAllScript(maxPerMp: number, seenGuids: string[], mpIds: string[] = []): string {
-  return `(async function(){
-  var sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
-  var GAP_MP = 3000, GAP_CONTENT = 2000, MAX_PER_MP = ${maxPerMp};
-  var SEEN = new Set(${JSON.stringify(seenGuids)});
-  var ONLY = ${JSON.stringify(mpIds)};
+async function fetchJson<T>(url: string, cookies: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "application/json, text/plain, */*", Cookie: cookies },
+    ...(signal ? { signal } : {}),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()) as T;
+}
 
-  // 书架：过滤公众号（bookId 以 MP_WXS_ 开头）
-  var shelfRes = await fetch('/web/shelf/sync?synckey=0&teenmode=0&album=1', { credentials: 'include' });
-  var shelf = await shelfRes.json();
-  var mps = (shelf.books || []).filter(function(b){ return String(b.bookId || '').indexOf('MP_WXS_') === 0; })
-    .map(function(b){
-      var m = String(b.deepLink || '').match(/[?&]v=([^&]+)/);
-      return { name: b.title, bookId: b.bookId, hash: m ? m[1] : null };
-    });
-  if (ONLY.length) mps = mps.filter(function(m){ return ONLY.indexOf(m.bookId) >= 0; });
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  var out = [];
-  for (var i = 0; i < mps.length; i++){
-    var mp = mps[i];
-    var list = [];
-    try {
-      var r = await fetch('/web/mp/articles?bookId=' + encodeURIComponent(mp.bookId) + '&offset=0', { credentials: 'include' });
-      var o = await r.json();
-      if (o.errCode){ out.push({ name: mp.name, err: 'errCode=' + o.errCode }); await sleep(GAP_MP); continue; }
-      (o.reviews || []).forEach(function(grp){
-        (grp.subReviews || []).forEach(function(s){
-          var rr = s.review || {}, mi = rr.mpInfo || {};
-          if (!mi.title) return;
-          list.push({ reviewId: rr.reviewId || '', originalId: mi.originalId || '', title: mi.title, time: rr.createTime || grp.createTime || 0 });
-        });
-      });
-    } catch(e){
-      out.push({ name: mp.name, err: String(e).slice(0, 80) });
-      await sleep(GAP_MP);
-      continue;
-    }
+/** 拉书架中的公众号列表 */
+async function fetchMps(cookies: string, signal?: AbortSignal): Promise<WereadMp[]> {
+  const shelf = await fetchJson<ShelfResponse>(
+    "https://weread.qq.com/web/shelf/sync?synckey=0&teenmode=0&album=1",
+    cookies,
+    signal,
+  );
+  // -2010 登录态失效；其余业务错误（-2041 等）不代表 cookie 无效
+  if (shelf.errCode === -2010) throw new CrawlerAuthError("微信读书登录态已失效");
+  return (shelf.books ?? [])
+    .filter((b) => String(b.bookId ?? "").startsWith("MP_WXS_"))
+    .map((b) => ({ name: b.title ?? "(无名称)", bookId: b.bookId! }));
+}
 
-    // 正文：/web/mp/content 提取 #js_content 纯文本，最多 MAX_PER_MP 篇；只对新增文章抓正文
-    var limited = list.slice(0, MAX_PER_MP);
-    var fresh = [];
-    for (var j = 0; j < limited.length; j++){
-      var guid = 'weread:' + mp.bookId + ':' + limited[j].reviewId;
-      if (SEEN.has(guid)) continue;
-      try {
-        var cr = await fetch('/web/mp/content?reviewId=' + encodeURIComponent(limited[j].reviewId), { credentials: 'include' });
-        var html = await cr.text();
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var node = doc.querySelector('#js_content');
-        limited[j].content = (node ? node.innerText : '').trim().slice(0, 20000);
-      } catch(e){
-        limited[j].content = '';
-      }
-      fresh.push(limited[j]);
-      await sleep(GAP_CONTENT);
-    }
+/** 拉单个公众号文章列表（最多 maxItems 篇） */
+async function fetchArticles(
+  bookId: string,
+  cookies: string,
+  maxItems: number,
+  signal?: AbortSignal,
+): Promise<{ list: WereadArticle[]; err?: string }> {
+  const data = await fetchJson<ArticlesResponse>(
+    `https://weread.qq.com/web/mp/articles?bookId=${encodeURIComponent(bookId)}&offset=0`,
+    cookies,
+    signal,
+  );
+  if (data.errCode) return { list: [], err: `errCode=${data.errCode}` };
 
-    out.push({ name: mp.name, bookId: mp.bookId, list: fresh });
-    await sleep(GAP_MP);
-  }
-  return JSON.stringify({ onReader: location.pathname.indexOf('/web/mp/reader/') === 0, mps: mps, results: out });
-})()`;
+  const list = (data.reviews ?? [])
+    .flatMap((g) => g.subReviews ?? [])
+    .map((s) => s.review)
+    .filter((r): r is NonNullable<typeof r> => !!r && !!r.mpInfo?.title)
+    .slice(0, maxItems)
+    .map(
+      (r): WereadArticle => ({
+        reviewId: r.reviewId ?? "",
+        title: r.mpInfo!.title ?? "(无标题)",
+        time: r.createTime ?? 0,
+        content: "",
+        ...(r.mpInfo?.originalId ? { originalId: r.mpInfo.originalId } : {}),
+      }),
+    );
+  return { list };
+}
+
+/** 拉单篇正文：/web/mp/content 返回文章 HTML 页，提取 #js_content 纯文本 */
+async function fetchContent(
+  reviewId: string,
+  cookies: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await fetch(
+    `https://weread.qq.com/web/mp/content?reviewId=${encodeURIComponent(reviewId)}`,
+    { headers: { "User-Agent": UA, Cookie: cookies }, ...(signal ? { signal } : {}) },
+  );
+  if (!res.ok) return "";
+  const html = await res.text();
+  const $ = cheerio.load(html);
+  return ($("#js_content").text() ?? "").trim().slice(0, 20000);
 }
 
 // ─── Shelf（书架公众号文章） ───────────────────────────────────────
@@ -150,100 +150,89 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
   const perMp = Math.min(20, Math.max(1, Number(params["per_mp"]) || 10));
   // 指定单个公众号（bookId 形如 MP_WXS_xxx）；为空则拉取书架全部公众号
   const mpId = String(params["mp_id"] ?? "");
+  const cookieStr = cookies ?? "";
 
   try {
-    const page = await createBrowser();
-    try {
-      // 屏蔽非关键资源，加快加载
-      await blockHeavyResources(page);
+    const mps = await fetchMps(cookieStr, controller.signal);
+    const targetMps = mpId ? mps.filter((m) => m.bookId === mpId) : mps;
 
-      await ensureCookies(page, cookies, "weread.qq.com");
-
-      // 先访问首页拿书架（确定公众号与阅读器页 URL）
-      await page.goto("https://weread.qq.com/", { waitUntil: "domcontentloaded", timeout: 60_000 });
-      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => {
-        // 页面加载/脚本失败：抛错让任务失败，而非静默返回空书架误导用户
-        throw new Error("微信读书书架页面加载失败");
-      });
-      const shelfData = JSON.parse(shelfRaw) as { mps?: WereadMp[]; authFailed?: boolean };
-      if (shelfData.authFailed) throw new CrawlerAuthError("微信读书登录态已失效");
-      const mps = shelfData.mps ?? [];
-      const targetMps = mpId ? mps.filter((m) => m.bookId === mpId) : mps;
-
-      // 未登录、书架无公众号或指定公众号不在书架
-      if (targetMps.length === 0) {
-        return {
-          rssXml: buildRssXml({
-            title: "微信读书公众号书架",
-            link: "https://weread.qq.com/",
-            description: mpId
-              ? "指定公众号不在书架，或登录态失效"
-              : "书架中未发现订阅的公众号，或登录态失效",
-            language: "zh-CN",
-            items: [],
-          }),
-          metadata: { itemCount: 0, platform: "weread" },
-        };
-      }
-
-      // 导航到任一公众号阅读器页，获得 articles 请求所需的页面上下文
-      const targetHash = targetMps.find((m) => m.hash)?.hash;
-      if (targetHash) {
-        await page.goto(`https://weread.qq.com/web/mp/reader/${targetHash}`, {
-          waitUntil: "domcontentloaded",
-          timeout: 60_000,
-        });
-      }
-
-      // 在阅读器页上下文执行完整抓取（增量去重 + 每号 perMp 篇 + 可选指定公众号）
-      const evaluatePromise = page.evaluate<string>(
-        buildFetchAllScript(perMp, seenGuids, mpId ? [mpId] : []),
-        {
-          timeout: 240_000,
-        },
-      );
-      // 取消时提前结束等待，尽快释放爬虫窗口；页面上下文随后被 closeBrowser 导航销毁，吞掉 evaluate 后续拒绝
-      const raw = await Promise.race([
-        evaluatePromise,
-        new Promise<never>((_, reject) => {
-          const onCancel = () => reject(new Error("任务已取消"));
-          if (controller.signal.aborted) onCancel();
-          else controller.signal.addEventListener("abort", onCancel, { once: true });
-        }),
-      ]).catch((err) => {
-        evaluatePromise.catch(() => {});
-        throw err;
-      });
-      const data = JSON.parse(raw) as WereadFetchResult;
-
-      const items = (data.results ?? [])
-        .flatMap((src) => (src.list ?? []).map((a) => ({ src, a })))
-        .slice(0, maxItems)
-        .map(({ src, a }) => ({
-          title: a.title,
-          description: a.content,
-          link: a.originalId
-            ? `https://mp.weixin.qq.com/s/${a.originalId}`
-            : `https://weread.qq.com/web/mp/reader/${data.mps.find((m) => m.bookId === src.bookId)?.hash ?? ""}`,
-          guid: buildGuid("weread", `${src.bookId}:${a.reviewId}`),
-          pubDate: a.time ? fromUnixTimestamp(a.time) : new Date().toUTCString(),
-          author: src.name,
-          ...(src.name ? { category: [src.name] } : {}),
-        }));
-
+    if (targetMps.length === 0) {
       return {
         rssXml: buildRssXml({
-          title: "微信读书 - 书架公众号",
+          title: "微信读书公众号书架",
           link: "https://weread.qq.com/",
-          description: `书架中 ${targetMps.length} 个订阅公众号的最新文章`,
+          description: mpId
+            ? "指定公众号不在书架，或登录态失效"
+            : "书架中未发现订阅的公众号，或登录态失效",
           language: "zh-CN",
-          items,
+          items: [],
         }),
-        metadata: { itemCount: items.length, platform: "weread" },
+        metadata: { itemCount: 0, platform: "weread" },
       };
-    } finally {
-      await closeBrowser();
     }
+
+    const results: WereadSourceResult[] = [];
+    for (const mp of targetMps) {
+      try {
+        const { list, err } = await fetchArticles(mp.bookId, cookieStr, perMp, controller.signal);
+        if (err) {
+          results.push({ name: mp.name, bookId: mp.bookId, err });
+          await sleep(GAP_LIST_MS);
+          continue;
+        }
+
+        // 只对新增文章抓正文（增量去重，与历史 CDP 脚本一致）
+        const fresh: WereadArticle[] = [];
+        for (const a of list) {
+          const guid = `weread:${mp.bookId}:${a.reviewId}`;
+          if (seenGuids.includes(guid)) continue;
+          a.content = await fetchContent(a.reviewId, cookieStr, controller.signal);
+          fresh.push(a);
+          await sleep(GAP_CONTENT_MS);
+        }
+
+        results.push({ name: mp.name, bookId: mp.bookId, list: fresh });
+      } catch (err) {
+        results.push({ name: mp.name, bookId: mp.bookId, err: String(err).slice(0, 80) });
+      }
+      await sleep(GAP_LIST_MS);
+    }
+
+    // 网页版公众号文章接口整体失效（如 cookie 被风控标记）时，results 里每个源都带 err；
+    // 显式报错让同步失败可见，而非静默返回空列表伪装成"没有新文章"。
+    const errs = results.filter((r) => r.err);
+    if (results.length > 0 && errs.length === results.length) {
+      throw new Error(
+        `微信读书公众号文章接口不可用（${errs[0]!.err}）：请检查 Cookie 是否来自最新登录`,
+      );
+    }
+
+    const items = results
+      .flatMap((src) => (src.list ?? []).map((a) => ({ src, a })))
+      .slice(0, maxItems)
+      .map(({ src, a }) => ({
+        title: a.title,
+        description: a.content,
+        // 原文链接优先 mp.weixin.qq.com（articleId 即公众号原文 hash）；缺失时回退书架页
+        link: a.originalId
+          ? `https://mp.weixin.qq.com/s/${a.originalId}`
+          : `https://weread.qq.com/web/mp/reader/${src.bookId}`,
+        guid: buildGuid("weread", `${src.bookId}:${a.reviewId}`),
+        pubDate: a.time ? fromUnixTimestamp(a.time) : new Date().toUTCString(),
+        author: src.name,
+        ...(src.name ? { category: [src.name] } : {}),
+      }));
+
+    return {
+      rssXml: buildRssXml({
+        title: "微信读书 - 书架公众号",
+        link: "https://weread.qq.com/",
+        description: `书架中 ${targetMps.length} 个订阅公众号的最新文章`,
+        language: "zh-CN",
+        items,
+      }),
+      metadata: { itemCount: items.length, platform: "weread" },
+    };
   } finally {
     abortSignal.removeEventListener("abort", onAbort);
   }
@@ -257,42 +246,25 @@ const shelfMpsHandler: RouteHandler = async ({ cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    const page = await createBrowser();
-    try {
-      await blockHeavyResources(page);
+    const mps = await fetchMps(cookies ?? "", controller.signal);
+    const items = mps.map((m) => ({
+      title: m.name,
+      description: m.bookId,
+      link: "https://weread.qq.com/",
+      guid: buildGuid("weread", `mp_${m.bookId}`),
+      pubDate: new Date().toUTCString(),
+    }));
 
-      await ensureCookies(page, cookies, "weread.qq.com");
-
-      await page.goto("https://weread.qq.com/", { waitUntil: "domcontentloaded", timeout: 60_000 });
-      const shelfRaw = await page.evaluate<string>(SHELF_SCRIPT).catch(() => {
-        // 页面加载/脚本失败：抛错让任务失败，而非静默返回空列表误导用户
-        throw new Error("微信读书书架页面加载失败");
-      });
-      const data = JSON.parse(shelfRaw) as { mps?: WereadMp[]; authFailed?: boolean };
-      if (data.authFailed) throw new CrawlerAuthError("微信读书登录态已失效");
-      const mps = data.mps ?? [];
-
-      const items = mps.map((m) => ({
-        title: m.name,
-        description: m.bookId,
-        link: m.hash ? `https://weread.qq.com/web/mp/reader/${m.hash}` : "https://weread.qq.com/",
-        guid: buildGuid("weread", `mp_${m.bookId}`),
-        pubDate: new Date().toUTCString(),
-      }));
-
-      return {
-        rssXml: buildRssXml({
-          title: "微信读书书架公众号",
-          link: "https://weread.qq.com/",
-          description: "书架中订阅的公众号",
-          language: "zh-CN",
-          items,
-        }),
-        metadata: { itemCount: items.length, platform: "weread" },
-      };
-    } finally {
-      await closeBrowser();
-    }
+    return {
+      rssXml: buildRssXml({
+        title: "微信读书书架公众号",
+        link: "https://weread.qq.com/",
+        description: "书架中订阅的公众号",
+        language: "zh-CN",
+        items,
+      }),
+      metadata: { itemCount: items.length, platform: "weread" },
+    };
   } finally {
     abortSignal.removeEventListener("abort", onAbort);
   }

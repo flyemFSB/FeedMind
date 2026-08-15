@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, and, inArray, sql, desc } from "drizzle-orm";
+import { eq, and, inArray, sql, desc, isNotNull } from "drizzle-orm";
 import Parser from "rss-parser";
 import { db, feeds, rssSources, cookieStore } from "@feedmind/db";
 import type { FeedRow } from "@feedmind/db";
@@ -170,23 +170,24 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
   return inserted;
 }
 
-// 每次同步只处理订阅源的最新 maxItems 条，guid 去重后仅添加本地没有的新条目。
+// 每次同步只处理订阅源的最新 maxItems 条，且仅接受比该源库内最新 feed 更新的条目。
 // 不做全量抓取（避免一次灌入 RSS 全部历史），也不删除本地已有记录。
 const MAX_ITEMS_PER_SOURCE = 10;
 
-// 排序 → 排除已入库 guid → 按上限截断。
-// 顺序很重要：必须先去重再截断——若先截断，上游条目数超过上限时，
-// 最旧的未入库条目会被已存在条目挤掉名额，永远无法插入（docs.langchain.com changelog 即此类：
-// 11 条中 4 条 pubDate 相同，被截的第 11 条永远进不了 top 10）。
+// 排序 → 只保留比阈值（库内最新 pubDate）严格更新的条目 → 按上限截断。
+// 增量判据用时间阈值而非 guid 去重：源若在旧文章上改 guid / 补发，guid 判据
+// 会把历史条目一批批重新灌入（每次同步推进 10 条直到灌满全部历史）；
+// 时间阈值对这类漂移天然免疫——比库内最新还旧的条目一律不进。
+// threshold 为 null（首次同步，或库内无任何带 pubDate 的条目）时全量接受前 maxItems 条。
 export function pickFreshItems(
   items: ParsedRssItem[],
-  seenGuids: Iterable<string>,
+  threshold: string | null,
   maxItems: number,
 ): ParsedRssItem[] {
-  const seen = new Set(seenGuids);
-  return items
-    .toSorted((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""))
-    .filter((item) => !seen.has(item.guid))
+  const sorted = items.toSorted((a, b) => (b.pubDate ?? "").localeCompare(a.pubDate ?? ""));
+  if (threshold === null) return sorted.slice(0, maxItems);
+  return sorted
+    .filter((item) => item.pubDate !== null && item.pubDate > threshold)
     .slice(0, maxItems);
 }
 
@@ -195,15 +196,15 @@ async function upsertFeedsLimited(
   items: ParsedRssItem[],
   maxItems: number,
 ): Promise<number> {
-  const seenRows = await db
-    .select({ guid: feeds.guid })
+  // 增量阈值 = 该来源已入库 feed 的最新 pubDate（ISO 字符串字典序即时间序；无 pubDate 的行不参与比较）。
+  // 若源全部条目都无时间戳，这里恒为 null，退化为按排序截断 + upsertFeeds 内 guid 去重，行为同旧。
+  const [latest] = await db
+    .select({ pubDate: feeds.pubDate })
     .from(feeds)
-    .where(eq(feeds.sourceId, sourceId));
-  const fresh = pickFreshItems(
-    items,
-    seenRows.map((r) => r.guid),
-    maxItems,
-  );
+    .where(and(eq(feeds.sourceId, sourceId), isNotNull(feeds.pubDate)))
+    .orderBy(desc(feeds.pubDate))
+    .limit(1);
+  const fresh = pickFreshItems(items, latest?.pubDate ?? null, maxItems);
   return upsertFeeds(sourceId, fresh);
 }
 

@@ -110,11 +110,12 @@ export async function checkPlatformCookie(platform: string): Promise<CookieCheck
   });
 }
 
-/** 应用内浏览器登录：Electron 打开登录窗口，用户完成后捕获会话 Cookie 入库 */
-export async function browserLogin(platform: string): Promise<{ valid: boolean }> {
-  return apiFetch<{ valid: boolean }>(backendApiPath(`/cookiecloud/login/${platform}`), {
-    method: "POST",
-  });
+/** 保存 CookieCloud 扩展配置（UUID + 密码），供扩展推送时解密 */
+export async function saveCookieCloudConfig(
+  uuid: string,
+  password: string,
+): Promise<{ action: string }> {
+  return apiPost("/cookiecloud/config", { uuid, password, crypto_type: "legacy" });
 }
 
 // ─── 爬虫下拉选项 ───────────────────────────────────────────────
