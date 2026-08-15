@@ -5,6 +5,7 @@ export * from "./tools.js";
 export * from "./crawler.js";
 export * from "./remote-connection.js";
 export * from "./cookie-store.js";
+export * from "./cookie-cloud.js";
 export * from "./rss-sources.js";
 export * from "./feeds.js";
 export * from "./daily-report.js";
