@@ -328,25 +328,3 @@ export const ingestJobSchema = z.object({
   pages_updated: z.number().int().default(0),
 });
 export type IngestJob = z.infer<typeof ingestJobSchema>;
-
-// ─── Lint 类型 ─────────────────────────────────────────────────
-export const lintResultTypeSchema = z.enum([
-  "orphan",
-  "broken-link",
-  "no-outlinks",
-  "conformance",
-  "semantic",
-]);
-export type LintResultType = z.infer<typeof lintResultTypeSchema>;
-
-export const lintSeveritySchema = z.enum(["warning", "info"]);
-export type LintSeverity = z.infer<typeof lintSeveritySchema>;
-
-export const lintResultSchema = z.object({
-  type: lintResultTypeSchema,
-  severity: lintSeveritySchema,
-  page: z.string(),
-  detail: z.string(),
-  affectedPages: z.array(z.string()).optional(),
-});
-export type LintResult = z.infer<typeof lintResultSchema>;

@@ -9,6 +9,7 @@ import {
   triggerReport,
   getVideoFile,
 } from "../../modules/daily-report/service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const dailyReportRoutes = new Hono();
 
@@ -18,13 +19,22 @@ dailyReportRoutes.get("/daily-report/schedules", async (c) => jsonOk(c, await li
 // 定时任务创建/更新（不存在则插入，存在则覆盖 cron/enabled 等）
 dailyReportRoutes.put("/daily-report/schedules/:id", async (c) => {
   const payload = await parseJson(c, scheduleUpsertSchema);
-  return jsonOk(c, await upsertSchedule(c.req.param("id"), payload));
+  const schedule = await upsertSchedule(c.req.param("id"), payload);
+  void logOperation({
+    action: "update",
+    target: "daily_report",
+    targetName: schedule.name ?? "每日日报",
+    detail: `${schedule.cron}${schedule.enabled ? "" : "（已停用）"}`,
+  });
+  return jsonOk(c, schedule);
 });
 
 // 手动触发一次日报（与定时触发共用 triggerReport 入口）
 dailyReportRoutes.post("/daily-report/trigger", async (c) => {
   const payload = await parseJson(c, triggerReportSchema);
-  return jsonOk(c, await triggerReport(payload.scheduleId));
+  const report = await triggerReport(payload.scheduleId);
+  void logOperation({ action: "run", target: "daily_report", targetName: "每日日报" });
+  return jsonOk(c, report);
 });
 
 dailyReportRoutes.get("/daily-report/videos", async (c) => jsonOk(c, await listVideos()));

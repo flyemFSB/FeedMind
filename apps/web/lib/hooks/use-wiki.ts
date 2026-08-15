@@ -1,5 +1,5 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { listWikiSpaces, listWikiPages } from "@/lib/api/wiki";
+import { listWikiSpaces, listWikiPages, listWikiSources } from "@/lib/api/wiki";
 
 export const wikiOptions = {
   all: ["wiki"] as const,
@@ -11,6 +11,11 @@ export const wikiOptions = {
     queryOptions({
       queryKey: [...wikiOptions.space(spaceId).queryKey, "pages"] as const,
       queryFn: () => listWikiPages(spaceId),
+    }),
+  sources: (spaceId: string) =>
+    queryOptions({
+      queryKey: [...wikiOptions.space(spaceId).queryKey, "sources"] as const,
+      queryFn: () => listWikiSources(spaceId),
     }),
 };
 
@@ -25,6 +30,15 @@ export function useWikiSpaces() {
 export function useWikiPages(spaceId: string | undefined) {
   return useQuery({
     ...wikiOptions.pages(spaceId!),
+    enabled: !!spaceId,
+  });
+}
+
+// ─── Sources ─────────────────────────────────────────────────────
+
+export function useWikiSources(spaceId: string | undefined) {
+  return useQuery({
+    ...wikiOptions.sources(spaceId!),
     enabled: !!spaceId,
   });
 }

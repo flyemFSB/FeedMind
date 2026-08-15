@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WikiRouteImport } from './routes/wiki'
 import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as OpsLogRouteImport } from './routes/ops-log'
 import { Route as FeedsRouteImport } from './routes/feeds'
 import { Route as DailyReportRouteImport } from './routes/daily-report'
 import { Route as ChatRouteImport } from './routes/chat'
@@ -26,6 +27,11 @@ const WikiRoute = WikiRouteImport.update({
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpsLogRoute = OpsLogRouteImport.update({
+  id: '/ops-log',
+  path: '/ops-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedsRoute = FeedsRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/chat': typeof ChatRoute
   '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
+  '/ops-log': typeof OpsLogRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report/': typeof DailyReportIndexRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
+  '/ops-log': typeof OpsLogRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report': typeof DailyReportIndexRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   '/chat': typeof ChatRoute
   '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
+  '/ops-log': typeof OpsLogRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report/': typeof DailyReportIndexRoute
@@ -95,18 +104,27 @@ export interface FileRouteTypes {
     | '/chat'
     | '/daily-report'
     | '/feeds'
+    | '/ops-log'
     | '/sources'
     | '/wiki'
     | '/daily-report/'
     | '/feeds/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/chat' | '/sources' | '/wiki' | '/daily-report' | '/feeds'
+  to:
+    | '/'
+    | '/chat'
+    | '/ops-log'
+    | '/sources'
+    | '/wiki'
+    | '/daily-report'
+    | '/feeds'
   id:
     | '__root__'
     | '/'
     | '/chat'
     | '/daily-report'
     | '/feeds'
+    | '/ops-log'
     | '/sources'
     | '/wiki'
     | '/daily-report/'
@@ -118,6 +136,7 @@ export interface RootRouteChildren {
   ChatRoute: typeof ChatRoute
   DailyReportRoute: typeof DailyReportRouteWithChildren
   FeedsRoute: typeof FeedsRouteWithChildren
+  OpsLogRoute: typeof OpsLogRoute
   SourcesRoute: typeof SourcesRoute
   WikiRoute: typeof WikiRoute
 }
@@ -136,6 +155,13 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/sources'
       preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ops-log': {
+      id: '/ops-log'
+      path: '/ops-log'
+      fullPath: '/ops-log'
+      preLoaderRoute: typeof OpsLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feeds': {
@@ -210,6 +236,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatRoute: ChatRoute,
   DailyReportRoute: DailyReportRouteWithChildren,
   FeedsRoute: FeedsRouteWithChildren,
+  OpsLogRoute: OpsLogRoute,
   SourcesRoute: SourcesRoute,
   WikiRoute: WikiRoute,
 }

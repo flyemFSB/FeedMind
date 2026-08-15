@@ -6,5 +6,4 @@ export * from "./graph-service.js";
 export * from "./search-service.js";
 export * from "./job-service.js";
 export * from "./ingest-pipeline.js";
-export * from "./lint-service.js";
 export * from "./wiki-utils.js";

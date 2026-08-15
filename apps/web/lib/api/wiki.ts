@@ -8,13 +8,12 @@ import type {
   WikiPageUpdate,
   WikiResolveResult,
   WikiSourceCreate,
+  WikiSourceListItem,
   WikiSourceRead,
   WikiSpaceCreate,
   WikiSpaceListItem,
   WikiSpaceRead,
   WikiSpaceUpdate,
-  IngestJob,
-  LintResult,
 } from "@feedmind/contracts";
 
 // ─── Spaces ────────────────────────────────────────────────────
@@ -82,11 +81,38 @@ export function getWikiBacklinks(spaceId: string, pageId: string): Promise<WikiB
 }
 
 // ─── Sources ───────────────────────────────────────────────────
+export function listWikiSources(
+  spaceId: string,
+  params?: { status?: string; limit?: number; offset?: number },
+): Promise<{ items: WikiSourceListItem[]; total: number }> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.offset) searchParams.set("offset", String(params.offset));
+  const qs = searchParams.toString();
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources${qs ? `?${qs}` : ""}`));
+}
+
 export function createWikiSource(
   spaceId: string,
   payload: WikiSourceCreate,
 ): Promise<WikiSourceRead> {
   return apiPost(`/wiki/spaces/${spaceId}/sources/text`, payload);
+}
+
+export function deleteWikiSource(
+  spaceId: string,
+  sourceId: string,
+  mode: "detach" | "delete-orphans" = "detach",
+): Promise<{ deleted_pages: number; updated_pages: number }> {
+  return apiDelete(`/wiki/spaces/${spaceId}/sources/${sourceId}?mode=${mode}`);
+}
+
+export function previewDeleteImpact(
+  spaceId: string,
+  sourceId: string,
+): Promise<{ willDelete: string[]; willUpdate: string[]; unaffected: number }> {
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/${sourceId}/delete-impact`));
 }
 
 // ─── File Upload ────────────────────────────────────────────────
@@ -128,24 +154,10 @@ export function getWikiGraphInsights(spaceId: string): Promise<{
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/graph/insights`));
 }
 
-// ─── Ingest Jobs ─────────────────────────────────────────────
-export function listIngestJobs(spaceId: string, signal?: AbortSignal): Promise<IngestJob[]> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`), { signal });
-}
-
-export function cancelIngestJob(spaceId: string, jobId: string): Promise<void> {
-  return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/cancel`, {});
-}
-
-export function retryIngestJob(spaceId: string, jobId: string): Promise<void> {
-  return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/retry`, {});
-}
-
-// ─── Lint ──────────────────────────────────────────────────────
-export function runLint(spaceId: string): Promise<LintResult[]> {
-  return apiPost(`/wiki/spaces/${spaceId}/lint`, {});
-}
-
-export function getLintItems(spaceId: string): Promise<LintResult[]> {
-  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/lint-items`));
+// ─── Direct Ingest ──────────────────────────────────────────────
+export function runIngest(
+  spaceId: string,
+  sourcePath: string,
+): Promise<{ pagesCreated: number; pagesUpdated: number; warnings: string[]; log: string[] }> {
+  return apiPost(`/wiki/spaces/${spaceId}/ingest`, { sourcePath });
 }

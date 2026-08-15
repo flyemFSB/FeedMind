@@ -6,11 +6,10 @@ import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { useAppShell } from "@/components/app-shell/app-shell-context";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/components/wiki/wiki-import-dialog";
-import { WikiImportHistory } from "@/components/wiki/wiki-import-history";
 import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/components/wiki/wiki-reader";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
-import { WikiLintView } from "@/components/wiki/wiki-lint-view";
+import { WikiSourcesView } from "@/components/wiki/wiki-sources-view";
 // 图谱视图（sigma WebGL 渲染，含 graphology/cytoscape 等重依赖 ~1.5MB）仅在用户切到
 // graph 视图时渲染，lazy 化避免进首屏加载链（wiki 路由 chunk 从 1.9MB 降到 ~400KB）
 const WikiGraphView = lazy(() =>
@@ -32,8 +31,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 
-export type WikiView = "pages" | "graph" | "lint" | "history";
-const VALID_VIEWS: WikiView[] = ["pages", "graph", "lint", "history"];
+export type WikiView = "pages" | "graph" | "sources";
+const VALID_VIEWS: WikiView[] = ["pages", "graph", "sources"];
 
 export type WikiSearch = {
   // 字段显式含 undefined：validateSearch/navigate 用 undefined 表示"移除该参数"，
@@ -293,12 +292,9 @@ function MyWikiPage() {
                     />
                   </Suspense>
                 )}
-                {activeView === "lint" && spaceId && (
-                  <WikiLintView spaceId={spaceId} onPageSelect={handlePageSelect} />
-                )}
-                {activeView === "history" && spaceId && (
-                  <div className="flex min-h-0 flex-1">
-                    <WikiImportHistory spaceId={spaceId} />
+                {activeView === "sources" && spaceId && (
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    <WikiSourcesView spaceId={spaceId} />
                   </div>
                 )}
               </motion.div>

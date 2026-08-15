@@ -73,7 +73,7 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
       });
 
       crepeRef.current = crepe;
-      crepe.create().catch((err) => {
+      void crepe.create().catch((err) => {
         console.error("[MilkdownEditor] 编辑器初始化失败:", err);
       });
 

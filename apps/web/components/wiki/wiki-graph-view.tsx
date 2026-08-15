@@ -607,7 +607,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <MotionSpinner size={32} className="opacity-50" />
         <p className="text-sm">{t("wiki.graphLoading")}</p>
       </div>
@@ -616,7 +616,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
 
   if (error) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
         <p className="text-sm text-editorial-semantic-error">{error}</p>
         <Button variant="outline" size="sm" onClick={() => void loadGraph()}>
@@ -628,7 +628,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
 
   if (nodes.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
+      <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-editorial-ink-muted">
         <Network className="h-10 w-10 opacity-30" />
         <p className="text-sm">{t("wiki.graphEmpty")}</p>
       </div>

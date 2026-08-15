@@ -4,9 +4,9 @@ import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import type { WikiView } from "@/src/routes/wiki";
 import {
   CalendarDays,
-  ClipboardCheck,
-  Clock,
+  Database,
   FileText,
+  History,
   List,
   Network,
   Rss,
@@ -25,8 +25,7 @@ interface WikiSidebarProps {
 const NAV_ITEMS = [
   { id: "pages", icon: FileText, label: "wiki.tabPages", view: "pages" },
   { id: "graph", icon: Network, label: "wiki.tabGraph", view: "graph" },
-  { id: "history", icon: Clock, label: "wiki.tabImportHistory", view: "history" },
-  { id: "lint", icon: ClipboardCheck, label: "wiki.tabLint", view: "lint" },
+  { id: "sources", icon: Database, label: "wiki.tabSources", view: "sources" },
 ] as const;
 
 export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps) {
@@ -71,21 +70,7 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
       <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
       <nav className="flex w-full flex-col items-center gap-1.5 px-1">
-        {NAV_ITEMS.slice(0, 3).map((tool) => (
-          <NavIconButton
-            key={tool.id}
-            icon={tool.icon}
-            label={tool.label}
-            active={isWikiActive && currentView === tool.view}
-            onClick={() => goToView(tool.view)}
-          />
-        ))}
-      </nav>
-
-      <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
-
-      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
-        {NAV_ITEMS.slice(3).map((tool) => (
+        {NAV_ITEMS.map((tool) => (
           <NavIconButton
             key={tool.id}
             icon={tool.icon}
@@ -116,6 +101,17 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
           label="dailyReport.title"
           active={pathname === "/daily-report"}
           onClick={() => void navigate({ to: "/daily-report" })}
+        />
+      </nav>
+
+      <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
+
+      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
+        <NavIconButton
+          icon={History}
+          label="opsLog.title"
+          active={pathname === "/ops-log"}
+          onClick={() => void navigate({ to: "/ops-log" })}
         />
       </nav>
 

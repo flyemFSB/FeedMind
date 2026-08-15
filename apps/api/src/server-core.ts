@@ -125,10 +125,9 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
 }
 
 // ─── 桌面应用桥 ───────────────────────────────────────────────
-// Electron 主进程通过 @feedmind/api/server-core 引用，注册应用内登录、惰性隐藏窗口与启动保活
-export { setLoginHandler, getLoginHandler } from "./modules/cookiecloud/bridge.js";
+// Electron 主进程通过 @feedmind/api/server-core 引用，注册惰性隐藏窗口
+//（cookie 由 CookieCloud 扩展/手动粘贴维护，不创建登录窗口、不做保活）
 export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";
-export { startKeepAlive } from "./modules/cookiecloud/keepalive.js";
 
 /** Web 构建产物常见文件的 MIME 映射（覆盖 Vite 输出） */
 const MIME: Record<string, string> = {
