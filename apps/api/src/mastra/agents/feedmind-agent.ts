@@ -1,6 +1,8 @@
 import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
+import { LibSQLVector } from "@mastra/libsql";
+import { resolve } from "node:path";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "../../modules/models/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
@@ -15,9 +17,46 @@ import { createFeedMindWorkspace } from "../workspace.js";
 import { cachedGet, clearCache } from "../utils/cached-get.js";
 import { parseTokenCount } from "../utils/parse-token-count.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
+import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
+import { resolveDataDir } from "../../lib/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
 const feedmindWorkspace = createFeedMindWorkspace();
+
+// ── Memory / Observational Memory ─────────────────────────────────────────
+// mastra.db 必须与 Mastra storage（mastra/index.ts）同一文件：向量表与消息/线程
+// 表同库，不额外增加连接。
+const mastraDbUrl = `file:${resolve(resolveDataDir(), "mastra.db").replace(/\\/g, "/")}`;
+
+// LibSQLVector 无会话状态，跨请求共享单例；embedder 依赖用户配置，见 buildMemory。
+const feedmindVector = new LibSQLVector({ id: "feedmind-vector", url: mastraDbUrl });
+
+/**
+ * memory 用函数形式（Mastra 每请求解析一次）：embedder 需异步查模型表，静态构造拿不到。
+ * 解析结果经 cachedGet 30s TTL 缓存，配置变更后自动生效。
+ * 未配置 embedding 模型时 vector/embedder 缺省，OM 的 retrieval.vector 自动降级
+ * 为纯分页 recall（hasSemanticSearch 关闭），聊天主链路不受影响。
+ * storage 不在此传：Mastra 在 getMemory 时注入全局 LibSQLStore（同一 mastra.db）。
+ */
+async function buildMemory(): Promise<Memory> {
+  const embedder = await resolveEmbeddingModel();
+  return new Memory({
+    ...(embedder ? { vector: feedmindVector, embedder } : {}),
+    options: {
+      observationalMemory: {
+        // 观察/反射后台模型：复用当前选中聊天模型（OM 的 model 支持函数动态解析，
+        // 与 Agent.model 同一签名）；未来可改用独立 flash 档模型降低后台成本。
+        model: async ({ requestContext }: { requestContext?: RequestContext }) =>
+          resolveChatModel(requestContext),
+        // recall 工具：允许 agent 翻阅观察组背后的原始消息；分页不需要向量，
+        // 仅 embedder 可用时附带语义搜索（retrieval.vector 要求 vector store 存在，
+        // 无 embedder 时传 true 而非 { vector: true }，否则 Memory 构造即抛错）。
+        // scope 保持默认 thread：resource 是实验特性且与异步缓冲不兼容。
+        retrieval: embedder ? { vector: true } : true,
+      },
+    },
+  });
+}
 
 export const feedmindAgent = new Agent({
   id: "feedmind",
@@ -77,16 +116,7 @@ ${getSubagentDescriptions()}
       return {};
     }
   },
-  memory: new Memory({
-    options: {
-      // ObservationalMemory 默认用 google/gemini-2.5-flash 后台 Agent，
-      // 本项目未注册该模型 provider，OM 激活时会因模型解析失败抛未捕获异常导致进程崩溃。
-      // 禁用 OM，保留基础消息历史 Memory。
-      // 语义召回（semanticRecall）未启用：不注册 vector/embedder，
-      // 避免白开一个 LibSQLVector 常驻连接；需要语义检索时再接入。
-      observationalMemory: false,
-    },
-  }),
+  memory: buildMemory,
   tools: {
     askClarificationTool,
     webFetchTool,
