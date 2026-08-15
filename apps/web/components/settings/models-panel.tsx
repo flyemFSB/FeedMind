@@ -106,7 +106,7 @@ export function ModelsPanel({
 
   function copyToClipboard(text: string, msg: string) {
     if (!text) return;
-    navigator.clipboard
+    void navigator.clipboard
       .writeText(text)
       .then(() => toast.add({ title: msg, type: "success" }))
       .catch(() => {});
@@ -125,7 +125,7 @@ export function ModelsPanel({
     const next = !visibleKeys[model.id];
     setVisibleKeys((prev) => ({ ...prev, [model.id]: next }));
     if (!next || !model.hasApiKey) return;
-    loadApiKey(model).catch((err: Error) => {
+    void loadApiKey(model).catch((err: Error) => {
       setVisibleKeys((prev) => ({ ...prev, [model.id]: false }));
       toast.add({ title: err.message || t("settings.readKeyFailed"), type: "error" });
     });

@@ -49,7 +49,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
 
   useEffect(() => {
     setSecretVisible(false);
-    fetch("/api/v1/remote-connections/feishu/status")
+    void fetch("/api/v1/remote-connections/feishu/status")
       .then((r) => r.json())
       .then((res) => {
         if (res.data?.configured) {

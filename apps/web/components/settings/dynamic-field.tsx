@@ -107,7 +107,7 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
     const next = !visible;
     setVisible(next);
     if (next && realKey == null && toolName) {
-      getToolRuntime(toolName)
+      void getToolRuntime(toolName)
         .then((res) => {
           const val = res.config[field.key];
           setRealKey(typeof val === "string" ? val : "");

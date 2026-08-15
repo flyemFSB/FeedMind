@@ -1,5 +1,8 @@
 "use client";
 
+// 本组件移植自 AI SDK 官方聊天示例（Vercel ai 包），内部英文注释随上游保留，
+// 升级时整体替换该文件，不做逐行翻译。改动请保持与上游结构对齐。
+
 import {
   InputGroup,
   InputGroupAddon,

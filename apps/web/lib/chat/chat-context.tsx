@@ -198,7 +198,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const isFirstMessage = !activeThreadIdRef.current;
       const threadId = await ensureSession();
       if (isFirstMessage) {
-        renameChatSession(threadId, makeChatTitle(data.text))
+        void renameChatSession(threadId, makeChatTitle(data.text))
           .then(() => queryClient.invalidateQueries({ queryKey: chatOptions.list().queryKey }))
           .catch(() => {
             // 命名失败不影响消息发送，忽略

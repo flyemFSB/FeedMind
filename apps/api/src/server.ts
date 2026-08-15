@@ -21,6 +21,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  logger.fatal(err, "服务启动失败");
+  logger.fatal({ err }, "服务启动失败");
   process.exit(1);
 });

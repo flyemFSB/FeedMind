@@ -149,7 +149,8 @@ function buildMessageHandler() {
       } catch (err) {
         logger.error({ err }, "Agent 回复失败");
         if (feishuClient) {
-          feishuClient.im.message
+          // 通知失败（如飞书接口超时）不应影响主流程，仅吞掉
+          void feishuClient.im.message
             .create({
               params: { receive_id_type: "open_id" },
               data: {
