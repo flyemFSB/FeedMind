@@ -11,7 +11,9 @@ import {
   saveManualCookies,
   decrypt,
   checkPlatformCookie,
+  parseUpdateBody,
 } from "../../modules/cookiecloud/service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 import { logger } from "../../lib/logger.js";
 
 export const cookieCloudRoutes = new Hono();
@@ -34,6 +36,12 @@ cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
   }
 
   await saveConfig(uuid, password, crypto_type);
+  void logOperation({
+    action: "update",
+    target: "cookie_store",
+    targetName: "CookieCloud",
+    detail: "更新配置",
+  });
   return jsonOk(c, { action: "done" });
 });
 
@@ -46,23 +54,28 @@ cookieCloudRoutes.get("/cookiecloud/config/:uuid", async (c) => {
 
 // CookieCloud 扩展上传加密数据（可能 gzip 压缩），自动解密并写入 cookie_store
 cookieCloudRoutes.post("/cookiecloud/update", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const {
-    uuid,
-    encrypted,
-    crypto_type = "legacy",
-  } = body as {
-    uuid?: string;
-    encrypted?: string;
-    crypto_type?: string;
-  };
+  let body: { uuid?: string; encrypted?: string; crypto_type?: string };
+  try {
+    const raw = Buffer.from(await c.req.arrayBuffer());
+    body = parseUpdateBody(raw, c.req.header("content-encoding") ?? null);
+  } catch {
+    return jsonError(c, 400, "INVALID_JSON", "请求体解析失败（不支持 gzip 或非法 JSON）");
+  }
+
+  const { uuid, encrypted, crypto_type = "legacy" } = body;
 
   if (!uuid || !encrypted) {
     return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 encrypted 不能为空");
   }
 
-  await storeEncrypted(uuid, encrypted, crypto_type);
-  return jsonOk(c, { action: "done" });
+  try {
+    await storeEncrypted(uuid, encrypted, crypto_type);
+  } catch (err) {
+    // 解密失败必须向扩展暴露（400），否则扩展显示同步成功但数据并未入库
+    return jsonError(c, 400, "DECRYPT_FAILED", err instanceof Error ? err.message : "解密失败");
+  }
+  // 官方协议响应体：扩展判定成功靠 result.action === 'done'（严格匹配，不能用 jsonOk 信封）
+  return c.json({ action: "done" });
 });
 
 // 下载加密数据（官方 /get 协议）：不传 password 返回 encrypted 原始字符串，
@@ -72,10 +85,16 @@ async function getCookieData(c: Context) {
   const uuid = c.req.param("uuid") ?? "";
   const row = await getConfig(uuid);
   if (!row) return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的数据");
+  // 尚无扩展推送数据时无法验证密码，返回空标记避免误报解密失败
+  if (!row.encrypted) return jsonOk(c, { empty: true });
 
   const body = (await c.req.json().catch(() => ({}))) as { password?: string };
   const password = c.req.query("password") ?? body.password;
-  if (!password) return c.text(row.encrypted);
+  // 无密码：返回官方协议格式 {encrypted, crypto_type}——扩展 download 用
+  // response.json() 解析并检查 result.encrypted（裸文本会导致解析失败）
+  if (!password) {
+    return c.json({ encrypted: row.encrypted, crypto_type: row.cryptoType });
+  }
 
   try {
     return jsonOk(c, decrypt(uuid, row.encrypted, password, row.cryptoType));
@@ -158,5 +177,11 @@ cookieCloudRoutes.post("/cookiecloud/cookies", async (c) => {
   }
 
   await saveManualCookies(platformResult.data, cookies);
+  void logOperation({
+    action: "update",
+    target: "cookie_store",
+    targetName: platformResult.data,
+    detail: "更新 Cookie",
+  });
   return jsonOk(c, { action: "done" });
 });

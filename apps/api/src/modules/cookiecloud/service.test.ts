@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { gzipSync } from "node:zlib";
 import CryptoJS from "crypto-js";
-import { decrypt } from "./service.js";
+import { decrypt, parseUpdateBody } from "./service.js";
 
 // 用官方 CookieCloud 算法（README「Cookie Encryption and Decryption Algorithm」）加密，
 // 验证本地解密兼容。官方密钥 = MD5(uuid-password) 前 16 字节：
@@ -11,6 +12,44 @@ import { decrypt } from "./service.js";
 const UUID = "test-uuid";
 const PASSWORD = "test-password";
 const DATA = { cookie_data: { ".weread.qq.com": [{ name: "wr_skey", value: "abc123" }] } };
+
+describe("parseUpdateBody 请求体解析（明文/gzip）", () => {
+  const BODY = JSON.stringify({
+    uuid: "u1",
+    encrypted: "E",
+    crypto_type: "legacy",
+  });
+
+  it("明文 JSON 正常解析", () => {
+    expect(parseUpdateBody(Buffer.from(BODY), null)).toEqual({
+      uuid: "u1",
+      encrypted: "E",
+      crypto_type: "legacy",
+    });
+  });
+
+  it("Content-Encoding: gzip 请求体解压后解析（官方扩展默认格式）", () => {
+    const raw = gzipSync(Buffer.from(BODY));
+    expect(parseUpdateBody(raw, "gzip")).toEqual({
+      uuid: "u1",
+      encrypted: "E",
+      crypto_type: "legacy",
+    });
+  });
+
+  it("无 Content-Encoding 头时按 gzip 魔数自动识别", () => {
+    const raw = gzipSync(Buffer.from(BODY));
+    expect(parseUpdateBody(raw, null)).toEqual({
+      uuid: "u1",
+      encrypted: "E",
+      crypto_type: "legacy",
+    });
+  });
+
+  it("非法数据抛 JSON 解析错误", () => {
+    expect(() => parseUpdateBody(Buffer.from("not-json"), null)).toThrow();
+  });
+});
 
 describe("CookieCloud decrypt 协议兼容", () => {
   it("legacy：官方 CryptoJS.AES.encrypt(data, key) 密文可解", () => {

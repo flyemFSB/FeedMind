@@ -27,6 +27,23 @@ function matchPlatform(domain: string): PlatformId | null {
   return null;
 }
 
+// CookieCloud 扩展 POST /update 的请求体：明文 JSON 或 gzip 压缩（数据大时默认）。
+// Node 服务端不自动解压请求体，需按 Content-Encoding/魔数判断后手动解压。
+export function parseUpdateBody(
+  raw: Buffer,
+  contentEncoding: string | null,
+): {
+  uuid?: string;
+  encrypted?: string;
+  crypto_type?: string;
+} {
+  const gzipped =
+    contentEncoding?.toLowerCase().includes("gzip") ??
+    (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b);
+  const text = gzipped ? gunzipSync(raw).toString("utf8") : raw.toString("utf8");
+  return JSON.parse(text) as { uuid?: string; encrypted?: string; crypto_type?: string };
+}
+
 // 保存 UUID + 密码配置（密码 Fernet 加密落库，与 model apiKey 同策略）
 export async function saveConfig(
   uuid: string,
@@ -74,7 +91,11 @@ export async function storeEncrypted(
       const data = decrypt(uuid, payload, password, cryptoType) as Record<string, unknown>;
       await syncCookies(uuid, data);
     } catch (err) {
+      // 抛给路由返回 4xx：扩展收到非 200 会显示同步失败，而不是静默假成功
       logger.error({ err, uuid }, "CookieCloud 数据解密失败");
+      throw new Error("CookieCloud 数据解密失败：密码不匹配或数据损坏，请在前端重新保存密码", {
+        cause: err,
+      });
     }
   }
 }
