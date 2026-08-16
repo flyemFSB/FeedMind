@@ -1,8 +1,36 @@
+import { logger } from "../../lib/logger.js";
+
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
 export type LlmOptions = { responseFormat?: "json" | "text"; maxTokens?: number };
 
 export interface LlmClient {
   chat(messages: LlmMessage[], opts?: LlmOptions): Promise<string>;
+}
+
+/** LLM HTTP 错误：携带状态码与 Retry-After，供重试判断（区别于超时/解析类错误） */
+export class LlmHttpError extends Error {
+  constructor(
+    public readonly status: number,
+    body: string,
+    public readonly retryAfterSec?: number,
+  ) {
+    super(`LLM API 错误 (${status}): ${body.slice(0, 500)}`);
+    this.name = "LlmHttpError";
+  }
+}
+
+/** 可重试：限流 429、服务端 5xx、网络层错误（TypeError）；超时/4xx 不重试 */
+function isRetryable(err: unknown): boolean {
+  if (err instanceof LlmHttpError) return err.status === 429 || err.status >= 500;
+  return err instanceof TypeError;
+}
+
+/** 退避时长：尊重 429 的 Retry-After；否则指数退避 5s 起步（tpm exhausted 是分钟级窗口，短退避无意义），上限 60s，带抖动 */
+function retryDelayMs(err: unknown, attempt: number): number {
+  const retryAfterMs =
+    err instanceof LlmHttpError && err.retryAfterSec ? err.retryAfterSec * 1000 : 0;
+  const base = retryAfterMs || 5_000 * 2 ** (attempt - 1);
+  return Math.min(base * (0.8 + Math.random() * 0.4), 60_000);
 }
 
 export class OpenAiLlmClient implements LlmClient {
@@ -15,6 +43,23 @@ export class OpenAiLlmClient implements LlmClient {
   ) {}
 
   async chat(messages: LlmMessage[], opts: LlmOptions = {}): Promise<string> {
+    // 429/5xx/网络错误指数退避重试：单次失败直接抛出让整个导入任务失败太脆
+    const maxAttempts = 4; // 1 次直接尝试 + 3 次重试
+    let attempt = 0;
+    for (;;) {
+      attempt++;
+      try {
+        return await this.chatOnce(messages, opts);
+      } catch (err) {
+        if (!isRetryable(err) || attempt >= maxAttempts) throw err;
+        const delayMs = retryDelayMs(err, attempt);
+        logger.warn({ err, attempt, delayMs }, "LLM 调用失败，退避后重试");
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  private async chatOnce(messages: LlmMessage[], opts: LlmOptions = {}): Promise<string> {
     const baseUrl = this.config.baseUrl.replace(/\/$/, "");
     const model = this.config.model;
     const maxTokens = opts.maxTokens ?? 4096;
@@ -54,9 +99,12 @@ export class OpenAiLlmClient implements LlmClient {
       } catch {
         errorBody = "(读取错误响应体失败)";
       }
-      throw new Error(`LLM API 错误 (${response.status}): ${errorBody.slice(0, 500)}`, {
-        cause: response,
-      });
+      throw new LlmHttpError(
+        response.status,
+        errorBody,
+        // Retry-After 可能是秒数或 HTTP 日期，仅解析秒数形式（多数网关返回秒数）
+        Number(response.headers.get("retry-after")) || undefined,
+      );
     }
 
     if (!response.body) {
