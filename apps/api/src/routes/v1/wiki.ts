@@ -93,7 +93,9 @@ wikiRoutes.get("/wiki/spaces/:spaceId", async (c) =>
 );
 wikiRoutes.patch("/wiki/spaces/:spaceId", async (c) => {
   const payload = await parseJson(c, wikiSpaceUpdateSchema);
-  return jsonOk(c, await updateWikiSpace(c.req.param("spaceId"), payload));
+  const space = await updateWikiSpace(c.req.param("spaceId"), payload);
+  void logOperation({ action: "update", target: "wiki_space", targetName: space.name });
+  return jsonOk(c, space);
 });
 wikiRoutes.delete("/wiki/spaces/:spaceId", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -185,6 +187,8 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
   const spaceId = c.req.param("spaceId");
   const payload = await parseJson(c, wikiSourceCreateSchema);
   const source = await createWikiSource(spaceId, payload);
+  // 与文件上传一致：创建即自动入队导入，来源管理行内实时显示步骤进度
+  autoIngestUpload(spaceId, source.identity, source.title);
   void logOperation({ action: "create", target: "wiki_source", targetName: source.title });
   return jsonOk(c, source, 201);
 });
@@ -310,10 +314,29 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
-  await cancelIngestJob(c.req.param("spaceId"), c.req.param("jobId"));
+  const spaceId = c.req.param("spaceId");
+  const jobId = c.req.param("jobId");
+  await cancelIngestJob(spaceId, jobId);
+  // 日志取任务名：取消/重试前从队列快照里找，拿不到就用 jobId
+  const job = (await listIngestJobs(spaceId)).find((j) => j.id === jobId);
+  void logOperation({
+    action: "run",
+    target: "wiki_source",
+    targetName: job?.source_title ?? jobId,
+    detail: "取消导入",
+  });
   return jsonOk(c, { success: true });
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/retry", async (c) => {
-  await retryIngestJob(c.req.param("spaceId"), c.req.param("jobId"));
+  const spaceId = c.req.param("spaceId");
+  const jobId = c.req.param("jobId");
+  await retryIngestJob(spaceId, jobId);
+  const job = (await listIngestJobs(spaceId)).find((j) => j.id === jobId);
+  void logOperation({
+    action: "run",
+    target: "wiki_source",
+    targetName: job?.source_title ?? jobId,
+    detail: "重试导入",
+  });
   return jsonOk(c, { success: true });
 });

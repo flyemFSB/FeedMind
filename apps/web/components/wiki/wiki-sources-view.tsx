@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { FileText, Globe, Play, Trash2, Type } from "lucide-react";
-import { deleteWikiSource, previewDeleteImpact, runIngest } from "@/lib/api/wiki";
-import { useWikiSources } from "@/lib/hooks/use-wiki";
+import { FileText, Globe, Play, Trash2, Type, XCircle } from "lucide-react";
+import { cancelIngestJob, deleteWikiSource, previewDeleteImpact, runIngest } from "@/lib/api/wiki";
+import { useIngestJobs, useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiOptions } from "@/lib/hooks/use-wiki";
+import type { IngestJob } from "@feedmind/contracts";
 import { Badge } from "@/components/ui/badge";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,13 +19,35 @@ interface WikiSourcesViewProps {
   spaceId: string;
 }
 
+/** 任务是否仍在进行（驱动轮询与行内进度展示）。不用类型守卫：
+ *  false 分支会让 TS 把 job 错误收窄（IngestJob 含全部状态，排除后成 never） */
+function isActiveJob(job: IngestJob | undefined): boolean {
+  return job !== undefined && (job.status === "pending" || job.status === "processing");
+}
+
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { data, isLoading } = useWikiSources(spaceId);
+  // 导入任务轮询（有活跃任务时 3s 自动刷新，见 useIngestJobs）
+  const { data: jobs = [] } = useIngestJobs(spaceId);
+  const hasActiveJob = jobs.some(isActiveJob);
+  // 有活跃导入时来源列表同步轮询，完成后来源状态自动变为“已导入”
+  const { data, isLoading } = useWikiSources(spaceId, {
+    refetchInterval: hasActiveJob ? 5000 : false,
+  });
   const sources = data?.items ?? [];
 
+  // 每个来源关联其最新任务（jobs 按添加时间倒序取第一个）
+  const jobBySource = useMemo(() => {
+    const map = new Map<string, IngestJob>();
+    for (const job of jobs) {
+      if (!map.has(job.source_path)) map.set(job.source_path, job);
+    }
+    return map;
+  }, [jobs]);
+
   const [ingestingIds, setIngestingIds] = useState<Set<string>>(new Set());
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [ingestResult, setIngestResult] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -36,6 +59,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   } | null>(null);
   const invalidateSources = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: wikiOptions.sources(spaceId).queryKey });
+    void queryClient.invalidateQueries({ queryKey: wikiOptions.jobs(spaceId).queryKey });
   }, [queryClient, spaceId]);
 
   // 先预览删除影响，再弹确认框，避免用户对删除范围没有概念
@@ -84,6 +108,19 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         next.delete(sourceIdentity);
         return next;
       });
+      invalidateSources();
+    }
+  };
+
+  const handleCancel = async (jobId: string) => {
+    setCancellingId(jobId);
+    try {
+      await cancelIngestJob(spaceId, jobId);
+    } catch {
+      // 错误由 apiFetch toast 统一处理
+    } finally {
+      setCancellingId(null);
+      invalidateSources();
     }
   };
 
@@ -180,59 +217,101 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             initial="initial"
             animate="animate"
           >
-            {sources.map((source) => (
-              <motion.div
-                key={source.id}
-                layout
-                variants={listItemVariants}
-                className="flex items-center gap-4 px-6 py-3 hover:bg-editorial-canvas-soft group"
-              >
-                <div className="text-editorial-ink-muted shrink-0">{kindIcon(source.kind)}</div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-editorial-ink">
-                    {source.title}
-                  </p>
-                  <p className="text-[12px] text-editorial-ink-muted">
-                    {source.original_name ?? source.identity}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {statusBadge(source.status)}
-                  {source.page_count > 0 && (
-                    <span className="text-[12px] text-editorial-ink-muted">
-                      {t("wiki.pageCount", { count: source.page_count })}
-                    </span>
-                  )}
-                </div>
-                <motion.button
-                  onClick={() => handleIngest(source.identity, source.title)}
-                  disabled={ingestingIds.has(source.identity)}
-                  whileHover={{ scale: 1.08, opacity: 1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
-                  title={
-                    ingestingIds.has(source.identity)
-                      ? t("wiki.ingestingTitle")
-                      : t("wiki.runIngest")
-                  }
+            {sources.map((source) => {
+              // 行内导入状态：job 优先（进行中/失败），否则用来源自身状态
+              const job = jobBySource.get(source.identity);
+              const activeJob = isActiveJob(job);
+              const failedJob = job?.status === "failed";
+              const displayStatus = activeJob ? "ingesting" : failedJob ? "failed" : source.status;
+              const subLine = activeJob
+                ? job?.progress
+                  ? `${t("wiki.stepsProgress", {
+                      step: job.progress.step,
+                      total: job.progress.totalSteps,
+                    })} · ${job.progress.message}`
+                  : job?.status === "processing"
+                    ? t("wiki.statusProcessing")
+                    : t("wiki.statusPending")
+                : failedJob
+                  ? (job?.error ?? t("wiki.processFailed"))
+                  : (source.original_name ?? source.identity);
+
+              return (
+                <motion.div
+                  key={source.id}
+                  layout
+                  variants={listItemVariants}
+                  className="flex items-center gap-4 px-6 py-3 hover:bg-editorial-canvas-soft group"
                 >
-                  {ingestingIds.has(source.identity) ? (
-                    <MotionSpinner size={12} />
+                  <div className="text-editorial-ink-muted shrink-0">{kindIcon(source.kind)}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-editorial-ink">
+                      {source.title}
+                    </p>
+                    <p
+                      title={subLine}
+                      className={`truncate text-[12px] ${
+                        failedJob ? "text-destructive" : "text-editorial-ink-muted"
+                      }`}
+                    >
+                      {subLine}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {statusBadge(displayStatus)}
+                    {source.page_count > 0 && (
+                      <span className="text-[12px] text-editorial-ink-muted">
+                        {t("wiki.pageCount", { count: source.page_count })}
+                      </span>
+                    )}
+                  </div>
+                  {activeJob ? (
+                    <motion.button
+                      onClick={() => void handleCancel(job!.id)}
+                      whileHover={{ scale: 1.08, opacity: 1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      title={t("wiki.cancel")}
+                      disabled={cancellingId === job!.id}
+                    >
+                      {cancellingId === job!.id ? (
+                        <MotionSpinner size={12} />
+                      ) : (
+                        <XCircle size={13} />
+                      )}
+                    </motion.button>
                   ) : (
-                    <Play size={12} />
+                    <motion.button
+                      onClick={() => handleIngest(source.identity, source.title)}
+                      disabled={ingestingIds.has(source.identity)}
+                      whileHover={{ scale: 1.08, opacity: 1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-primary group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
+                      title={
+                        ingestingIds.has(source.identity)
+                          ? t("wiki.ingestingTitle")
+                          : t("wiki.runIngest")
+                      }
+                    >
+                      {ingestingIds.has(source.identity) ? (
+                        <MotionSpinner size={12} />
+                      ) : (
+                        <Play size={12} />
+                      )}
+                    </motion.button>
                   )}
-                </motion.button>
-                <motion.button
-                  onClick={() => requestDelete(source)}
-                  whileHover={{ scale: 1.08, opacity: 1 }}
-                  whileTap={{ scale: 0.9 }}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
-                  title={t("wiki.deleteSource")}
-                >
-                  <Trash2 size={13} />
-                </motion.button>
-              </motion.div>
-            ))}
+                  <motion.button
+                    onClick={() => requestDelete(source)}
+                    whileHover={{ scale: 1.08, opacity: 1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
+                    title={t("wiki.deleteSource")}
+                  >
+                    <Trash2 size={13} />
+                  </motion.button>
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
 

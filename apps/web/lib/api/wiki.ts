@@ -1,4 +1,5 @@
 import { apiDelete, apiFetch, apiPatch, apiPost, apiPut, backendApiPath } from "./client";
+import type { IngestJob } from "@feedmind/contracts";
 import type {
   WikiBacklink,
   WikiGraph,
@@ -154,7 +155,16 @@ export function getWikiGraphInsights(spaceId: string): Promise<{
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/graph/insights`));
 }
 
-// ─── Direct Ingest ──────────────────────────────────────────────
+// ─── Ingest Jobs（导入过程展示：来源行内轮询任务状态/进度）──────
+export function listIngestJobs(spaceId: string): Promise<IngestJob[]> {
+  return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`));
+}
+
+export function cancelIngestJob(spaceId: string, jobId: string): Promise<{ success: boolean }> {
+  return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/cancel`, {});
+}
+
+// ─── Direct Ingest（同步导入：完成后由后端标记来源已导入）──────
 export function runIngest(
   spaceId: string,
   sourcePath: string,
