@@ -38,7 +38,11 @@ import {
   useCheckPlatformCookie,
   useCrawlerOptions,
 } from "@/lib/hooks/use-feeds";
-import { saveCookieCloudConfig } from "@/lib/api/feeds";
+import {
+  getCookieCloudConfig,
+  saveCookieCloudConfig,
+  verifyCookieCloudPassword,
+} from "@/lib/api/feeds";
 import type { RssSource } from "@/lib/api/feeds";
 
 export const Route = createFileRoute("/sources")({
@@ -151,17 +155,63 @@ function SourcesPage() {
   const checkCookieMutation = useCheckPlatformCookie();
 
   // CookieCloud 扩展配置：UUID + 密码（保存后扩展推送的加密数据可解密入库）
-  const [cookiecloudUuid, setCookiecloudUuid] = useState("");
+  // UUID 持久化到 localStorage 回填（随机标识符，非凭证）；密码不落前端存储——
+  // 服务端 AES 加密保存（OWASP：凭证类敏感数据不得明文存客户端存储，XSS 可读）
+  const [cookiecloudUuid, setCookiecloudUuid] = useState(() => {
+    try {
+      return localStorage.getItem("feedmind.cookiecloud.uuid") ?? "";
+    } catch {
+      return "";
+    }
+  });
   const [cookiecloudPassword, setCookiecloudPassword] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
   const [savingCloud, setSavingCloud] = useState(false);
+
+  // 已配置状态：UUID 有值时静默校验服务端是否存在该配置，用于密码框占位提示
+  const [cloudConfigured, setCloudConfigured] = useState(false);
+  useEffect(() => {
+    if (!cookiecloudUuid.trim()) {
+      setCloudConfigured(false);
+      return;
+    }
+    let cancelled = false;
+    getCookieCloudConfig(cookiecloudUuid.trim())
+      .then(() => {
+        if (!cancelled) setCloudConfigured(true);
+      })
+      .catch(() => {
+        // 404 等视为未配置，不打扰用户
+        if (!cancelled) setCloudConfigured(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [cookiecloudUuid]);
 
   const handleSaveCookieCloud = async () => {
     if (!cookiecloudUuid.trim() || !cookiecloudPassword.trim()) return;
     setSavingCloud(true);
     try {
       await saveCookieCloudConfig(cookiecloudUuid.trim(), cookiecloudPassword);
-      toast.add({ title: t("feeds.cookieCloudSaved"), type: "success" });
+      try {
+        localStorage.setItem("feedmind.cookiecloud.uuid", cookiecloudUuid.trim());
+        // 密码只提交服务端，不落 localStorage（明文副本无必要）
+      } catch {
+        // localStorage 不可用（隐私模式等）不影响保存本身
+      }
+      setCloudConfigured(true);
+      // 保存后立即用最近一次推送数据验证密码：与扩展不一致立刻提示，不等到同步失败
+      try {
+        const check = await verifyCookieCloudPassword(cookiecloudUuid.trim(), cookiecloudPassword);
+        if (check.empty) {
+          toast.add({ title: t("feeds.cookieCloudSaved"), type: "success" });
+        } else {
+          toast.add({ title: t("feeds.cookieCloudVerifyOk"), type: "success" });
+        }
+      } catch {
+        toast.add({ title: t("feeds.cookieCloudVerifyFail"), type: "error" });
+      }
     } catch {
       // apiFetch 已 toast 错误，避免重复提示
     } finally {
@@ -666,7 +716,11 @@ function SourcesPage() {
                     type="password"
                     value={cookiecloudPassword}
                     onChange={(e) => setCookiecloudPassword(e.target.value)}
-                    placeholder={t("feeds.cookiePasswordPlaceholder")}
+                    placeholder={
+                      cloudConfigured
+                        ? t("feeds.cookiePasswordSavedPlaceholder")
+                        : t("feeds.cookiePasswordPlaceholder")
+                    }
                     className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
                   />
                 </div>
