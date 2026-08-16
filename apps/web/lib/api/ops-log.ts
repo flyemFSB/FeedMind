@@ -16,7 +16,11 @@ export interface OpsLogRow {
 export function listOperations(
   limit = 50,
   offset = 0,
+  filter: { action?: OpsAction; result?: OpsResult } = {},
   signal?: AbortSignal,
 ): Promise<{ items: OpsLogRow[]; total: number }> {
-  return apiFetch(backendApiPath(`/ops-log?limit=${limit}&offset=${offset}`), { signal });
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  if (filter.action) params.set("action", filter.action);
+  if (filter.result) params.set("result", filter.result);
+  return apiFetch(backendApiPath(`/ops-log?${params}`), { signal });
 }

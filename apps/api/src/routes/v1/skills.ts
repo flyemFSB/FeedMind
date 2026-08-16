@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { jsonOk, jsonError } from "../../lib/http.js";
 import { listSkills, installSkill, deleteSkill } from "../../modules/skills/service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const skillsRoutes = new Hono();
 
@@ -25,11 +26,13 @@ skillsRoutes.post("/skills", async (c) => {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const skill = await installSkill(name, buffer);
+  void logOperation({ action: "import", target: "skill", targetName: skill.name });
   return jsonOk(c, skill, 201);
 });
 
 skillsRoutes.delete("/skills/:name", async (c) => {
   const name = c.req.param("name");
   await deleteSkill(name);
+  void logOperation({ action: "delete", target: "skill", targetName: name });
   return jsonOk(c, { deleted: true });
 });

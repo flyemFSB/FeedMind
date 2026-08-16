@@ -11,6 +11,7 @@ import {
   updateChatSessionTitle,
 } from "../../modules/chats/service.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const chatRoutes = new Hono();
 
@@ -43,6 +44,7 @@ chatRoutes.get("/chats/:sessionId/messages", async (c) => {
 
 chatRoutes.delete("/chats/:sessionId", async (c) => {
   const sessionId = c.req.param("sessionId");
+  const session = await getChatSession(sessionId).catch(() => null);
   // 同步清理 Agent Memory 中的 thread：只删 feedmind.db 的会话行会让
   // mastra.db 里的消息永久残留，长期运行无限膨胀。失败不阻塞删除主流程。
   const memory = await feedmindAgent.getMemory();
@@ -51,7 +53,13 @@ chatRoutes.delete("/chats/:sessionId", async (c) => {
       .deleteThread(sessionId)
       .catch((err: unknown) => logger.error({ err }, "清理 Agent Memory thread 失败"));
   }
-  return jsonOk(c, await deleteChatSession(sessionId));
+  const result = await deleteChatSession(sessionId);
+  void logOperation({
+    action: "delete",
+    target: "chat_session",
+    targetName: session?.title ?? sessionId,
+  });
+  return jsonOk(c, result);
 });
 
 /** 更新会话标题（按首条消息自动命名） */

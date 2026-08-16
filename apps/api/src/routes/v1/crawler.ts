@@ -12,13 +12,16 @@ import {
   listBiliFavs,
   listZhCollections,
 } from "../../modules/crawler/service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const crawlerRoutes = new Hono();
 
 // ─── 任务 ───────────────────────────────────────────────────────
 crawlerRoutes.post("/crawler/tasks", async (c) => {
   const payload = await parseJson(c, taskCreateSchema);
-  return jsonOk(c, { data: await createCrawlerTask(payload) }, 201);
+  const task = await createCrawlerTask(payload);
+  void logOperation({ action: "create", target: "crawler_task", targetName: task.route });
+  return jsonOk(c, { data: task }, 201);
 });
 
 // 列出微信读书书架中的公众号（供前端选择指定订阅）
@@ -76,10 +79,24 @@ crawlerRoutes.get("/crawler/tasks/:id/rss", async (c) => {
 
 crawlerRoutes.post("/crawler/tasks/:id/cancel", async (c) => {
   const task = await cancelTask(c.req.param("id"));
+  void logOperation({
+    action: "run",
+    target: "crawler_task",
+    targetName: task.route,
+    detail: "取消任务",
+  });
   return jsonOk(c, { data: task }, 202);
 });
 
 crawlerRoutes.delete("/crawler/tasks/:id", async (c) => {
-  await deleteTask(c.req.param("id"));
+  const id = c.req.param("id");
+  // 删除前先取路由名供日志展示（deleteTask 无返回值）
+  const task = await getTask(id).catch(() => null);
+  await deleteTask(id);
+  void logOperation({
+    action: "delete",
+    target: "crawler_task",
+    targetName: task?.route ?? id,
+  });
   return c.body(null, 204);
 });

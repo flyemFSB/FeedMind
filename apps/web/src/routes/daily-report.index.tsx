@@ -81,7 +81,7 @@ function DailyReportPage() {
   const statusLabel = (status: string) => t(`dailyReport.status.${status}`);
 
   return (
-    <div className="mx-auto max-w-[1080px] space-y-4 px-6 pb-6 max-sm:px-4">
+    <div className="mx-auto max-w-[1080px] space-y-4 px-6 pt-6 pb-6 max-sm:px-4">
       <section className="rounded-lg border border-editorial-hairline bg-editorial-surface-card p-4">
         <div className="mb-3 flex items-center gap-2">
           <CalendarDays size={16} className="text-editorial-ink-muted" />

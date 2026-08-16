@@ -469,6 +469,10 @@
   "opsLog": {
     "title": "Operation Log",
     "empty": "No operations recorded yet",
+    "emptyHint": "Actions on feeds, Wiki, daily reports, etc. will be recorded here",
+    "emptyFiltered": "No records match the current filters",
+    "emptyFilteredHint": "Try adjusting the filters above",
+    "loadFailed": "Failed to load the log. Please refresh and retry.",
     "loadMore": "Load more",
     "failed": "Failed",
     "action": {
@@ -478,13 +482,34 @@
       "import": "Import",
       "run": "Run"
     },
+    "result": {
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "filter": {
+      "action": "All actions",
+      "actionAll": "All actions",
+      "result": "All results",
+      "resultAll": "All results"
+    },
+    "group": {
+      "today": "Today",
+      "yesterday": "Yesterday"
+    },
     "target": {
       "wiki_space": "Wiki Space",
       "wiki_page": "Wiki Page",
       "wiki_source": "Wiki Source",
       "rss_source": "Feed Source",
       "daily_report": "Daily Report",
-      "feeds": "Feed Items"
+      "feeds": "Feed Items",
+      "model": "Model",
+      "skill": "Skill",
+      "crawler_task": "Crawler Task",
+      "runtime_config": "Runtime Config",
+      "chat_session": "Chat Session",
+      "cookie_store": "Cookie",
+      "remote_connection": "Remote Connection"
     }
   },
   "error": {

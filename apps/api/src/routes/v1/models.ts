@@ -14,6 +14,7 @@ import {
   setSelectedModel,
   updateModel,
 } from "../../modules/models/service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const modelRoutes = new Hono();
 
@@ -32,13 +33,24 @@ modelRoutes.get("/models", async (c) => {
 
 modelRoutes.post("/models", async (c) => {
   const payload = await parseJson(c, modelCreateSchema);
-  return jsonOk(c, await createModel(payload), 201);
+  const model = await createModel(payload);
+  void logOperation({ action: "create", target: "model", targetName: model.model_name });
+  return jsonOk(c, model, 201);
 });
 
 modelRoutes.put("/models/selected", async (c) => {
   const payload = await parseJson(c, selectedModelUpdateSchema);
   const type = c.req.query("type") ?? "chat";
-  return jsonOk(c, await setSelectedModel(payload, type));
+  const prev = await getSelectedModel(type);
+  const result = await setSelectedModel(payload, type);
+  // 记录切换前后模型 id（名字需再查一次列表，id 已足够定位）
+  void logOperation({
+    action: "update",
+    target: "model",
+    targetName: type === "wiki" ? "Wiki 模型" : "对话模型",
+    detail: prev.id ? `#${prev.id} → #${payload.id}` : `#${payload.id}`,
+  });
+  return jsonOk(c, result);
 });
 
 modelRoutes.get("/models/selected", async (c) => {
@@ -52,9 +64,16 @@ modelRoutes.get("/models/:modelId/runtime", async (c) =>
 
 modelRoutes.put("/models/:modelId", async (c) => {
   const payload = await parseJson(c, modelUpdateSchema);
-  return jsonOk(c, await updateModel(parseModelId(c.req.param("modelId")), payload));
+  const model = await updateModel(parseModelId(c.req.param("modelId")), payload);
+  void logOperation({ action: "update", target: "model", targetName: model.model_name });
+  return jsonOk(c, model);
 });
 
-modelRoutes.delete("/models/:modelId", async (c) =>
-  jsonOk(c, await deleteModel(parseModelId(c.req.param("modelId")))),
-);
+modelRoutes.delete("/models/:modelId", async (c) => {
+  const modelId = parseModelId(c.req.param("modelId"));
+  // 删除前先取名字供日志展示（deleteModel 只返回 deleted 标记）
+  const name = (await listModels()).find((m) => m.id === modelId)?.model_name ?? String(modelId);
+  const result = await deleteModel(modelId);
+  void logOperation({ action: "delete", target: "model", targetName: name });
+  return jsonOk(c, result);
+});

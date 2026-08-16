@@ -13,7 +13,7 @@ function OpsLogPage() {
   const { t } = useTranslation();
   return (
     <LayoutWrapper title={t("opsLog.title")}>
-      <div className="mx-auto max-w-[1080px] space-y-4 px-6 pb-6 max-sm:px-4">
+      <div className="mx-auto max-w-[1080px] space-y-4 px-6 pt-6 pb-6 max-sm:px-4">
         <OperationLog />
       </div>
     </LayoutWrapper>

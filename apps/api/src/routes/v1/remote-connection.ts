@@ -8,6 +8,7 @@ import {
   deleteConnection,
 } from "../../modules/remote-connection/service.js";
 import { getFeishuConfig, saveAndVerify } from "../../modules/remote-connection/feishu-service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const remoteConnectionRoutes = new Hono();
 
@@ -26,11 +27,23 @@ remoteConnectionRoutes.get("/remote-connections/:id", async (c) => {
 remoteConnectionRoutes.post("/remote-connections", async (c) => {
   const payload = await parseJson(c, remoteConnectionUpsertSchema);
   const data = await upsertConnection(payload.platform, payload);
+  void logOperation({
+    action: "update",
+    target: "remote_connection",
+    targetName: data.label,
+  });
   return jsonOk(c, data);
 });
 
 remoteConnectionRoutes.delete("/remote-connections/:id", async (c) => {
-  await deleteConnection(c.req.param("id"));
+  const id = c.req.param("id");
+  const conn = await getConnection(id).catch(() => null);
+  await deleteConnection(id);
+  void logOperation({
+    action: "delete",
+    target: "remote_connection",
+    targetName: conn?.label ?? id,
+  });
   return c.body(null, 204);
 });
 

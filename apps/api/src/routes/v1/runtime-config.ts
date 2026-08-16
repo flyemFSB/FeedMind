@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { runtimeConfigUpdateSchema } from "@feedmind/contracts";
 import { HttpError, jsonOk, parseJson } from "../../lib/http.js";
 import { getAllConfigs, updateConfig } from "../../modules/models/config-service.js";
+import { logOperation } from "../../modules/ops-log/service.js";
 
 export const runtimeConfigRoutes = new Hono();
 
@@ -13,5 +14,14 @@ runtimeConfigRoutes.put("/runtime-configs/:runtime", async (c) => {
     throw new HttpError(422, "VALIDATION_ERROR", "运行类型只能是 session 或 wiki");
   }
   const payload = await parseJson(c, runtimeConfigUpdateSchema);
-  return jsonOk(c, await updateConfig(runtime, payload));
+  const result = await updateConfig(runtime, payload);
+  // detail 只记改了哪些键，不落值（含密钥类字段）
+  const changed = Object.keys(payload);
+  void logOperation({
+    action: "update",
+    target: "runtime_config",
+    targetName: runtime === "wiki" ? "Wiki 运行配置" : "对话运行配置",
+    detail: changed.join(", "),
+  });
+  return jsonOk(c, result);
 });

@@ -63,16 +63,37 @@ export interface OpsLogRow {
   result: OpsResult;
 }
 
+export interface OpsLogFilter {
+  action?: OpsAction;
+  result?: OpsResult;
+}
+
 export async function listOperations(
   limit = 50,
   offset = 0,
+  filter: OpsLogFilter = {},
 ): Promise<{ items: OpsLogRow[]; total: number }> {
   await ensureOpsLogTable();
-  const totalRes = await client.execute("SELECT count(*) AS n FROM operation_log");
+  // 筛选条件动态拼接：仅两个可空等值条件，无需 ORM 层抽象
+  const where: string[] = [];
+  const args: (string | number)[] = [];
+  if (filter.action) {
+    where.push("action = ?");
+    args.push(filter.action);
+  }
+  if (filter.result) {
+    where.push("result = ?");
+    args.push(filter.result);
+  }
+  const whereSql = where.length ? ` WHERE ${where.join(" AND ")}` : "";
+  const totalRes = await client.execute({
+    sql: `SELECT count(*) AS n FROM operation_log${whereSql}`,
+    args,
+  });
   const total = Number(totalRes.rows[0]?.["n"] ?? 0);
   const rows = await client.execute({
-    sql: "SELECT id, ts, action, target, target_name AS targetName, detail, result FROM operation_log ORDER BY id DESC LIMIT ? OFFSET ?",
-    args: [limit, offset],
+    sql: `SELECT id, ts, action, target, target_name AS targetName, detail, result FROM operation_log${whereSql} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
   });
   return {
     items: rows.rows as unknown as OpsLogRow[],

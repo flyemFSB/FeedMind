@@ -469,6 +469,10 @@
   "opsLog": {
     "title": "操作日志",
     "empty": "暂无操作记录",
+    "emptyHint": "对订阅源、Wiki、日报等执行操作后，这里会留下记录",
+    "emptyFiltered": "没有符合条件的记录",
+    "emptyFilteredHint": "试试调整上方的筛选条件",
+    "loadFailed": "日志加载失败，请刷新重试",
     "loadMore": "加载更多",
     "failed": "失败",
     "action": {
@@ -478,13 +482,34 @@
       "import": "导入",
       "run": "运行"
     },
+    "result": {
+      "success": "成功",
+      "failed": "失败"
+    },
+    "filter": {
+      "action": "全部动作",
+      "actionAll": "全部动作",
+      "result": "全部结果",
+      "resultAll": "全部结果"
+    },
+    "group": {
+      "today": "今天",
+      "yesterday": "昨天"
+    },
     "target": {
       "wiki_space": "Wiki 空间",
       "wiki_page": "Wiki 页面",
       "wiki_source": "Wiki 来源",
       "rss_source": "订阅源",
       "daily_report": "日报",
-      "feeds": "订阅条目"
+      "feeds": "订阅条目",
+      "model": "模型",
+      "skill": "技能",
+      "crawler_task": "爬虫任务",
+      "runtime_config": "运行配置",
+      "chat_session": "会话",
+      "cookie_store": "Cookie",
+      "remote_connection": "远程连接"
     }
   },
   "error": {
