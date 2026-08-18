@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WikiRouteImport } from './routes/wiki'
 import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as OpsLogRouteImport } from './routes/ops-log'
 import { Route as FeedsRouteImport } from './routes/feeds'
 import { Route as DailyReportRouteImport } from './routes/daily-report'
@@ -27,6 +28,11 @@ const WikiRoute = WikiRouteImport.update({
 const SourcesRoute = SourcesRouteImport.update({
   id: '/sources',
   path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OpsLogRoute = OpsLogRouteImport.update({
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
   '/ops-log': typeof OpsLogRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report/': typeof DailyReportIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/chat': typeof ChatRoute
   '/ops-log': typeof OpsLogRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report': typeof DailyReportIndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/daily-report': typeof DailyReportRouteWithChildren
   '/feeds': typeof FeedsRouteWithChildren
   '/ops-log': typeof OpsLogRoute
+  '/settings': typeof SettingsRoute
   '/sources': typeof SourcesRoute
   '/wiki': typeof WikiRoute
   '/daily-report/': typeof DailyReportIndexRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/daily-report'
     | '/feeds'
     | '/ops-log'
+    | '/settings'
     | '/sources'
     | '/wiki'
     | '/daily-report/'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/chat'
     | '/ops-log'
+    | '/settings'
     | '/sources'
     | '/wiki'
     | '/daily-report'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/daily-report'
     | '/feeds'
     | '/ops-log'
+    | '/settings'
     | '/sources'
     | '/wiki'
     | '/daily-report/'
@@ -137,6 +149,7 @@ export interface RootRouteChildren {
   DailyReportRoute: typeof DailyReportRouteWithChildren
   FeedsRoute: typeof FeedsRouteWithChildren
   OpsLogRoute: typeof OpsLogRoute
+  SettingsRoute: typeof SettingsRoute
   SourcesRoute: typeof SourcesRoute
   WikiRoute: typeof WikiRoute
 }
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/sources'
       fullPath: '/sources'
       preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ops-log': {
@@ -237,6 +257,7 @@ const rootRouteChildren: RootRouteChildren = {
   DailyReportRoute: DailyReportRouteWithChildren,
   FeedsRoute: FeedsRouteWithChildren,
   OpsLogRoute: OpsLogRoute,
+  SettingsRoute: SettingsRoute,
   SourcesRoute: SourcesRoute,
   WikiRoute: WikiRoute,
 }

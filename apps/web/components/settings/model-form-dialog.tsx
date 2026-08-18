@@ -64,7 +64,7 @@ interface ModelFormDialogProps {
 
 function ModelSpecBadge({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[12px] font-medium text-editorial-ink-muted leading-none">
+    <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-xs font-medium text-editorial-ink-muted leading-none">
       {label}
     </span>
   );
@@ -171,10 +171,10 @@ export function ModelFormDialog({
     >
       <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-[14px] font-semibold">
+          <DialogTitle className="text-sm font-semibold">
             {isEditing ? t("settings.editModel") : t("settings.addModel")}
           </DialogTitle>
-          <DialogDescription className="text-[12px] text-editorial-ink-muted">
+          <DialogDescription className="text-xs text-editorial-ink-muted">
             {t("settings.formDescription")}
           </DialogDescription>
         </DialogHeader>
@@ -182,7 +182,7 @@ export function ModelFormDialog({
           <div className="col-span-2">
             <label
               htmlFor="model-provider-select"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.provider")}
             </label>
@@ -194,7 +194,7 @@ export function ModelFormDialog({
                 <SelectTrigger
                   id="model-provider-select"
                   aria-label={t("settings.selectProvider")}
-                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
+                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
                 >
                   <SelectValue placeholder={t("settings.selectProvider")} />
                 </SelectTrigger>
@@ -217,7 +217,7 @@ export function ModelFormDialog({
           <div className="col-span-2">
             <label
               htmlFor="model-api-id-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               模型调用名称
             </label>
@@ -230,7 +230,7 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelId: val, modelName: val }));
                 }}
                 placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-md border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
             ) : (
               <Input
@@ -240,7 +240,7 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelId: event.target.value }))
                 }
                 placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-md border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
             )}
           </div>
@@ -248,7 +248,7 @@ export function ModelFormDialog({
           <div className="col-span-2">
             <label
               htmlFor="model-name-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               模型显示名称
             </label>
@@ -260,14 +260,14 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, modelName: event.target.value }));
                 }}
                 placeholder="根据调用名称自动生成"
-                className="h-10 rounded-md border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
             ) : (
               <Select value={form.modelName} onValueChange={handleModelChange}>
                 <SelectTrigger
                   id="model-name-select"
                   aria-label={t("settings.selectModel")}
-                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-[13px]"
+                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
                 >
                   <SelectValue placeholder={t("settings.selectModel")} />
                 </SelectTrigger>
@@ -277,7 +277,7 @@ export function ModelFormDialog({
                       modelList.map((model) => (
                         <SelectItem key={model.name} value={model.name}>
                           <span className="flex items-center gap-2">
-                            <span className="text-[13px]">{model.name}</span>
+                            <span className="text-body">{model.name}</span>
                             <span className="flex items-center gap-1">
                               <ModelSpecBadge label={formatKB(model.context)} />
                               <ModelSpecBadge label={formatKB(model.maxOutput)} />
@@ -286,7 +286,7 @@ export function ModelFormDialog({
                         </SelectItem>
                       ))
                     ) : (
-                      <div className="px-3 py-2 text-[12px] text-editorial-ink-muted">
+                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
                         {t("settings.noModelsAvailable")}
                       </div>
                     )}
@@ -298,7 +298,7 @@ export function ModelFormDialog({
           <div className="col-span-2">
             <label
               htmlFor="model-endpoint-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.endpointLabel")}
             </label>
@@ -309,13 +309,13 @@ export function ModelFormDialog({
                 setForm((current) => ({ ...current, baseUrl: event.target.value }))
               }
               placeholder={t("settings.endpointPlaceholder")}
-              className="h-10 rounded-md border-editorial-hairline text-[13px]"
+              className="h-10 rounded-md border-editorial-hairline text-body"
             />
           </div>
           <div className="col-span-2">
             <label
               htmlFor="model-api-key-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.apiKeyLabel")}
             </label>
@@ -332,7 +332,7 @@ export function ModelFormDialog({
                     : t("settings.apiKeyPlaceholderNew")
                 }
                 type={showKey ? "text" : "password"}
-                className="h-10 rounded-md border-editorial-hairline pr-10 text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
               />
               <button
                 type="button"
@@ -353,7 +353,7 @@ export function ModelFormDialog({
             <div>
               <label
                 htmlFor="model-context-input"
-                className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
               >
                 {t("settings.contextWindow")}
               </label>
@@ -365,13 +365,13 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, context: event.target.value }))
                 }
                 placeholder={t("settings.contextWindowPlaceholder")}
-                className="h-10 rounded-md border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
             </div>
             <div>
               <label
                 htmlFor="model-max-output-input"
-                className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
               >
                 {t("settings.maxOutput")}
               </label>
@@ -383,19 +383,19 @@ export function ModelFormDialog({
                   setForm((current) => ({ ...current, maxOutput: event.target.value }))
                 }
                 placeholder={t("settings.maxOutputPlaceholder")}
-                className="h-10 rounded-md border-editorial-hairline text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
             </div>
           </div>
         </div>
         <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={handleClose} variant="ghost" className="px-4 text-[13px]">
+          <Button onClick={handleClose} variant="ghost" className="px-4 text-body">
             {t("common.cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!form.modelName || isPending}
-            className="bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
+            className="px-4 text-body"
           >
             {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>

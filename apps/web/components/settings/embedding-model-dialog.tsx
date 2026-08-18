@@ -104,10 +104,10 @@ export function EmbeddingModelDialog({
     >
       <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-[14px] font-semibold">
+          <DialogTitle className="text-sm font-semibold">
             {isEditing ? t("settings.editModel") : t("settings.addModel")}
           </DialogTitle>
-          <DialogDescription className="text-[12px] text-editorial-ink-muted">
+          <DialogDescription className="text-xs text-editorial-ink-muted">
             {t("settings.embeddingModelDesc")}
           </DialogDescription>
         </DialogHeader>
@@ -115,7 +115,7 @@ export function EmbeddingModelDialog({
           <div>
             <label
               htmlFor="embedding-model-name-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.embeddingModelName")}
             </label>
@@ -124,13 +124,13 @@ export function EmbeddingModelDialog({
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
               placeholder="BAAI/bge-m3"
-              className="h-10 rounded-md border-editorial-hairline text-[13px]"
+              className="h-10 rounded-md border-editorial-hairline text-body"
             />
           </div>
           <div>
             <label
               htmlFor="embedding-endpoint-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.endpointLabel")}
             </label>
@@ -139,13 +139,13 @@ export function EmbeddingModelDialog({
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://api.siliconflow.cn/v1"
-              className="h-10 rounded-md border-editorial-hairline text-[13px]"
+              className="h-10 rounded-md border-editorial-hairline text-body"
             />
           </div>
           <div>
             <label
               htmlFor="embedding-api-key-input"
-              className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
               {t("settings.apiKeyLabel")}
             </label>
@@ -160,7 +160,7 @@ export function EmbeddingModelDialog({
                     : t("settings.apiKeyPlaceholderNew")
                 }
                 type={showKey ? "text" : "password"}
-                className="h-10 rounded-md border-editorial-hairline pr-10 text-[13px]"
+                className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
               />
               <button
                 type="button"
@@ -179,13 +179,13 @@ export function EmbeddingModelDialog({
           </div>
         </div>
         <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={handleClose} variant="ghost" className="px-4 text-[13px]">
+          <Button onClick={handleClose} variant="ghost" className="px-4 text-body">
             {t("common.cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!canSave || isPending}
-            className="bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
+            className="px-4 text-body"
           >
             {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
           </Button>

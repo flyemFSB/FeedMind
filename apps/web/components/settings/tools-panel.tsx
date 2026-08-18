@@ -47,7 +47,11 @@ export function ToolsPanel() {
     setActiveTool(toolName);
   }
 
+  const [isSaving, setIsSaving] = useState(false);
+
   async function save() {
+    if (touched.size === 0 || isSaving) return;
+    setIsSaving(true);
     try {
       const payload: Record<string, { config: Record<string, unknown> }> = {};
       for (const tool of initialTools) {
@@ -65,6 +69,8 @@ export function ToolsPanel() {
       toast.add({ title: t("settings.toolSaved"), type: "success" });
     } catch {
       // 错误由 apiFetch toast 统一提示，避免重复
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -80,7 +86,7 @@ export function ToolsPanel() {
 
   if (!initialTools.length) {
     return (
-      <div className="text-[13px] text-editorial-ink-muted px-5 py-4">{t("settings.noTools")}</div>
+      <div className="text-body text-editorial-ink-muted px-5 py-4">{t("settings.noTools")}</div>
     );
   }
 
@@ -91,14 +97,22 @@ export function ToolsPanel() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 px-5">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold text-editorial-ink">{t("settings.tools")}</h3>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+          <h3 className="text-sm font-semibold text-editorial-ink">{t("settings.tools")}</h3>
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">
             {t("settings.toolsDescription")}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Button size="sm" onClick={() => void save()} className="h-8 rounded-md text-[12px]">
-            {t("common.save")}
+          <Button
+            size="sm"
+            onClick={() => void save()}
+            disabled={touched.size === 0 || isSaving}
+            className="h-8 rounded-md px-3 text-xs"
+          >
+            {isSaving ? (
+              <span className="size-3 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />
+            ) : null}
+            <span>{t("common.save")}</span>
           </Button>
         </div>
       </div>
@@ -109,7 +123,7 @@ export function ToolsPanel() {
           <button
             key={tool.name}
             onClick={() => handleToolSwitch(tool.name)}
-            className={`px-4 py-2 text-[13px] font-medium border-b-2 ${
+            className={`px-4 py-2 text-body font-medium border-b-2 ${
               activeTool === tool.name
                 ? "border-editorial-primary text-editorial-ink"
                 : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
@@ -131,21 +145,21 @@ export function ToolsPanel() {
             exit="exit"
           >
             {currentTool.description && (
-              <p className="text-[12px] text-editorial-ink-muted">{currentTool.description}</p>
+              <p className="text-xs text-editorial-ink-muted">{currentTool.description}</p>
             )}
             {(currentTool.config_fields ?? []).length === 0 ? (
-              <p className="text-[12px] text-editorial-ink-muted">{t("settings.noConfigFields")}</p>
+              <p className="text-xs text-editorial-ink-muted">{t("settings.noConfigFields")}</p>
             ) : (
               currentTool.config_fields.map((field) => (
                 <div key={field.key}>
-                  <label className="mb-1 block text-[12px] font-medium text-editorial-ink">
+                  <label className="mb-1 block text-xs font-medium text-editorial-ink">
                     {field.label}
                     {field.required && (
                       <span className="ml-0.5 text-editorial-semantic-error">*</span>
                     )}
                   </label>
                   {field.description && (
-                    <p className="mb-1.5 text-[12px] text-editorial-ink-muted">
+                    <p className="mb-1.5 text-xs text-editorial-ink-muted">
                       {field.description}
                       {field.link && (
                         <>

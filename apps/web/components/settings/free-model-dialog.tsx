@@ -58,12 +58,17 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
     }
   }
 
+  const isOcr = preset.type === "ocr";
+  const keyTerm = isOcr ? t("settings.ocrToken") : t("settings.apiKeyLabel");
+
   const steps = [
     {
       key: "step1",
       text: (
         <span className="flex items-center gap-1">
-          {t("settings.freeModelStepGetKey", { provider: preset.provider })}
+          {isOcr
+            ? `前往 ${preset.provider} 获取 ${keyTerm}：`
+            : t("settings.freeModelStepGetKey", { provider: preset.provider })}
           <a
             href={preset.signupUrl}
             target="_blank"
@@ -76,7 +81,10 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
         </span>
       ),
     },
-    { key: "step2", text: t("settings.freeModelStepPaste") },
+    {
+      key: "step2",
+      text: isOcr ? `将 ${keyTerm} 粘贴到下方输入框` : t("settings.freeModelStepPaste"),
+    },
     { key: "step3", text: t("settings.freeModelStepFinish") },
   ];
 
@@ -93,11 +101,11 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
     >
       <DialogContent className="max-w-[460px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
         <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="flex items-center gap-2 text-[14px] font-semibold">
+          <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles size={15} className="text-editorial-accent" />
             {t("settings.addFreeModel")}
           </DialogTitle>
-          <DialogDescription className="mt-1 text-[12px] leading-relaxed text-editorial-ink-muted">
+          <DialogDescription className="mt-1 text-xs leading-relaxed text-editorial-ink-muted">
             {preset.description}
           </DialogDescription>
         </DialogHeader>
@@ -107,9 +115,9 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
             {steps.map((step, i) => (
               <li
                 key={step.key}
-                className="flex items-start gap-2.5 text-[13px] text-editorial-ink-soft"
+                className="flex items-start gap-2.5 text-body text-editorial-ink-soft"
               >
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-editorial-accent-soft text-[11px] font-semibold text-editorial-accent">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-editorial-accent-soft text-tiny font-semibold text-editorial-accent">
                   {i + 1}
                 </span>
                 <span className="min-w-0">{step.text}</span>
@@ -118,27 +126,31 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
           </ol>
 
           <div className="rounded-md bg-editorial-surface-soft px-3 py-2.5">
-            <div className="flex items-center justify-between text-[12px]">
+            <div className="flex items-center justify-between text-xs">
               <span className="text-editorial-ink-muted">{t("settings.endpointLabel")}</span>
               <code className="truncate font-mono text-editorial-ink">{preset.baseUrl}</code>
             </div>
-            <div className="mt-1 flex items-center justify-between text-[12px]">
+            <div className="mt-1 flex items-center justify-between text-xs">
               <span className="text-editorial-ink-muted">{t("settings.tableModel")}</span>
               <code className="truncate font-mono text-editorial-ink">{preset.modelName}</code>
             </div>
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[12px] font-medium text-editorial-ink-soft">
-              {t("settings.apiKeyLabel")}
+            <label className="mb-1.5 block text-xs font-medium text-editorial-ink-soft">
+              {keyTerm}
             </label>
             <div className="relative">
               <Input
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 type={showKey ? "text" : "password"}
-                placeholder={t("settings.apiKeyPlaceholderNew")}
-                className="h-10 rounded-md border-editorial-hairline pr-10 text-[13px]"
+                placeholder={
+                  isOcr
+                    ? t("settings.ocrTokenPlaceholder", "输入 Access Token")
+                    : t("settings.apiKeyPlaceholderNew")
+                }
+                className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
               />
               <button
                 type="button"
@@ -157,13 +169,13 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
         </div>
 
         <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={onClose} variant="ghost" className="px-4 text-[13px]">
+          <Button onClick={onClose} variant="ghost" className="px-4 text-body">
             {t("common.cancel")}
           </Button>
           <Button
             onClick={() => void handleAdd()}
             disabled={createMutation.isPending || !apiKey.trim()}
-            className="flex items-center gap-1.5 bg-primary px-4 text-[13px] text-primary-foreground hover:bg-primary/80 disabled:cursor-not-allowed disabled:bg-editorial-surface-strong disabled:text-editorial-ink-soft"
+            className="flex items-center gap-1.5 px-4 text-body"
           >
             {createMutation.isPending ? (
               <span className="size-3.5 animate-spin rounded-full border-[1.5px] border-current border-t-transparent" />

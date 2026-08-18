@@ -82,7 +82,7 @@ export function ModelSelector() {
     >
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
-        className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
+        className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-body text-editorial-ink hover:bg-editorial-surface-soft"
         disabled={!hasModels || options.length === 0}
       >
         <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")}>

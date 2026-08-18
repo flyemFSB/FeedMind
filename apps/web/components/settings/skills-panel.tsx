@@ -117,8 +117,8 @@ export function SkillsPanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold text-editorial-ink">{t("settings.skills")}</h3>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+          <h3 className="text-sm font-semibold text-editorial-ink">{t("settings.skills")}</h3>
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">
             {t("settings.skillsDescription")}
           </p>
         </div>
@@ -152,10 +152,10 @@ export function SkillsPanel() {
           <Upload size={18} className="text-editorial-ink-muted" />
         </div>
         <div className="text-center">
-          <p className="text-[13px] font-medium text-editorial-ink">
+          <p className="text-body font-medium text-editorial-ink">
             {installing ? t("settings.skillInstalling") : t("settings.skillDropzone")}
           </p>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">
             {t("settings.skillDropzoneHint")}
           </p>
         </div>
@@ -165,7 +165,7 @@ export function SkillsPanel() {
       {skills.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-editorial-hairline px-6 py-10 text-center">
           <Package size={28} className="text-editorial-ink-muted" />
-          <p className="text-[13px] text-editorial-ink-muted">{t("settings.skillEmpty")}</p>
+          <p className="text-body text-editorial-ink-muted">{t("settings.skillEmpty")}</p>
         </div>
       ) : (
         <AnimatePresence initial={false}>
@@ -222,17 +222,17 @@ function SkillRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-medium text-editorial-ink">{skill.name}</span>
+          <span className="text-body font-medium text-editorial-ink">{skill.name}</span>
           {skill.version && (
-            <span className="rounded-md bg-editorial-surface-soft px-1.5 py-0.5 text-[12px] text-editorial-ink-muted">
+            <span className="rounded-md bg-editorial-surface-soft px-1.5 py-0.5 text-xs text-editorial-ink-muted">
               v{skill.version}
             </span>
           )}
         </div>
         {skill.description && (
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">{skill.description}</p>
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">{skill.description}</p>
         )}
-        <div className="mt-1.5 flex items-center gap-3 text-[12px] text-editorial-ink-muted">
+        <div className="mt-1.5 flex items-center gap-3 text-xs text-editorial-ink-muted">
           <span>{formatSize(skill.size)}</span>
           {skill.author && <span>{skill.author}</span>}
           <span>{formatDate(skill.installed_at)}</span>

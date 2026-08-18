@@ -146,10 +146,10 @@ export function ModelsPanel({
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold text-editorial-ink">
+          <h3 className="text-sm font-semibold text-editorial-ink">
             {title ?? t("settings.models")}
           </h3>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">
             {t("settings.modelsDescription")}
           </p>
         </div>
@@ -158,7 +158,7 @@ export function ModelsPanel({
             <Button
               onClick={() => setShowFreeDialog(true)}
               variant="secondary"
-              className="flex items-center gap-1.5 rounded-md bg-editorial-surface-soft px-3 py-2 text-[13px] font-medium text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"
+              className="flex items-center gap-1.5 rounded-md bg-editorial-surface-soft px-3 py-2 text-body font-medium text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink"
             >
               <Sparkles size={13} />
               <span>{t("settings.addFreeModel")}</span>
@@ -166,7 +166,7 @@ export function ModelsPanel({
           )}
           <Button
             onClick={onAddModel}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-[13px] font-medium hover:bg-primary/80"
+            className="flex items-center gap-2 px-4 py-2 text-body font-medium"
           >
             <Plus size={14} />
             <span>{t("settings.addModel")}</span>
@@ -182,7 +182,7 @@ export function ModelsPanel({
               onClick={() => setProviderFilter(p)}
               variant={providerFilter === p ? "default" : "secondary"}
               size="sm"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium ${
                 providerFilter === p
                   ? "bg-editorial-surface-strong text-editorial-ink"
                   : "bg-editorial-surface-soft text-editorial-ink-soft hover:bg-editorial-surface-strong"
@@ -200,33 +200,33 @@ export function ModelsPanel({
           <TableHeader>
             <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft">
               {showProvider && (
-                <TableHead className="w-[18%] px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted">
+                <TableHead className="w-[18%] px-3 py-2.5 text-tiny uppercase tracking-wide text-editorial-ink-muted">
                   {t("settings.tableProvider")}
                 </TableHead>
               )}
               <TableHead
-                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                className={`px-3 py-2.5 text-tiny uppercase tracking-wide text-editorial-ink-muted ${
                   showProvider ? "w-[32%]" : "w-[30%]"
                 }`}
               >
                 {t("settings.tableModel")}
               </TableHead>
               <TableHead
-                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                className={`px-3 py-2.5 text-tiny uppercase tracking-wide text-editorial-ink-muted ${
                   showProvider ? "w-[20%]" : "w-[38%]"
                 }`}
               >
                 {t("settings.tableEndpoint")}
               </TableHead>
               <TableHead
-                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                className={`px-3 py-2.5 text-tiny uppercase tracking-wide text-editorial-ink-muted ${
                   showProvider ? "w-[16%]" : "w-[17%]"
                 }`}
               >
                 {t("settings.tableApiKey")}
               </TableHead>
               <TableHead
-                className={`px-3 py-2.5 text-[11px] uppercase tracking-wide text-editorial-ink-muted ${
+                className={`px-3 py-2.5 text-tiny uppercase tracking-wide text-editorial-ink-muted ${
                   showProvider ? "w-[14%]" : "w-[15%]"
                 }`}
               >
@@ -245,7 +245,7 @@ export function ModelsPanel({
                     <div className="flex items-center gap-1.5">
                       <ProviderIcon provider={model.provider} size={14} />
                       <span
-                        className="truncate text-[13px] text-editorial-ink"
+                        className="truncate text-body text-editorial-ink"
                         title={model.provider}
                       >
                         {model.provider}
@@ -253,7 +253,7 @@ export function ModelsPanel({
                     </div>
                   </TableCell>
                 )}
-                <TableCell className="px-3 py-2.5 text-[13px] text-editorial-ink">
+                <TableCell className="px-3 py-2.5 text-body text-editorial-ink">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="truncate" title={model.modelName}>
@@ -267,12 +267,12 @@ export function ModelsPanel({
                         return (
                           <span className="flex shrink-0 items-center gap-0.5">
                             {context ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-[11px] font-medium text-editorial-ink-muted leading-none">
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-tiny font-medium text-editorial-ink-muted leading-none">
                                 {formatKB(context)}
                               </span>
                             ) : null}
                             {maxOutput ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-[11px] font-medium text-editorial-ink-muted leading-none">
+                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-tiny font-medium text-editorial-ink-muted leading-none">
                                 {formatKB(maxOutput)}
                               </span>
                             ) : null}
@@ -293,7 +293,7 @@ export function ModelsPanel({
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2.5 text-[12px] text-editorial-ink-soft">
+                <TableCell className="px-3 py-2.5 text-xs text-editorial-ink-soft">
                   <div className="grid grid-cols-[minmax(0,1fr)_24px] items-center gap-1">
                     <span
                       className="truncate font-mono"
@@ -313,7 +313,7 @@ export function ModelsPanel({
                     </button>
                   </div>
                 </TableCell>
-                <TableCell className="px-3 py-2.5 text-[12px] text-editorial-ink-soft">
+                <TableCell className="px-3 py-2.5 text-xs text-editorial-ink-soft">
                   <div className="grid grid-cols-[minmax(0,1fr)_56px] items-center gap-1">
                     <span
                       className="truncate font-mono"
@@ -369,7 +369,7 @@ export function ModelsPanel({
                     </Menu.Trigger>
                     <Menu.Portal>
                       <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-[60]">
-                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-md border border-editorial-hairline bg-editorial-surface-card p-1 text-[12px] shadow-sm outline-none">
+                        <Menu.Popup className="flex min-w-[132px] flex-col rounded-md border border-editorial-hairline bg-editorial-surface-card p-1 text-xs shadow-sm outline-none">
                           <Menu.Item className={menuItemClass}>
                             <FlaskConical size={14} strokeWidth={1.6} />
                             <span>{t("settings.testModel")}</span>

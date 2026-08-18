@@ -45,7 +45,7 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
         value={strValue}
         onChange={(e) => onChange(field.key, e.target.value)}
         placeholder={field.placeholder}
-        className="h-9 rounded-md border-editorial-hairline text-[12px]"
+        className="h-9 rounded-md border-editorial-hairline text-xs"
       />
     );
   }
@@ -58,7 +58,7 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
         value={numValue}
         onChange={(e) => onChange(field.key, Number(e.target.value))}
         placeholder={field.placeholder}
-        className="h-9 w-32 rounded-md border-editorial-hairline text-[12px]"
+        className="h-9 w-32 rounded-md border-editorial-hairline text-xs"
       />
     );
   }
@@ -75,12 +75,12 @@ export function DynamicField({ field, value, toolName, passwordSet, onChange }: 
     const options = field.options ?? [];
     return (
       <Select value={strValue} onValueChange={(v) => onChange(field.key, v)}>
-        <SelectTrigger className="h-9 rounded-md border-editorial-hairline text-[12px]">
+        <SelectTrigger className="h-9 rounded-md border-editorial-hairline text-xs">
           <SelectValue placeholder={field.placeholder ?? t("settings.selectOption")} />
         </SelectTrigger>
         <SelectContent>
           {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value} className="text-[12px]">
+            <SelectItem key={opt.value} value={opt.value} className="text-xs">
               {opt.label}
             </SelectItem>
           ))}
@@ -145,7 +145,7 @@ function PasswordField({ field, toolName, passwordSet, onChange }: DynamicFieldP
             ? t("settings.passwordReplace")
             : (field.placeholder ?? t("settings.apiKeyPlaceholder"))
         }
-        className="h-9 rounded-md border-editorial-hairline text-[12px] pr-14"
+        className="h-9 rounded-md border-editorial-hairline text-xs pr-14"
       />
       <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-0.5">
         <button

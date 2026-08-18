@@ -145,8 +145,8 @@ export function RuntimePanel() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <h3 className="text-[14px] font-semibold text-editorial-ink">{t("settings.runtime")}</h3>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
+          <h3 className="text-sm font-semibold text-editorial-ink">{t("settings.runtime")}</h3>
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">
             {t("settings.runtimeDescription")}
           </p>
         </div>
@@ -157,7 +157,7 @@ export function RuntimePanel() {
         <motion.button
           onClick={() => setInnerTab("session")}
           whileTap={{ scale: 0.98 }}
-          className={`px-4 py-2 text-[13px] font-medium border-b-2 ${
+          className={`px-4 py-2 text-body font-medium border-b-2 ${
             innerTab === "session"
               ? "border-editorial-primary text-editorial-ink"
               : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
@@ -168,7 +168,7 @@ export function RuntimePanel() {
         <motion.button
           onClick={() => setInnerTab("wiki")}
           whileTap={{ scale: 0.98 }}
-          className={`px-4 py-2 text-[13px] font-medium border-b-2 ${
+          className={`px-4 py-2 text-body font-medium border-b-2 ${
             innerTab === "wiki"
               ? "border-editorial-primary text-editorial-ink"
               : "border-transparent text-editorial-ink-muted hover:text-editorial-ink"
@@ -203,7 +203,7 @@ export function RuntimePanel() {
       {/* Config fields */}
       <div className="grid min-w-0 grid-cols-2 gap-4">
         <div>
-          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+          <label className="text-xs text-editorial-ink-muted mb-1.5 block">
             {t("settings.temperature")}
           </label>
           <div className="flex items-center gap-2">
@@ -223,13 +223,13 @@ export function RuntimePanel() {
               }}
               className="flex-1"
             />
-            <span className="text-[12px] text-editorial-ink w-8 text-right">
+            <span className="text-xs text-editorial-ink w-8 text-right">
               {currentFields.temperature.toFixed(1)}
             </span>
           </div>
         </div>
         <div>
-          <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+          <label className="text-xs text-editorial-ink-muted mb-1.5 block">
             {t("settings.topP")}
           </label>
           <div className="flex items-center gap-2">
@@ -249,7 +249,7 @@ export function RuntimePanel() {
               }}
               className="flex-1"
             />
-            <span className="text-[12px] text-editorial-ink w-8 text-right">
+            <span className="text-xs text-editorial-ink w-8 text-right">
               {currentFields.top_p.toFixed(2)}
             </span>
           </div>
@@ -260,7 +260,7 @@ export function RuntimePanel() {
       <div>
         <label
           htmlFor="system-prompt-textarea"
-          className="text-[12px] text-editorial-ink-muted mb-1.5 block"
+          className="text-xs text-editorial-ink-muted mb-1.5 block"
         >
           {t("settings.systemPrompt")}
         </label>
@@ -275,7 +275,7 @@ export function RuntimePanel() {
             }
           }}
           rows={4}
-          className="w-full px-4 py-3 rounded-md border border-editorial-hairline text-[13px] text-editorial-ink resize-none focus:outline-none focus:border-editorial-primary"
+          className="w-full px-4 py-3 rounded-md border border-editorial-hairline text-body text-editorial-ink resize-none focus:outline-none focus:border-editorial-primary"
         />
       </div>
     </div>
@@ -288,11 +288,11 @@ function SessionModelSelectorSection() {
   const { t } = useTranslation();
   return (
     <div>
-      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+      <label className="text-xs text-editorial-ink-muted mb-1.5 block">
         {t("settings.sessionModel")}
       </label>
       <ModelSelector />
-      <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
+      <p className="mt-1 text-xs text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
     </div>
   );
 }
@@ -314,7 +314,7 @@ function WikiModelSelectorSection({
 
   return (
     <div>
-      <label className="text-[12px] text-editorial-ink-muted mb-1.5 block">
+      <label className="text-xs text-editorial-ink-muted mb-1.5 block">
         {t("settings.wikiModel")}
       </label>
       <Select
@@ -325,7 +325,7 @@ function WikiModelSelectorSection({
       >
         <SelectTrigger
           aria-label={t("settings.selectWikiModel")}
-          className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-[13px] text-editorial-ink hover:bg-editorial-surface-soft"
+          className="h-10 w-[260px] rounded-md border-editorial-hairline bg-editorial-surface-card px-4 text-body text-editorial-ink hover:bg-editorial-surface-soft"
           disabled={!hasModels}
         >
           <SelectValue placeholder={hasModels ? t("settings.noOptions") : t("settings.noModels")}>
@@ -355,7 +355,7 @@ function WikiModelSelectorSection({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("settings.wikiModelDesc")}</p>
+      <p className="mt-1 text-xs text-editorial-ink-muted">{t("settings.wikiModelDesc")}</p>
     </div>
   );
 }
