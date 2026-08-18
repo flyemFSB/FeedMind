@@ -188,7 +188,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
 
         {step === "config" && (
           <div className="space-y-3">
-            <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+            <p className="text-body leading-relaxed text-editorial-ink-soft">
               {fp("connectedDesc")}
             </p>
             <div className="grid grid-cols-2 gap-1 rounded-lg bg-editorial-surface-strong p-1">
@@ -202,7 +202,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                   key={value}
                   type="button"
                   onClick={() => setMode(value)}
-                  className={`rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-body font-medium transition-colors ${
                     mode === value
                       ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
                       : "text-editorial-ink-muted hover:text-editorial-ink"
@@ -218,7 +218,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                 {scanState === "idle" ? (
                   scanError ? (
                     <div className="space-y-3">
-                      <p className="rounded-lg bg-editorial-semantic-error/10 px-3 py-2 text-[12px] text-editorial-semantic-error">
+                      <p className="rounded-lg bg-editorial-semantic-error/10 px-3 py-2 text-xs text-editorial-semantic-error">
                         {scanError}
                       </p>
                       <Button
@@ -240,7 +240,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                     <div className="flex justify-center rounded-lg border border-editorial-hairline-strong bg-white p-4">
                       <QRCodeSVG value={qrUrl} size={176} marginSize={1} />
                     </div>
-                    <p className="text-center text-[12px] leading-relaxed text-editorial-ink-soft">
+                    <p className="text-center text-xs leading-relaxed text-editorial-ink-soft">
                       {fp("scanHint1")}
                       <br />
                       {fp("scanHint2")}
@@ -248,7 +248,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                     <Button
                       onClick={() => void beginScan()}
                       variant="ghost"
-                      className="w-full text-[12px] text-editorial-ink-muted"
+                      className="w-full text-xs text-editorial-ink-muted"
                     >
                       {fp("qrExpired")}
                     </Button>
@@ -257,7 +257,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
               </div>
             ) : (
               <>
-                <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+                <p className="text-body leading-relaxed text-editorial-ink-soft">
                   {fp("manualHintIntro")}
                   <a
                     href="https://open.feishu.cn/app"
@@ -273,7 +273,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                   <div>
                     <label
                       htmlFor="feishu-config-app-id"
-                      className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                      className="mb-1 block text-xs font-medium text-editorial-ink"
                     >
                       {fp("appId")}
                     </label>
@@ -282,13 +282,13 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                       value={appId}
                       onChange={(e) => setAppId(e.target.value)}
                       placeholder="cli_xxxxxxxx"
-                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-ink"
                     />
                   </div>
                   <div>
                     <label
                       htmlFor="feishu-config-app-secret"
-                      className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                      className="mb-1 block text-xs font-medium text-editorial-ink"
                     >
                       {fp("appSecret")}
                     </label>
@@ -298,7 +298,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                       value={appSecret}
                       onChange={(e) => setAppSecret(e.target.value)}
                       placeholder={fp("appSecretPlaceholder")}
-                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-ink"
+                      className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-ink"
                     />
                   </div>
                 </div>
@@ -317,14 +317,14 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
 
         {step === "showConfig" && (
           <div className="space-y-3">
-            <p className="text-[13px] leading-relaxed text-editorial-ink-soft">
+            <p className="text-body leading-relaxed text-editorial-ink-soft">
               {fp("configuredTitle")}
             </p>
             <div className="space-y-3">
               <div>
                 <label
                   htmlFor="feishu-show-app-id"
-                  className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                  className="mb-1 block text-xs font-medium text-editorial-ink"
                 >
                   {fp("appId")}
                 </label>
@@ -333,7 +333,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                     id="feishu-show-app-id"
                     value={storedAppId}
                     readOnly
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-[13px] text-editorial-ink outline-none"
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-9 text-body text-editorial-ink outline-none"
                   />
                   <button
                     type="button"
@@ -348,7 +348,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
               <div>
                 <label
                   htmlFor="feishu-show-app-secret"
-                  className="mb-1 block text-[12px] font-medium text-editorial-ink"
+                  className="mb-1 block text-xs font-medium text-editorial-ink"
                 >
                   {fp("appSecret")}
                 </label>
@@ -358,7 +358,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                     type={secretVisible ? "text" : "password"}
                     value={storedAppSecret}
                     readOnly
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-14 text-[13px] text-editorial-ink outline-none"
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 pr-14 text-body text-editorial-ink outline-none"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex gap-0.5">
                     <button
@@ -413,7 +413,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               />
             </motion.svg>
-            <span className="text-[13px] font-medium text-editorial-semantic-success">
+            <span className="text-body font-medium text-editorial-semantic-success">
               {fp("verificationPassed")}
             </span>
           </div>

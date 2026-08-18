@@ -84,10 +84,10 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
               <Smartphone size={16} className="text-editorial-ink" />
             </div>
             <div>
-              <DialogTitle className="text-[14px] font-semibold leading-tight text-editorial-ink">
+              <DialogTitle className="text-sm font-semibold leading-tight text-editorial-ink">
                 {t("remoteConnection.title")}
               </DialogTitle>
-              <p className="mt-0.5 text-[12px] leading-tight text-editorial-ink-muted">
+              <p className="mt-0.5 text-xs leading-tight text-editorial-ink-muted">
                 {t("remoteConnection.description")}
               </p>
             </div>
@@ -135,7 +135,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
                             {platform.id === "feishu" ? (
                               <FeishuConfigPanel onConnected={() => void loadConnections()} />
                             ) : (
-                              <p className="px-1 py-2 text-[12px] text-editorial-ink-muted">
+                              <p className="px-1 py-2 text-xs text-editorial-ink-muted">
                                 {t("remoteConnection.comingSoon")}
                               </p>
                             )}
@@ -152,7 +152,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
 
         {/* 底部说明 */}
         <div className="border-t border-editorial-hairline px-5 py-3">
-          <p className="text-center text-[12px] leading-tight text-editorial-ink-muted">
+          <p className="text-center text-xs leading-tight text-editorial-ink-muted">
             {t("remoteConnection.footer")}
           </p>
         </div>
@@ -187,8 +187,8 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
       <Icon size={24} />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[14px] font-medium text-editorial-ink">{t(nameKey)}</div>
-        <div className="mt-0.5 truncate text-[12px] leading-tight text-editorial-ink-muted">
+        <div className="truncate text-sm font-medium text-editorial-ink">{t(nameKey)}</div>
+        <div className="mt-0.5 truncate text-xs leading-tight text-editorial-ink-muted">
           {t(descriptionKey)}
         </div>
       </div>
@@ -196,7 +196,7 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
       <div className="shrink-0">
         <motion.span
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium",
+            "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
             connected
               ? "bg-editorial-semantic-success/10 text-editorial-semantic-success"
               : "bg-editorial-surface-soft text-editorial-ink-muted",

@@ -417,7 +417,7 @@ function SourcesPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[12px] text-editorial-ink-soft">{t("feeds.pasteLinkHint")}</p>
+                <p className="text-xs text-editorial-ink-soft">{t("feeds.pasteLinkHint")}</p>
               </div>
             </div>
 
@@ -428,7 +428,7 @@ function SourcesPage() {
                   type="button"
                   onClick={() => setAddTab("rss")}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     addTab === "rss"
                       ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
                       : "text-editorial-ink-muted hover:text-editorial-ink",
@@ -441,7 +441,7 @@ function SourcesPage() {
                   type="button"
                   onClick={() => setAddTab("social")}
                   className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
                     addTab === "social"
                       ? "bg-editorial-surface-card text-editorial-ink shadow-sm"
                       : "text-editorial-ink-muted hover:text-editorial-ink",
@@ -461,13 +461,13 @@ function SourcesPage() {
                       if (e.key === "Enter") void handleAddRss();
                     }}
                     placeholder={t("feeds.rssUrlPlaceholder")}
-                    className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                    className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
                   />
                   <Button
                     onClick={() => void handleAddRss()}
                     disabled={!rssUrl.trim()}
                     size="sm"
-                    className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-[12px]"
+                    className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-xs"
                   >
                     <Plus size={14} />
                     {t("feeds.add")}
@@ -489,7 +489,7 @@ function SourcesPage() {
                             setSelectedOption("");
                           }}
                           className={cn(
-                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+                            "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                             active
                               ? "border-editorial-accent bg-editorial-accent/10 text-editorial-accent"
                               : "border-editorial-hairline-strong text-editorial-ink-muted hover:text-editorial-ink",
@@ -512,7 +512,7 @@ function SourcesPage() {
                             <select
                               value={selectedOption}
                               onChange={(e) => setSelectedOption(e.target.value)}
-                              className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
+                              className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
                             >
                               {opt.hasAll ? (
                                 <option value="">
@@ -534,7 +534,7 @@ function SourcesPage() {
                               onClick={() => void handleAddSocial()}
                               disabled={!opt.hasAll && !selectedOption.trim()}
                               size="sm"
-                              className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                              className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                             >
                               <Plus size={14} />
                               {t("feeds.add")}
@@ -542,7 +542,7 @@ function SourcesPage() {
                           </div>
                           {listError ? (
                             <div className="flex items-center justify-between gap-2 rounded-md border border-editorial-semantic-error/20 bg-editorial-semantic-error/5 px-3 py-2">
-                              <span className="flex items-center gap-1.5 text-[12px] text-editorial-semantic-error">
+                              <span className="flex items-center gap-1.5 text-xs text-editorial-semantic-error">
                                 <AlertCircle size={13} className="shrink-0" />
                                 {t("feeds.cookieListExpired")}
                               </span>
@@ -550,7 +550,7 @@ function SourcesPage() {
                                 type="button"
                                 onClick={() => void handleCheckCookie(opt.id)}
                                 disabled={checkingPlatform === opt.id || checkingAll}
-                                className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium text-editorial-ink-muted transition-colors hover:text-editorial-ink disabled:opacity-50"
+                                className="flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-editorial-ink-muted transition-colors hover:text-editorial-ink disabled:opacity-50"
                               >
                                 {checkingPlatform === opt.id ? (
                                   <MotionSpinner size={12} />
@@ -561,12 +561,12 @@ function SourcesPage() {
                               </button>
                             </div>
                           ) : listLoading ? (
-                            <p className="flex items-center gap-1.5 text-[12px] text-editorial-ink-muted">
+                            <p className="flex items-center gap-1.5 text-xs text-editorial-ink-muted">
                               <MotionSpinner size={12} />
                               {t("feeds.loading")}
                             </p>
                           ) : listOptions.length === 0 ? (
-                            <p className="text-[12px] text-editorial-ink-muted">
+                            <p className="text-xs text-editorial-ink-muted">
                               {t("feeds.socialNoOptions")}
                             </p>
                           ) : null}
@@ -582,13 +582,13 @@ function SourcesPage() {
                             if (e.key === "Enter") void handleAddSocial();
                           }}
                           placeholder={t(opt.placeholderKey ?? "feeds.socialIdPlaceholder")}
-                          className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                          className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
                         />
                         <Button
                           onClick={() => void handleAddSocial()}
                           disabled={!socialId.trim()}
                           size="sm"
-                          className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-[12px]"
+                          className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-xs"
                         >
                           <Plus size={14} />
                           {t("feeds.add")}
@@ -604,7 +604,7 @@ function SourcesPage() {
             {sources.length === 0 ? (
               <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-10 text-center">
                 <Globe size={22} className="mb-2 text-editorial-ink-muted" />
-                <p className="text-[13px] text-editorial-ink-muted">{t("feeds.noSubscriptions")}</p>
+                <p className="text-body text-editorial-ink-muted">{t("feeds.noSubscriptions")}</p>
               </div>
             ) : (
               <motion.div
@@ -628,16 +628,16 @@ function SourcesPage() {
                       <Icon size={20} />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[13px] font-medium text-editorial-ink truncate">
+                          <span className="text-body font-medium text-editorial-ink truncate">
                             {source.title}
                           </span>
                           {source.type === "social" && source.platform && (
-                            <span className="shrink-0 rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[12px] text-editorial-ink-muted">
+                            <span className="shrink-0 rounded bg-editorial-surface-strong px-1.5 py-0.5 text-xs text-editorial-ink-muted">
                               {t(PLATFORM_LABELS[source.platform] ?? source.platform)}
                             </span>
                           )}
                         </div>
-                        <p className="truncate text-[12px] text-editorial-ink-muted">
+                        <p className="truncate text-xs text-editorial-ink-muted">
                           {source.type === "social" ? (source.route ?? source.url) : source.url}
                           {source.lastSyncedAt && (
                             <>
@@ -678,38 +678,36 @@ function SourcesPage() {
               <div className="flex items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2.5">
                   <Cookie size={15} className="text-editorial-ink-soft" />
-                  <h2 className="text-[16px] font-semibold text-editorial-ink">CookieCloud</h2>
+                  <h2 className="text-base font-semibold text-editorial-ink">CookieCloud</h2>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => setGuideOpen(true)}
-                  className="h-7 gap-1 px-2 text-[12px] font-medium text-editorial-accent"
+                  className="h-7 gap-1 px-2 text-xs font-medium text-editorial-accent"
                 >
                   <CircleHelp size={14} />
                   {t("feeds.cookieCloudGuide")}
                 </Button>
               </div>
-              <p className="mt-1 text-[12px] text-editorial-ink-muted">
-                {t("feeds.cookieCloudDesc")}
-              </p>
+              <p className="mt-1 text-xs text-editorial-ink-muted">{t("feeds.cookieCloudDesc")}</p>
             </div>
             <div className="rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 transition-all duration-150 ease-out hover:border-editorial-hairline-strong hover:shadow-sm">
               <div className="flex flex-col gap-3">
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
+                  <label className="mb-1 block text-xs font-medium text-editorial-ink-muted">
                     {t("feeds.cookieUuidLabel")}
                   </label>
                   <input
                     value={cookiecloudUuid}
                     onChange={(e) => setCookiecloudUuid(e.target.value)}
                     placeholder={t("feeds.cookieUuidPlaceholder")}
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-body text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-medium text-editorial-ink-muted">
+                  <label className="mb-1 block text-xs font-medium text-editorial-ink-muted">
                     {t("feeds.cookiePasswordLabel")}
                   </label>
                   <input
@@ -721,14 +719,14 @@ function SourcesPage() {
                         ? t("feeds.cookiePasswordSavedPlaceholder")
                         : t("feeds.cookiePasswordPlaceholder")
                     }
-                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-[13px] text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
+                    className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-soft px-3 py-2 text-body text-editorial-ink outline-none transition-colors focus:border-editorial-ink placeholder:text-editorial-ink-muted"
                   />
                 </div>
                 <Button
                   onClick={() => void handleSaveCookieCloud()}
                   disabled={!cookiecloudUuid.trim() || !cookiecloudPassword.trim() || savingCloud}
                   size="sm"
-                  className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
+                  className="h-8 gap-1.5 rounded-lg px-3 text-xs"
                 >
                   {savingCloud ? <MotionSpinner size={14} /> : <Cookie size={14} />}
                   {t("feeds.cookieSaveConfig")}
@@ -742,7 +740,7 @@ function SourcesPage() {
               <div className="flex items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2.5">
                   <User size={15} className="text-editorial-ink-soft" />
-                  <h2 className="text-[16px] font-semibold text-editorial-ink">
+                  <h2 className="text-base font-semibold text-editorial-ink">
                     {t("feeds.accountCookie")}
                   </h2>
                 </div>
@@ -750,13 +748,13 @@ function SourcesPage() {
                   onClick={() => void handleCheckAllCookies()}
                   disabled={checkingAll}
                   size="sm"
-                  className="h-8 gap-1.5 rounded-lg px-3 text-[12px]"
+                  className="h-8 gap-1.5 rounded-lg px-3 text-xs"
                 >
                   {checkingAll ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
                   {t("feeds.cookieRefresh")}
                 </Button>
               </div>
-              <p className="mt-1 text-[12px] text-editorial-ink-muted">
+              <p className="mt-1 text-xs text-editorial-ink-muted">
                 {t("feeds.accountCookieDesc")}
               </p>
             </div>
@@ -790,12 +788,12 @@ function SourcesPage() {
                     className="group flex items-center gap-3 px-2 py-3 hover:bg-editorial-surface-soft"
                   >
                     <platform.icon size={20} />
-                    <span className="min-w-0 flex-1 text-[13px] font-medium text-editorial-ink">
+                    <span className="min-w-0 flex-1 text-body font-medium text-editorial-ink">
                       {platform.label}
                     </span>
                     <span
                       className={cn(
-                        "shrink-0 rounded-md px-2 py-0.5 text-[12px] font-medium tabular-nums",
+                        "shrink-0 rounded-md px-2 py-0.5 text-xs font-medium tabular-nums",
                         COOKIE_STATE_STYLES[state],
                       )}
                     >
@@ -806,7 +804,7 @@ function SourcesPage() {
                       disabled={state === "valid" || checkingPlatform !== null}
                       size="sm"
                       variant="ghost"
-                      className="h-7 shrink-0 gap-1 px-2 text-[12px]"
+                      className="h-7 shrink-0 gap-1 px-2 text-xs"
                     >
                       {checkingPlatform === platform.id ? (
                         <MotionSpinner size={12} />
