@@ -40,7 +40,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
       >
         {/* 头部行：无边框，保持简洁 */}
         <div className="flex items-center justify-between px-6 pt-4">
-          <DialogTitle className="text-[16px] font-semibold">{t("wiki.importTitle")}</DialogTitle>
+          <DialogTitle className="text-base font-semibold">{t("wiki.importTitle")}</DialogTitle>
           <motion.button
             onClick={onClose}
             type="button"
@@ -57,7 +57,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             onClick={() => setTab("file")}
             type="button"
             whileTap={{ scale: 0.98 }}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium ${
+            className={`relative flex items-center gap-1.5 pb-2.5 text-body font-medium ${
               tab === "file"
                 ? "text-editorial-primary"
                 : "text-editorial-ink-muted hover:text-editorial-ink"
@@ -77,7 +77,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             onClick={() => setTab("url")}
             type="button"
             whileTap={{ scale: 0.98 }}
-            className={`relative flex items-center gap-1.5 pb-2.5 text-[13px] font-medium ${
+            className={`relative flex items-center gap-1.5 pb-2.5 text-body font-medium ${
               tab === "url"
                 ? "text-editorial-primary"
                 : "text-editorial-ink-muted hover:text-editorial-ink"
@@ -216,10 +216,10 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
           <Upload size={28} className="text-editorial-ink-muted" strokeWidth={1.5} />
         )}
         <div className="text-center">
-          <p className="text-[13px] font-medium text-editorial-ink">
+          <p className="text-body font-medium text-editorial-ink">
             {uploading ? t("wiki.uploading") : t("wiki.dropFiles")}
           </p>
-          <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.supportedFormats")}</p>
+          <p className="mt-1 text-xs text-editorial-ink-muted">{t("wiki.supportedFormats")}</p>
         </div>
         <input
           ref={inputRef}
@@ -237,7 +237,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
           {results.map((r, i) => (
             <div
               key={i}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs ${
                 r.status === "success"
                   ? "bg-editorial-semantic-success/10 text-editorial-ink"
                   : "bg-editorial-semantic-error/10 text-editorial-semantic-error"
@@ -250,7 +250,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
               )}
               <span className="truncate font-medium">{r.name}</span>
               {r.message && (
-                <span className="ml-auto shrink-0 text-[12px] text-editorial-ink-muted">
+                <span className="ml-auto shrink-0 text-xs text-editorial-ink-muted">
                   {r.message}
                 </span>
               )}
@@ -332,20 +332,20 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-[13px] font-medium text-editorial-ink">
+        <label className="mb-1.5 block text-body font-medium text-editorial-ink">
           {t("wiki.urlLabel")}
         </label>
         <textarea
-          className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-[13px] text-editorial-ink placeholder:text-editorial-ink-muted outline-none focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
+          className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-body text-editorial-ink placeholder:text-editorial-ink-muted outline-none focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
         />
         {hasError && (
-          <p className="mt-1 text-[12px] text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>
+          <p className="mt-1 text-xs text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>
         )}
         {urlList.length > 0 && (
-          <p className="mt-1 text-[12px] text-editorial-ink-muted">
+          <p className="mt-1 text-xs text-editorial-ink-muted">
             {t("wiki.urlCount", { count: urlList.length, valid: validUrls.length })}
           </p>
         )}
@@ -353,7 +353,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
 
       <div className="flex items-center justify-end gap-3">
         {urlList.length > 0 && (
-          <span className="text-[12px] text-editorial-ink-muted">
+          <span className="text-xs text-editorial-ink-muted">
             {t("wiki.willCreate", { count: validUrls.length })}
           </span>
         )}
@@ -361,7 +361,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           size="sm"
           onClick={() => void handleSubmit()}
           disabled={processing || validUrls.length === 0}
-          className="h-9 gap-2 rounded-md bg-editorial-primary px-4 text-[12px] text-editorial-ink-on-primary hover:bg-editorial-primary"
+          className="h-9 gap-2 rounded-md bg-editorial-primary px-4 text-xs text-editorial-ink-on-primary hover:bg-editorial-primary"
         >
           {processing ? (
             <>
@@ -383,7 +383,7 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           {results.map((r, i) => (
             <div
               key={i}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12px] ${
+              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs ${
                 r.status === "success"
                   ? "bg-editorial-semantic-success/10 text-editorial-ink"
                   : "bg-editorial-semantic-error/10 text-editorial-semantic-error"

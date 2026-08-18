@@ -639,7 +639,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
     <div className="relative flex h-full min-w-0 flex-1 flex-col bg-editorial-surface-card">
       {/* Toolbar */}
       <div className="flex items-center gap-3 border-b border-editorial-surface-strong px-6 py-3">
-        <span className="text-[14px] font-semibold text-editorial-ink">{t("wiki.graph")}</span>
+        <span className="text-sm font-semibold text-editorial-ink">{t("wiki.graph")}</span>
         <div className="relative">
           <Search
             size={13}
@@ -647,14 +647,14 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           />
           <Input
             aria-label={t("wiki.searchNodes")}
-            className="h-8 w-[180px] rounded-lg border-editorial-surface-strong pl-8 text-[12px]"
+            className="h-8 w-[180px] rounded-lg border-editorial-surface-strong pl-8 text-xs"
             placeholder={t("wiki.searchNodes")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="flex items-center gap-1 ml-auto">
-          <span className="text-[12px] text-editorial-ink-muted">
+          <span className="text-xs text-editorial-ink-muted">
             {t("wiki.nodeEdgeCount", { nodes: filteredNodes.length, edges: filteredEdges.length })}
           </span>
           <ToggleGroup
@@ -667,14 +667,14 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
           >
             <ToggleGroupItem
               value="type"
-              className="gap-1 px-2 text-[12px]"
+              className="gap-1 px-2 text-xs"
               aria-label={t("wiki.colorByType")}
             >
               <Type size={13} /> {t("wiki.type")}
             </ToggleGroupItem>
             <ToggleGroupItem
               value="community"
-              className="gap-1 px-2 text-[12px]"
+              className="gap-1 px-2 text-xs"
               aria-label={t("wiki.colorByCommunity")}
             >
               <Layers size={13} /> {t("wiki.community")}
@@ -688,7 +688,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               void loadInsights();
               setShowInsights(!showInsights);
             }}
-            className="h-8 gap-1 rounded-lg px-2 text-[12px]"
+            className="h-8 gap-1 rounded-lg px-2 text-xs"
           >
             <Lightbulb size={13} /> {t("wiki.insights")}
           </Button>
@@ -743,7 +743,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       className="inline-block h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: wikiTypeColor(type) }}
                     />
-                    <span className="text-[12px] text-editorial-ink-soft">
+                    <span className="text-xs text-editorial-ink-soft">
                       {wikiTypeLabel(type, i18n.language)}
                     </span>
                   </div>
@@ -757,7 +757,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       className="inline-block h-2.5 w-2.5 rounded-full"
                       style={{ backgroundColor: COMMUNITY_COLORS[c.id % COMMUNITY_COLORS.length] }}
                     />
-                    <span className="text-[12px] text-editorial-ink-soft">
+                    <span className="text-xs text-editorial-ink-soft">
                       {c.topNodes[0] ?? `${t("wiki.community")} ${c.id}`} ({c.nodeCount})
                     </span>
                   </div>
@@ -779,7 +779,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               exit="closed"
             >
               <div className="flex items-center justify-between mb-4">
-                <span className="text-[13px] font-semibold text-editorial-ink">
+                <span className="text-body font-semibold text-editorial-ink">
                   {t("wiki.insightsTitle")}
                 </span>
                 <button onClick={() => setShowInsights(false)}>
@@ -803,9 +803,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                       <div className="font-medium text-xs mb-1">
                         {conn.source.label} ↔ {conn.target.label}
                       </div>
-                      <p className="text-[12px] text-editorial-ink-muted">
-                        {conn.reasons.join(", ")}
-                      </p>
+                      <p className="text-xs text-editorial-ink-muted">{conn.reasons.join(", ")}</p>
                     </div>
                   ))}
                 </div>
@@ -819,10 +817,8 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                   {insights.gaps.map((gap, i: number) => (
                     <div key={i} className="rounded-lg border p-3 mb-2">
                       <div className="font-medium text-xs mb-1">{gap.title}</div>
-                      <p className="text-[12px] text-editorial-ink-muted mb-1">{gap.description}</p>
-                      <p className="text-[12px] italic text-editorial-ink-muted">
-                        {gap.suggestion}
-                      </p>
+                      <p className="text-xs text-editorial-ink-muted mb-1">{gap.description}</p>
+                      <p className="text-xs italic text-editorial-ink-muted">{gap.suggestion}</p>
                     </div>
                   ))}
                 </div>
@@ -842,7 +838,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               exit="closed"
             >
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-editorial-hairline px-4">
-                <span className="text-[13px] font-medium text-editorial-ink">页面预览</span>
+                <span className="text-body font-medium text-editorial-ink">页面预览</span>
                 <Button
                   type="button"
                   variant="ghost"

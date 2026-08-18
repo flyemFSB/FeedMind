@@ -60,24 +60,24 @@ export function DeleteConfirmDialog({
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-editorial-semantic-error/10 text-editorial-semantic-error">
               <Trash2 size={15} />
             </span>
-            <DialogTitle className="pt-1 text-[14px] font-semibold leading-snug text-editorial-ink">
+            <DialogTitle className="pt-1 text-sm font-semibold leading-snug text-editorial-ink">
               {title}
             </DialogTitle>
           </div>
           {description && (
-            <DialogDescription className="text-[12px] leading-relaxed text-editorial-ink/75">
+            <DialogDescription className="text-xs leading-relaxed text-editorial-ink/75">
               {description}
             </DialogDescription>
           )}
         </div>
         <DialogFooter className="mx-0 mb-0 mt-5 rounded-b-lg border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
-          <Button onClick={onClose} variant="ghost" className="px-4 text-[13px]">
+          <Button onClick={onClose} variant="ghost" className="px-4 text-body">
             {cancelLabel ?? t("common.cancel")}
           </Button>
           <Button
             onClick={onConfirm}
             disabled={confirming}
-            className="relative bg-destructive-strong px-4 text-[13px] text-destructive-foreground hover:brightness-[0.93] disabled:cursor-not-allowed disabled:opacity-50"
+            className="relative bg-destructive-strong px-4 text-body text-destructive-foreground hover:brightness-[0.93] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className={cn(confirming && "opacity-0")}>
               {confirmLabel ?? t("common.delete")}

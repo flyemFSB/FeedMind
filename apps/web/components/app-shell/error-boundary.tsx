@@ -13,13 +13,13 @@ function ErrorFallbackContent({ error, onRetry }: { error: Error | null; onRetry
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-destructive/10">
           <AlertTriangle size={28} className="text-destructive" />
         </div>
-        <h2 className="mb-2 text-[16px] font-semibold text-editorial-ink">{t("error.title")}</h2>
-        <p className="mb-6 text-[13px] text-editorial-ink-soft">
+        <h2 className="mb-2 text-base font-semibold text-editorial-ink">{t("error.title")}</h2>
+        <p className="mb-6 text-body text-editorial-ink-soft">
           {error?.message ?? t("error.defaultMessage")}
         </p>
         <Button
           onClick={onRetry}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium"
         >
           <RefreshCw size={14} />
           {t("common.retry")}

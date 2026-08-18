@@ -190,7 +190,7 @@ function MyWikiPage() {
   const spaceTitle = spaceId ? (
     <DropdownMenu open={showSpaceMenu} onOpenChange={setShowSpaceMenu}>
       <DropdownMenuTrigger
-        className="flex cursor-pointer items-center gap-1.5 text-[16px] font-semibold text-editorial-ink hover:text-editorial-primary"
+        className="flex cursor-pointer items-center gap-1.5 text-base font-semibold text-editorial-ink hover:text-editorial-primary"
         aria-label={t("wiki.switchSpace")}
       >
         <span>{spaceName}</span>
@@ -198,14 +198,14 @@ function MyWikiPage() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[200px] p-1.5">
         {spaces.map((s) => (
-          <DropdownMenuItem key={s.id} onClick={() => handleSpaceSelect(s)} className="text-[13px]">
+          <DropdownMenuItem key={s.id} onClick={() => handleSpaceSelect(s)} className="text-body">
             {s.name}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleCreateSpace}
-          className="flex items-center gap-2 rounded-lg text-[13px] text-editorial-primary"
+          className="flex items-center gap-2 rounded-lg text-body text-editorial-primary"
         >
           <Plus size={14} />
           {t("wiki.createNewSpace")}
@@ -221,7 +221,7 @@ function MyWikiPage() {
       <Button
         variant="outline"
         size="default"
-        className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+        className="gap-2 rounded-lg text-body h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
         onClick={() => setShowImport(true)}
       >
         <Import size={16} />
@@ -230,7 +230,7 @@ function MyWikiPage() {
       <Button
         variant="outline"
         size="default"
-        className="gap-2 rounded-lg text-[13px] h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+        className="gap-2 rounded-lg text-body h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
         onClick={openAgentDrawer}
       >
         <MessageCircle size={16} />
@@ -363,7 +363,7 @@ function DualPaneLayout({
             <button
               type="button"
               onClick={onClearPage}
-              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
             >
               <ArrowLeft size={14} />
               页面
@@ -415,9 +415,7 @@ function WikiEmptyState() {
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
           <BookOpen size={20} className="text-editorial-ink-soft" />
         </div>
-        <h1 className="mb-1 text-[16px] font-semibold text-editorial-ink">
-          {t("wiki.selectPage")}
-        </h1>
+        <h1 className="mb-1 text-base font-semibold text-editorial-ink">{t("wiki.selectPage")}</h1>
         <p className="text-xs leading-relaxed text-editorial-ink-soft">
           {t("wiki.selectPageDesc")}
         </p>

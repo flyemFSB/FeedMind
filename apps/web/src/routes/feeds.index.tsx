@@ -354,7 +354,7 @@ function FeedsIndexPage() {
                       aria-label={t("feeds.selectAll")}
                       className="cursor-pointer"
                     />
-                    <span className="text-[13px] font-medium text-editorial-ink tabular-nums">
+                    <span className="text-body font-medium text-editorial-ink tabular-nums">
                       {t("feeds.selectedCount", { count: selected.size })}
                     </span>
                     <div className="ml-auto flex items-center gap-2">
@@ -362,7 +362,7 @@ function FeedsIndexPage() {
                         onClick={exitSelectMode}
                         size="sm"
                         variant="ghost"
-                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                       >
                         <X size={14} />
                         {t("feeds.exitSelect")}
@@ -371,7 +371,7 @@ function FeedsIndexPage() {
                         onClick={() => setDeleteOpen(true)}
                         disabled={selected.size === 0}
                         size="sm"
-                        className="h-8 shrink-0 gap-1.5 rounded-lg bg-destructive-strong px-3 text-[12px] text-destructive-foreground hover:brightness-[0.93]"
+                        className="h-8 shrink-0 gap-1.5 rounded-lg bg-destructive-strong px-3 text-xs text-destructive-foreground hover:brightness-[0.93]"
                       >
                         <Trash2 size={14} />
                         {t("feeds.deleteSelected")}
@@ -399,7 +399,7 @@ function FeedsIndexPage() {
                             onClick={() => setFilter(key)}
                             aria-pressed={active}
                             className={cn(
-                              "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+                              "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
                               active
                                 ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
                                 : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
@@ -409,7 +409,7 @@ function FeedsIndexPage() {
                             {label}
                             <span
                               className={cn(
-                                "rounded-full px-1.5 text-[11px] tabular-nums",
+                                "rounded-full px-1.5 text-tiny tabular-nums",
                                 active
                                   ? "bg-editorial-accent/15 font-semibold text-editorial-accent"
                                   : "bg-editorial-surface-strong font-medium text-editorial-ink-muted",
@@ -426,7 +426,7 @@ function FeedsIndexPage() {
                       disabled={feeds.length === 0}
                       size="sm"
                       variant="ghost"
-                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                     >
                       <SquareCheckBig size={14} />
                       {t("feeds.select")}
@@ -435,7 +435,7 @@ function FeedsIndexPage() {
                       onClick={() => void handleSync()}
                       disabled={refreshing}
                       size="sm"
-                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[12px]"
+                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                     >
                       {refreshing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
                       {refreshing ? t("feeds.syncing") : t("feeds.sync")}
@@ -454,7 +454,7 @@ function FeedsIndexPage() {
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 placeholder={t("feeds.searchPlaceholder")}
-                className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-[13px] text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
               />
               {keyword && (
                 <button
@@ -511,7 +511,7 @@ function FeedsIndexPage() {
               {feeds.length === 0 ? (
                 <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-16 text-center">
                   <Globe size={24} className="mb-3 text-editorial-ink-muted" />
-                  <p className="text-[13px] text-editorial-ink-muted">
+                  <p className="text-body text-editorial-ink-muted">
                     <Trans i18nKey="feeds.empty">
                       暂无内容，前往{" "}
                       <a href="/sources" className="text-editorial-primary underline">
@@ -524,12 +524,12 @@ function FeedsIndexPage() {
               ) : filteredFeeds.length === 0 ? (
                 <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-12 text-center">
                   <Globe size={22} className="mb-2 text-editorial-ink-muted" />
-                  <p className="text-[13px] text-editorial-ink-muted">{t("feeds.filterEmpty")}</p>
+                  <p className="text-body text-editorial-ink-muted">{t("feeds.filterEmpty")}</p>
                 </div>
               ) : searchedFeeds.length === 0 ? (
                 <div className="flex flex-col items-center rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-12 text-center">
                   <Search size={22} className="mb-2 text-editorial-ink-muted" />
-                  <p className="text-[13px] text-editorial-ink-muted">{t("feeds.searchEmpty")}</p>
+                  <p className="text-body text-editorial-ink-muted">{t("feeds.searchEmpty")}</p>
                 </div>
               ) : (
                 <div
@@ -653,7 +653,7 @@ function FeedCard({
           className={cn(
             "absolute left-2.5 top-2.5 z-10 flex h-[22px] w-[22px] items-center justify-center rounded-md border transition-colors",
             selected
-              ? "border-editorial-accent bg-editorial-accent text-white"
+              ? "border-editorial-accent bg-editorial-accent text-editorial-ink-on-primary"
               : "border-white/70 bg-black/25 text-white/80 backdrop-blur-sm",
           )}
         >
@@ -688,7 +688,7 @@ function FeedCard({
           )}
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-tiny font-medium",
               src?.type === "social"
                 ? "bg-editorial-accent-soft text-editorial-accent"
                 : "bg-editorial-surface-strong text-editorial-ink-soft",
@@ -702,7 +702,7 @@ function FeedCard({
               dateStyle: "full",
               timeStyle: "short",
             }).format(new Date(item.pubDate ?? item.fetchedAt))}
-            className="ml-auto shrink-0 text-[11px] text-editorial-ink-muted"
+            className="ml-auto shrink-0 text-tiny text-editorial-ink-muted"
           >
             {formatTime(item.pubDate ?? item.fetchedAt)}
           </span>
@@ -710,7 +710,7 @@ function FeedCard({
 
         <h3
           className={cn(
-            "line-clamp-2 text-[14px] leading-snug",
+            "line-clamp-2 text-sm leading-snug",
             item.isRead
               ? "font-normal text-editorial-ink-soft"
               : "font-semibold text-editorial-ink",
@@ -720,7 +720,7 @@ function FeedCard({
         </h3>
 
         {item.description && (
-          <p className="mt-1.5 line-clamp-2 flex-1 text-[12px] leading-relaxed text-editorial-ink-soft">
+          <p className="mt-1.5 line-clamp-2 flex-1 text-xs leading-relaxed text-editorial-ink-soft">
             {cleanDescription(item.description)}
           </p>
         )}
@@ -730,7 +730,7 @@ function FeedCard({
             {cats.slice(0, 2).map((c) => (
               <span
                 key={c}
-                className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-[11px] text-editorial-ink-muted"
+                className="rounded bg-editorial-surface-strong px-1.5 py-0.5 text-tiny text-editorial-ink-muted"
               >
                 {c}
               </span>
@@ -740,7 +740,7 @@ function FeedCard({
 
         <div className="mt-auto flex items-center gap-2 border-t border-editorial-hairline-soft pt-2.5">
           {/* RSS 资讯发布日期（左下角）：可见的具体日期，区别于 badge 行的相对时间 */}
-          <span className="flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-editorial-ink-muted">
+          <span className="flex shrink-0 items-center gap-1 text-tiny tabular-nums text-editorial-ink-muted">
             <CalendarDays size={11} className="shrink-0" />
             {new Intl.DateTimeFormat(lang, {
               year: "numeric",
@@ -749,7 +749,7 @@ function FeedCard({
             }).format(new Date(item.pubDate ?? item.fetchedAt))}
           </span>
           {item.author ? (
-            <span className="truncate text-[11px] text-editorial-ink-muted">{item.author}</span>
+            <span className="truncate text-tiny text-editorial-ink-muted">{item.author}</span>
           ) : null}
           <ExternalLink
             size={12}

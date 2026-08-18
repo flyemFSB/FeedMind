@@ -23,8 +23,8 @@ export function Topbar({ title, subtitle, showModelSelector = false, rightConten
       className="flex h-12 shrink-0 items-center justify-between gap-2 px-2 max-sm:px-1"
     >
       <div className="min-w-0 flex items-center gap-2">
-        <h1 className="truncate text-[14px] font-semibold text-editorial-ink">{title}</h1>
-        {subtitle && <p className="text-[12px] text-editorial-ink-muted truncate">{subtitle}</p>}
+        <h1 className="truncate text-sm font-semibold text-editorial-ink">{title}</h1>
+        {subtitle && <p className="text-xs text-editorial-ink-muted truncate">{subtitle}</p>}
       </div>
       <div className="flex items-center gap-1.5">
         {rightContent}
@@ -61,7 +61,7 @@ function AgentToggleButton({ active, onClick }: { active: boolean; onClick: () =
       )}
     >
       {active ? <PanelRightClose size={15} /> : <MessageCircle size={15} />}
-      <span className="text-[12px] font-medium">{t("common.askAI")}</span>
+      <span className="text-xs font-medium">{t("common.askAI")}</span>
     </motion.button>
   );
 }

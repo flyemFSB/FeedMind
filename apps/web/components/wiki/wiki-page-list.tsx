@@ -48,7 +48,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 py-3">
-        <span className="text-[13px] font-semibold text-editorial-ink">{t("wiki.page")}</span>
+        <span className="text-body font-semibold text-editorial-ink">{t("wiki.page")}</span>
       </div>
 
       <div className="px-3 pb-2">
@@ -59,7 +59,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           />
           <Input
             ref={searchInputRef}
-            className="h-8 rounded-md border-editorial-hairline-strong bg-editorial-surface-card pl-8 text-[12px] placeholder:text-editorial-ink-muted focus:border-editorial-accent"
+            className="h-8 rounded-md border-editorial-hairline-strong bg-editorial-surface-card pl-8 text-xs placeholder:text-editorial-ink-muted focus:border-editorial-accent"
             placeholder={t("wiki.searchPages")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -102,10 +102,10 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
             <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-editorial-surface-soft">
               <FileText size={16} className="text-editorial-ink-muted" />
             </div>
-            <p className="text-[13px] font-medium text-editorial-ink">
+            <p className="text-body font-medium text-editorial-ink">
               {search || typeFilter ? t("wiki.noMatch") : t("wiki.noPageTitle")}
             </p>
-            <p className="mt-1 text-[12px] text-editorial-ink-muted">
+            <p className="mt-1 text-xs text-editorial-ink-muted">
               {search || typeFilter ? t("wiki.noMatchHint") : t("wiki.autoGenerateHint")}
             </p>
           </div>
@@ -223,11 +223,11 @@ function GroupHeader({
           className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ backgroundColor: wikiTypeColor(type) }}
         />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-editorial-ink-soft">
+        <span className="text-tiny font-semibold uppercase tracking-wide text-editorial-ink-soft">
           {wikiTypeLabel(type, lang)}
         </span>
         {/* 数量用圆圈包裹，视觉更聚焦 */}
-        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-editorial-surface-strong px-1 text-[10px] tabular-nums text-editorial-ink-muted">
+        <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-editorial-surface-strong px-1 text-tiny tabular-nums text-editorial-ink-muted">
           {count}
         </span>
       </div>
@@ -248,7 +248,7 @@ function FilterChip({
     <motion.button
       onClick={onClick}
       whileTap={{ scale: 0.96 }}
-      className={`shrink-0 rounded-md px-2.5 py-1 text-[12px] font-medium ${
+      className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
         active
           ? "bg-editorial-accent-soft text-editorial-accent"
           : "bg-transparent text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink-soft"
@@ -284,7 +284,7 @@ function PageListItem({
     >
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] font-medium">
+        <span className="block truncate text-body font-medium">
           {page.concept_id === "overview" ? t("wiki.overview") : page.title}
         </span>
       </div>

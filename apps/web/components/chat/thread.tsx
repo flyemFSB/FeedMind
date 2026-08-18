@@ -75,7 +75,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
             <div className="flex items-center justify-center py-24">
               <div className="flex flex-col items-center gap-3 text-editorial-ink-muted">
                 <MotionSpinner size={20} />
-                <span className="text-[13px]">{t("chat.loadingHistory")}</span>
+                <span className="text-body">{t("chat.loadingHistory")}</span>
               </div>
             </div>
           ) : allMessages.length === 0 ? (
@@ -102,7 +102,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                     onClick={() => sendMessage?.({ text: suggestion })}
                     whileHover={{ scale: 1.015 }}
                     whileTap={{ scale: 0.98 }}
-                    className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+                    className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-xs text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
                   >
                     {suggestion}
                   </motion.button>
@@ -117,7 +117,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
                     type="button"
                     disabled={isLoadingOlder}
                     onClick={() => void loadOlderMessages()}
-                    className="cursor-pointer rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-1.5 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent disabled:cursor-default disabled:opacity-60"
+                    className="cursor-pointer rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-1.5 text-xs text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent disabled:cursor-default disabled:opacity-60"
                   >
                     {isLoadingOlder ? t("chat.loadingOlder") : t("chat.loadOlder")}
                   </button>
@@ -134,7 +134,7 @@ export function Thread({ className, contentClassName }: ThreadProps) {
 
       {/* 顶层聊天错误（ObservationalMemory / LLM 调用失败等） */}
       {error && status === "error" && (
-        <div className="mx-4 mb-2 flex items-start justify-between gap-3 rounded-md border border-editorial-semantic-error/40 bg-editorial-semantic-error/5 px-3 py-2 text-[12px]">
+        <div className="mx-4 mb-2 flex items-start justify-between gap-3 rounded-md border border-editorial-semantic-error/40 bg-editorial-semantic-error/5 px-3 py-2 text-xs">
           <div className="min-w-0">
             <div className="font-medium text-editorial-semantic-error">{t("chat.errorTitle")}</div>
             <div className="mt-0.5 break-words text-editorial-ink-soft">{readableError(error)}</div>

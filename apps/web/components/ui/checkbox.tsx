@@ -23,7 +23,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
     >
       <CheckboxPrimitive.Indicator
         render={(elementProps, state) => (
-          <span {...elementProps} className="grid place-items-center text-white">
+          <span {...elementProps} className="grid place-items-center text-editorial-ink-on-primary">
             {state.indeterminate ? (
               <MinusIcon size={11} strokeWidth={3} />
             ) : (

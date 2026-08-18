@@ -90,7 +90,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
   if (!page) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
+        <p className="text-body text-editorial-ink-muted">{t("wiki.noPage")}</p>
       </div>
     );
   }
@@ -102,14 +102,14 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
         <div className="min-w-0 flex-1 space-y-1">
           <Input
             aria-label={t("wiki.pageTitle")}
-            className="h-7 border-0 bg-transparent px-0 text-[16px] font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-1 focus-visible:ring-editorial-hairline-strong focus-visible:rounded-sm"
+            className="h-7 border-0 bg-transparent px-0 text-base font-semibold text-editorial-ink shadow-none placeholder:text-editorial-ink-muted focus-visible:ring-1 focus-visible:ring-editorial-hairline-strong focus-visible:rounded-sm"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("wiki.pageTitlePlaceholder")}
           />
           <Input
             aria-label={t("wiki.path")}
-            className="h-5 border-0 bg-transparent px-0 text-[12px] text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-1 focus-visible:ring-editorial-hairline-strong focus-visible:rounded-sm"
+            className="h-5 border-0 bg-transparent px-0 text-xs text-editorial-ink-muted shadow-none placeholder:text-editorial-hairline focus-visible:ring-1 focus-visible:ring-editorial-hairline-strong focus-visible:rounded-sm"
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder={t("wiki.pathPlaceholder")}
@@ -120,7 +120,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            className="h-8 rounded-lg px-3 text-[12px] text-editorial-ink-muted hover:bg-editorial-surface-soft"
+            className="h-8 rounded-lg px-3 text-xs text-editorial-ink-muted hover:bg-editorial-surface-soft"
           >
             <X size={14} className="mr-1" />
             {t("common.cancel")}
@@ -129,7 +129,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
             size="sm"
             onClick={() => void handleSave()}
             disabled={saving}
-            className="h-8 rounded-lg bg-primary px-4 text-[12px] text-primary-foreground hover:bg-primary/80"
+            className="h-8 rounded-lg px-4 text-xs"
           >
             {saving ? t("wiki.saving") : t("common.save")}
           </Button>

@@ -5,7 +5,6 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AppShellProvider, useAppShell } from "./app-shell-context";
 import { WikiSidebar } from "./wiki-sidebar";
 import { AgentDrawer } from "./agent-drawer";
-import { SettingsModal } from "@/components/settings/settings-modal";
 import { RemoteConnectionModal } from "@/components/remote-connection/remote-connection-modal";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -18,12 +17,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function ShellLayout({ children }: { children: ReactNode }) {
   const {
-    openSettings,
     agentDrawerOpen,
     openAgentDrawer,
     closeAgentDrawer,
-    settingsOpen,
-    closeSettings,
     remoteOpen,
     openRemote,
     closeRemote,
@@ -40,7 +36,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="relative flex h-dvh w-full overflow-hidden bg-editorial-canvas-soft">
-      <WikiSidebar onSettingsClick={openSettings} onRemoteClick={openRemote} />
+      <WikiSidebar onRemoteClick={openRemote} />
       <div
         data-island="workspace"
         className="relative my-2 ml-0 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-soft shadow-[0_1px_3px_rgba(55,53,45,0.06)]"
@@ -53,7 +49,6 @@ function ShellLayout({ children }: { children: ReactNode }) {
           if (!v) closeAgentDrawer();
         }}
       />
-      <SettingsModal open={settingsOpen} onClose={closeSettings} />
       <RemoteConnectionModal open={remoteOpen} onClose={closeRemote} />
     </div>
   );

@@ -112,10 +112,10 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
             <Cookie size={17} />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="pt-0 text-[17px] font-semibold leading-snug text-editorial-ink">
+            <DialogTitle className="pt-0 text-base font-semibold leading-snug text-editorial-ink">
               {t("feeds.cookieCloudGuideTitle")}
             </DialogTitle>
-            <DialogDescription className="mt-0.5 text-[12px] leading-snug text-editorial-ink-muted">
+            <DialogDescription className="mt-0.5 text-xs leading-snug text-editorial-ink-muted">
               {t("feeds.cookieCloudGuideDesc")}
             </DialogDescription>
           </div>
@@ -129,7 +129,7 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
               return (
                 <li key={step.title} className="flex gap-4">
                   <div className="flex w-7 shrink-0 flex-col items-center">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-editorial-accent/10 text-[12px] font-semibold text-editorial-accent tabular-nums">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-editorial-accent/10 text-xs font-semibold text-editorial-accent tabular-nums">
                       {i + 1}
                     </span>
                     {i < steps.length - 1 && (
@@ -137,22 +137,22 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
                     )}
                   </div>
                   <div className="min-w-0 flex-1 pb-6">
-                    <h3 className="pt-1 text-[14px] font-semibold leading-snug text-editorial-ink">
+                    <h3 className="pt-1 text-sm font-semibold leading-snug text-editorial-ink">
                       {step.title}
                     </h3>
-                    <p className="mt-1 text-[12px] leading-relaxed text-editorial-ink-soft">
+                    <p className="mt-1 text-xs leading-relaxed text-editorial-ink-soft">
                       {step.desc}
                     </p>
                     {code && step.codeLabel && (
                       <div className="relative mt-3">
-                        <pre className="whitespace-pre rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-2 pr-16 text-[11.5px] leading-relaxed text-editorial-ink select-all">
+                        <pre className="whitespace-pre rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-2 pr-16 text-tiny leading-relaxed text-editorial-ink select-all">
                           <code>{code}</code>
                         </pre>
                         <button
                           type="button"
                           aria-label={step.codeLabel}
                           onClick={() => void handleCopy(code)}
-                          className={`absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium ring-1 transition-colors ${
+                          className={`absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1 rounded-md px-1.5 py-1 text-tiny font-medium ring-1 transition-colors ${
                             copied
                               ? "bg-editorial-semantic-success/10 text-editorial-semantic-success ring-editorial-semantic-success/20"
                               : "bg-editorial-surface-card text-editorial-ink-soft ring-editorial-hairline hover:bg-editorial-surface-strong hover:text-editorial-ink"
@@ -172,7 +172,7 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
           {/* 提示：保持登录态（Info Alert，与步骤区分） */}
           <div className="flex items-start gap-2.5 rounded-lg border border-editorial-semantic-info/20 bg-editorial-semantic-info/10 px-4 py-3">
             <Info size={14} className="mt-0.5 shrink-0 text-editorial-semantic-info" />
-            <p className="text-[12px] leading-relaxed text-editorial-ink-soft">
+            <p className="text-xs leading-relaxed text-editorial-ink-soft">
               {t("feeds.cookieCloudGuideTip")}
             </p>
           </div>
@@ -181,7 +181,7 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
         {/* 底部操作 */}
         <DialogFooter className="mx-0 mb-0 shrink-0 rounded-b-lg border-t border-editorial-hairline bg-editorial-canvas-soft px-6 py-3.5">
           <DialogClose
-            render={<Button variant="outline" size="sm" className="h-8 px-4 text-[13px]" />}
+            render={<Button variant="outline" size="sm" className="h-8 px-4 text-body" />}
           >
             {t("feeds.cookieCloudGuideGotIt")}
           </DialogClose>

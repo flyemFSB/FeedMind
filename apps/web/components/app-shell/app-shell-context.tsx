@@ -19,12 +19,6 @@ interface AppShellContextValue {
   closeAgentDrawer: () => void;
   /** 切换 Agent 抽屉 */
   toggleAgentDrawer: () => void;
-  /** 设置弹窗是否展开 */
-  settingsOpen: boolean;
-  /** 打开设置 */
-  openSettings: () => void;
-  /** 关闭设置 */
-  closeSettings: () => void;
   /** 远程连接弹窗是否展开 */
   remoteOpen: boolean;
   /** 打开远程连接 */
@@ -37,11 +31,10 @@ const AppShellContext = createContext<AppShellContextValue | null>(null);
 
 /**
  * AppShellProvider — 全局 UI 壳层状态
- * 管理 Agent 抽屉与设置弹窗的开关，供左侧导航栏与各页面顶栏共享。
+ * 管理 Agent 抽屉与远程连接弹窗的开关，供左侧导航栏与各页面顶栏共享。
  */
 export function AppShellProvider({ children }: { children: ReactNode }) {
   const [agentDrawerOpen, setAgentDrawerOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
 
   useEffect(() => {
@@ -58,9 +51,6 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
   const closeAgentDrawer = useCallback(() => setAgentDrawerOpen(false), []);
   const toggleAgentDrawer = useCallback(() => setAgentDrawerOpen((v) => !v), []);
 
-  const openSettings = useCallback(() => setSettingsOpen(true), []);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
-
   const openRemote = useCallback(() => setRemoteOpen(true), []);
   const closeRemote = useCallback(() => setRemoteOpen(false), []);
 
@@ -70,9 +60,6 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       openAgentDrawer,
       closeAgentDrawer,
       toggleAgentDrawer,
-      settingsOpen,
-      openSettings,
-      closeSettings,
       remoteOpen,
       openRemote,
       closeRemote,
@@ -82,9 +69,6 @@ export function AppShellProvider({ children }: { children: ReactNode }) {
       openAgentDrawer,
       closeAgentDrawer,
       toggleAgentDrawer,
-      settingsOpen,
-      openSettings,
-      closeSettings,
       remoteOpen,
       openRemote,
       closeRemote,

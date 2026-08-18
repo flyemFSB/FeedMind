@@ -18,7 +18,6 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 interface WikiSidebarProps {
-  onSettingsClick: () => void;
   onRemoteClick: () => void;
 }
 
@@ -28,7 +27,7 @@ const NAV_ITEMS = [
   { id: "sources", icon: Database, label: "wiki.tabSources", view: "sources" },
 ] as const;
 
-export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps) {
+export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // 全局侧边栏读取当前 URL 的 view（合并所有路由 search），仅 /wiki 定义该参数
   const search = useSearch({ strict: false });
@@ -118,7 +117,12 @@ export function WikiSidebar({ onSettingsClick, onRemoteClick }: WikiSidebarProps
       <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-1 pb-3">
         <NavIconButton icon={Smartphone} label="common.remoteConnection" onClick={onRemoteClick} />
         <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
-        <NavIconButton icon={Settings} label="common.settings" onClick={onSettingsClick} />
+        <NavIconButton
+          icon={Settings}
+          label="common.settings"
+          active={pathname.startsWith("/settings")}
+          onClick={() => void navigate({ to: "/settings" })}
+        />
       </nav>
     </aside>
   );

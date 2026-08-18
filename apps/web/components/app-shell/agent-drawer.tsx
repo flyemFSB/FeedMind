@@ -175,12 +175,12 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         <div className="flex h-12 shrink-0 items-center gap-1.5 border-b border-editorial-hairline-soft bg-editorial-surface-soft pl-4 pr-3">
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger className="flex min-w-0 max-w-[132px] items-center gap-1 rounded-md px-1.5 py-1 text-editorial-ink hover:bg-editorial-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent">
-              <span className="truncate text-[13px] font-medium leading-tight">{currentLabel}</span>
+              <span className="truncate text-body font-medium leading-tight">{currentLabel}</span>
               <ChevronDown size={12} className="shrink-0 text-editorial-ink-muted" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[220px] p-1.5">
               {sessions.length === 0 ? (
-                <div className="px-3 py-2 text-[12px] text-editorial-ink-muted">
+                <div className="px-3 py-2 text-xs text-editorial-ink-muted">
                   {t("chat.noSessions")}
                 </div>
               ) : (
@@ -188,7 +188,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
                   <DropdownMenuItem
                     key={session.agent_thread_id}
                     onClick={() => void switchSession(session.agent_thread_id)}
-                    className="group flex items-center rounded-md p-0 text-[12px]"
+                    className="group flex items-center rounded-md p-0 text-xs"
                   >
                     <span className="flex-1 truncate px-2 py-1.5">
                       {session.title || t("chat.sessionTitleDefault")}
@@ -210,7 +210,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => void createNewSession()}
-                className="flex items-center gap-2 rounded-md text-[12px] text-editorial-ink"
+                className="flex items-center gap-2 rounded-md text-xs text-editorial-ink"
               >
                 <Plus size={14} />
                 {t("common.newChat")}
@@ -293,7 +293,7 @@ function CompactModelSelector() {
     >
       <SelectTrigger
         aria-label={t("settings.selectSessionModel")}
-        className="h-7 max-w-[130px] rounded-md border-editorial-hairline bg-editorial-surface-card px-2 text-[12px] text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"
+        className="h-7 max-w-[130px] rounded-md border-editorial-hairline bg-editorial-surface-card px-2 text-xs text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"
         disabled={!hasModels}
       >
         <SelectValue placeholder={t("settings.noModels")}>
@@ -312,7 +312,7 @@ function CompactModelSelector() {
       <SelectContent align="end" className="border-editorial-hairline min-w-[160px]">
         <SelectGroup>
           {models.map((model) => (
-            <SelectItem key={model.id} value={model.id} className="text-[12px]">
+            <SelectItem key={model.id} value={model.id} className="text-xs">
               <span className="flex items-center gap-2">
                 <ProviderIcon provider={model.provider} size={14} />
                 <span>{model.modelName}</span>

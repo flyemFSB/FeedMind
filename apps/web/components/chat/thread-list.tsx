@@ -50,7 +50,7 @@ export function AssistantThreadList() {
               }}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
-              className={`flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong ${
+              className={`flex min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-body hover:bg-editorial-surface-strong hover:text-editorial-ink active:bg-editorial-hairline-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-editorial-hairline-strong ${
                 isActive
                   ? "bg-editorial-surface-strong text-editorial-ink"
                   : "text-editorial-ink-soft"

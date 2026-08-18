@@ -66,14 +66,12 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
         className="max-w-md gap-0 rounded-lg bg-editorial-surface-card p-0 text-editorial-ink sm:max-w-md"
       >
         <DialogHeader className="flex h-[72px] shrink-0 flex-row items-center justify-between border-b border-editorial-hairline px-6">
-          <DialogTitle className="text-[16px] font-semibold">
-            {t("wiki.createWikiSpace")}
-          </DialogTitle>
+          <DialogTitle className="text-base font-semibold">{t("wiki.createWikiSpace")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 p-6">
           <div className="space-y-1.5">
-            <Label htmlFor="space-name" className="text-[13px] font-medium">
+            <Label htmlFor="space-name" className="text-body font-medium">
               {t("wiki.name")}
             </Label>
             <Input
@@ -86,7 +84,7 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="space-purpose" className="text-[13px] font-medium">
+            <Label htmlFor="space-purpose" className="text-body font-medium">
               {t("wiki.description")}
             </Label>
             <Textarea
@@ -98,7 +96,7 @@ export function CreateWikiSpaceDialog({ open, onClose, onCreated }: CreateWikiSp
             />
           </div>
 
-          <div className="text-[12px] text-editorial-ink-muted">{t("wiki.spaceNameNote")}</div>
+          <div className="text-xs text-editorial-ink-muted">{t("wiki.spaceNameNote")}</div>
         </div>
 
         <DialogFooter className="mx-0 mb-0 rounded-b-lg border-t border-editorial-hairline bg-editorial-surface-card px-6 py-4">

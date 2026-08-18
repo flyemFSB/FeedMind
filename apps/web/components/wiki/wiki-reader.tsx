@@ -127,7 +127,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   if (!page) {
     return (
       <div className="flex h-full items-center justify-center bg-editorial-canvas">
-        <p className="text-[13px] text-editorial-ink-muted">{t("wiki.noPage")}</p>
+        <p className="text-body text-editorial-ink-muted">{t("wiki.noPage")}</p>
       </div>
     );
   }
@@ -140,7 +140,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
         <PageMetadataCard page={page} {...(onEdit !== undefined ? { onEdit } : {})} />
 
         <article className="mx-auto max-w-[760px] px-1 pb-16 pt-8 sm:px-5">
-          <div className="wiki-markdown text-[15px] leading-7 text-editorial-ink">
+          <div className="wiki-markdown text-base leading-7 text-editorial-ink">
             <Streamdown
               mode="static"
               plugins={{ cjk, ...(mathPlugin ? { math: mathPlugin } : {}) }}
@@ -152,7 +152,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
 
           {backlinks.length > 0 && (
             <section className="mt-12 border-t border-editorial-hairline pt-6">
-              <h2 className="mb-3 text-[14px] font-semibold text-editorial-ink">
+              <h2 className="mb-3 text-sm font-semibold text-editorial-ink">
                 {t("wiki.backlinksCount", { count: backlinks.length })}
               </h2>
               <AnimatePresence initial={false}>
@@ -174,10 +174,10 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
                       onClick={() => onNavigate(backlink.page_id)}
                     >
                       <ArrowLeft size={13} className="shrink-0 text-editorial-ink-muted" />
-                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-editorial-primary">
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium text-editorial-primary">
                         {backlink.title}
                       </span>
-                      <span className="truncate text-[12px] text-editorial-ink-muted">
+                      <span className="truncate text-xs text-editorial-ink-muted">
                         {backlink.path}
                       </span>
                     </motion.button>
@@ -266,15 +266,15 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate text-[12px] text-editorial-ink-muted">{page.path}</span>
+            <span className="truncate text-xs text-editorial-ink-muted">{page.path}</span>
           </div>
-          <h1 className="mt-3 text-balance text-[24px] font-semibold tracking-[-0.025em] text-editorial-ink sm:text-[24px]">
+          <h1 className="mt-3 text-balance text-2xl font-semibold tracking-[-0.025em] text-editorial-ink sm:text-2xl">
             {page.concept_id === "overview" ? t("wiki.overview") : page.title}
           </h1>
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-2">
-          <div className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-editorial-ink-muted">
+          <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-editorial-ink-muted">
             <CalendarClock size={13} />
             <span>
               {t("wiki.updatedAt", { date: formatUpdatedAt(page.timestamp, i18n.language) })}
@@ -286,7 +286,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-8 gap-1.5 rounded-lg px-2.5 text-[12px] text-editorial-ink hover:bg-editorial-surface-soft"
+                className="h-8 gap-1.5 rounded-lg px-2.5 text-xs text-editorial-ink hover:bg-editorial-surface-soft"
                 onClick={onEdit}
               >
                 <Pencil size={13} />
@@ -300,14 +300,14 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
       <div className="mt-5 border-t border-editorial-hairline pt-4">
         <div className="space-y-3">
           <MetadataRow icon={<Tag size={13} />} label={t("wiki.type")}>
-            <span className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft">
+            <span className="rounded-md bg-editorial-surface-soft px-2 py-1 text-xs text-editorial-ink-soft">
               {wikiTypeLabel(page.type, i18n.language)}
             </span>
           </MetadataRow>
 
           {status && (
             <MetadataRow icon={<CircleDot size={13} />} label={t("wiki.status")}>
-              <span className="text-[12px] text-editorial-ink-soft">{t(statusKey)}</span>
+              <span className="text-xs text-editorial-ink-soft">{t(statusKey)}</span>
             </MetadataRow>
           )}
 
@@ -316,7 +316,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
               {sources.map((s) => (
                 <span
                   key={String(s["resource"])}
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-xs text-editorial-ink-soft"
                 >
                   {String(s["resource"])}
                 </span>
@@ -326,13 +326,13 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
 
           {verified.length > 0 && (
             <MetadataRow icon={<ShieldCheck size={13} />} label={t("wiki.verifiedBy")}>
-              <span className="text-[12px] text-editorial-ink-soft">{verified.join("、")}</span>
+              <span className="text-xs text-editorial-ink-soft">{verified.join("、")}</span>
             </MetadataRow>
           )}
 
           {staleAfter && (
             <MetadataRow icon={<Hourglass size={13} />} label={t("wiki.staleAfter")}>
-              <span className="text-[12px] text-editorial-ink-soft">
+              <span className="text-xs text-editorial-ink-soft">
                 {formatDateOnly(staleAfter, i18n.language)}
               </span>
             </MetadataRow>
@@ -343,7 +343,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
               {page.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-[12px] text-editorial-ink-soft"
+                  className="rounded-md bg-editorial-surface-soft px-2 py-1 text-xs text-editorial-ink-soft"
                 >
                   #{tag}
                 </span>
@@ -352,7 +352,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
           )}
 
           {page.description && (
-            <p className="text-[13px] leading-6 text-editorial-ink-soft">{page.description}</p>
+            <p className="text-body leading-6 text-editorial-ink-soft">{page.description}</p>
           )}
 
           {page.resource && (
@@ -361,7 +361,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
                 href={page.resource}
                 target="_blank"
                 rel="noreferrer"
-                className="max-w-full truncate text-[12px] text-editorial-primary underline underline-offset-2"
+                className="max-w-full truncate text-xs text-editorial-primary underline underline-offset-2"
               >
                 {page.resource}
               </a>
@@ -385,7 +385,7 @@ function MetadataRow({
   return (
     <div className="flex items-start gap-2 text-editorial-ink-muted">
       <span className="mt-1 shrink-0">{icon}</span>
-      <span className="w-[54px] shrink-0 pt-0.5 text-[12px]">{label}</span>
+      <span className="w-[54px] shrink-0 pt-0.5 text-xs">{label}</span>
       <div className="flex min-w-0 flex-wrap gap-1.5">{children}</div>
     </div>
   );
