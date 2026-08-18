@@ -65,6 +65,7 @@ export interface OpsLogRow {
 
 export interface OpsLogFilter {
   action?: OpsAction;
+  target?: string;
   result?: OpsResult;
 }
 
@@ -74,12 +75,15 @@ export async function listOperations(
   filter: OpsLogFilter = {},
 ): Promise<{ items: OpsLogRow[]; total: number }> {
   await ensureOpsLogTable();
-  // 筛选条件动态拼接：仅两个可空等值条件，无需 ORM 层抽象
   const where: string[] = [];
   const args: (string | number)[] = [];
   if (filter.action) {
     where.push("action = ?");
     args.push(filter.action);
+  }
+  if (filter.target) {
+    where.push("target = ?");
+    args.push(filter.target);
   }
   if (filter.result) {
     where.push("result = ?");

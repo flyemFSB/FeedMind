@@ -5,6 +5,7 @@ const PAGE_SIZE = 50;
 
 export interface OpsLogFilter {
   action?: OpsAction;
+  target?: string;
   result?: OpsResult;
 }
 

@@ -1,13 +1,52 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertCircle, ChevronDown, History } from "lucide-react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
+import {
+  Activity,
+  AlertCircle,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Cookie,
+  Copy,
+  Cpu,
+  Database,
+  Download,
+  FileText,
+  Globe,
+  History,
+  Layers,
+  List,
+  MessageSquare,
+  Network,
+  Package,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Rss,
+  Settings,
+  Smartphone,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { type OpsAction, type OpsLogRow, type OpsResult } from "@/lib/api/ops-log";
 import { useOpsLog } from "@/lib/hooks/use-ops-log";
+import { copyText } from "@/lib/clipboard";
+import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -15,27 +54,123 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const ALL_ACTIONS: OpsAction[] = ["create", "update", "delete", "import", "run"];
 const ALL_RESULTS: OpsResult[] = ["success", "failed"];
 
-// 动作徽标配色：除删除外统一中性浅灰，红色只表删除/失败，保持低视觉音量
-const ACTION_VARIANT: Record<OpsAction, "default" | "secondary" | "destructive" | "outline"> = {
-  create: "secondary",
-  update: "secondary",
-  delete: "destructive",
-  import: "secondary",
-  run: "secondary",
+// 所有系统对象/模块分类定义（严格对齐侧边栏与设置页图标规范）
+export const ALL_TARGETS = [
+  "wiki_space",
+  "wiki_page",
+  "wiki_source",
+  "rss_source",
+  "feeds",
+  "daily_report",
+  "model",
+  "skill",
+  "crawler_task",
+  "runtime_config",
+  "chat_session",
+  "cookie_store",
+  "remote_connection",
+] as const;
+
+export type OpsTarget = (typeof ALL_TARGETS)[number];
+
+const TARGET_ICONS: Record<string, LucideIcon> = {
+  wiki_space: Network,
+  wiki_page: FileText,
+  wiki_source: Database,
+  rss_source: List,
+  feeds: Rss,
+  daily_report: CalendarDays,
+  model: Cpu,
+  skill: Package,
+  crawler_task: Globe,
+  runtime_config: Settings,
+  chat_session: MessageSquare,
+  cookie_store: Cookie,
+  remote_connection: Smartphone,
 };
 
-/** 行内时间只显示 HH:mm（日期由分组头承担） */
-function formatTime(ts: number): string {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function TargetIcon({ target, className = "size-3.5" }: { target: string; className?: string }) {
+  const Icon = TARGET_ICONS[target] ?? FileText;
+  return <Icon className={className} />;
 }
 
-/** 分组标签：今天 / 昨天 / 日期（跨年带年份） */
+const ACTION_STYLE: Record<
+  OpsAction,
+  {
+    variant: "default" | "secondary" | "outline" | "destructive";
+    className: string;
+    Icon: LucideIcon;
+  }
+> = {
+  create: {
+    variant: "outline",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    Icon: Plus,
+  },
+  update: {
+    variant: "outline",
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    Icon: Pencil,
+  },
+  delete: { variant: "destructive", className: "border border-destructive/20", Icon: Trash2 },
+  import: {
+    variant: "outline",
+    className: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+    Icon: Download,
+  },
+  run: {
+    variant: "outline",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    Icon: Play,
+  },
+};
+
+function ActionBadge({ action, label }: { action: OpsAction; label: string }) {
+  const { variant, className, Icon } = ACTION_STYLE[action] ?? {
+    variant: "secondary" as const,
+    className: "",
+    Icon: null,
+  };
+  return (
+    <Badge variant={variant} className={`gap-1 ${className}`}>
+      {Icon && <Icon className="size-3 shrink-0" />}
+      <span>{label}</span>
+    </Badge>
+  );
+}
+
+function ResultBadge({ result, label }: { result: OpsResult; label: string }) {
+  if (result === "success") {
+    return (
+      <Badge
+        variant="outline"
+        className="gap-1.5 border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+      >
+        <span className="size-1.5 rounded-full bg-emerald-500" />
+        <span>{label}</span>
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="destructive" className="gap-1 border border-destructive/20">
+      <AlertCircle className="size-3 shrink-0" />
+      <span>{label}</span>
+    </Badge>
+  );
+}
+
 function groupLabel(ts: number, t: (k: string) => string): string {
   const d = new Date(ts);
   const now = new Date();
@@ -47,23 +182,118 @@ function groupLabel(ts: number, t: (k: string) => string): string {
   return `${sameYear ? "" : `${d.getFullYear()}年`}${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+function formatDetailContent(detail: string | null): { isJson: boolean; text: string } {
+  if (!detail) return { isJson: false, text: "" };
+  try {
+    const obj = JSON.parse(detail);
+    return { isJson: true, text: JSON.stringify(obj, null, 2) };
+  } catch {
+    return { isJson: false, text: detail };
+  }
+}
+
+interface FilterSelectProps<T extends string> {
+  value: T | undefined;
+  onValueChange: (v: T | undefined) => void;
+  allLabel: string;
+  allIcon: ReactNode;
+  items: readonly T[];
+  render: (v: T) => ReactNode;
+  triggerClassName?: string;
+  contentClassName?: string;
+}
+
+function FilterSelect<T extends string>({
+  value,
+  onValueChange,
+  allLabel,
+  allIcon,
+  items,
+  render,
+  triggerClassName,
+  contentClassName,
+}: FilterSelectProps<T>) {
+  return (
+    <Select
+      value={value ?? "all"}
+      onValueChange={(v) => onValueChange(!v || v === "all" ? undefined : (v as T))}
+    >
+      <SelectTrigger
+        size="sm"
+        className={`h-8 min-w-[112px] border-editorial-hairline bg-editorial-surface-card hover:border-editorial-hairline-strong transition-colors ${triggerClassName ?? ""}`}
+      >
+        <SelectValue>
+          {(val: string | null) =>
+            !val || val === "all" ? (
+              <span className="flex items-center gap-1.5 text-xs text-editorial-ink">
+                {allIcon}
+                <span>{allLabel}</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs text-editorial-ink">
+                {render(val as T)}
+              </span>
+            )
+          }
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent
+        align="start"
+        side="bottom"
+        alignItemWithTrigger={false}
+        className={contentClassName}
+      >
+        <SelectItem value="all">
+          <span className="flex items-center gap-2">
+            {allIcon}
+            <span>{allLabel}</span>
+          </span>
+        </SelectItem>
+        {items.map((v) => (
+          <SelectItem key={v} value={v}>
+            <span className="flex items-center gap-2">{render(v)}</span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function OperationLog() {
   const { t } = useTranslation();
-  // 筛选条件：undefined = 全部
+  // 筛选状态：undefined = 全部
+  const [target, setTarget] = useState<string | undefined>(undefined);
   const [action, setAction] = useState<OpsAction | undefined>(undefined);
   const [result, setResult] = useState<OpsResult | undefined>(undefined);
+
+  // 弹窗查看的日志项
+  const [selectedLog, setSelectedLog] = useState<OpsLogRow | null>(null);
 
   const {
     data,
     isPending,
     isError,
+    isFetching,
     isPlaceholderData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useOpsLog({ ...(action ? { action } : {}), ...(result ? { result } : {}) });
+    refetch,
+  } = useOpsLog({
+    ...(target ? { target } : {}),
+    ...(action ? { action } : {}),
+    ...(result ? { result } : {}),
+  });
 
-  // 分组按 id 倒序连续，顺序遍历即可
+  const activeFilterCount = (target ? 1 : 0) + (action ? 1 : 0) + (result ? 1 : 0);
+
+  const resetFilters = () => {
+    setTarget(undefined);
+    setAction(undefined);
+    setResult(undefined);
+  };
+
+  // 分组计算（id 倒序连续，顺序遍历即可）
   const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
   const groups = useMemo(() => {
     const list: { label: string; rows: OpsLogRow[] }[] = [];
@@ -75,149 +305,412 @@ export function OperationLog() {
     }
     return list;
   }, [items, t]);
+
   const total = data?.pages[0]?.total ?? 0;
 
   return (
-    <section>
-      <h2 className="mb-2 flex items-center gap-1.5 text-[14px] font-semibold text-editorial-ink">
-        <History size={14} className="text-editorial-ink-muted" />
-        {t("opsLog.title")}
-        {total > 0 && (
-          <span className="text-[12px] font-normal text-editorial-ink-muted">({total})</span>
-        )}
-      </h2>
-
-      {/* 筛选栏：动作 + 结果，切换即重新查询 */}
-      <div className="mb-4 flex items-center gap-2">
-        <Select
-          value={action ?? "all"}
-          onValueChange={(v) => setAction(v === "all" ? undefined : (v as OpsAction))}
-        >
-          <SelectTrigger size="sm" className="min-w-[112px]">
-            <SelectValue placeholder={t("opsLog.filter.action")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("opsLog.filter.actionAll")}</SelectItem>
-            {ALL_ACTIONS.map((a) => (
-              <SelectItem key={a} value={a}>
-                {t(`opsLog.action.${a}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={result ?? "all"}
-          onValueChange={(v) => setResult(v === "all" ? undefined : (v as OpsResult))}
-        >
-          <SelectTrigger size="sm" className="min-w-[104px]">
-            <SelectValue placeholder={t("opsLog.filter.result")} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("opsLog.filter.resultAll")}</SelectItem>
-            {ALL_RESULTS.map((r) => (
-              <SelectItem key={r} value={r}>
-                {t(`opsLog.result.${r}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <section className="space-y-4">
+      {/* 头部标题与统计 */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-editorial-ink">
+          <History size={16} className="text-editorial-ink-muted" />
+          <span>{t("opsLog.title")}</span>
+          {total > 0 && (
+            <Badge
+              variant="secondary"
+              className="font-normal text-editorial-ink-muted tabular-nums"
+            >
+              {total}
+            </Badge>
+          )}
+        </h2>
       </div>
 
-      {isPending ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : isError ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-10 text-center">
-          <p className="text-[13px] font-medium text-editorial-ink">{t("opsLog.loadFailed")}</p>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-10 text-center">
-          <History size={22} className="text-editorial-ink-muted" />
-          <p className="text-[13px] font-medium text-editorial-ink">
-            {(action ?? result) ? t("opsLog.emptyFiltered") : t("opsLog.empty")}
-          </p>
-          <p className="text-[12px] text-editorial-ink-muted">
-            {(action ?? result) ? t("opsLog.emptyFilteredHint") : t("opsLog.emptyHint")}
-          </p>
-        </div>
-      ) : (
-        <>
-          {groups.map((group) => (
-            <div key={group.label} className="mb-4 last:mb-0">
-              <div className="mb-1.5 flex items-baseline gap-1.5 px-1 text-[12px] font-medium text-editorial-ink-muted">
-                {group.label}
-                <span className="tabular-nums opacity-70">· {group.rows.length}</span>
-              </div>
-              <ul className="divide-y divide-editorial-surface-soft overflow-hidden rounded-lg border border-editorial-hairline bg-editorial-surface-card">
-                {group.rows.map((item) => (
-                  <li
-                    key={item.id}
-                    title={new Date(item.ts).toLocaleString()}
-                    className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 ${
-                      item.result === "failed"
-                        ? "bg-destructive/5 hover:bg-destructive/10"
-                        : "hover:bg-editorial-canvas-soft"
-                    }`}
-                  >
-                    <span className="w-[40px] shrink-0 text-[12px] text-editorial-ink-muted tabular-nums max-sm:hidden">
-                      {formatTime(item.ts)}
-                    </span>
-                    <Badge
-                      variant={ACTION_VARIANT[item.action]}
-                      className="min-w-[44px] shrink-0 justify-center text-[12px]"
-                    >
-                      {t(`opsLog.action.${item.action}`)}
-                    </Badge>
-                    <span className="min-w-0 flex-1 truncate text-[13px] text-editorial-ink">
-                      <span className="text-editorial-ink-muted">
-                        {t(`opsLog.target.${item.target}`)}
-                      </span>
-                      <span className="mx-1.5 text-editorial-hairline-strong">·</span>
-                      {item.targetName}
-                    </span>
-                    {item.detail && (
-                      <span
-                        className="max-w-[45%] shrink-0 truncate text-right text-[12px] text-editorial-ink-muted max-sm:w-full max-sm:max-w-none max-sm:shrink max-sm:pl-[56px] max-sm:text-left"
-                        title={item.detail}
-                      >
-                        {item.detail}
-                      </span>
-                    )}
-                    {item.result === "failed" && (
-                      <span className="flex shrink-0 items-center gap-1 text-[12px] font-medium text-destructive">
-                        <AlertCircle size={13} />
-                        {t("opsLog.failed")}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          {hasNextPage && (
-            <div className="mt-3 flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1 rounded-lg px-3 text-[12px]"
-                // 占位数据期间（筛选切换中）禁用，防止基于旧分页参数追加请求
-                disabled={isFetchingNextPage || isPlaceholderData}
-                onClick={() => void fetchNextPage()}
+      {/* 筛选与操作工具栏 */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterSelect
+            value={target}
+            onValueChange={setTarget}
+            allLabel={t("opsLog.filter.targetAll")}
+            allIcon={<Layers size={13} className="text-editorial-ink-muted shrink-0" />}
+            items={ALL_TARGETS}
+            triggerClassName="min-w-[130px]"
+            contentClassName="max-h-[320px] min-w-[170px]"
+            render={(v) => (
+              <>
+                <TargetIcon target={v} className="size-3.5 text-editorial-ink-muted shrink-0" />
+                <span>{t(`opsLog.target.${v}`, { defaultValue: v })}</span>
+              </>
+            )}
+          />
+
+          <FilterSelect
+            value={action}
+            onValueChange={setAction}
+            allLabel={t("opsLog.filter.actionAll")}
+            allIcon={<Activity size={13} className="text-editorial-ink-muted shrink-0" />}
+            items={ALL_ACTIONS}
+            triggerClassName="min-w-[116px]"
+            contentClassName="min-w-[140px]"
+            render={(v) => <ActionBadge action={v} label={t(`opsLog.action.${v}`)} />}
+          />
+
+          <FilterSelect
+            value={result}
+            onValueChange={setResult}
+            allLabel={t("opsLog.filter.resultAll")}
+            allIcon={<CheckCircle2 size={13} className="text-editorial-ink-muted shrink-0" />}
+            items={ALL_RESULTS}
+            triggerClassName="min-w-[112px]"
+            contentClassName="min-w-[130px]"
+            render={(v) => <ResultBadge result={v} label={t(`opsLog.result.${v}`)} />}
+          />
+
+          {/* 有筛选时显示重置按钮 */}
+          {activeFilterCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetFilters}
+              className="h-8 gap-1.5 px-2.5 text-xs text-editorial-ink-muted hover:text-editorial-ink"
+              title={t("opsLog.filter.reset")}
+            >
+              <RotateCcw size={12} />
+              <span>{t("opsLog.filter.reset")}</span>
+              <Badge
+                variant="secondary"
+                className="h-4 px-1 text-tiny font-medium text-editorial-ink-soft"
               >
-                {isFetchingNextPage ? (
-                  <span className="size-3 animate-spin rounded-full border-2 border-editorial-hairline-strong border-t-editorial-ink" />
-                ) : (
-                  <ChevronDown size={13} />
-                )}
-                {t("opsLog.loadMore")}
-              </Button>
+                {activeFilterCount}
+              </Badge>
+            </Button>
+          )}
+        </div>
+
+        {/* 右侧：刷新按钮 */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="h-8 gap-1.5 rounded-lg border-editorial-hairline bg-editorial-surface-card px-2.5 text-xs text-editorial-ink hover:bg-editorial-surface-soft transition-colors"
+            title={t("opsLog.refresh")}
+          >
+            <RefreshCw
+              size={12}
+              className={
+                isFetching && !isFetchingNextPage ? "animate-spin text-editorial-primary" : ""
+              }
+            />
+            <span>{t("opsLog.refresh")}</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* 表格主体：加载中显示骨架行，有数据显示分组行 */}
+      {(isPending || (items.length > 0 && !isError)) && (
+        <div className="overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card shadow-xs">
+          <div className="overflow-x-auto">
+            <Table className="w-full text-left">
+              <TableHeader>
+                <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft/80 text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted select-none">
+                  <TableHead className="w-[90px] px-4 py-2.5 text-editorial-ink-muted">
+                    {t("opsLog.table.time")}
+                  </TableHead>
+                  <TableHead className="w-[96px] px-3 py-2.5 text-editorial-ink-muted">
+                    {t("opsLog.table.action")}
+                  </TableHead>
+                  <TableHead className="w-[130px] px-3 py-2.5 text-editorial-ink-muted">
+                    {t("opsLog.table.category")}
+                  </TableHead>
+                  <TableHead className="min-w-[200px] px-3 py-2.5 text-editorial-ink-muted">
+                    {t("opsLog.table.targetName")}
+                  </TableHead>
+                  <TableHead className="w-[96px] px-4 py-2.5 text-right text-editorial-ink-muted">
+                    {t("opsLog.table.status")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isPending
+                  ? Array.from({ length: 6 }).map((_, i) => (
+                      <TableRow key={i} className="border-b border-editorial-hairline/40">
+                        <TableCell className="px-4 py-3">
+                          <Skeleton className="h-4 w-12" />
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          <Skeleton className="h-5 w-14 rounded-md" />
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell className="px-3 py-3">
+                          <Skeleton className="h-4 w-48" />
+                        </TableCell>
+                        <TableCell className="px-4 py-3 text-right">
+                          <div className="flex justify-end">
+                            <Skeleton className="h-4 w-12" />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  : groups.map((group) => (
+                      <Fragment key={group.label}>
+                        {/* 分组横幅 */}
+                        <TableRow className="border-y border-editorial-hairline/60 bg-editorial-canvas-soft/70 hover:bg-editorial-canvas-soft/70 select-none">
+                          <TableCell
+                            colSpan={5}
+                            className="px-4 py-1.5 text-xs font-medium text-editorial-ink-muted"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span>{group.label}</span>
+                              <Badge
+                                variant="secondary"
+                                className="font-normal text-editorial-ink-soft tabular-nums"
+                              >
+                                {t("opsLog.table.recordsCount", { count: group.rows.length })}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                        {/* 分组内行数据 */}
+                        {group.rows.map((item) => (
+                          <TableRow
+                            key={item.id}
+                            onClick={() => setSelectedLog(item)}
+                            className={`group/row cursor-pointer border-b border-editorial-hairline/40 transition-colors ${
+                              item.result === "failed"
+                                ? "bg-destructive/5 hover:bg-destructive/10"
+                                : "hover:bg-editorial-surface-soft/80"
+                            }`}
+                          >
+                            <TableCell className="px-4 py-2.5 text-xs text-editorial-ink-muted tabular-nums whitespace-nowrap">
+                              {formatDateTime(item.ts)}
+                            </TableCell>
+                            <TableCell className="px-3 py-2.5 whitespace-nowrap">
+                              <ActionBadge
+                                action={item.action}
+                                label={t(`opsLog.action.${item.action}`)}
+                              />
+                            </TableCell>
+                            <TableCell className="px-3 py-2.5 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 text-xs text-editorial-ink-soft">
+                                <TargetIcon
+                                  target={item.target}
+                                  className="size-3.5 text-editorial-ink-muted shrink-0"
+                                />
+                                <span className="truncate">
+                                  {t(`opsLog.target.${item.target}`, { defaultValue: item.target })}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-3 py-2.5">
+                              <div className="flex flex-col gap-0.5 min-w-0">
+                                <span
+                                  className="truncate text-body font-medium text-editorial-ink group-hover/row:text-editorial-primary transition-colors"
+                                  title={item.targetName}
+                                >
+                                  {item.targetName}
+                                </span>
+                                {item.detail && (
+                                  <span
+                                    className="truncate text-tiny text-editorial-ink-muted max-w-[500px]"
+                                    title={item.detail}
+                                  >
+                                    {item.detail}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-4 py-2.5 text-right whitespace-nowrap">
+                              <div className="flex justify-end">
+                                <ResultBadge
+                                  result={item.result}
+                                  label={t(`opsLog.result.${item.result}`)}
+                                />
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </Fragment>
+                    ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
+      {/* 加载失败 */}
+      {isError && (
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-12 text-center">
+          <AlertCircle size={24} className="text-destructive" />
+          <p className="text-body font-medium text-editorial-ink">{t("opsLog.loadFailed")}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            className="mt-2 text-xs"
+          >
+            {t("opsLog.refresh")}
+          </Button>
+        </div>
+      )}
+
+      {/* 空状态 */}
+      {!isPending && !isError && items.length === 0 && (
+        <div className="flex flex-col items-center gap-2.5 rounded-xl border border-dashed border-editorial-hairline-strong bg-editorial-surface-card px-4 py-14 text-center">
+          <History size={26} className="text-editorial-ink-muted opacity-60" />
+          <p className="text-sm font-medium text-editorial-ink">
+            {activeFilterCount > 0 ? t("opsLog.emptyFiltered") : t("opsLog.empty")}
+          </p>
+          <p className="text-xs text-editorial-ink-muted max-w-sm">
+            {activeFilterCount > 0 ? t("opsLog.emptyFilteredHint") : t("opsLog.emptyHint")}
+          </p>
+          {activeFilterCount > 0 && (
+            <Button variant="outline" size="sm" onClick={resetFilters} className="mt-1 h-8 text-xs">
+              {t("opsLog.filter.reset")}
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* 加载更多按钮 */}
+      {!isPending && !isError && hasNextPage && items.length > 0 && (
+        <div className="mt-1 flex justify-center">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5 rounded-lg border-editorial-hairline px-3 text-xs text-editorial-ink hover:bg-editorial-surface-soft transition-colors"
+            disabled={isFetchingNextPage || isPlaceholderData}
+            onClick={() => void fetchNextPage()}
+          >
+            {isFetchingNextPage ? (
+              <span className="size-3 animate-spin rounded-full border-2 border-editorial-hairline-strong border-t-editorial-ink" />
+            ) : (
+              <ChevronDown size={13} />
+            )}
+            {t("opsLog.loadMore")}
+          </Button>
+        </div>
+      )}
+
+      {/* 日志详情弹窗 */}
+      <Dialog open={selectedLog !== null} onOpenChange={(open) => !open && setSelectedLog(null)}>
+        <DialogContent className="max-w-lg rounded-xl border border-editorial-hairline bg-editorial-surface-card p-5 shadow-lg">
+          <DialogHeader className="gap-1 pb-3 border-b border-editorial-hairline">
+            <div className="flex items-center gap-2">
+              <History size={16} className="text-editorial-ink-muted" />
+              <DialogTitle className="text-base font-semibold text-editorial-ink">
+                {t("opsLog.detailDialog.title")}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-editorial-ink-muted tabular-nums">
+              ID #{selectedLog?.id} ·{" "}
+              {selectedLog ? formatDateTime(selectedLog.ts, { withDate: true }) : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedLog && (
+            <div className="space-y-3.5 py-1 text-body">
+              {/* 动作与状态网格 */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="rounded-lg border border-editorial-hairline/80 bg-editorial-canvas-soft/60 p-2.5">
+                  <span className="mb-1 block text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted">
+                    {t("opsLog.detailDialog.action")}
+                  </span>
+                  <ActionBadge
+                    action={selectedLog.action}
+                    label={t(`opsLog.action.${selectedLog.action}`)}
+                  />
+                </div>
+                <div className="rounded-lg border border-editorial-hairline/80 bg-editorial-canvas-soft/60 p-2.5">
+                  <span className="mb-1 block text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted">
+                    {t("opsLog.detailDialog.status")}
+                  </span>
+                  <ResultBadge
+                    result={selectedLog.result}
+                    label={t(`opsLog.result.${selectedLog.result}`)}
+                  />
+                </div>
+              </div>
+
+              {/* 所属分类与目标对象 */}
+              <div className="rounded-lg border border-editorial-hairline/80 bg-editorial-canvas-soft/60 p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted">
+                    {t("opsLog.detailDialog.category")} / {t("opsLog.detailDialog.targetName")}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() =>
+                      void copyText(selectedLog.targetName, t("opsLog.detailDialog.copied"))
+                    }
+                    className="h-6 w-6 text-editorial-ink-muted hover:text-editorial-ink"
+                    title={t("opsLog.detailDialog.copyDetail")}
+                  >
+                    <Copy size={12} />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge variant="outline" className="gap-1.5 text-editorial-ink-soft">
+                    <TargetIcon
+                      target={selectedLog.target}
+                      className="size-3.5 text-editorial-ink-muted"
+                    />
+                    <span>
+                      {t(`opsLog.target.${selectedLog.target}`, {
+                        defaultValue: selectedLog.target,
+                      })}
+                    </span>
+                  </Badge>
+                  <span className="truncate font-mono text-body font-medium text-editorial-ink">
+                    {selectedLog.targetName}
+                  </span>
+                </div>
+              </div>
+
+              {/* 详情或附加数据 */}
+              {selectedLog.detail && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted">
+                      {t("opsLog.detailDialog.detail")}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        void copyText(selectedLog.detail!, t("opsLog.detailDialog.copied"))
+                      }
+                      className="h-6 gap-1 px-2 text-tiny text-editorial-ink-muted hover:text-editorial-ink"
+                    >
+                      <Copy size={11} />
+                      <span>{t("opsLog.detailDialog.copyDetail")}</span>
+                    </Button>
+                  </div>
+                  <pre className="max-h-[220px] overflow-auto rounded-lg border border-editorial-hairline bg-editorial-canvas-soft/90 p-3 font-mono text-xs text-editorial-ink whitespace-pre-wrap break-all leading-relaxed">
+                    {formatDetailContent(selectedLog.detail).text}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
-        </>
-      )}
+
+          <DialogFooter className="pt-2 border-t border-editorial-hairline">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedLog(null)}
+              className="text-xs"
+            >
+              {t("opsLog.detailDialog.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

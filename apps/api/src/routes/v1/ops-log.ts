@@ -9,6 +9,7 @@ opsLogRoutes.get("/ops-log", async (c) => {
   const limit = Math.max(1, Math.min(200, Number(c.req.query("limit")) || 50));
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
   const action = c.req.query("action") as OpsAction | undefined;
+  const target = c.req.query("target")?.trim();
   const result = c.req.query("result") as OpsResult | undefined;
   // 非法筛选值直接忽略（白名单外按无筛选处理）
   const validActions: OpsAction[] = ["create", "update", "delete", "import", "run"];
@@ -17,6 +18,7 @@ opsLogRoutes.get("/ops-log", async (c) => {
     c,
     await listOperations(limit, offset, {
       ...(action && validActions.includes(action) ? { action } : {}),
+      ...(target ? { target } : {}),
       ...(result && validResults.includes(result) ? { result } : {}),
     }),
   );
