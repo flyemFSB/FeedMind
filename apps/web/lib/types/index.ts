@@ -1,6 +1,6 @@
 export interface LLMModel {
   id: string;
-  type?: "chat" | "embedding";
+  type?: "chat" | "embedding" | "ocr";
   provider: string;
   modelName: string;
   modelId?: string;

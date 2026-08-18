@@ -15,7 +15,7 @@ import { clearModelClientCache } from "./model-cache.js";
 function toModelRead(row: ModelRow): ModelRead {
   return {
     id: row.id,
-    type: row.type as "chat" | "embedding",
+    type: row.type as "chat" | "embedding" | "ocr",
     provider: row.provider,
     model_name: row.modelName,
     model_id: row.modelId,

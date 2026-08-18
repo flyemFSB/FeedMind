@@ -3,7 +3,7 @@ import { apiFetch, backendApiPath } from "./client";
 
 export type ModelResponse = {
   id: number;
-  type: "chat" | "embedding";
+  type: "chat" | "embedding" | "ocr";
   provider: string;
   model_name: string;
   model_id: string;

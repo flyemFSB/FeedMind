@@ -137,6 +137,21 @@ export async function updateConfig(
   return toConfigRead(updated, resolved.modelName, resolved.modelId, resolved.provider);
 }
 
+/** 文档解析（OCR）模型配置：model 表 type=ocr 且 is_selected 的条目；
+ * 未配置返回 null——VL 是 PDF 导入的增强路径，调用方应降级本地解析而非报错 */
+export async function getRuntimeOcrConfig(): Promise<{
+  baseUrl: string;
+  apiKey: string;
+} | null> {
+  const [row] = await db
+    .select()
+    .from(model)
+    .where(and(eq(model.type, "ocr"), eq(model.isSelected, true)))
+    .limit(1);
+  if (!row || !row.encryptedApiKey) return null;
+  return { baseUrl: row.baseUrl, apiKey: decryptValue(row.encryptedApiKey) };
+}
+
 export async function getRuntimeConfig(runtime: string): Promise<{
   model_name: string;
   model_id: string;

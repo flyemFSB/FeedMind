@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const modelCreateSchema = z.object({
-  type: z.enum(["chat", "embedding"]).default("chat"),
+  type: z.enum(["chat", "embedding", "ocr"]).default("chat"),
   provider: z.string().min(1).max(64),
   model_name: z.string().min(1).max(128),
   model_id: z.string().max(256).default(""),

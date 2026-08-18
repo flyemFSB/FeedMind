@@ -1,5 +1,5 @@
 export interface FreeModelPreset {
-  type: "chat" | "embedding";
+  type: "chat" | "embedding" | "ocr";
   provider: string;
   modelName: string;
   modelId: string;
@@ -31,5 +31,15 @@ export const FREE_MODEL_PRESETS = {
     signupUrl: "https://cloud.siliconflow.cn/me/account/ak",
     description:
       "BAAI/bge-m3 是硅基流动（SiliconFlow）的免费嵌入模型，用于向量检索。前往硅基流动控制台生成 API Key 后填入下方即可接入。",
+  },
+  paddleOcr: {
+    type: "ocr",
+    provider: "PaddleOCR",
+    modelName: "PaddleOCR-VL-1.6",
+    modelId: "PaddleOCR-VL-1.6",
+    baseUrl: "https://paddleocr.aistudio-app.com",
+    signupUrl: "https://aistudio.baidu.com/index/accessToken",
+    description:
+      "PaddleOCR-VL-1.6 是百度飞桨官方提供的文档解析与 OCR 模型，支持图表识别与 Markdown 格式转换。前往 AI Studio 控制台获取 Access Token 后填入下方即可一键接入。",
   },
 } as const;
