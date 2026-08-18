@@ -208,7 +208,19 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
     file.name,
     new Uint8Array(await file.arrayBuffer()),
   );
-  autoIngestUpload(spaceId, source.identity, source.title);
+  if (source.status === "queued") {
+    // 二进制文档：占位源已落盘，转换任务入队（worker 提取后自动再入队导入），
+    // 上传请求立即返回，弹窗即时关闭，来源列表展示解析进度
+    void enqueueIngest(spaceId, source.identity, source.original_name ?? "", source.title)
+      .then(() => {
+        wakeIngestWorker();
+      })
+      .catch(() => {
+        // 入队失败仅提示，不阻塞上传
+      });
+  } else {
+    autoIngestUpload(spaceId, source.identity, source.title);
+  }
   void logOperation({ action: "create", target: "wiki_source", targetName: source.title });
   return jsonOk(c, source, 201);
 });
@@ -241,6 +253,12 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
 
   // 获取源标题用于导入历史展示
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
+
+  // 占位源（二进制文档解析中）正文为空：禁止手动导入，避免 LLM 基于空正文生成垃圾概念
+  const pending = await getWikiSource(spaceId, sourcePath.replace(/\.md$/i, "")).catch(() => null);
+  if (pending?.status === "queued") {
+    return jsonError(c, 409, "VALIDATION_ERROR", "文档解析中，请稍后导入");
+  }
 
   // 记录任务以展示导入历史
   const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);

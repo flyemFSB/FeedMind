@@ -14,7 +14,7 @@ export function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
 
-export function safeWriteFile(filePath: string, content: string): void {
+export function safeWriteFile(filePath: string, content: string | Uint8Array): void {
   try {
     fs.writeFileSync(filePath, content, "utf-8");
   } catch (err: unknown) {
@@ -61,8 +61,10 @@ export function readDirRecursive(
         results.push(fullPath);
       }
     }
-  } catch {
-    /* 目录不存在时返回空结果 */
+  } catch (err) {
+    // 仅容忍目录不存在（首次遍历未初始化空间）；权限/IO 错误必须浮出
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return results;
+    throw err;
   }
   return results;
 }
@@ -88,8 +90,10 @@ export function collectFileEntries(
         results.push(...collectFileEntries(fullPath));
       }
     }
-  } catch {
-    /* 目录不存在时返回空结果 */
+  } catch (err) {
+    // 仅容忍目录不存在；权限/IO 错误必须浮出
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return results;
+    throw err;
   }
   return results;
 }

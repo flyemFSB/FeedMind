@@ -35,22 +35,19 @@ function readConcepts(spaceId: string): ConceptEntry[] {
   );
 
   for (const filePath of files) {
-    try {
-      const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
-      const { frontmatter } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
-      const conceptId = conceptIdFromPath(relativePath);
-      concepts.push({
-        path: relativePath,
-        conceptId,
-        directory: path.posix.dirname(relativePath) === "." ? "" : path.posix.dirname(relativePath),
-        type: extractString(frontmatter, "type") ?? "Reference",
-        title:
-          extractString(frontmatter, "title") ?? path.basename(relativePath).replace(/\.md$/i, ""),
-        description: extractString(frontmatter, "description") ?? "",
-      });
-    } catch {
-      /* 无法读取的文件由 OKF lint 报告，不阻塞索引重建。 */
-    }
+    // 索引重建前逐个验证：任一页面损坏即失败，静默跳过会让索引与知识包不一致
+    const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
+    const { frontmatter } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
+    const conceptId = conceptIdFromPath(relativePath);
+    concepts.push({
+      path: relativePath,
+      conceptId,
+      directory: path.posix.dirname(relativePath) === "." ? "" : path.posix.dirname(relativePath),
+      type: extractString(frontmatter, "type") ?? "Reference",
+      title:
+        extractString(frontmatter, "title") ?? path.basename(relativePath).replace(/\.md$/i, ""),
+      description: extractString(frontmatter, "description") ?? "",
+    });
   }
 
   return concepts.sort((a, b) => a.conceptId.localeCompare(b.conceptId));

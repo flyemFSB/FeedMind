@@ -75,6 +75,14 @@ function readSourceDocument(
 
   const raw = fs.readFileSync(filePath, "utf-8");
   const { frontmatter, body } = parseFrontmatter(raw);
+  // 格式转换失败的源文件拒绝导入：其正文只有失败占位文本，
+  // 放行会让 LLM 基于占位符生成无意义的“参考条目”页面。
+  // 占位文本检测同时兜住历史坏源（status 已是 ingested/ready 的情况）
+  const bodyText = body.trim() || raw.trim();
+  const failedPlaceholder = /^\[(文档转换失败|提取失败|File too large)/.test(bodyText);
+  if (extractString(frontmatter, "status") === "failed" || failedPlaceholder) {
+    throw new Error(`源文件格式转换失败，无法导入: ${sourceIdentity}`);
+  }
   const title =
     extractString(frontmatter, "title") ?? path.basename(sourceIdentity).replace(/\.md$/i, "");
   const kind = extractString(frontmatter, "kind") ?? "text";
@@ -217,18 +225,14 @@ function readSpaceContext(spaceId: string): SpaceContext {
   );
 
   for (const filePath of files) {
-    try {
-      const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
-      const { frontmatter } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
-      const conceptId = conceptIdFromPath(relativePath);
-      pages.push({
-        id: conceptId,
-        title: extractString(frontmatter, "title") ?? conceptId,
-        description: extractString(frontmatter, "description") ?? "",
-      });
-    } catch {
-      /* 无法读取的 Concept 由 OKF lint 报告。 */
-    }
+    const relativePath = path.relative(wikiDir, filePath).replace(/\\/g, "/");
+    const { frontmatter } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
+    const conceptId = conceptIdFromPath(relativePath);
+    pages.push({
+      id: conceptId,
+      title: extractString(frontmatter, "title") ?? conceptId,
+      description: extractString(frontmatter, "description") ?? "",
+    });
   }
 
   pages.sort((a, b) => a.id.localeCompare(b.id));
@@ -308,7 +312,7 @@ async function stage2Generation(
   );
 }
 
-function parseGeneratedDocuments(raw: string, warnings: string[]): GeneratedDocument[] {
+function parseGeneratedDocuments(raw: string): GeneratedDocument[] {
   const normalized = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -319,27 +323,21 @@ function parseGeneratedDocuments(raw: string, warnings: string[]): GeneratedDocu
   const results: GeneratedDocument[] = [];
   for (let index = 0; index < parsed.documents.length; index++) {
     const item = parsed.documents[index];
-    try {
-      if (!item || typeof item !== "object") throw new Error(`第 ${index + 1} 个 Concept 不是对象`);
-      const document = item as Record<string, unknown>;
-      const documentPath = normalizeConceptPath(String(document["path"] ?? ""));
-      const frontmatter = document["frontmatter"];
-      if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
-        throw new Error(`Concept ${documentPath} 缺少 frontmatter 对象`);
-      }
-      const content = document["content"];
-      if (typeof content !== "string") throw new Error(`Concept ${documentPath} 缺少 content`);
-      results.push({
-        path: documentPath,
-        frontmatter: frontmatter as Record<string, unknown>,
-        content,
-      });
-    } catch (err) {
-      // 单个文档解析失败不应中止整个导入，记录警告并跳过
-      warnings.push(
-        `跳过第 ${index + 1} 个 Concept: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    // 单个文档损坏即整体失败：静默跳过会让知识包缺页而导入仍报成功
+    if (!item || typeof item !== "object") throw new Error(`第 ${index + 1} 个 Concept 不是对象`);
+    const document = item as Record<string, unknown>;
+    const documentPath = normalizeConceptPath(String(document["path"] ?? ""));
+    const frontmatter = document["frontmatter"];
+    if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+      throw new Error(`Concept ${documentPath} 缺少 frontmatter 对象`);
     }
+    const content = document["content"];
+    if (typeof content !== "string") throw new Error(`Concept ${documentPath} 缺少 content`);
+    results.push({
+      path: documentPath,
+      frontmatter: frontmatter as Record<string, unknown>,
+      content,
+    });
   }
   return results;
 }
@@ -348,8 +346,11 @@ function normalizeGeneratedContent(document: GeneratedDocument, sourceIdentity: 
   const frontmatter = { ...document.frontmatter };
   const rawType = extractString(frontmatter, "type");
   if (!rawType) throw new Error(`Concept ${document.path} 缺少非空 type`);
-  // LLM 可能不严格遵守受控枚举，落盘前规约到枚举，未知值回退到 Concept 兜底
-  const type = (WIKI_CONCEPT_TYPES as readonly string[]).includes(rawType) ? rawType : "Concept";
+  // LLM 输出非法 type 直接失败：静默回退会把失控枚举当知识写入
+  if (!(WIKI_CONCEPT_TYPES as readonly string[]).includes(rawType)) {
+    throw new Error(`Concept ${document.path} 的 type 不在受控枚举内: ${rawType}`);
+  }
+  const type = rawType;
 
   // 保证 primary source 记录在 sources 里；extractSources 已按 resource 去重并吸收遗留 provenance
   const sources = extractSources(frontmatter);
@@ -518,7 +519,7 @@ export async function runIngest(
 
     let documents: GeneratedDocument[];
     try {
-      documents = parseGeneratedDocuments(generated, warnings);
+      documents = parseGeneratedDocuments(generated);
     } catch (err) {
       throw new Error(
         `OKF Concept JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`,

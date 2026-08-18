@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   conceptIdFromPath,
-  extractDocument,
   extractSources,
   extractString,
   extractStringArray,
@@ -31,6 +30,56 @@ import {
 } from "./space-fs/index.js";
 import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
 import { removeIngestCache } from "./ingest-pipeline.js";
+
+// ─── 后台转换支持（worker 调用）─────────────────────────────────────
+
+/** 转换成功：用提取结果回写占位源（正文 + status ready + mime/page_count）。 */
+export function writeConvertedSource(
+  spaceId: string,
+  slug: string,
+  doc: { text: string; mimeType: string; pageCount?: number },
+  imageNames: string[] = [],
+): void {
+  const filePath = getSourceFilePath(spaceId, `${slug}.md`);
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { frontmatter } = parseFrontmatter(raw);
+  frontmatter["status"] = "ready";
+  frontmatter["mime_type"] = doc.mimeType;
+  if (doc.pageCount !== undefined) frontmatter["page_count"] = doc.pageCount;
+  if (imageNames.length > 0) frontmatter["extracted_images"] = imageNames;
+  safeWriteFile(filePath, formatFrontmatter(frontmatter) + "\n" + doc.text);
+}
+
+/** 转换失败：占位源标记 failed 并附带原因，列表可见失败状态。 */
+export function markSourceConvertFailed(spaceId: string, slug: string, error: string): void {
+  const filePath = getSourceFilePath(spaceId, `${slug}.md`);
+  if (!fs.existsSync(filePath)) return;
+  try {
+    const { frontmatter, body } = parseFrontmatter(fs.readFileSync(filePath, "utf-8"));
+    frontmatter["status"] = "failed";
+    frontmatter["convert_error"] = error;
+    safeWriteFile(filePath, formatFrontmatter(frontmatter) + "\n" + body);
+  } catch {
+    /* 标记失败不阻塞 worker */
+  }
+}
+
+/**
+ * VL 解析提取的内嵌图表原图落盘 raw/assets；返回落盘文件名列表供 frontmatter 记录。
+ * 文件名是远端不可信输入：净化后落盘，防路径穿越与 Windows 非法字符。
+ */
+export function persistExtractedImages(spaceId: string, images: Map<string, string>): string[] {
+  if (images.size === 0) return [];
+  const assetsDir = path.join(getSpaceDir(spaceId), "raw", "assets");
+  ensureDir(assetsDir);
+  const names: string[] = [];
+  for (const [name, dataUrl] of images) {
+    const safe = sanitizeFileName(name);
+    safeWriteFile(path.join(assetsDir, safe), Buffer.from(dataUrl, "base64"));
+    names.push(safe);
+  }
+  return names;
+}
 
 export function buildSourceFrontmatter(
   title: string,
@@ -135,33 +184,19 @@ export async function saveUploadedSource(
   if (BINARY_EXTS.has(ext)) {
     const binPath = path.join(sourcesDir, safeName);
     fs.writeFileSync(binPath, Buffer.from(bytes));
-    let extractedText: string;
-    let docMime = "application/octet-stream";
-    let warnings: string[] = [];
-    try {
-      const doc = await extractDocument(binPath, safeName);
-      extractedText = doc.text;
-      docMime = doc.mimeType;
-      warnings = doc.warnings;
-    } catch (err) {
-      extractedText = `[提取失败: ${err instanceof Error ? err.message : String(err)}]`;
-    } finally {
-      // 无论提取成功与否，都清理临时二进制文件
-      safeUnlink(binPath);
-    }
+    // 不再同步提取：立即落占位源并返回，提取交给队列中的转换任务（worker 执行，
+    // 见 ingest-worker），弹窗即时关闭，来源列表实时展示解析进度——VL OCR 要十几秒
     const fm = buildSourceFrontmatter(safeName, "file", now, {
       resource: safeName,
       original_name: safeName,
       original_uri: safeName,
-      mime_type: docMime,
+      // 占位阶段 mime 未知（要等提取）；worker 转换完成后回写真实值
+      mime_type: "application/octet-stream",
       size_bytes: bytes.length,
-      status: "ready",
+      status: "queued",
       import_ext: ext,
     });
-    safeWriteFile(
-      path.join(sourcesDir, sourceFileName),
-      formatFrontmatter(fm) + "\n" + extractedText,
-    );
+    safeWriteFile(path.join(sourcesDir, sourceFileName), formatFrontmatter(fm) + "\n");
     return readUploadedSource(
       spaceId,
       sourceFileName,
@@ -169,9 +204,9 @@ export async function saveUploadedSource(
       safeName,
       "file",
       now,
-      docMime,
-      extractedText,
-      { import_ext: ext, extract_warnings: warnings },
+      "application/octet-stream",
+      `queued:${bytes.length}`,
+      { import_ext: ext },
     );
   }
 

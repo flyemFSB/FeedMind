@@ -37,10 +37,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   });
   const sources = data?.items ?? [];
 
-  // 每个来源关联其最新任务（jobs 按添加时间倒序取第一个）
+  // 每个来源关联其最新任务：同 source_path 可能先后有转换任务与导入任务（转换完成自动
+  // 入队导入），按 added_at 倒序让最新（active）任务优先展示
   const jobBySource = useMemo(() => {
     const map = new Map<string, IngestJob>();
-    for (const job of jobs) {
+    const sorted = [...jobs].sort((a, b) => b.added_at - a.added_at);
+    for (const job of sorted) {
       if (!map.has(job.source_path)) map.set(job.source_path, job);
     }
     return map;
@@ -139,19 +141,22 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     switch (status) {
       case "ingested":
         return (
-          <Badge variant="default" className="text-[12px] bg-editorial-semantic-success">
+          <Badge
+            variant="secondary"
+            className="text-xs bg-editorial-semantic-success/15 text-editorial-semantic-success border border-editorial-semantic-success/20"
+          >
             {t("wiki.sourceIngested")}
           </Badge>
         );
       case "ready":
         return (
-          <Badge variant="outline" className="text-[12px] text-editorial-ink-muted">
+          <Badge variant="outline" className="text-xs text-editorial-ink-muted">
             {t("wiki.sourcePending")}
           </Badge>
         );
       case "failed":
         return (
-          <Badge variant="destructive" className="text-[12px]">
+          <Badge variant="destructive" className="text-xs">
             {t("wiki.sourceFailed")}
           </Badge>
         );
@@ -159,14 +164,23 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         return (
           <Badge
             variant="secondary"
-            className="text-[12px] bg-editorial-semantic-warning text-white"
+            className="text-xs bg-editorial-semantic-warning/15 text-editorial-semantic-warning border border-editorial-semantic-warning/20"
           >
             {t("wiki.sourceIngesting")}
           </Badge>
         );
+      case "converting":
+        return (
+          <Badge
+            variant="secondary"
+            className="text-xs bg-editorial-semantic-warning/15 text-editorial-semantic-warning border border-editorial-semantic-warning/20"
+          >
+            {t("wiki.sourceConverting")}
+          </Badge>
+        );
       default:
         return (
-          <Badge variant="outline" className="text-[12px]">
+          <Badge variant="outline" className="text-xs">
             {status}
           </Badge>
         );
@@ -178,12 +192,8 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
       {/* 头部 */}
       <div className="flex items-center justify-between border-b border-editorial-surface-strong px-6 py-3">
         <div>
-          <h2 className="text-[14px] font-semibold text-editorial-ink">
-            {t("wiki.sourceManagement")}
-          </h2>
-          <p className="mt-0.5 text-[12px] text-editorial-ink-muted">
-            {t("wiki.sourceDescription")}
-          </p>
+          <h2 className="text-sm font-semibold text-editorial-ink">{t("wiki.sourceManagement")}</h2>
+          <p className="mt-0.5 text-xs text-editorial-ink-muted">{t("wiki.sourceDescription")}</p>
         </div>
       </div>
 
@@ -207,8 +217,8 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-editorial-surface-soft">
               <FileText size={20} className="text-editorial-ink-muted" />
             </div>
-            <p className="text-[14px] font-medium text-editorial-ink">{t("wiki.noSources")}</p>
-            <p className="mt-1 text-[12px] text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
+            <p className="text-sm font-medium text-editorial-ink">{t("wiki.noSources")}</p>
+            <p className="mt-1 text-xs text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
           </div>
         ) : (
           <motion.div
@@ -222,16 +232,27 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
               const job = jobBySource.get(source.identity);
               const activeJob = isActiveJob(job);
               const failedJob = job?.status === "failed";
-              const displayStatus = activeJob ? "ingesting" : failedJob ? "failed" : source.status;
+              // 转换任务：folder_context 非空（存临时文件名的上传二进制任务），
+              // 显示“解析中”而非“摄取中”，两者的进度轮询共用一套
+              const isConvertingJob = Boolean(job?.folder_context);
+              const displayStatus = activeJob
+                ? isConvertingJob
+                  ? "converting"
+                  : "ingesting"
+                : failedJob
+                  ? "failed"
+                  : source.status;
               const subLine = activeJob
                 ? job?.progress
                   ? `${t("wiki.stepsProgress", {
                       step: job.progress.step,
                       total: job.progress.totalSteps,
                     })} · ${job.progress.message}`
-                  : job?.status === "processing"
-                    ? t("wiki.statusProcessing")
-                    : t("wiki.statusPending")
+                  : isConvertingJob
+                    ? t("wiki.statusConverting")
+                    : job?.status === "processing"
+                      ? t("wiki.statusProcessing")
+                      : t("wiki.statusPending")
                 : failedJob
                   ? (job?.error ?? t("wiki.processFailed"))
                   : (source.original_name ?? source.identity);
@@ -245,12 +266,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                 >
                   <div className="text-editorial-ink-muted shrink-0">{kindIcon(source.kind)}</div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-editorial-ink">
+                    <p className="truncate text-body font-medium text-editorial-ink">
                       {source.title}
                     </p>
                     <p
                       title={subLine}
-                      className={`truncate text-[12px] ${
+                      className={`truncate text-xs ${
                         failedJob ? "text-destructive" : "text-editorial-ink-muted"
                       }`}
                     >
@@ -260,7 +281,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   <div className="flex items-center gap-3">
                     {statusBadge(displayStatus)}
                     {source.page_count > 0 && (
-                      <span className="text-[12px] text-editorial-ink-muted">
+                      <span className="text-xs text-editorial-ink-muted">
                         {t("wiki.pageCount", { count: source.page_count })}
                       </span>
                     )}
@@ -324,7 +345,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
               initial="initial"
               animate="animate"
               exit="exit"
-              className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-[12px] leading-relaxed text-editorial-ink shadow-sm"
+              className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-xs leading-relaxed text-editorial-ink shadow-sm"
             >
               {ingestResult}
               <motion.button
