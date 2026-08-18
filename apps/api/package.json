@@ -13,7 +13,7 @@
     "dev": "tsx watch src/server.ts < NUL",
     "build": "tsc -b",
     "start": "node dist/server.js",
-    "lint": "eslint src --ext .ts",
+    "lint": "oxlint .",
     "test": "vitest run --project api",
     "typecheck": "tsc -b --pretty false"
   },

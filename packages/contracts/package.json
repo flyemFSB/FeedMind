@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "lint": "eslint src --ext .ts",
+    "lint": "oxlint .",
     "test": "vitest run --project contracts",
     "typecheck": "tsc -b --pretty false"
   },
