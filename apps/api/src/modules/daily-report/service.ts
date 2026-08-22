@@ -275,8 +275,8 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
     .where(eq(scheduleTasks.id, scheduleId));
 
   if (status === "failed") {
-    logger.error({ scheduleId, runId: videoId, error }, "日报运行失败");
+    logger.error({ scheduleId, runId: videoId, err: error }, "日报运行失败");
   } else {
-    logger.info({ scheduleId, runId: videoId, status, error }, "日报运行结束");
+    logger.info({ scheduleId, runId: videoId, status }, "日报运行结束");
   }
 }

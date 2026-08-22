@@ -27,21 +27,41 @@ function matchPlatform(domain: string): PlatformId | null {
   return null;
 }
 
+import { z } from "zod";
+
+const updateBodySchema = z.object({
+  uuid: z.string().optional(),
+  encrypted: z.string().optional(),
+  crypto_type: z.string().optional(),
+});
+
+const cookieItemSchema = z.object({
+  name: z.union([z.string(), z.number()]),
+  value: z.union([z.string(), z.number()]),
+});
+
+const cookieDataSchema = z.object({
+  cookie_data: z.record(z.string(), z.array(cookieItemSchema).optional()).optional(),
+});
+
+export type CookieCloudUpdateBody = z.infer<typeof updateBodySchema>;
+
 // CookieCloud 扩展 POST /update 的请求体：明文 JSON 或 gzip 压缩（数据大时默认）。
 // Node 服务端不自动解压请求体，需按 Content-Encoding/魔数判断后手动解压。
 export function parseUpdateBody(
   raw: Buffer,
   contentEncoding: string | null,
-): {
-  uuid?: string;
-  encrypted?: string;
-  crypto_type?: string;
-} {
+): CookieCloudUpdateBody {
   const gzipped =
     contentEncoding?.toLowerCase().includes("gzip") ??
     (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b);
   const text = gzipped ? gunzipSync(raw).toString("utf8") : raw.toString("utf8");
-  return JSON.parse(text) as { uuid?: string; encrypted?: string; crypto_type?: string };
+  const json = JSON.parse(text);
+  const parsed = updateBodySchema.safeParse(json);
+  if (!parsed.success) {
+    throw new Error("CookieCloud 请求体格式不符合规范");
+  }
+  return parsed.data;
 }
 
 // 保存 UUID + 密码配置（密码 Fernet 加密落库，与 model apiKey 同策略）
@@ -226,8 +246,9 @@ export function decrypt(
 }
 
 // 扩展同步数据结构：{ cookie_data: { "域名": [{name, value, ...}, ...], ... } }
-async function syncCookies(uuid: string, data: Record<string, unknown>): Promise<void> {
-  const cookieData = data["cookie_data"] as Record<string, unknown[] | undefined> | undefined;
+async function syncCookies(uuid: string, data: unknown): Promise<void> {
+  const parsed = cookieDataSchema.safeParse(data);
+  const cookieData = parsed.success ? parsed.data.cookie_data : undefined;
   if (!cookieData) return;
 
   // 整批替换放事务里：先删后插中途失败会丢该 UUID 全部已存 cookie（静默丢数据）
@@ -238,12 +259,7 @@ async function syncCookies(uuid: string, data: Record<string, unknown>): Promise
       const platform = matchPlatform(domain);
       if (!platform || !Array.isArray(cookies) || cookies.length === 0) continue;
 
-      const cookieStr = cookies
-        .map((c) => {
-          const cc = c as { name?: unknown; value?: unknown };
-          return `${String(cc.name)}=${String(cc.value)}`;
-        })
-        .join("; ");
+      const cookieStr = cookies.map((c) => `${String(c.name)}=${String(c.value)}`).join("; ");
 
       await tx.insert(cookieStore).values({
         uuid,

@@ -1,5 +1,8 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 import { validateApiRuntime } from "./env.js";
 import { APP_NAME, APP_VERSION } from "./lib/constants.js";
@@ -14,7 +17,43 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
 
   const app = new Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>();
 
+  // 1. 请求唯一标识
   app.use("*", requestId());
+
+  // 2. 基础安全防御响应头（X-Content-Type-Options、X-Frame-Options 等）
+  app.use("*", secureHeaders());
+
+  // 3. 跨域资源共享（CORS）
+  app.use(
+    "*",
+    cors({
+      origin: (origin) => origin,
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowHeaders: ["Content-Type", "Authorization", "X-Request-Id", "x-feedmind-model-id"],
+      exposeHeaders: ["Content-Length", "X-Request-Id"],
+      maxAge: 600,
+      credentials: true,
+    }),
+  );
+
+  // 4. 请求体大小防御（最大 25MB，防止超大请求导致 OOM）
+  app.use(
+    "*",
+    bodyLimit({
+      maxSize: 25 * 1024 * 1024,
+      onError: (c) =>
+        jsonError(
+          c,
+          413,
+          "PAYLOAD_TOO_LARGE",
+          "请求体超出最大允许大小（25MB）",
+          {},
+          { key: "apiError.payloadTooLarge" },
+        ),
+    }),
+  );
+
+  // 5. 结构化请求耗时与状态日志
   app.use("*", async (c, next) => {
     const startedAt = performance.now();
     await next();

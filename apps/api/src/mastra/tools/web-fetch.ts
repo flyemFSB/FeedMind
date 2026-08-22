@@ -61,8 +61,16 @@ async function fetchViaFirecrawl(
     return null;
   }
 
-  const body = (await response.json()) as { data?: { markdown?: string } };
-  const markdown = body?.data?.markdown;
+  const rawJson = (await response.json().catch(() => null)) as unknown;
+  const firecrawlResponseSchema = z.object({
+    data: z
+      .object({
+        markdown: z.string().optional(),
+      })
+      .optional(),
+  });
+  const parsed = firecrawlResponseSchema.safeParse(rawJson);
+  const markdown = parsed.success ? parsed.data.data?.markdown : undefined;
   return markdown?.trim() ? markdown : null;
 }
 

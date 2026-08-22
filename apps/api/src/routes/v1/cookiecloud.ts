@@ -54,7 +54,7 @@ cookieCloudRoutes.get("/cookiecloud/config/:uuid", async (c) => {
 
 // CookieCloud 扩展上传加密数据（可能 gzip 压缩），自动解密并写入 cookie_store
 cookieCloudRoutes.post("/cookiecloud/update", async (c) => {
-  let body: { uuid?: string; encrypted?: string; crypto_type?: string };
+  let body: ReturnType<typeof parseUpdateBody>;
   try {
     const raw = Buffer.from(await c.req.arrayBuffer());
     body = parseUpdateBody(raw, c.req.header("content-encoding") ?? null);
