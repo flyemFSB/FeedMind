@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Activity,
   AlertCircle,
@@ -54,14 +55,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 const ALL_ACTIONS: OpsAction[] = ["create", "update", "delete", "import", "run"];
 const ALL_RESULTS: OpsResult[] = ["success", "failed"];
@@ -84,6 +77,10 @@ export const ALL_TARGETS = [
 ] as const;
 
 export type OpsTarget = (typeof ALL_TARGETS)[number];
+
+type VirtualOpsRow =
+  | { kind: "header"; label: string; count: number }
+  | { kind: "row"; item: OpsLogRow };
 
 const TARGET_ICONS: Record<string, LucideIcon> = {
   wiki_space: Network,
@@ -293,9 +290,9 @@ export function OperationLog() {
     setResult(undefined);
   };
 
-  // 分组计算（id 倒序连续，顺序遍历即可）
+  // 展平分组为虚拟行：组标题与行数据作为独立虚拟节点
   const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
-  const groups = useMemo(() => {
+  const virtualRows = useMemo<VirtualOpsRow[]>(() => {
     const list: { label: string; rows: OpsLogRow[] }[] = [];
     for (const item of items) {
       const label = groupLabel(item.ts, t);
@@ -303,8 +300,28 @@ export function OperationLog() {
       if (last?.label === label) last.rows.push(item);
       else list.push({ label, rows: [item] });
     }
-    return list;
+    const flat: VirtualOpsRow[] = [];
+    for (const group of list) {
+      flat.push({ kind: "header", label: group.label, count: group.rows.length });
+      for (const row of group.rows) {
+        flat.push({ kind: "row", item: row });
+      }
+    }
+    return flat;
   }, [items, t]);
+
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: (index) => (virtualRows[index]?.kind === "header" ? 34 : 52),
+    overscan: 8,
+    getItemKey: (index) => {
+      const r = virtualRows[index]!;
+      return r.kind === "header" ? `header:${r.label}` : `row:${r.item.id}`;
+    },
+  });
 
   const total = data?.pages[0]?.total ?? 0;
 
@@ -409,136 +426,126 @@ export function OperationLog() {
         </div>
       </div>
 
-      {/* 表格主体：加载中显示骨架行，有数据显示分组行 */}
+      {/* 表格主体：加载中显示骨架行，有数据显示虚拟化分组行 */}
       {(isPending || (items.length > 0 && !isError)) && (
-        <div className="overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card shadow-xs">
-          <div className="overflow-x-auto">
-            <Table className="w-full text-left">
-              <TableHeader>
-                <TableRow className="border-b border-editorial-hairline bg-editorial-surface-soft/80 text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted select-none">
-                  <TableHead className="w-[90px] px-4 py-2.5 text-editorial-ink-muted">
-                    {t("opsLog.table.time")}
-                  </TableHead>
-                  <TableHead className="w-[96px] px-3 py-2.5 text-editorial-ink-muted">
-                    {t("opsLog.table.action")}
-                  </TableHead>
-                  <TableHead className="w-[130px] px-3 py-2.5 text-editorial-ink-muted">
-                    {t("opsLog.table.category")}
-                  </TableHead>
-                  <TableHead className="min-w-[200px] px-3 py-2.5 text-editorial-ink-muted">
-                    {t("opsLog.table.targetName")}
-                  </TableHead>
-                  <TableHead className="w-[96px] px-4 py-2.5 text-right text-editorial-ink-muted">
-                    {t("opsLog.table.status")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isPending
-                  ? Array.from({ length: 6 }).map((_, i) => (
-                      <TableRow key={i} className="border-b border-editorial-hairline/40">
-                        <TableCell className="px-4 py-3">
-                          <Skeleton className="h-4 w-12" />
-                        </TableCell>
-                        <TableCell className="px-3 py-3">
-                          <Skeleton className="h-5 w-14 rounded-md" />
-                        </TableCell>
-                        <TableCell className="px-3 py-3">
-                          <Skeleton className="h-4 w-20" />
-                        </TableCell>
-                        <TableCell className="px-3 py-3">
-                          <Skeleton className="h-4 w-48" />
-                        </TableCell>
-                        <TableCell className="px-4 py-3 text-right">
-                          <div className="flex justify-end">
-                            <Skeleton className="h-4 w-12" />
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  : groups.map((group) => (
-                      <Fragment key={group.label}>
-                        {/* 分组横幅 */}
-                        <TableRow className="border-y border-editorial-hairline/60 bg-editorial-canvas-soft/70 hover:bg-editorial-canvas-soft/70 select-none">
-                          <TableCell
-                            colSpan={5}
-                            className="px-4 py-1.5 text-xs font-medium text-editorial-ink-muted"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span>{group.label}</span>
-                              <Badge
-                                variant="secondary"
-                                className="font-normal text-editorial-ink-soft tabular-nums"
-                              >
-                                {t("opsLog.table.recordsCount", { count: group.rows.length })}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                        {/* 分组内行数据 */}
-                        {group.rows.map((item) => (
-                          <TableRow
-                            key={item.id}
-                            onClick={() => setSelectedLog(item)}
-                            className={`group/row cursor-pointer border-b border-editorial-hairline/40 transition-colors ${
-                              item.result === "failed"
-                                ? "bg-destructive/5 hover:bg-destructive/10"
-                                : "hover:bg-editorial-surface-soft/80"
-                            }`}
-                          >
-                            <TableCell className="px-4 py-2.5 text-xs text-editorial-ink-muted tabular-nums whitespace-nowrap">
-                              {formatDateTime(item.ts)}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 whitespace-nowrap">
-                              <ActionBadge
-                                action={item.action}
-                                label={t(`opsLog.action.${item.action}`)}
-                              />
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5 text-xs text-editorial-ink-soft">
-                                <TargetIcon
-                                  target={item.target}
-                                  className="size-3.5 text-editorial-ink-muted shrink-0"
-                                />
-                                <span className="truncate">
-                                  {t(`opsLog.target.${item.target}`, { defaultValue: item.target })}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5">
-                              <div className="flex flex-col gap-0.5 min-w-0">
-                                <span
-                                  className="truncate text-body font-medium text-editorial-ink group-hover/row:text-editorial-primary transition-colors"
-                                  title={item.targetName}
-                                >
-                                  {item.targetName}
-                                </span>
-                                {item.detail && (
-                                  <span
-                                    className="truncate text-tiny text-editorial-ink-muted max-w-[500px]"
-                                    title={item.detail}
-                                  >
-                                    {item.detail}
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="px-4 py-2.5 text-right whitespace-nowrap">
-                              <div className="flex justify-end">
-                                <ResultBadge
-                                  result={item.result}
-                                  label={t(`opsLog.result.${item.result}`)}
-                                />
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </Fragment>
-                    ))}
-              </TableBody>
-            </Table>
+        <div
+          ref={setScrollEl}
+          className="max-h-[640px] overflow-y-auto overflow-x-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card shadow-xs"
+        >
+          {/* 表头固定在容器顶部 */}
+          <div className="sticky top-0 z-10 grid grid-cols-[90px_96px_130px_minmax(200px,1fr)_96px] items-center border-b border-editorial-hairline bg-editorial-surface-soft px-4 py-2.5 text-tiny font-medium uppercase tracking-wider text-editorial-ink-muted select-none">
+            <div>{t("opsLog.table.time")}</div>
+            <div className="px-3">{t("opsLog.table.action")}</div>
+            <div className="px-3">{t("opsLog.table.category")}</div>
+            <div className="px-3">{t("opsLog.table.targetName")}</div>
+            <div className="px-4 text-right">{t("opsLog.table.status")}</div>
           </div>
+
+          {isPending ? (
+            <div className="divide-y divide-editorial-hairline/40">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="grid grid-cols-[90px_96px_130px_minmax(200px,1fr)_96px] items-center px-4 py-3"
+                >
+                  <Skeleton className="h-4 w-12" />
+                  <div className="px-3">
+                    <Skeleton className="h-5 w-14 rounded-md" />
+                  </div>
+                  <div className="px-3">
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="px-3">
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                  <div className="flex justify-end px-4">
+                    <Skeleton className="h-4 w-12" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
+              {rowVirtualizer.getVirtualItems().map((vRow) => {
+                const row = virtualRows[vRow.index]!;
+                return (
+                  <div
+                    key={vRow.key}
+                    ref={rowVirtualizer.measureElement}
+                    data-index={vRow.index}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ transform: `translateY(${vRow.start}px)` }}
+                  >
+                    {row.kind === "header" ? (
+                      <div className="border-y border-editorial-hairline/60 bg-editorial-canvas-soft/70 px-4 py-1.5 text-xs font-medium text-editorial-ink-muted select-none">
+                        <div className="flex items-center gap-2">
+                          <span>{row.label}</span>
+                          <Badge
+                            variant="secondary"
+                            className="font-normal text-editorial-ink-soft tabular-nums"
+                          >
+                            {t("opsLog.table.recordsCount", { count: row.count })}
+                          </Badge>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => setSelectedLog(row.item)}
+                        className={`group/row grid grid-cols-[90px_96px_130px_minmax(200px,1fr)_96px] items-center cursor-pointer border-b border-editorial-hairline/40 px-4 py-2.5 transition-colors ${
+                          row.item.result === "failed"
+                            ? "bg-destructive/5 hover:bg-destructive/10"
+                            : "hover:bg-editorial-surface-soft/80"
+                        }`}
+                      >
+                        <div className="text-xs text-editorial-ink-muted tabular-nums whitespace-nowrap">
+                          {formatDateTime(row.item.ts)}
+                        </div>
+                        <div className="px-3 whitespace-nowrap">
+                          <ActionBadge
+                            action={row.item.action}
+                            label={t(`opsLog.action.${row.item.action}`)}
+                          />
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 text-xs text-editorial-ink-soft whitespace-nowrap">
+                          <TargetIcon
+                            target={row.item.target}
+                            className="size-3.5 text-editorial-ink-muted shrink-0"
+                          />
+                          <span className="truncate">
+                            {t(`opsLog.target.${row.item.target}`, {
+                              defaultValue: row.item.target,
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-0.5 min-w-0 px-3">
+                          <span
+                            className="truncate text-body font-medium text-editorial-ink group-hover/row:text-editorial-primary transition-colors"
+                            title={row.item.targetName}
+                          >
+                            {row.item.targetName}
+                          </span>
+                          {row.item.detail && (
+                            <span
+                              className="truncate text-tiny text-editorial-ink-muted max-w-[500px]"
+                              title={row.item.detail}
+                            >
+                              {row.item.detail}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-end px-4 whitespace-nowrap">
+                          <ResultBadge
+                            result={row.item.result}
+                            label={t(`opsLog.result.${row.item.result}`)}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

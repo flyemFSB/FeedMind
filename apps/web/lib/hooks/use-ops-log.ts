@@ -30,6 +30,8 @@ export function useOpsLog(filter: OpsLogFilter) {
     },
     // 官方 paginated-queries 实践：切换筛选时保留上一结果，避免骨架屏闪烁
     placeholderData: keepPreviousData,
+    // 限制无限加载最大缓存页数，防止不断向下滚动导致前端内存无上限增长
+    maxPages: 10,
   });
 }
 
