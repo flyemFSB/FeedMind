@@ -27,10 +27,6 @@ export async function cancelIngestJob(spaceId: string, jobId: string): Promise<v
   getQueueStore().updateStatus(spaceId, jobId, "cancelled");
 }
 
-export async function retryIngestJob(spaceId: string, jobId: string): Promise<void> {
-  getQueueStore().retry(spaceId, jobId);
-}
-
 export async function completeIngestJob(
   spaceId: string,
   jobId: string,

@@ -24,9 +24,13 @@ export function safeWriteFile(filePath: string, content: string | Uint8Array): v
 
 export function safeUnlink(filePath: string): void {
   try {
-    fs.unlinkSync(filePath);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
   } catch (err: unknown) {
-    throw new HttpError(500, "INTERNAL_ERROR", "文件删除失败，请重试", {}, { cause: err });
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw new HttpError(500, "INTERNAL_ERROR", "文件删除失败，请重试", {}, { cause: err });
+    }
   }
 }
 

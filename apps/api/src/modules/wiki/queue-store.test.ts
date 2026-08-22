@@ -79,4 +79,36 @@ describe("JsonQueueStore", () => {
     expect(store.nextPending("sp-1")?.source_path).toBe("raw/sources/a.md");
     expect(store.nextPending("sp-2")?.source_path).toBe("raw/sources/b.md");
   });
+
+  it("多个文件同时入队时，前一个任务完成（无论成功还是失败）后均能依次取出下一个", async () => {
+    const store = await loadStore();
+    const job1 = store.enqueue("sp-1", "raw/sources/doc1.md", undefined, "Doc 1");
+    const job2 = store.enqueue("sp-1", "raw/sources/doc2.md", undefined, "Doc 2");
+    const job3 = store.enqueue("sp-1", "raw/sources/doc3.md", undefined, "Doc 3");
+
+    // 1. 取出并处理 job1（模拟失败）
+    const next1 = store.nextPending("sp-1");
+    expect(next1?.id).toBe(job1.id);
+    store.updateStatus("sp-1", job1.id, "processing");
+    store.updateStatus("sp-1", job1.id, "failed", { error: "something went wrong" });
+
+    // 2. 取出并处理 job2（模拟成功）
+    const next2 = store.nextPending("sp-1");
+    expect(next2?.id).toBe(job2.id);
+    store.updateStatus("sp-1", job2.id, "processing");
+    store.updateStatus("sp-1", job2.id, "done", { pages_created: 2 });
+
+    // 3. 取出并处理 job3（模拟成功）
+    const next3 = store.nextPending("sp-1");
+    expect(next3?.id).toBe(job3.id);
+    store.updateStatus("sp-1", job3.id, "processing");
+    store.updateStatus("sp-1", job3.id, "done", { pages_created: 1 });
+
+    // 4. 队列全部处理完毕
+    expect(store.nextPending("sp-1")).toBeNull();
+    const list = store.list("sp-1");
+    expect(list.find((j) => j.id === job1.id)?.status).toBe("failed");
+    expect(list.find((j) => j.id === job2.id)?.status).toBe("done");
+    expect(list.find((j) => j.id === job3.id)?.status).toBe("done");
+  });
 });

@@ -108,7 +108,3 @@ export function readPageListItem(
 export function readPageRaw(filePath: string): string | null {
   return readFileSafe(filePath);
 }
-
-export function getPageConceptId(filePath: string, spaceId: string): string {
-  return conceptIdFromPath(path.relative(getWikiDir(spaceId), filePath).replace(/\\/g, "/"));
-}

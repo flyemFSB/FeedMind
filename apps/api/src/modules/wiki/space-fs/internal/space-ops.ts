@@ -3,7 +3,7 @@ import path from "node:path";
 import { ensureDir, safeWriteFile } from "./io.js";
 import { getSpaceDir, getWikiRootDir, getRegistryPath, getSpaceMetaPath } from "./paths.js";
 
-const SPACE_SUBDIRS = ["wiki", "raw/sources", ".feedmind"];
+const SPACE_SUBDIRS = ["wiki", "raw/sources", "raw/uploads", ".feedmind"];
 
 export function createSpaceDirs(spaceId: string): void {
   const base = getSpaceDir(spaceId);

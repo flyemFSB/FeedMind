@@ -47,6 +47,11 @@ export function getRawSourcesDir(spaceId: string): string {
   return path.join(getSpaceDir(spaceId), "raw", "sources");
 }
 
+/** 用户上传的原始文件（text/二进制/图片原图），来源管理展示的就是这一目录 */
+export function getRawUploadsDir(spaceId: string): string {
+  return path.join(getSpaceDir(spaceId), "raw", "uploads");
+}
+
 export function getSourceFilePath(spaceId: string, identity: string): string {
   return path.join(getRawSourcesDir(spaceId), identity);
 }

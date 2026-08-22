@@ -32,6 +32,7 @@ import {
   deleteWikiSource,
   previewDeleteImpact,
   markSourceIngested,
+  markSourceImportFailed,
   saveUploadedSource,
 } from "../../modules/wiki/source-store.js";
 import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/graph-service.js";
@@ -41,7 +42,6 @@ import {
   enqueueIngest,
   markIngestJobProcessing,
   cancelIngestJob,
-  retryIngestJob,
   completeIngestJob,
   failIngestJob,
 } from "../../modules/wiki/job-service.js";
@@ -287,6 +287,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await failIngestJob(spaceId, job.id, msg);
+    markSourceImportFailed(spaceId, sourcePath.replace(/\.md$/i, ""), msg);
     void logOperation({
       action: "import",
       target: "wiki_source",
@@ -326,10 +327,11 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
     return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath 包含非法路径字符");
   }
   const folderContext = body.folderContext as string | undefined;
-
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
 
-  return jsonOk(c, await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle));
+  const job = await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle);
+  wakeIngestWorker();
+  return jsonOk(c, job);
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -342,19 +344,6 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
     target: "wiki_source",
     targetName: job?.source_title ?? jobId,
     detail: "取消导入",
-  });
-  return jsonOk(c, { success: true });
-});
-wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/retry", async (c) => {
-  const spaceId = c.req.param("spaceId");
-  const jobId = c.req.param("jobId");
-  await retryIngestJob(spaceId, jobId);
-  const job = (await listIngestJobs(spaceId)).find((j) => j.id === jobId);
-  void logOperation({
-    action: "run",
-    target: "wiki_source",
-    targetName: job?.source_title ?? jobId,
-    detail: "重试导入",
   });
   return jsonOk(c, { success: true });
 });

@@ -3,6 +3,8 @@ export {
   getWikiRootDir,
   getSpaceDir,
   getWikiDir,
+  getRawSourcesDir,
+  getRawUploadsDir,
   getSourceFilePath,
   normalizePageRelPath,
 } from "./internal/paths.js";
@@ -40,14 +42,16 @@ export {
   readPage,
   readPageListItem,
   readPageRaw,
-  getPageConceptId,
 } from "./internal/page-fs.js";
 
 export {
-  walkSources,
+  walkUploads,
   sourcePageCounts,
+  slugFromName,
   findSourceBySlug,
+  collectSourceIdentifiers,
   readSource,
   readSourceListItem,
   readSourceTitle,
+  hasDuplicateSourceName,
 } from "./internal/source-fs.js";

@@ -41,7 +41,7 @@ ${sourceContent}
   "keyConcepts": [{"name": "...", "description": "...", "type": "..."}],
   "mainArguments": ["..."],
   "connections": ["Describe relationships using normal Markdown paths."],
-  "summary": "A concise bundle overview update."
+  "summary": "A concise bundle summary."
 }
 
 Focus on durable, source-backed knowledge. Do not create trivial or speculative concepts.`;

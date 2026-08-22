@@ -31,7 +31,9 @@ import {
 } from "./space-fs/index.js";
 import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
 import { logger } from "../../lib/logger.js";
-import { OpenAiLlmClient, type LlmClient } from "./llm-client.js";
+import { AiSdkLlmClient, type LlmClient } from "./llm-client.js";
+import { resolveModelClient } from "../models/model-cache.js";
+import { parseTokenCount } from "../models/parse-token-count.js";
 import { getRuntimeConfig } from "../models/config-service.js";
 
 const MAX_SOURCE_CHARS = 80_000;
@@ -75,13 +77,16 @@ function readSourceDocument(
 
   const raw = fs.readFileSync(filePath, "utf-8");
   const { frontmatter, body } = parseFrontmatter(raw);
-  // 格式转换失败的源文件拒绝导入：其正文只有失败占位文本，
-  // 放行会让 LLM 基于占位符生成无意义的“参考条目”页面。
-  // 占位文本检测同时兜住历史坏源（status 已是 ingested/ready 的情况）
+  // 拦截转换失败或解析中的占位源，避免 LLM 基于空正文脑补假概念
   const bodyText = body.trim() || raw.trim();
   const failedPlaceholder = /^\[(文档转换失败|提取失败|File too large)/.test(bodyText);
-  if (extractString(frontmatter, "status") === "failed" || failedPlaceholder) {
-    throw new Error(`源文件格式转换失败，无法导入: ${sourceIdentity}`);
+  const status = extractString(frontmatter, "status");
+  if (status === "failed" || failedPlaceholder || status === "queued") {
+    throw new Error(
+      status === "queued"
+        ? `源文件解析中，无法导入: ${sourceIdentity}`
+        : `源文件格式转换失败，无法导入: ${sourceIdentity}`,
+    );
   }
   const title =
     extractString(frontmatter, "title") ?? path.basename(sourceIdentity).replace(/\.md$/i, "");
@@ -272,7 +277,12 @@ async function stage1Analysis(
   );
 
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    // 不依赖 json_object（推理模型不支持，见 llm-client 注）：剥离可能的代码围栏后解析
+    const normalized = raw
+      .trim()
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/i, "");
+    const parsed = JSON.parse(normalized) as Record<string, unknown>;
     return {
       keyEntities: Array.isArray(parsed["keyEntities"])
         ? (parsed["keyEntities"] as AnalysisResult["keyEntities"])
@@ -412,33 +422,6 @@ function ensureParent(filePath: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
-function updateOverview(spaceId: string, summary: string): string | null {
-  if (!summary) return null;
-  const filePath = path.join(getWikiDir(spaceId), "overview.md");
-  let body = summary;
-  let existingFrontmatter: Record<string, unknown> = {};
-  if (fs.existsSync(filePath)) {
-    const existing = fs.readFileSync(filePath, "utf-8");
-    writePageHistory(spaceId, "overview.md", existing);
-    const parsed = parseFrontmatter(existing);
-    existingFrontmatter = parsed.frontmatter;
-    body = `${summary}\n\n---\n\n${parsed.body.trim()}`;
-  }
-  ensureParent(filePath);
-  safeWriteFile(
-    filePath,
-    buildConceptContent({
-      type: "Overview",
-      title: "Knowledge Bundle Overview",
-      description: summary,
-      generated: { by: INGEST_ACTOR, at: nowISO() },
-      frontmatter: existingFrontmatter,
-      content: body,
-    }),
-  );
-  return path.relative(getSpaceDir(spaceId), filePath).replace(/\\/g, "/");
-}
-
 export function extractIdentity(sourcePath: string): string {
   const normalized = sourcePath.replace(/\\/g, "/");
   return normalized.split("/").at(-1) ?? normalized;
@@ -462,8 +445,8 @@ export async function runIngest(
   onProgress?: IngestProgressCallback,
   shouldCancel?: () => boolean,
 ): Promise<IngestResult> {
-  // 排队：先等该空间上一个导入完成，再执行本次导入
-  const tail = spaceQueues.get(spaceId) ?? Promise.resolve();
+  // 等待该空间上一个导入完成，确保队列串行推进
+  const tail = (spaceQueues.get(spaceId) ?? Promise.resolve()).catch(() => {});
   const { promise: gate, resolve: finish } = Promise.withResolvers<void>();
   spaceQueues.set(spaceId, gate);
   await tail;
@@ -487,11 +470,13 @@ export async function runIngest(
     }
 
     const runtime = await getRuntimeConfig("wiki");
-    const llmClient: LlmClient = new OpenAiLlmClient({
-      apiKey: runtime.api_key,
-      baseUrl: runtime.base_url,
-      model: runtime.model_id || runtime.model_name,
-    });
+    // 与 chat 共用模型解析与 max_tokens 语义
+    const resolved = await resolveModelClient(Number(runtime.llm_id));
+    const llmClient: LlmClient = new AiSdkLlmClient(
+      resolved.client,
+      resolved.modelName,
+      parseTokenCount(resolved.maxOutput),
+    );
     logger.info({ model: runtime.model_id || runtime.model_name }, "OKF 导入开始");
 
     const context = readSpaceContext(spaceId);
@@ -543,19 +528,13 @@ export async function runIngest(
       writtenFiles: conceptFiles,
     } = processDocuments(spaceId, documents, sourceIdentity, shouldCancel);
     ensureNotCancelled(shouldCancel);
-    const overviewFile = updateOverview(spaceId, analysis.summary);
     rebuildOkfIndexes(spaceId);
     appendOkfLog(
       spaceId,
       `已导入“${sourceIdentity}”：创建 ${created.length} 个概念，更新 ${updated.length} 个概念。`,
     );
 
-    const writtenFiles = [
-      ...conceptFiles,
-      ...(overviewFile ? [overviewFile] : []),
-      "wiki/index.md",
-      "wiki/log.md",
-    ];
+    const writtenFiles = [...conceptFiles, "wiki/index.md", "wiki/log.md"];
     saveCache(cache, sourceIdentity, source.hash, writtenFiles);
     writeIngestCache(spaceId, cache);
 

@@ -3,9 +3,10 @@ import path from "node:path";
 import { IngestCancelledError, runIngest } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
 import type { QueueStore } from "./queue-store.js";
-import { getWikiRootDir, invalidatePageCache, getSpaceDir, safeUnlink } from "./space-fs/index.js";
+import { getWikiRootDir, invalidatePageCache, getSpaceDir } from "./space-fs/index.js";
 import {
   markSourceConvertFailed,
+  markSourceImportFailed,
   markSourceIngested,
   persistExtractedImages,
   writeConvertedSource,
@@ -16,139 +17,127 @@ import { getRuntimeOcrConfig } from "../models/config-service.js";
 import { logger } from "../../lib/logger.js";
 
 const POLL_INTERVAL_MS = 30_000;
-const MAX_RETRIES = 3;
 
 let running = false;
+let queuedRerun = false;
 
-/**
- * 转换任务（上传的 .pdf/.docx/...）：提取文本回写占位源，完成后自动入队导入。
- * 任务标识：folder_context 非空（存临时二进制文件名）即转换任务；导入任务的
- * folder_context 恒为空（手动导入/自动入队都不传目录上下文）。
- */
+/** 转换任务：提取文件文本并回写占位源，完成后自动入队导入。 */
 async function convertUploadedSource(
   store: QueueStore,
   spaceId: string,
   job: IngestJob,
+  shouldCancel: () => boolean,
 ): Promise<void> {
-  const sourcesDir = path.join(getSpaceDir(spaceId), "raw", "sources");
-  const binPath = path.join(sourcesDir, job.folder_context);
+  const binPath = path.join(getSpaceDir(spaceId), "raw", "uploads", job.folder_context);
   const slug = job.source_path.replace(/\.md$/i, "");
   const sourceTitle = job.source_title || slug;
-  try {
-    if (!fs.existsSync(binPath)) {
-      throw new Error(`临时文件不存在（可能已被清理）: ${job.folder_context}`);
-    }
-    store.updateStatus(spaceId, job.id, "processing", {
-      progress: { message: "正在解析文档内容", step: 0, totalSteps: 1 },
-    });
-    // PDF 优先 VL-1.6（配置了 OCR 模型时）；未配置/失败在 extract 内部降级本地解析
-    const vl = await getRuntimeOcrConfig();
-    const doc = await extractDocument(binPath, job.folder_context, undefined, vl ?? undefined);
-    // 清理临时文件尽力而为（同上传路径：失败不阻塞，残留被同名下次上传覆盖）
-    try {
-      safeUnlink(binPath);
-    } catch (err) {
-      logger.warn({ err, path: binPath }, "临时文件清理失败");
-    }
-    const imageNames = persistExtractedImages(spaceId, doc.images ?? new Map());
-    writeConvertedSource(spaceId, slug, doc, imageNames);
-    // 先标记 convert done 再入队 ingest：upsertJob 会拦截同 source_path 的
-    // pending/failed 任务，顺序颠倒会导致导入任务永远进不了队列
-    store.updateStatus(spaceId, job.id, "done", { written_files: [] });
-    store.enqueue(spaceId, job.source_path, undefined, sourceTitle);
-    logger.info({ spaceId, sourcePath: job.source_path }, "文档转换完成，已入队导入");
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    logger.error({ spaceId, jobId: job.id, err }, "文档转换失败");
-    markSourceConvertFailed(spaceId, slug, msg);
-    try {
-      safeUnlink(binPath);
-    } catch {
-      /* 清理失败不阻塞 */
-    }
-    store.updateStatus(spaceId, job.id, "failed", { error: msg });
+  if (!fs.existsSync(binPath)) {
+    throw new Error(`上传文件不存在（可能已被删除）: ${job.folder_context}`);
   }
+  if (shouldCancel()) throw new IngestCancelledError();
+  store.updateStatus(spaceId, job.id, "processing", {
+    progress: { message: "正在解析文档内容", step: 0, totalSteps: 1 },
+  });
+  // PDF 优先 VL-1.6（配置了 OCR 模型时）；未配置/失败在 extract 内部降级本地解析
+  const vl = await getRuntimeOcrConfig();
+  const doc = await extractDocument(binPath, job.folder_context, undefined, vl ?? undefined);
+  if (shouldCancel()) throw new IngestCancelledError();
+  const imageNames = persistExtractedImages(spaceId, doc.images ?? new Map());
+  writeConvertedSource(spaceId, slug, doc, imageNames);
+  // 先入队导入再标转换完成，避免前端轮询因短暂空窗停止刷新
+  store.enqueue(spaceId, job.source_path, undefined, sourceTitle);
+  store.updateStatus(spaceId, job.id, "done", { written_files: [] });
+  logger.info({ spaceId, sourcePath: job.source_path }, "文档转换完成，已入队导入");
 }
 
 async function tick() {
-  if (running) return;
+  if (running) {
+    queuedRerun = true;
+    return;
+  }
   running = true;
 
   try {
-    const wikiRoot = getWikiRootDir();
+    do {
+      queuedRerun = false;
+      const wikiRoot = getWikiRootDir();
 
-    let spaceDirs: string[] = [];
-    try {
-      spaceDirs = fs
-        .readdirSync(wikiRoot, { withFileTypes: true })
-        .filter((e) => e.isDirectory() && !e.name.startsWith("."))
-        .map((e) => e.name)
-        .filter((d) => d !== "registry.json");
-    } catch {
-      return;
-    }
+      let spaceDirs: string[] = [];
+      try {
+        spaceDirs = fs
+          .readdirSync(wikiRoot, { withFileTypes: true })
+          .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+          .map((e) => e.name)
+          .filter((d) => d !== "registry.json");
+      } catch {
+        break;
+      }
 
-    const store = getQueueStore();
+      const store = getQueueStore();
 
-    for (const spaceId of spaceDirs) {
-      // while 而非 for：转换任务完成后入队的导入任务在同一 tick 内接着处理
-      let job: IngestJob | null;
-      while ((job = store.nextPending(spaceId))) {
-        // currentJob 固定本次迭代引用：catch 块内 TS 无法保持 while 条件的收窄
-        const currentJob = job;
-        store.updateStatus(spaceId, currentJob.id, "processing");
-        logger.info({ spaceId, sourcePath: currentJob.source_path }, "开始处理转换/导入任务");
+      for (const spaceId of spaceDirs) {
+        let job: IngestJob | null;
+        while ((job = store.nextPending(spaceId))) {
+          const currentJob = job;
+          store.updateStatus(spaceId, currentJob.id, "processing");
+          logger.info({ spaceId, sourcePath: currentJob.source_path }, "开始处理转换/导入任务");
 
-        try {
-          if (currentJob.folder_context) {
-            await convertUploadedSource(store, spaceId, currentJob);
-            continue;
-          }
+          try {
+            const shouldCancel = () =>
+              store.list(spaceId).find((candidate) => candidate.id === currentJob.id)?.status ===
+              "cancelled";
 
-          const shouldCancel = () =>
-            store.list(spaceId).find((candidate) => candidate.id === currentJob.id)?.status ===
-            "cancelled";
-          const result = await runIngest(
-            spaceId,
-            currentJob.source_path,
-            (message, step, totalSteps) => {
-              store.updateStatus(spaceId, currentJob.id, "processing", {
-                progress: { message, step, totalSteps },
-              });
-            },
-            shouldCancel,
-          );
+            if (currentJob.folder_context) {
+              await convertUploadedSource(store, spaceId, currentJob, shouldCancel);
+              continue;
+            }
 
-          invalidatePageCache(spaceId);
+            const result = await runIngest(
+              spaceId,
+              currentJob.source_path,
+              (message, step, totalSteps) => {
+                store.updateStatus(spaceId, currentJob.id, "processing", {
+                  progress: { message, step, totalSteps },
+                });
+              },
+              shouldCancel,
+            );
 
-          store.updateStatus(spaceId, currentJob.id, "done", {
-            written_files: result.writtenFiles,
-            pages_created: result.pagesCreated,
-            pages_updated: result.pagesUpdated,
-          });
+            invalidatePageCache(spaceId);
 
-          markSourceIngested(spaceId, currentJob.source_path);
+            // 状态回写在 job 完成前，避免前端最后一轮轮询读到旧状态
+            markSourceIngested(spaceId, currentJob.source_path);
 
-          logger.info(
-            { spaceId, pagesCreated: result.pagesCreated, pagesUpdated: result.pagesUpdated },
-            "导入任务完成",
-          );
-        } catch (err) {
-          if (err instanceof IngestCancelledError) {
-            store.updateStatus(spaceId, currentJob.id, "cancelled", { error: null });
-            continue;
-          }
-          const msg = err instanceof Error ? err.message : String(err);
-          logger.error({ spaceId, jobId: currentJob.id, err }, "导入任务失败");
+            store.updateStatus(spaceId, currentJob.id, "done", {
+              written_files: result.writtenFiles,
+              pages_created: result.pagesCreated,
+              pages_updated: result.pagesUpdated,
+            });
 
-          if ((currentJob.retry_count ?? 0) >= MAX_RETRIES) {
+            logger.info(
+              { spaceId, pagesCreated: result.pagesCreated, pagesUpdated: result.pagesUpdated },
+              "导入任务完成",
+            );
+          } catch (err) {
+            if (err instanceof IngestCancelledError) {
+              store.updateStatus(spaceId, currentJob.id, "cancelled", { error: null });
+              continue;
+            }
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error({ spaceId, jobId: currentJob.id, err }, "导入任务失败");
+
+            // 单任务失败记录错误，不阻塞队列后续推进
+            const slug = currentJob.source_path.replace(/\.md$/i, "");
+            if (currentJob.folder_context) {
+              markSourceConvertFailed(spaceId, slug, msg);
+            } else {
+              markSourceImportFailed(spaceId, slug, msg);
+            }
             store.updateStatus(spaceId, currentJob.id, "failed", { error: msg });
-          } else {
-            store.retry(spaceId, currentJob.id);
           }
         }
       }
-    }
+    } while (queuedRerun);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (!msg.includes("abort")) {
@@ -161,6 +150,10 @@ async function tick() {
 
 /** 上传后立即唤醒 worker 处理新入队的任务，无需等待下一轮轮询。 */
 export function wakeIngestWorker(): void {
+  if (running) {
+    queuedRerun = true;
+    return;
+  }
   void tick();
 }
 
