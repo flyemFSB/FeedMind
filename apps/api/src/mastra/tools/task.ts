@@ -16,6 +16,8 @@ import { resolveChatModel } from "../utils/model-resolver.js";
 
 export type SubagentType = "researcher" | "extractor" | "summarizer" | "browser";
 
+import type { AgentBrowser } from "@mastra/agent-browser";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ToolMap = Record<string, any>;
 
@@ -25,18 +27,33 @@ export interface SubagentTemplate {
   description: string;
   getInstructions(): string;
   getTools(): ToolMap;
+  getBrowser?(): AgentBrowser;
   maxSteps?: number;
 }
 
+export interface SubagentChildToolCall {
+  toolName: string;
+  toolCallId?: string | undefined;
+  args?: unknown;
+  result?: unknown;
+  isError?: boolean | undefined;
+}
+
 export interface TaskToolResult {
+  taskId: string;
+  type: SubagentType;
+  prompt: string;
+  context?: string | undefined;
   result: string;
   duration: number;
-  type: SubagentType;
-  usage?: {
-    inputTokens: number;
-    outputTokens: number;
-    totalTokens: number;
-  };
+  childTools?: SubagentChildToolCall[] | undefined;
+  usage?:
+    | {
+        inputTokens: number;
+        outputTokens: number;
+        totalTokens: number;
+      }
+    | undefined;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -198,11 +215,13 @@ export const taskTool = createTool({
 
     // 模型由 resolveChatModel 统一解析
     const taskId = `task-${++taskCounter}-${Date.now()}`;
+    const browser = template.getBrowser?.();
     const subagent = new Agent({
       id: taskId,
       name: template.name,
       instructions: template.getInstructions(),
       model: async () => resolveChatModel(requestContext),
+      ...(browser ? { browser } : {}),
       tools: template.getTools(),
     });
 
@@ -221,11 +240,47 @@ export const taskTool = createTool({
         }
       : undefined;
 
+    // 提取 subagent 内部产生的子工具调用结果
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawToolResults = (result as any).toolResults as
+      | Array<{
+          payload?: {
+            toolName: string;
+            toolCallId?: string;
+            args?: unknown;
+            result?: unknown;
+            isError?: boolean;
+          };
+          toolName?: string;
+          toolCallId?: string;
+          args?: unknown;
+          result?: unknown;
+          isError?: boolean;
+        }>
+      | undefined;
+
+    const childTools: SubagentChildToolCall[] | undefined = rawToolResults?.length
+      ? rawToolResults.map((tr) => {
+          const p = tr.payload ?? tr;
+          return {
+            toolName: String(p.toolName ?? "unknown"),
+            toolCallId: p.toolCallId,
+            args: p.args,
+            result: p.result,
+            isError: p.isError,
+          };
+        })
+      : undefined;
+
     return {
+      taskId,
+      type,
+      prompt,
+      context,
       result: result.text,
       duration,
-      type,
-      ...(usage !== undefined ? { usage } : {}),
+      childTools,
+      usage,
     };
   },
 });

@@ -34,10 +34,12 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useChatContext } from "@/lib/chat/chat-context";
 import { cn } from "@/lib/utils";
 import {
+  Bot,
   Brain,
   CheckCircle,
   ChevronDown,
   Copy,
+  ExternalLink,
   Loader2,
   RotateCcw,
   Wrench,
@@ -45,6 +47,7 @@ import {
 } from "lucide-react";
 import type { UIMessage } from "ai";
 import { useTranslation } from "react-i18next";
+import { useSubagentInspector, type SubagentTaskData } from "@/lib/chat/subagent-inspector-context";
 
 interface MessagePartsProps {
   message: UIMessage;
@@ -379,7 +382,7 @@ function ReasoningChainStep({ text, isActive }: { text: string; isActive: boolea
  * 思考链中的工具调用步骤：
  * - 独立可展开/收起（base-ui Collapsible），默认收起
  * - 状态用图标而非文字标记：流式转圈 / 成功绿勾 / 失败红叉
- * - 展开后高交互展示输入输出（复制 / 原始数据折叠）
+ * - 展开后高交互展示输入输出（支持一键唤起独立 Subagent 观测抽屉）
  */
 function ToolChainStep({
   toolName,
@@ -392,17 +395,40 @@ function ToolChainStep({
 }: ToolChainStepProps) {
   // 无内容时（流式尚未产出）不渲染折叠触发器
   const hasContent = Boolean(input !== undefined || output !== undefined);
+  const isTaskTool = toolName === "task";
+
+  // 提取 Subagent 类型用于标签展示
+  const subagentType =
+    isTaskTool && typeof input === "object" && input !== null
+      ? (input as Record<string, unknown>)["type"]
+      : undefined;
+
+  const displayTitle = isTaskTool
+    ? subagentType
+      ? `Subagent (${String(subagentType)})`
+      : "Subagent 任务"
+    : toolName;
 
   return (
     <Collapsible className="flex items-start gap-2 text-sm">
       {/* 时间线图标列：h-5 与 text-sm 行高一致，保证图标垂直居中于首行；线从图标正下方开始 */}
       <div className="relative flex h-5 shrink-0 items-center">
-        <Wrench className={cn("size-4", isActive ? "text-foreground" : "text-muted-foreground")} />
+        {isTaskTool ? (
+          <Bot
+            className={cn("size-4", isActive ? "text-editorial-accent" : "text-muted-foreground")}
+          />
+        ) : (
+          <Wrench
+            className={cn("size-4", isActive ? "text-foreground" : "text-muted-foreground")}
+          />
+        )}
         <div className="absolute top-5 bottom-0 left-1/2 w-px -translate-x-1/2 bg-border" />
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <CollapsibleTrigger className="flex w-full items-center gap-2 text-left leading-5 hover:text-foreground">
-          <span className="font-medium">{toolName}</span>
+          <span className={cn("font-medium", isTaskTool && "text-editorial-ink font-semibold")}>
+            {displayTitle}
+          </span>
           {isActive ? (
             <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
           ) : isError ? (
@@ -417,11 +443,13 @@ function ToolChainStep({
         {hasContent && (
           <CollapsibleContent>
             <ToolDetail
+              toolName={toolName}
               input={input}
               output={output}
               outputText={outputText}
               errorText={errorText}
               isError={isError}
+              isActive={isActive}
             />
           </CollapsibleContent>
         )}
@@ -432,17 +460,21 @@ function ToolChainStep({
 
 /** 展开后的工具详情：仅"输入 + 输出"两区，可视化呈现（无复制） */
 function ToolDetail({
+  toolName,
   input,
   output,
   outputText,
   errorText,
   isError,
+  isActive,
 }: {
+  toolName: string;
   input: unknown;
   output: unknown;
   outputText: string;
   errorText: string;
   isError: boolean;
+  isActive: boolean;
 }) {
   return (
     <div className="space-y-2 text-xs leading-5">
@@ -461,43 +493,63 @@ function ToolDetail({
           <div className="rounded-md border border-red-600/20 bg-red-600/5 px-2.5 py-2 text-red-600">
             {errorText || outputText || "工具调用失败"}
           </div>
+        ) : isActive && output === undefined ? (
+          <div className="flex items-center gap-1.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft/30 px-2.5 py-2 text-editorial-ink-muted italic">
+            <Loader2 size={13} className="animate-spin text-editorial-accent" />
+            <span>正在执行中，等待结果返回...</span>
+          </div>
         ) : (
-          <OutputVisual output={output} outputText={outputText} />
+          <OutputVisual toolName={toolName} input={input} output={output} outputText={outputText} />
         )}
       </div>
     </div>
   );
 }
 
-/** 输入参数：k-v 行展示 */
+/** 输入参数：结构化展示（长文本带高度限制与滚动） */
 function InputVisual({ input }: { input: unknown }) {
   if (input === undefined || input === null) return null;
   if (typeof input === "object" && !Array.isArray(input)) {
     const entries = Object.entries(input);
     if (entries.length === 0) return null;
     return (
-      <div className="space-y-0.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 px-2.5 py-2">
-        {entries.map(([k, v]) => (
-          <div key={k} className="flex items-baseline gap-2">
-            <span className="w-20 shrink-0 truncate font-medium text-muted-foreground">{k}</span>
-            <span className="min-w-0 break-all text-foreground">
-              {typeof v === "object" && v !== null ? JSON.stringify(v) : String(v)}
-            </span>
-          </div>
-        ))}
+      <div className="space-y-1.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 p-2.5">
+        {entries.map(([k, v]) => {
+          const isLongText = typeof v === "string" && v.length > 80;
+          return (
+            <div key={k} className="flex flex-col gap-0.5 text-xs">
+              <span className="font-medium text-muted-foreground">{k}:</span>
+              <div
+                className={cn(
+                  "min-w-0 text-foreground break-words rounded bg-editorial-surface-card/70 p-1.5 border border-editorial-hairline/40 text-[11px] font-mono",
+                  isLongText && "max-h-24 overflow-y-auto",
+                )}
+              >
+                {typeof v === "object" && v !== null ? JSON.stringify(v, null, 2) : String(v)}
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   }
-  return <div className="text-foreground">{String(input)}</div>;
+  return <div className="text-foreground text-xs">{String(input)}</div>;
 }
 
-/**
- * 输出可视化：
- * - 搜索结果（results/items 数组）→ ChainOfThought 徽章，显示域名、可点击
- * - 页面抓取（长文本）→ 内容片段
- * - 其它 → 友好摘要
- */
-function OutputVisual({ output, outputText }: { output: unknown; outputText: string }) {
+/** 工具输出可视化：Subagent 轨迹、搜索结果徽章、长文本片段及摘要 */
+function OutputVisual({
+  toolName,
+  input,
+  output,
+  outputText,
+}: {
+  toolName: string;
+  input: unknown;
+  output: unknown;
+  outputText: string;
+}) {
+  const { openInspector } = useSubagentInspector();
+
   const parsed: Record<string, unknown> | null =
     typeof output === "string"
       ? (() => {
@@ -511,7 +563,91 @@ function OutputVisual({ output, outputText }: { output: unknown; outputText: str
         ? (output as Record<string, unknown>)
         : null;
 
-  // 搜索结果 → 域名徽章
+  // 1. Subagent (task) 专属展示分支
+  const isTask =
+    toolName === "task" ||
+    (parsed &&
+      (typeof parsed["result"] === "string" ||
+        parsed["type"] === "researcher" ||
+        parsed["type"] === "extractor" ||
+        parsed["type"] === "summarizer" ||
+        parsed["type"] === "browser"));
+
+  if (isTask && parsed) {
+    const subType = String(
+      parsed["type"] ??
+        (typeof input === "object" && input !== null
+          ? (input as Record<string, unknown>)["type"]
+          : "subagent"),
+    );
+    const resultText = typeof parsed["result"] === "string" ? parsed["result"] : "";
+    const duration = typeof parsed["duration"] === "number" ? parsed["duration"] : undefined;
+    const childTools = Array.isArray(parsed["childTools"])
+      ? (parsed["childTools"] as SubagentTaskData["childTools"])
+      : undefined;
+    const prompt = String(
+      parsed["prompt"] ??
+        (typeof input === "object" && input !== null
+          ? (input as Record<string, unknown>)["prompt"]
+          : ""),
+    );
+    const context =
+      typeof parsed["context"] === "string"
+        ? parsed["context"]
+        : typeof input === "object" && input !== null
+          ? ((input as Record<string, unknown>)["context"] as string | undefined)
+          : undefined;
+    const usage = parsed["usage"] as SubagentTaskData["usage"] | undefined;
+
+    const taskSnapshot: SubagentTaskData = {
+      taskId: typeof parsed["taskId"] === "string" ? parsed["taskId"] : undefined,
+      type: subType,
+      prompt,
+      context,
+      result: resultText,
+      duration,
+      childTools,
+      usage,
+    };
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Bot size={13} className="text-editorial-accent" />
+            <span className="font-semibold text-editorial-ink capitalize">{subType} 交付完成</span>
+            {duration !== undefined && (
+              <span>
+                · {duration > 1000 ? `${(duration / 1000).toFixed(2)}s` : `${duration}ms`}
+              </span>
+            )}
+            {childTools && childTools.length > 0 && <span>· {childTools.length} 次工具调用</span>}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openInspector(taskSnapshot);
+            }}
+            className="flex items-center gap-1 rounded bg-editorial-surface-soft px-2 py-0.5 text-[11px] font-medium text-editorial-accent hover:bg-editorial-surface-strong hover:text-editorial-ink transition-colors border border-editorial-hairline/80 shadow-2xs"
+          >
+            <span>查看完整轨迹</span>
+            <ExternalLink size={11} />
+          </button>
+        </div>
+
+        {resultText ? (
+          <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 p-2.5 text-editorial-ink-soft leading-relaxed text-xs">
+            {resultText.length > 300 ? resultText.slice(0, 300) + "…" : resultText}
+          </div>
+        ) : (
+          <div className="text-editorial-ink-muted italic">（未返回文本结果）</div>
+        )}
+      </div>
+    );
+  }
+
+  // 2. 搜索结果 → 域名徽章
   const results = parsed
     ? Array.isArray(parsed["results"])
       ? parsed["results"]
@@ -546,7 +682,7 @@ function OutputVisual({ output, outputText }: { output: unknown; outputText: str
     );
   }
 
-  // 页面抓取：长文本 → 截断片段
+  // 3. 页面抓取与纯文本：长文本 → 截断片段
   if (typeof output === "string" && output.length > 0) {
     return (
       <div className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 px-2.5 py-2 text-editorial-ink-soft">
@@ -555,7 +691,7 @@ function OutputVisual({ output, outputText }: { output: unknown; outputText: str
     );
   }
 
-  // 其它：友好摘要
+  // 4. 其它：友好摘要
   return <div className="text-editorial-ink-soft">{outputText || "（无输出）"}</div>;
 }
 
@@ -592,6 +728,13 @@ function summarizeOutput(data: unknown): string {
   // 错误对象：直接展示错误码
   if (typeof d["error"] === "string") {
     return `⚠️ ${d["error"]}`;
+  }
+
+  // Subagent 结果：展示完成摘要
+  if (typeof d["result"] === "string") {
+    const subType = d["type"] ? `[${String(d["type"])}] ` : "";
+    const dur = typeof d["duration"] === "number" ? ` (${d["duration"]}ms)` : "";
+    return `${subType}任务已完成${dur}`;
   }
 
   // 搜索结果：显示数量

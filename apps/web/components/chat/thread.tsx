@@ -19,11 +19,13 @@ import { cn } from "@/lib/utils";
 import { ArrowDown } from "lucide-react";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { useMemo } from "react";
+import { SubagentInspectorProvider } from "@/lib/chat/subagent-inspector-context";
+import { SubagentInspector } from "./subagent-inspector";
 import "./thread.css";
 
 interface ThreadProps {
-  className?: string;
-  contentClassName?: string;
+  className?: string | undefined;
+  contentClassName?: string | undefined;
 }
 
 /** 服务器错误为 errorText JSON 字符串（{ message, ... }），提取可读信息 */
@@ -37,6 +39,15 @@ function readableError(err: Error): string {
 }
 
 export function Thread({ className, contentClassName }: ThreadProps) {
+  return (
+    <SubagentInspectorProvider>
+      <ThreadContent className={className} contentClassName={contentClassName} />
+      <SubagentInspector />
+    </SubagentInspectorProvider>
+  );
+}
+
+function ThreadContent({ className, contentClassName }: ThreadProps) {
   const {
     messages,
     olderMessages,
