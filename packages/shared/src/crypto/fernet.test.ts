@@ -58,12 +58,10 @@ describe("encryptValue / decryptValue", () => {
     // 首字节是版本 0x81，改为 0x82 模拟未知版本
     const bytes = Buffer.from(token, "base64url");
     bytes[0] = 0x82;
-    expect(() => decryptValue(bytes.toString("base64url"), KEY)).toThrow(
-      /Unsupported token version/,
-    );
+    expect(() => decryptValue(bytes.toString("base64url"), KEY)).toThrow(/不支持的令牌版本/);
   });
 
   it("截断的令牌抛错", () => {
-    expect(() => decryptValue("aGVsbG8", KEY)).toThrow(/Invalid token/);
+    expect(() => decryptValue("aGVsbG8", KEY)).toThrow(/解密令牌无效/);
   });
 });

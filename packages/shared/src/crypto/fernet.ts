@@ -21,7 +21,7 @@ function base64UrlDecode(s: string): Buffer {
 function resolveEncryptionKey(keyOverride?: string): string {
   const key = (keyOverride ?? process.env["ENCRYPTION_KEY"] ?? "").trim();
   if (!key) {
-    throw new Error("ENCRYPTION_KEY is not set. Configure it in .env before starting the server.");
+    throw new Error("ENCRYPTION_KEY 未配置，请在启动服务前于 .env 中配置");
   }
   return key;
 }
@@ -51,12 +51,12 @@ export function decryptValue(ciphertext: string, keyOverride?: string): string {
   const rawKey = resolveEncryptionKey(keyOverride);
   const token = base64UrlDecode(ciphertext);
   if (token.length < 1 + SALT_BYTES + NONCE_BYTES + TAG_BYTES) {
-    throw new Error("Invalid token.");
+    throw new Error("解密令牌无效");
   }
 
   const version = token[0];
   if (version !== VERSION) {
-    throw new Error(`Unsupported token version: ${version}. Regenerate the encrypted data.`);
+    throw new Error(`不支持的令牌版本: ${version}，请重新生成加密数据`);
   }
 
   let off = 1;

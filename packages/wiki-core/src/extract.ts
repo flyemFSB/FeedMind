@@ -18,8 +18,7 @@ export interface ExtractedDocument {
 
 // ─── 格式检测 ────────────────────────────────────────────────────
 
-// anydoc 不覆盖的格式才需要本地分支；其余（docx/pptx/xlsx/rtf/csv/epub/doc/ppt…）
-// 交给 anydoc 按文件内容检测，扩展名只做 mimeType 映射。PDF 例外：单独走 unpdf（见下）
+// 纯文本与图片本地处理，其余格式（除 PDF 单独处理外）交给 anydoc 按内容检测
 const TEXT_EXTS = new Set(["md", "txt", "html", "htm", "json", "yaml", "yml", "xml"]);
 const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg"]);
 
@@ -88,10 +87,7 @@ async function extractTextFile(
 
 // ─── PDF（unpdf：Mozilla pdf.js 的服务端构建）──────────────────────
 
-// anydoc 的 PDF 引擎（pdf-inspector/PDFium）是严格解析：startxref 偏移差一字节
-// （mPDF 8.2.7 等生成器）或 %%EOF 后填充字节就直接抛 malformed，而 Chrome/WPS/pypdf
-// 都能读（anydoc#59 / pdf-inspector#228，上游未修）。PDF 单独走 unpdf（pdf.js 对坏
-// xref 自动重建），按官方推荐 getDocumentProxy + extractText(mergePages) 用法。
+// PDF 单独走 unpdf（基于 pdf.js），兼容上游格式异常的 PDF 文件
 async function extractPdfFile(
   filePath: string,
   fileName: string,
@@ -99,8 +95,7 @@ async function extractPdfFile(
 ): Promise<ExtractedDocument> {
   if (vl) {
     try {
-      // PDF 优先走 VL-1.6 托管 API：输出带结构 Markdown + 内嵌图表原图（images），
-      // 表格/公式/图表保全远优于本地文本层提取；失败降级本地 unpdf
+      // PDF 优先走视觉模型解析结构与图表，失败降级本地 unpdf
       const result = await parsePdfWithVl(vl, filePath);
       const all = `# ${fileName}\n\n${result.markdown.trim() || "(empty document)"}`;
       return {
@@ -111,7 +106,7 @@ async function extractPdfFile(
         images: result.images,
       };
     } catch (err) {
-      // VL 是增强路径：未配置/网络/业务失败都不应让导入整体失败，降级本地解析
+      // VL 解析异常降级为本地 unpdf
       if (!(err instanceof VlParserError)) throw err;
     }
   }
