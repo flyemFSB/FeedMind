@@ -37,7 +37,7 @@ function SettingsPage() {
   };
 
   return (
-    <LayoutWrapper title={t("settings.title")} subtitle={t("settings.description")}>
+    <LayoutWrapper title={t("settings.title")}>
       <SettingsView activeTab={activeTab} onTabChange={handleTabChange} />
     </LayoutWrapper>
   );

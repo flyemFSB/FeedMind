@@ -75,9 +75,7 @@ export async function apiFetch<T>(input: RequestInfo, init?: ApiFetchInit): Prom
   return envelope.data;
 }
 
-// 信封错误消息：按翻译锚点 key 查词条（zh/en 双语资源），词条缺失时按 i18next
-// 多级 fallback 链降级到通用文案，最后才用 API message 兜底
-// （API message 是调试/兼容信息，不直接作为界面文案）
+// 解析信封错误：优先多语言翻译，最后用 API message 兜底
 function resolveErrorMsg(
   fallback: string,
   i18nInfo?: { key: string; params?: Record<string, string | number> | undefined },
@@ -89,10 +87,7 @@ function resolveErrorMsg(
   });
 }
 
-// 后端业务错误统一走 { data, error } 信封；仅当响应体不是信封
-// （代理层 502/504、静态网关 HTML）才回退状态码兜底文案，
-// 避免「系统错误 500」这类丢失原因的模糊提示
-// 信封内 message 的语义化/兜底职责见 resolveErrorMsg
+// 提取错误信息：优先信封错误，非信封响应回退状态码文案
 export async function errorMessage(response: Response): Promise<string> {
   const body = await response.text().catch(() => null);
   if (body) {

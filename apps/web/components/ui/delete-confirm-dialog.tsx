@@ -75,9 +75,10 @@ export function DeleteConfirmDialog({
             {cancelLabel ?? t("common.cancel")}
           </Button>
           <Button
+            variant="destructive"
             onClick={onConfirm}
             disabled={confirming}
-            className="relative bg-destructive-strong px-4 text-body text-destructive-foreground hover:brightness-[0.93] disabled:cursor-not-allowed disabled:opacity-50"
+            className="relative px-4 text-body disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className={cn(confirming && "opacity-0")}>
               {confirmLabel ?? t("common.delete")}

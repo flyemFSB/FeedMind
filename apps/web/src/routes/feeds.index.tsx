@@ -368,10 +368,11 @@ function FeedsIndexPage() {
                         {t("feeds.exitSelect")}
                       </Button>
                       <Button
+                        variant="destructive"
                         onClick={() => setDeleteOpen(true)}
                         disabled={selected.size === 0}
                         size="sm"
-                        className="h-8 shrink-0 gap-1.5 rounded-lg bg-destructive-strong px-3 text-xs text-destructive-foreground hover:brightness-[0.93]"
+                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                       >
                         <Trash2 size={14} />
                         {t("feeds.deleteSelected")}
