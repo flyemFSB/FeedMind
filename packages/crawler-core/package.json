@@ -16,11 +16,13 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "cheerio": "^1.2.0",
+    "cheerio": "catalog:",
     "playwright-core": "^1.60.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.3",
-    "typescript": "catalog:"
+    "@types/node": "catalog:",
+    "oxlint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

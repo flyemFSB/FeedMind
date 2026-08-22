@@ -30,15 +30,15 @@
   "devDependencies": {
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
-    "@types/node": "^25.9.3",
+    "@types/node": "catalog:",
     "concurrently": "^10.0.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
-    "oxlint": "^1.78.0",
-    "oxlint-tsgolint": "^7.0.2001",
-    "prettier": "^3.6.2",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "prettier": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^4.1.8"
+    "vitest": "catalog:"
   },
   "lint-staged": {
     "*.{ts,tsx,mjs}": [

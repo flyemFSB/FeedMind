@@ -3,24 +3,12 @@ import { isProduction } from "@feedmind/env";
 import { apiEnv } from "../env.js";
 import { APP_NAME, APP_VERSION } from "./constants.js";
 
-const devTransport = isProduction()
-  ? {}
-  : {
-      transport: {
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
-          ignore: "pid,hostname,service,env,version",
-        },
-      },
-    };
+const usePretty = apiEnv.LOG_PRETTY === "1" || (!isProduction() && apiEnv.LOG_PRETTY !== "0");
 
-export const logger = pino({
+const pinoOptions: pino.LoggerOptions = {
   level: apiEnv.LOG_LEVEL ?? (isProduction() ? "info" : "debug"),
   // pino 默认 epoch 毫秒数字，改 ISO8601 便于阅读与日志平台解析；dev 下 pino-pretty 自行重排不受影响
   timestamp: pino.stdTimeFunctions.isoTime,
-  ...devTransport,
   base: {
     service: APP_NAME,
     env: apiEnv.APP_ENV,
@@ -34,12 +22,41 @@ export const logger = pino({
       "password",
       "cookies",
       "authorization",
+      "appSecret",
+      "app_secret",
+      "token",
+      "secret",
       "req.headers.authorization",
       "req.headers.cookie",
       "*.apiKey",
+      "*.api_key",
       "*.password",
       "*.cookies",
+      "*.appSecret",
+      "*.app_secret",
+      "*.token",
+      "*.secret",
+      "*.*apiKey",
+      "*.*password",
+      "*.*cookies",
+      "*.*token",
+      "*.*secret",
     ],
     censor: "[REDACTED]",
   },
-});
+};
+
+// 显式传 process.stdout 走 Node 原生宽字符通道，避免 Windows 控制台乱码
+export const logger = usePretty
+  ? pino({
+      ...pinoOptions,
+      transport: {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
+          ignore: "pid,hostname,service,env,version",
+        },
+      },
+    })
+  : pino(pinoOptions, process.stdout);

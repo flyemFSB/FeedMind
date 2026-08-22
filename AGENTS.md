@@ -63,7 +63,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 
 - Trunk-based：单人直接提交 `master`；多人协作用短命功能分支（< 2 天）+ PR 合并，不引入 Git Flow 长期分支。
 - 分支命名 `type/scope` 前缀（`feat/`、`fix/`、`refactor/` 等），与 commit 类型对齐。
-- 共享包与桌面端遵循 SemVer；版本号写入各 `package.json`，禁止无意义 bump。
+- 共享包与应用遵循 SemVer；版本号写入各 `package.json`，禁止无意义 bump。
 
 ### 命名规范
 

@@ -1,24 +1,25 @@
-# FeedMind 桌面应用打包配置（electron-builder）
-# 主进程经 tsc 编译为 dist/main.js，运行时依赖 monorepo 内已解析的 node_modules，
-# 因此打包需带上 apps/api 与 packages/* 的构建产物及生产依赖。
 appId: com.feedmind.desktop
 productName: FeedMind
+artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 directories:
-  output: release
+  output: ../../release
 files:
-  - dist/**
+  - dist/**/*
   - package.json
-  - login-preload.cjs
-  - node_modules/**
+  # API 生产服务所需全量产物（node_modules 由 builder 根据 dependencies 打包）
+  - node_modules/@feedmind/api/dist/**/*
+  - node_modules/@feedmind/contracts/dist/**/*
+  - node_modules/@feedmind/db/dist/**/*
+  - node_modules/@feedmind/env/dist/**/*
+  - node_modules/@feedmind/shared/dist/**/*
+  - node_modules/@feedmind/wiki-core/dist/**/*
+  - node_modules/@feedmind/crawler-core/dist/**/*
 extraResources:
+  # Web 静态产物打入 resources/web-dist，API 在生产模式同源提供 SPA 托管
   - from: ../web/dist
     to: web-dist
-    filter:
-      - "**/*"
 win:
-  target:
-    - nsis
+  target: nsis
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  createDesktopShortcut: always

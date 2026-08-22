@@ -18,6 +18,8 @@ export const apiEnv = createEnv({
     API_BASE_URL: z.string().optional(),
     /** Pino 日志最低输出级别 */
     LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
+    /** 是否强制启用 pino-pretty 日志格式化（设为 "1" 开启，生产模式亦可按需使用） */
+    LOG_PRETTY: z.string().optional(),
   },
   runtimeEnv: process.env,
   skipValidation:
