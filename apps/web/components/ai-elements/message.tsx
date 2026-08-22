@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
 import { loadMathPlugin } from "@/lib/math-mathjax";
+import { normalizeMathMarkdown } from "@/lib/math-normalize";
 import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -97,12 +98,21 @@ export const MessageResponse = memo(
       [mathPlugin, mermaidPlugin],
     );
 
+    const normalizedChildren = useMemo(() => {
+      if (typeof props.children === "string") {
+        return normalizeMathMarkdown(props.children);
+      }
+      return props.children;
+    }, [props.children]);
+
     return (
       <Streamdown
         className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
         plugins={plugins}
         {...props}
-      />
+      >
+        {normalizedChildren}
+      </Streamdown>
     );
   },
   (prevProps, nextProps) =>
