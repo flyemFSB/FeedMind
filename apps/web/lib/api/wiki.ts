@@ -160,6 +160,14 @@ export function listIngestJobs(spaceId: string): Promise<IngestJob[]> {
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/jobs/ingest`));
 }
 
+export function enqueueIngestJob(
+  spaceId: string,
+  sourcePath: string,
+  folderContext?: string,
+): Promise<IngestJob> {
+  return apiPost(`/wiki/spaces/${spaceId}/jobs/ingest`, { sourcePath, folderContext });
+}
+
 export function cancelIngestJob(spaceId: string, jobId: string): Promise<{ success: boolean }> {
   return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/cancel`, {});
 }

@@ -25,6 +25,7 @@ import {
 import { Streamdown, type MathPlugin } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { loadMathPlugin } from "@/lib/math-mathjax";
+import { normalizeMathMarkdown } from "@/lib/math-normalize";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,11 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
     [page?.concept_id, onNavigate],
   );
 
+  const markdown = useMemo(
+    () => (page?.content ? normalizeMathMarkdown(stripWikiFootnotes(page.content)) : ""),
+    [page?.content],
+  );
+
   if (loading) {
     return <WikiReaderSkeleton />;
   }
@@ -131,8 +137,6 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
       </div>
     );
   }
-
-  const markdown = stripWikiFootnotes(page.content);
 
   return (
     <div className="h-full overflow-y-auto bg-editorial-canvas">
@@ -269,7 +273,7 @@ function PageMetadataCard({ page, onEdit }: { page: WikiPageRead; onEdit?: () =>
             <span className="truncate text-xs text-editorial-ink-muted">{page.path}</span>
           </div>
           <h1 className="mt-3 text-balance text-2xl font-semibold tracking-[-0.025em] text-editorial-ink sm:text-2xl">
-            {page.concept_id === "overview" ? t("wiki.overview") : page.title}
+            {page.title}
           </h1>
         </div>
 

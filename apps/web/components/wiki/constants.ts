@@ -5,7 +5,6 @@ export const WIKI_TYPE_COLORS: Record<string, string> = {
   concept: "var(--color-editorial-primary)",
   entity: "var(--editorial-semantic-success)",
   source: "var(--editorial-semantic-warning)",
-  overview: "var(--editorial-ink)",
   index: "var(--editorial-semantic-info)",
   // 知识形态 type（受控枚举）：每个独立颜色，来自 globals.css 的 --wiki-type-* 变量（明暗自适应）
   Concept: "var(--wiki-type-concept)",
@@ -23,7 +22,6 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
   concept: "概念",
   entity: "实体",
   source: "来源",
-  overview: "概览",
   reference: "引用",
   index: "索引",
   query: "查询",
@@ -37,14 +35,14 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
 /** 类型标签（跟随配置中心语言：zh 显示中文，其余显示英文 type）。 */
 export function wikiTypeLabel(type: string, lang?: string): string {
   if (lang?.toLowerCase().startsWith("zh")) {
-    // 优先小写键（历史值如 concept/overview），回退大写知识形态键（Method/Technology 等）
+    // 优先小写键（历史值如 concept/reference），回退大写知识形态键（Method/Technology 等）
     return WIKI_TYPE_LABELS[type.toLowerCase()] ?? WIKI_TYPE_LABELS[type] ?? type;
   }
   return type;
 }
 
 export function wikiTypeColor(type: string): string {
-  // 优先小写键（历史值如 concept/overview），回退大写知识形态键（Method/Technology 等）
+  // 优先小写键（历史值如 concept/reference），回退大写知识形态键（Method/Technology 等）
   return (
     WIKI_TYPE_COLORS[type.toLowerCase()] ??
     WIKI_TYPE_COLORS[type] ??

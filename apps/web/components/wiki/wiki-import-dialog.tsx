@@ -233,24 +233,35 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
 
       {/* Results */}
       {results.length > 0 && (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 max-h-48 overflow-y-auto">
           {results.map((r, i) => (
             <div
               key={i}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs ${
+              className={`flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-xs ${
                 r.status === "success"
                   ? "bg-editorial-semantic-success/10 text-editorial-ink"
                   : "bg-editorial-semantic-error/10 text-editorial-semantic-error"
               }`}
             >
-              {r.status === "success" ? (
-                <CheckCircle2 size={14} className="shrink-0 text-editorial-semantic-success" />
-              ) : (
-                <X size={14} className="shrink-0 text-editorial-semantic-error" />
-              )}
-              <span className="truncate font-medium">{r.name}</span>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {r.status === "success" ? (
+                  <CheckCircle2 size={14} className="shrink-0 text-editorial-semantic-success" />
+                ) : (
+                  <X size={14} className="shrink-0 text-editorial-semantic-error" />
+                )}
+                <span className="truncate font-medium" title={r.name}>
+                  {r.name}
+                </span>
+              </div>
               {r.message && (
-                <span className="ml-auto shrink-0 text-xs text-editorial-ink-muted">
+                <span
+                  title={r.message}
+                  className={`shrink-0 max-w-[200px] truncate text-xs ${
+                    r.status === "success"
+                      ? "text-editorial-ink-muted"
+                      : "text-editorial-semantic-error font-normal"
+                  }`}
+                >
                   {r.message}
                 </span>
               )}

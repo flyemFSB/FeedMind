@@ -268,7 +268,6 @@ function PageListItem({
   active: boolean;
   onClick: () => void;
 }) {
-  const { t } = useTranslation();
   const color = wikiTypeColor(page.type);
 
   return (
@@ -284,9 +283,7 @@ function PageListItem({
     >
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
       <div className="min-w-0 flex-1">
-        <span className="block truncate text-body font-medium">
-          {page.concept_id === "overview" ? t("wiki.overview") : page.title}
-        </span>
+        <span className="block truncate text-body font-medium">{page.title}</span>
       </div>
     </motion.button>
   );

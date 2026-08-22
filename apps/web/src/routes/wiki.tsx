@@ -1,7 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { ArrowLeft, BookOpen, ChevronDown, Import, MessageCircle, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpen,
+  ChevronDown,
+  Import,
+  MessageCircle,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { useAppShell } from "@/components/app-shell/app-shell-context";
 import { WikiPageList } from "@/components/wiki/wiki-page-list";
@@ -17,9 +25,17 @@ const WikiGraphView = lazy(() =>
 );
 import { CreateWikiSpaceDialog } from "@/components/wiki/wiki-create-space";
 import { useWikiSpaces, wikiOptions } from "@/lib/hooks/use-wiki";
-import { resolveWikiLink } from "@/lib/api/wiki";
+import { deleteWikiSpace, resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,6 +76,8 @@ function MyWikiPage() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
+  const [showDeleteSpace, setShowDeleteSpace] = useState(false);
+  const [deletingSpace, setDeletingSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
   const prevIsEditing = useRef(isEditing);
@@ -129,9 +147,13 @@ function MyWikiPage() {
   const handleImportSuccess = useCallback(() => {
     setShowImport(false);
     if (spaceId) {
+      // 刷新来源与任务缓存并跳转到来源视图展示解析进度
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.sources(spaceId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.jobs(spaceId).queryKey });
       void queryClient.invalidateQueries({ queryKey: wikiOptions.pages(spaceId).queryKey });
+      void navigate({ search: (prev) => ({ ...prev, view: "sources" }) });
     }
-  }, [spaceId, queryClient]);
+  }, [spaceId, queryClient, navigate]);
 
   const handleSpaceSelect = useCallback(
     (s: WikiSpaceListItem) => {
@@ -142,6 +164,28 @@ function MyWikiPage() {
     },
     [navigate],
   );
+
+  // 删除当前空间：成功后跳到剩余第一个空间；全部删空则回到空状态页
+  const handleDeleteSpace = useCallback(async () => {
+    if (!spaceId) return;
+    setDeletingSpace(true);
+    try {
+      await deleteWikiSpace(spaceId);
+      setShowDeleteSpace(false);
+      const remaining = spaces.filter((s) => s.id !== spaceId);
+      const nextSpace = remaining[0];
+      if (nextSpace) {
+        void navigate({ search: (prev) => ({ ...prev, space: nextSpace.id, page: undefined }) });
+      } else {
+        void navigate({ search: (prev) => ({ ...prev, space: undefined, page: undefined }) });
+      }
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
+    } catch {
+      // 错误由 apiFetch toast 统一提示
+    } finally {
+      setDeletingSpace(false);
+    }
+  }, [spaceId, spaces, navigate, queryClient]);
 
   if (isLoading) {
     return (
@@ -210,6 +254,18 @@ function MyWikiPage() {
           <Plus size={14} />
           {t("wiki.createNewSpace")}
         </DropdownMenuItem>
+        {spaceId && (
+          <DropdownMenuItem
+            onClick={() => {
+              setShowDeleteSpace(true);
+              setShowSpaceMenu(false);
+            }}
+            className="flex items-center gap-2 rounded-lg text-body text-destructive focus:text-destructive"
+          >
+            <Trash2 size={14} />
+            {t("wiki.deleteSpace")}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : (
@@ -320,6 +376,37 @@ function MyWikiPage() {
           setShowCreateSpace(false);
         }}
       />
+
+      {/* 删除空间确认：不可逆操作，默认焦点在取消上避免误触 */}
+      <Dialog open={showDeleteSpace} onOpenChange={setShowDeleteSpace}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("wiki.deleteSpace")}</DialogTitle>
+            <DialogDescription>
+              {t("wiki.deleteSpaceConfirm", { name: spaceName })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="default"
+              disabled={deletingSpace}
+              onClick={() => setShowDeleteSpace(false)}
+            >
+              {t("wiki.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              size="default"
+              disabled={deletingSpace}
+              onClick={() => void handleDeleteSpace()}
+            >
+              <Trash2 size={14} />
+              {deletingSpace ? t("wiki.deletingSpace") : t("wiki.delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </LayoutWrapper>
   );
 }

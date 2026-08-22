@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import { FileText, Globe, Play, Trash2, Type, XCircle } from "lucide-react";
-import { cancelIngestJob, deleteWikiSource, previewDeleteImpact, runIngest } from "@/lib/api/wiki";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
+import { Check, FileText, Globe, Play, RotateCw, Trash2, Type, XCircle } from "lucide-react";
+import {
+  cancelIngestJob,
+  deleteWikiSource,
+  enqueueIngestJob,
+  previewDeleteImpact,
+} from "@/lib/api/wiki";
 import { useIngestJobs, useWikiSources } from "@/lib/hooks/use-wiki";
 import { useQueryClient } from "@tanstack/react-query";
 import { wikiOptions } from "@/lib/hooks/use-wiki";
@@ -12,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
-import { fadeSlideVariants, listContainerVariants, listItemVariants } from "@/lib/motion";
+import { toast } from "@/components/ui/toast";
+import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { useTranslation } from "react-i18next";
 
 interface WikiSourcesViewProps {
@@ -25,6 +31,14 @@ function isActiveJob(job: IngestJob | undefined): boolean {
   return job !== undefined && (job.status === "pending" || job.status === "processing");
 }
 
+function formatDateTimeStr(value: string | number | undefined): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -33,24 +47,44 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const hasActiveJob = jobs.some(isActiveJob);
   // 有活跃导入时来源列表同步轮询，完成后来源状态自动变为“已导入”
   const { data, isLoading } = useWikiSources(spaceId, {
-    refetchInterval: hasActiveJob ? 5000 : false,
+    refetchInterval: hasActiveJob ? 3000 : false,
   });
   const sources = data?.items ?? [];
 
   // 每个来源关联其最新任务：同 source_path 可能先后有转换任务与导入任务（转换完成自动
-  // 入队导入），按 added_at 倒序让最新（active）任务优先展示
+  // 入队导入），多维度映射 key（identity/slug/title/original_name），按 added_at 倒序让最新任务优先展示
   const jobBySource = useMemo(() => {
     const map = new Map<string, IngestJob>();
     const sorted = [...jobs].sort((a, b) => b.added_at - a.added_at);
     for (const job of sorted) {
-      if (!map.has(job.source_path)) map.set(job.source_path, job);
+      const keys = [
+        job.source_path,
+        job.source_path.replace(/\.md$/i, ""),
+        job.source_path.replace(/\.md$/i, "").toLowerCase(),
+        job.source_title,
+      ].filter(Boolean);
+      for (const k of keys) {
+        if (!map.has(k)) map.set(k, job);
+      }
     }
     return map;
   }, [jobs]);
 
+  // 活跃任务全部结束瞬间兜底刷新：worker 的 done 标记与 markSourceIngested 回写存在
+  // 竞态窗口，轮询可能抓到旧值后停止，导致“待导入”残留到手动刷新；invalidate 强制再取
+  const hasEverActive = useRef(false);
+  useEffect(() => {
+    if (hasActiveJob) {
+      hasEverActive.current = true;
+    } else if (hasEverActive.current) {
+      hasEverActive.current = false;
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.sources(spaceId).queryKey });
+      void queryClient.invalidateQueries({ queryKey: wikiOptions.jobs(spaceId).queryKey });
+    }
+  }, [hasActiveJob, queryClient, spaceId]);
+
   const [ingestingIds, setIngestingIds] = useState<Set<string>>(new Set());
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [ingestResult, setIngestResult] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     title: string;
@@ -82,7 +116,9 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     try {
-      await deleteWikiSource(spaceId, deleteTarget.id, "detach");
+      // delete-orphans：同时删除仅引用该来源的孤立页面（与确认弹窗的删除预览一致），
+      // detach 只移除引用不删页面，与 UI 文案“将删除 N 个孤立页面”不符
+      await deleteWikiSource(spaceId, deleteTarget.id, "delete-orphans");
       setDeleteTarget(null);
       invalidateSources();
     } catch {
@@ -90,34 +126,34 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     }
   };
 
-  const handleIngest = async (sourceIdentity: string, sourceTitle: string) => {
-    // 用 Set 记录正在导入的来源，允许多个来源同时排队导入、各自独立显示 spinner
+  const handleIngest = async (sourceIdentity: string, _sourceTitle: string) => {
+    // 异步入队：与首次上传一致走队列 worker 处理，行内实时展示步骤进度条与取消按钮，
+    // 彻底告别同步阻塞请求造成的按钮局部一直转圈
     setIngestingIds((prev) => new Set(prev).add(sourceIdentity));
-    setIngestResult(null);
     try {
-      const result = await runIngest(spaceId, sourceIdentity);
-      setIngestResult(
-        `✓ "${sourceTitle}": ${result.pagesCreated} ${t("wiki.pagesCreated")}，${result.pagesUpdated} ${t("wiki.pagesUpdated")}`,
-      );
+      await enqueueIngestJob(spaceId, sourceIdentity);
       invalidateSources();
     } catch (err) {
-      setIngestResult(
-        `✗ "${sourceTitle}": ${err instanceof Error ? err.message : t("wiki.uploadFailed")}`,
-      );
+      toast.add({
+        title: t("wiki.uploadFailed"),
+        description: err instanceof Error ? err.message : String(err),
+        type: "error",
+      });
     } finally {
       setIngestingIds((prev) => {
         const next = new Set(prev);
         next.delete(sourceIdentity);
         return next;
       });
-      invalidateSources();
     }
   };
 
-  const handleCancel = async (jobId: string) => {
+  const handleCancel = async (jobId: string, sourceIdentity: string) => {
     setCancellingId(jobId);
     try {
       await cancelIngestJob(spaceId, jobId);
+      // 取消即清理：删除来源的上传文件与转换 md（来源管理按上传文件展示，删后行消失）
+      await deleteWikiSource(spaceId, sourceIdentity.replace(/\.md$/i, ""), "detach");
     } catch {
       // 错误由 apiFetch toast 统一处理
     } finally {
@@ -146,6 +182,15 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             className="text-xs bg-editorial-semantic-success/15 text-editorial-semantic-success border border-editorial-semantic-success/20"
           >
             {t("wiki.sourceIngested")}
+          </Badge>
+        );
+      case "pending":
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-editorial-surface-soft text-editorial-ink-muted border-editorial-surface-strong"
+          >
+            {t("wiki.sourceQueued")}
           </Badge>
         );
       case "ready":
@@ -228,34 +273,58 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             animate="animate"
           >
             {sources.map((source) => {
-              // 行内导入状态：job 优先（进行中/失败），否则用来源自身状态
-              const job = jobBySource.get(source.identity);
+              // 行内导入状态：匹配关联任务（按多标识命中最新任务）
+              const job =
+                jobBySource.get(source.identity) ??
+                jobBySource.get(source.id) ??
+                jobBySource.get(source.title) ??
+                (source.original_name ? jobBySource.get(source.original_name) : undefined);
+
               const activeJob = isActiveJob(job);
-              const failedJob = job?.status === "failed";
-              // 转换任务：folder_context 非空（存临时文件名的上传二进制任务），
-              // 显示“解析中”而非“摄取中”，两者的进度轮询共用一套
+              const isJobProcessing = job?.status === "processing";
+              const isJobPending = job?.status === "pending";
+              const failedJob = job?.status === "failed" || source.status === "failed";
               const isConvertingJob = Boolean(job?.folder_context);
-              const displayStatus = activeJob
+
+              const displayStatus = isJobProcessing
                 ? isConvertingJob
                   ? "converting"
                   : "ingesting"
-                : failedJob
-                  ? "failed"
-                  : source.status;
-              const subLine = activeJob
-                ? job?.progress
-                  ? `${t("wiki.stepsProgress", {
-                      step: job.progress.step,
-                      total: job.progress.totalSteps,
-                    })} · ${job.progress.message}`
-                  : isConvertingJob
-                    ? t("wiki.statusConverting")
-                    : job?.status === "processing"
-                      ? t("wiki.statusProcessing")
-                      : t("wiki.statusPending")
-                : failedJob
-                  ? (job?.error ?? t("wiki.processFailed"))
-                  : (source.original_name ?? source.identity);
+                : isJobPending
+                  ? "pending"
+                  : failedJob
+                    ? "failed"
+                    : source.status;
+
+              const isIngested = displayStatus === "ingested";
+
+              const subLine = isJobPending
+                ? t("wiki.queueWaiting")
+                : isJobProcessing
+                  ? job?.progress
+                    ? `${t("wiki.stepsProgress", {
+                        step: job.progress.step,
+                        total: job.progress.totalSteps,
+                      })} · ${job.progress.message}`
+                    : isConvertingJob
+                      ? t("wiki.sourceConverting")
+                      : t("wiki.sourceIngesting")
+                  : failedJob
+                    ? // 失败仍保留导入过程（进度）+ 失败原因：progress 记录失败前最后一步
+                      job?.progress
+                      ? `${t("wiki.stepsProgress", {
+                          step: job.progress.step,
+                          total: job.progress.totalSteps,
+                        })} · ${job?.error ?? t("wiki.processFailed")}`
+                      : (job?.error ?? t("wiki.processFailed"))
+                    : isIngested
+                      ? formatDateTimeStr(source.updated_at ?? source.created_at)
+                      : (source.original_name ?? source.identity);
+
+              const hoverTitle =
+                isIngested && source.original_name
+                  ? `${source.original_name} · ${subLine}`
+                  : subLine;
 
               return (
                 <motion.div
@@ -270,7 +339,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                       {source.title}
                     </p>
                     <p
-                      title={subLine}
+                      title={hoverTitle}
                       className={`truncate text-xs ${
                         failedJob ? "text-destructive" : "text-editorial-ink-muted"
                       }`}
@@ -288,7 +357,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   </div>
                   {activeJob ? (
                     <motion.button
-                      onClick={() => void handleCancel(job!.id)}
+                      onClick={() => void handleCancel(job!.id, source.identity)}
                       whileHover={{ scale: 1.08, opacity: 1 }}
                       whileTap={{ scale: 0.9 }}
                       className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1 disabled:opacity-50"
@@ -301,6 +370,9 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                         <XCircle size={13} />
                       )}
                     </motion.button>
+                  ) : source.status === "ingested" ? (
+                    // 已导入来源不再提供重新导入入口（避免重复导入语义混乱）
+                    <Check size={13} className="mr-0.5 text-editorial-semantic-success" />
                   ) : (
                     <motion.button
                       onClick={() => handleIngest(source.identity, source.title)}
@@ -311,54 +383,37 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                       title={
                         ingestingIds.has(source.identity)
                           ? t("wiki.ingestingTitle")
-                          : t("wiki.runIngest")
+                          : displayStatus === "failed"
+                            ? t("wiki.reIngest")
+                            : t("wiki.runIngest")
                       }
                     >
                       {ingestingIds.has(source.identity) ? (
                         <MotionSpinner size={12} />
+                      ) : displayStatus === "failed" ? (
+                        <RotateCw size={12} />
                       ) : (
                         <Play size={12} />
                       )}
                     </motion.button>
                   )}
-                  <motion.button
-                    onClick={() => requestDelete(source)}
-                    whileHover={{ scale: 1.08, opacity: 1 }}
-                    whileTap={{ scale: 0.9 }}
-                    className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
-                    title={t("wiki.deleteSource")}
-                  >
-                    <Trash2 size={13} />
-                  </motion.button>
+                  {/* 进行中只保留取消按钮，避免操作冲突 */}
+                  {!activeJob && (
+                    <motion.button
+                      onClick={() => requestDelete(source)}
+                      whileHover={{ scale: 1.08, opacity: 1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary focus-visible:ring-offset-1"
+                      title={t("wiki.deleteSource")}
+                    >
+                      <Trash2 size={13} />
+                    </motion.button>
+                  )}
                 </motion.div>
               );
             })}
           </motion.div>
         )}
-
-        {/* 导入结果提示 */}
-        <AnimatePresence initial={false}>
-          {ingestResult && (
-            <motion.div
-              key="ingest-result"
-              variants={fadeSlideVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="mx-4 mb-3 mt-2 rounded-lg border border-editorial-surface-strong bg-editorial-canvas-soft px-4 py-2.5 text-xs leading-relaxed text-editorial-ink shadow-sm"
-            >
-              {ingestResult}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.92 }}
-                className="ml-2 text-editorial-ink-muted hover:text-editorial-ink"
-                onClick={() => setIngestResult(null)}
-              >
-                ✕
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
 
       <DeleteConfirmDialog

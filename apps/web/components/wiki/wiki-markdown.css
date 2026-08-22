@@ -96,3 +96,36 @@
 .wiki-markdown tr:last-child td {
   border-bottom: 0;
 }
+
+/* MathJax SVG 公式排版（remark-math + rehype-mathjax/svg） */
+.wiki-markdown mjx-container[jax="SVG"],
+mjx-container[jax="SVG"] {
+  direction: ltr;
+  max-width: 100%;
+  color: inherit;
+}
+
+.wiki-markdown mjx-container[jax="SVG"][display="true"],
+mjx-container[jax="SVG"][display="true"] {
+  display: flex !important;
+  justify-content: center;
+  margin: 1.25rem 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+}
+
+.wiki-markdown mjx-container[jax="SVG"]:not([display="true"]),
+mjx-container[jax="SVG"]:not([display="true"]) {
+  display: inline-flex !important;
+  vertical-align: -0.2em;
+  margin: 0 0.15em;
+}
+
+.wiki-markdown mjx-container[jax="SVG"] svg,
+mjx-container[jax="SVG"] svg {
+  display: inline-block;
+  vertical-align: middle;
+  max-width: 100%;
+  fill: currentColor;
+}
