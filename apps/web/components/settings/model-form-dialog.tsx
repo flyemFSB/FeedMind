@@ -10,6 +10,7 @@ import {
   CUSTOM_PROVIDER,
   lookupModelInfo,
   displayNameToModelId,
+  formatModelDisplayName,
   formatKB,
 } from "@/lib/constants/provider-models";
 import { Button } from "@/components/ui/button";
@@ -51,8 +52,8 @@ const EMPTY_FORM = {
   modelId: "",
   baseUrl: "",
   apiKey: "",
-  context: "",
-  maxOutput: "",
+  context: "256",
+  maxOutput: "64",
 };
 
 interface ModelFormDialogProps {
@@ -86,8 +87,8 @@ export function ModelFormDialog({
           modelId: initialModel.modelId ?? displayNameToModelId(initialModel.modelName),
           baseUrl: initialModel.baseUrl,
           apiKey: "",
-          context: initialModel.contextWindow ?? "",
-          maxOutput: initialModel.maxOutput ?? "",
+          context: initialModel.contextWindow ?? "256",
+          maxOutput: initialModel.maxOutput ?? "64",
         }
       : EMPTY_FORM,
   );
@@ -101,13 +102,14 @@ export function ModelFormDialog({
   const modelList = !isCustom ? (PROVIDER_MODELS[form.provider] ?? []) : [];
   function handleProviderChange(value: string | null) {
     if (!value) return;
+    const isNewCustom = value === CUSTOM_PROVIDER;
     setForm((current) => ({
       ...current,
       provider: value,
       modelName: "",
       modelId: "",
-      context: "",
-      maxOutput: "",
+      context: isNewCustom ? "256" : "",
+      maxOutput: isNewCustom ? "64" : "",
     }));
   }
 
@@ -118,8 +120,8 @@ export function ModelFormDialog({
       ...current,
       modelName: value,
       modelId: info?.modelId ?? displayNameToModelId(value),
-      context: info?.context ?? "",
-      maxOutput: info?.maxOutput ?? "",
+      context: info?.context ?? "256",
+      maxOutput: info?.maxOutput ?? "64",
     }));
   }
 
@@ -227,7 +229,12 @@ export function ModelFormDialog({
                 value={form.modelId}
                 onChange={(event) => {
                   const val = event.target.value;
-                  setForm((current) => ({ ...current, modelId: val, modelName: val }));
+                  const autoDisplayName = formatModelDisplayName(val);
+                  setForm((current) => ({
+                    ...current,
+                    modelId: val,
+                    modelName: autoDisplayName,
+                  }));
                 }}
                 placeholder="例如 deepseek-v4-flash"
                 className="h-10 rounded-md border-editorial-hairline text-body"

@@ -15,7 +15,7 @@ import { wikiSearchTool } from "../tools/wiki-search.js";
 import { taskTool, getSubagentDescriptions } from "../tools/task.js";
 import { createFeedMindWorkspace } from "../workspace.js";
 import { cachedGet, clearCache } from "../utils/cached-get.js";
-import { parseTokenCount } from "../utils/parse-token-count.js";
+import { parseTokenCount } from "../../modules/models/parse-token-count.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
 import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
 import { resolveDataDir } from "../../lib/data-dir.js";

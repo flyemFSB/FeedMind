@@ -3,12 +3,12 @@
  * "type":"" 和 "id":"" 而非 "type":"function" 和有效 ID。
  * @ai-sdk/openai 的流式解析器拒绝空字符串，因此需在 fetch 层修复。
  *
- * 另：Sensenova 免费模型 RPM 配额极低（约 5-6 次/分钟），task 工具每次调用
- * 都会创建 subagent 发起新的 LLM 请求，瞬时易触发 429（rpm exhausted）。
- * 这里对 429 做指数退避重试（滚动窗口约 15s 恢复）。
+ * 针对 subagent 并发请求触发的 429 提供指数退避重试。
  */
-export function createSanitizedFetch(_baseUrl?: string) {
-  return async (input: string | URL | Request, init?: RequestInit) => {
+export function createSanitizedFetch(
+  _baseUrl?: string,
+): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
+  return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     let response = await globalThis.fetch(input, init);
 
     let attempt = 0;

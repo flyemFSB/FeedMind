@@ -155,8 +155,10 @@ export async function getRuntimeOcrConfig(): Promise<{
 export async function getRuntimeConfig(runtime: string): Promise<{
   model_name: string;
   model_id: string;
+  llm_id: number | null;
   base_url: string;
   api_key: string;
+  max_output: string;
   temperature: number;
   top_p: number;
   system_prompt: string;
@@ -179,6 +181,8 @@ export async function getRuntimeConfig(runtime: string): Promise<{
   let modelId = "";
   let baseUrl = "";
   let apiKey = "";
+  let maxOutput = "";
+  let llmId: number | null = null;
 
   if (runtime === "session") {
     const [m] = await db
@@ -191,6 +195,8 @@ export async function getRuntimeConfig(runtime: string): Promise<{
       modelId = m.modelId;
       baseUrl = m.baseUrl;
       apiKey = m.encryptedApiKey ? decryptValue(m.encryptedApiKey) : "";
+      maxOutput = m.maxOutput ?? "";
+      llmId = m.id;
     }
   } else if (row.llmId) {
     const [m] = await db.select().from(model).where(eq(model.id, row.llmId)).limit(1);
@@ -199,6 +205,8 @@ export async function getRuntimeConfig(runtime: string): Promise<{
       modelId = m.modelId;
       baseUrl = m.baseUrl;
       apiKey = m.encryptedApiKey ? decryptValue(m.encryptedApiKey) : "";
+      maxOutput = m.maxOutput ?? "";
+      llmId = m.id;
     }
   }
 
@@ -225,8 +233,10 @@ export async function getRuntimeConfig(runtime: string): Promise<{
   return {
     model_name: modelName,
     model_id: modelId,
+    llm_id: llmId,
     base_url: baseUrl,
     api_key: apiKey,
+    max_output: maxOutput,
     temperature: row.temperature,
     top_p: row.topP,
     system_prompt: row.systemPrompt,
