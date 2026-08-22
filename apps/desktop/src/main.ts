@@ -1,174 +1,97 @@
-/**
- * FeedMind 桌面应用主进程。
- *
- * 架构：主进程内嵌 API（@feedmind/api/server-core），UI 窗口 + 两个隐藏标记窗口
- * （爬虫 feedmind-crawler、Agent feedmind-agent）。通过 --remote-debugging-port 暴露 CDP，
- * crawler-core / Agent 浏览器用 Playwright connectOverCDP 按标记选页驱动内置 Chromium
- * （不再自起 Chrome）。双隐藏窗口相互独立，Agent 会话与爬虫任务互不踩踏。
- */
-import path from "node:path";
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { app, BrowserWindow, Menu, session, shell } from "electron";
+import { app, BrowserWindow, session, shell } from "electron";
+import * as path from "node:path";
 import { config as loadDotenv } from "dotenv";
 
-// 先定名再取单实例锁：Windows 锁文件按应用名归档，顺序颠倒会导致双实例都成功
-app.setName("FeedMind");
+const DEFAULT_CDP_PORT = 9333;
+const DEFAULT_UI_PORT = 18790;
+const AGENT_MARKER = "feedmind-agent";
+const AGENT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-} else {
-  app.on("second-instance", () => {
-    const win = BrowserWindow.getAllWindows().find((w) => w.isVisible());
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
+// 拒授媒体权限防常驻媒体进程
+const MEDIA_PERMISSIONS = new Set(["media", "mediaKeySystem", "geolocation", "notifications"]);
+
+interface MarkedWindowEntry {
+  win: BrowserWindow;
+  timer: NodeJS.Timeout | null;
+}
+
+let mainWindow: BrowserWindow | null = null;
+const markedWindows = new Map<string, MarkedWindowEntry>();
+
+function getCdpPort(): number {
+  const envPort = process.env["CDP_PORT"];
+  if (envPort) {
+    const parsed = Number.parseInt(envPort, 10);
+    if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 65535) {
+      return parsed;
     }
-  });
-}
-
-// 必须在 app ready 前注入，否则 CDP 端口不生效
-// 默认 9333：9222 常被系统 Chrome 等占用，导致 devtools 无法绑定。
-// 注意：loopback 上的 CDP 端口允许本机任意进程通过 Runtime.evaluate 控制应用，
-// 这是爬虫/Agent 浏览器的基础，属可接受的本地安全权衡。
-const CDP_PORT = process.env["CDP_PORT"] ?? "9333";
-app.commandLine.appendSwitch("remote-debugging-port", CDP_PORT);
-app.commandLine.appendSwitch("remote-allow-origins", "*");
-
-// 移除默认应用菜单（含 Edit/View 快捷键），官方 performance 文档建议在 ready 前调用
-Menu.setApplicationMenu(null);
-
-// 低内存模式：settings.json 置 lowMemoryMode: true 或环境变量 FEEDMIND_LOW_MEMORY=1 开启。
-// 关闭硬件加速可省 GPU 进程内存，代价是 UI 滚动/动画流畅度，故默认关闭、按需手动开。
-// 必须在 ready 前调用，故提前到模块顶层（prepareEnv 太晚）。
-function readLowMemoryMode(): boolean {
-  if (process.env["FEEDMIND_LOW_MEMORY"] === "1") return true;
-  try {
-    const settingsPath = path.join(app.getPath("userData"), "settings.json");
-    if (!existsSync(settingsPath)) return false;
-    return (
-      (JSON.parse(readFileSync(settingsPath, "utf8")) as { lowMemoryMode?: boolean })
-        .lowMemoryMode === true
-    );
-  } catch {
-    return false;
   }
+  return DEFAULT_CDP_PORT;
 }
-if (readLowMemoryMode()) app.disableHardwareAcceleration();
 
-/**
- * 在 API 模块加载前备好关键环境变量。
- * 主进程产物经 tsc 编译到 dist/，API 内部基于 import.meta.url 推算的"项目根"会失效，
- * 因此一律用绝对路径显式指定数据目录，并补齐 ENCRYPTION_KEY。
- */
 function prepareEnv(): void {
-  if (!app.isPackaged) {
-    loadDotenv({ path: path.resolve(app.getAppPath(), "../../.env") });
-  }
+  // 生产模式加载 resources/.env；开发模式加载仓库根目录 .env
+  const envPath = app.isPackaged
+    ? path.join(process.resourcesPath, ".env")
+    : path.resolve(app.getAppPath(), "../../.env");
+  loadDotenv({ path: envPath });
 
-  const dataRoot = app.isPackaged
-    ? app.getPath("userData")
-    : path.resolve(app.getAppPath(), "../../data");
-  process.env["DATABASE_PATH"] ??= path.join(dataRoot, "feedmind.db");
-  process.env["WIKI_DIR"] ??= path.join(dataRoot, "wiki");
-  // 向量库 / skills 等其余数据目录统一走 DATA_DIR（打包后 import.meta.url 指向只读 asar）
-  process.env["DATA_DIR"] ??= dataRoot;
+  const cdpPort = getCdpPort();
+  app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
+  app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 
-  // CDP 端点与主进程端口保持一致，供 crawler-core / Agent 浏览器读取
-  process.env["CDP_ENDPOINT"] ??= `http://127.0.0.1:${CDP_PORT}`;
-
-  // 本机 HTTP_PROXY 会在 NODE_USE_ENV_PROXY 下劫持 Node 对本机的请求，
-  // CDP 连接必须直连 127.0.0.1，故豁免 loopback；外部站点仍走代理
-  process.env["NO_PROXY"] = [process.env["NO_PROXY"], "127.0.0.1", "localhost"]
-    .filter(Boolean)
-    .join(",");
-
-  // 打包后无 .env：首次运行生成并持久化 AES 密钥（后续沿用，保证已加密数据可解密）
-  if (!process.env["ENCRYPTION_KEY"]) {
-    const settingsPath = path.join(app.getPath("userData"), "settings.json");
-    let key: string | undefined;
-    if (existsSync(settingsPath)) {
-      try {
-        key = (JSON.parse(readFileSync(settingsPath, "utf8")) as { encryptionKey?: string })
-          .encryptionKey;
-      } catch {
-        // 配置损坏则重新生成
-      }
-    }
-    if (!key) {
-      key = randomBytes(32).toString("hex");
-      mkdirSync(app.getPath("userData"), { recursive: true });
-      writeFileSync(settingsPath, JSON.stringify({ encryptionKey: key }, null, 2));
-    }
-    process.env["ENCRYPTION_KEY"] = key;
-  }
-}
-
-/** 加载窗口 URL；dev 模式下 Vite 启动有延迟，失败则重试 */
-async function loadWithRetry(win: BrowserWindow, url: string, attempts = 30): Promise<void> {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      await win.loadURL(url);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
-  throw new Error(`无法加载 ${url}`);
-}
-
-/** 加载后的通用窗口兜底：ready-to-show 迟迟不触发时也显示窗口，避免停留在不可见状态 */
-function showOnReady(win: BrowserWindow): void {
-  const timer = setTimeout(() => win.show(), 10_000);
-  win.once("ready-to-show", () => {
-    clearTimeout(timer);
-    win.show();
-  });
-  // 窗口提前销毁时清除定时器，避免对已销毁窗口调 show
-  win.on("closed", () => clearTimeout(timer));
+  // 降低 Chromium 后台内存占用
+  app.commandLine.appendSwitch("disable-renderer-backgrounding");
+  app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
+  app.commandLine.appendSwitch("disable-breakpad");
 }
 
 function getUiUrl(): string {
-  return (
-    process.env["VITE_DEV_SERVER_URL"] ?? `http://127.0.0.1:${process.env["API_PORT"] ?? "18790"}`
-  );
+  const devUrl = process.env["VITE_DEV_SERVER_URL"];
+  if (devUrl) return devUrl;
+  const port = process.env["API_PORT"]
+    ? Number.parseInt(process.env["API_PORT"], 10)
+    : DEFAULT_UI_PORT;
+  return `http://127.0.0.1:${port}`;
 }
 
-// 模块级持有主窗口引用：macOS 关窗后需据此判断重建，不能依赖 getAllWindows
-let mainWindow: BrowserWindow | null = null;
+async function loadWithRetry(
+  win: BrowserWindow,
+  url: string,
+  maxRetries = 15,
+  intervalMs = 500,
+): Promise<void> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await win.loadURL(url);
+      return;
+    } catch (err) {
+      if (i === maxRetries - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+}
 
-// agent 隐藏窗口标记：与 crawler-core / mastra 一致，据此区分生命周期策略
-const AGENT_MARKER = "feedmind-agent";
-// agent 空闲判定：超过该时长无浏览器活动则销毁窗口，释放渲染进程内存
-const AGENT_IDLE_MS = 5 * 60 * 1000;
+function showOnReady(win: BrowserWindow): void {
+  win.once("ready-to-show", () => win.show());
+}
 
-// 惰性隐藏窗口：按需创建。crawler 窗口任务结束即销毁；agent 窗口空闲超时销毁
-const markedWindows = new Map<string, { win: BrowserWindow; timer: NodeJS.Timeout | null }>();
-
-// 拒绝媒体权限（camera/mic/screen）：授予后 Chromium 会拉起 audio / video_capture 常驻
-// utility 进程，窗口销毁也不退出，白占内存。应用自身无媒体功能，全局拒绝无副作用。
-const MEDIA_PERMISSIONS = new Set(["media", "display-capture"]);
-
-// 每次使用标记窗口后刷新空闲计时：仅 agent 窗口启用空闲销毁，crawler 由 closeBrowser 触发销毁
 function refreshIdleTimer(marker: string): void {
+  // 仅对 agent 窗口应用空闲超时：crawler 窗口由任务生命周期显式销毁
+  if (marker !== AGENT_MARKER) return;
   const entry = markedWindows.get(marker);
   if (!entry) return;
   if (entry.timer) clearTimeout(entry.timer);
-  entry.timer = null;
-  if (marker !== AGENT_MARKER) return;
-  entry.timer = setTimeout(() => void destroyMarkedWindow(marker), AGENT_IDLE_MS);
+  entry.timer = setTimeout(() => {
+    void destroyMarkedWindow(marker);
+  }, AGENT_IDLE_TIMEOUT_MS);
 }
 
 // 补建后必须等加载完成再返回：crawler-core 按窗口 URL 标记选页
 async function ensureMarkedWindow(marker: string): Promise<void> {
   const existing = markedWindows.get(marker);
   if (existing && !existing.win.isDestroyed()) {
-    if (existing.win.webContents.getURL().includes(marker)) {
-      refreshIdleTimer(marker);
-      return;
-    }
-    await existing.win.loadURL(`data:text/html,<title>${marker}</title>`);
+    // 活跃窗口直接复用并刷新空闲定时器，切勿因已导航到目标 URL 而强制重载空白页
     refreshIdleTimer(marker);
     return;
   }
@@ -180,17 +103,13 @@ async function ensureMarkedWindow(marker: string): Promise<void> {
   refreshIdleTimer(marker);
 }
 
-// 窗口关闭后清掉会话里浏览站点注册的 Service Worker——应用自身不注册 SW，
-// 否则 SW 渲染进程在窗口销毁后仍常驻内存（实测小红书 SW 占 ~150MB working set）。
+// 窗口关闭后清理会话存储与缓存
 async function destroyMarkedWindow(marker: string): Promise<void> {
   const entry = markedWindows.get(marker);
   if (!entry) return;
   if (entry.timer) clearTimeout(entry.timer);
   if (!entry.win.isDestroyed()) entry.win.close();
   markedWindows.delete(marker);
-  // 清掉会话里浏览站点注册的 SW 与各类站点存储：UI 不用 localStorage（无本地存储可误伤），
-  // 否则 SW 渲染进程在窗口销毁后仍常驻内存（实测小红书 SW 占 ~150MB working set），
-  // 站点 CacheStorage/IndexedDB 也会留盘。HTTP cache 一并清，任务后内存回到基线。
   await session.defaultSession
     .clearStorageData({
       storages: ["serviceworkers", "cachestorage", "indexdb", "localstorage"],
@@ -199,14 +118,11 @@ async function destroyMarkedWindow(marker: string): Promise<void> {
   await session.defaultSession.clearCache().catch(() => {});
 }
 
-// 长跑内存监控：每 5 分钟采样主进程堆占用，连续 3 次（15 分钟）上升即告警疑似泄漏。
-// 用 heapUsed 而非 RSS 判断——RSS 会随磁盘缓存/原生库波动，堆持续增长才是泄漏信号。
-// 诊断用途只打日志，不做主动 GC：V8 自动回收优于 --expose-gc 手动干预。
+// 长跑内存监控：每 5 分钟采样主进程堆占用
 const MEMORY_SAMPLE_MS = 5 * 60 * 1000;
 const MEMORY_RISING_WARN_STREAK = 3;
-// 标记窗口渲染进程 working set 上限：正常页面 100-300MB，重页面（视频站）可能更高，
-// 超过 1.5GB 说明渲染进程失控，强制销毁窗口释放，下次使用按需重建。
 const MARKED_WINDOW_MEMORY_LIMIT_MB = 1536;
+
 function startMemoryMonitor(): void {
   let lastHeap = process.memoryUsage().heapUsed;
   let risingStreak = 0;
@@ -228,8 +144,6 @@ function startMemoryMonitor(): void {
   }, MEMORY_SAMPLE_MS);
 }
 
-// 标记窗口渲染进程内存兜底：超过上限则销毁窗口（下次 ensureMarkedWindow 重建）。
-// 仅对 agent 窗口生效——crawler 窗口由任务生命周期管理，任务中途销毁会断爬取。
 async function checkMarkedWindowMemory(): Promise<void> {
   const entry = markedWindows.get(AGENT_MARKER);
   if (!entry || entry.win.isDestroyed()) return;
@@ -250,6 +164,9 @@ async function checkMarkedWindowMemory(): Promise<void> {
   }
 }
 
+const CHROME_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
+
 function createMainWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1440,
@@ -261,8 +178,6 @@ function createMainWindow(): BrowserWindow {
     webPreferences: { sandbox: true, spellcheck: false },
   });
   win.webContents.setUserAgent(CHROME_UA);
-  // UI 中的外链（来源页、wiki 引用等 target=_blank）改用系统浏览器打开，
-  // 避免意外 spawn 新的 Electron 窗口（每个窗口都是一份渲染进程内存/CPU 常驻）
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
       void shell.openExternal(url);
@@ -277,12 +192,6 @@ function createMainWindow(): BrowserWindow {
   return win;
 }
 
-// 全窗口统一标准 Chrome UA：Electron UA 会被部分平台判定为过时客户端（知乎 10001）
-// 或视为自动化信号；版本号与内置内核一致（Electron 43 = Chromium 150），
-// 避免 UA 与 navigator.userAgentData 不一致暴露伪造指纹。
-const CHROME_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
-
 /** 创建标记页隐藏窗口：爬虫与 Agent 各用独立窗口，会话互不踩踏 */
 async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
   const win = new BrowserWindow({
@@ -293,7 +202,6 @@ async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
       backgroundThrottling: false,
       sandbox: true,
       spellcheck: false,
-      // 禁自动播放：防爬虫/Agent 访问的视频站拉起常驻 audio 服务进程
       autoplayPolicy: "user-gesture-required",
     },
   });
@@ -305,8 +213,6 @@ async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
 async function bootstrap(): Promise<void> {
   prepareEnv();
 
-  // 拒绝媒体权限，防止爬虫/Agent 访问的站点拉起 audio/video_capture 常驻进程。
-  // check 与 request 两个 handler 必须成对设置：部分 Web API 先做 check 再发正式请求，只设 request 会漏。
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(!MEDIA_PERMISSIONS.has(permission));
   });
@@ -314,11 +220,9 @@ async function bootstrap(): Promise<void> {
     (_wc, permission) => !MEDIA_PERMISSIONS.has(permission),
   );
 
-  // API 在 API 模块导入前完成环境准备，故延迟加载
   const { startApi, setMarkedWindowFactory, setMarkedWindowDestroyer } =
     await import("@feedmind/api/server-core");
 
-  // 生产模式同源 serve Web 构建产物；dev 模式由 Vite dev server 提供
   const webDist = process.env["VITE_DEV_SERVER_URL"]
     ? undefined
     : app.isPackaged
@@ -326,22 +230,17 @@ async function bootstrap(): Promise<void> {
       : path.resolve(app.getAppPath(), "../web/dist");
   await startApi(webDist ? { webDist } : {});
 
-  // 注册惰性窗口工厂与销毁器：crawler 任务结束即销毁（closeBrowser 触发），
-  // agent 空闲 5 分钟超时销毁（refreshIdleTimer 调度）
   setMarkedWindowFactory(ensureMarkedWindow);
   setMarkedWindowDestroyer(destroyMarkedWindow);
 
   mainWindow = createMainWindow();
   await loadWithRetry(mainWindow, getUiUrl());
 
-  // 长跑内存监控：启动后开始采样，日志里可观察堆趋势，连续上升会打 warn
   startMemoryMonitor();
 }
 
-// macOS 惯例：关闭全部窗口后应用驻留，点 Dock 重建窗口
 app.on("activate", () => {
   if (mainWindow === null) {
-    // 惰性隐藏窗口常驻（show:false，不计入窗口栈），重建主窗口即可复用
     mainWindow = createMainWindow();
     void loadWithRetry(mainWindow, getUiUrl());
   }

@@ -25,7 +25,7 @@ export interface StartApiOptions {
 export async function startApi(options: StartApiOptions = {}): Promise<ServerType> {
   validateApiRuntime();
 
-  // 先切 WAL/同步级别再建表写种子：所有后续 DB 访问都走优化后的连接参数
+  // 先切 WAL/同步级别再建表写种子
   await initDbPragmas();
   await initDatabase();
 
@@ -124,11 +124,6 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
   });
 }
 
-// ─── 桌面应用桥 ───────────────────────────────────────────────
-// Electron 主进程通过 @feedmind/api/server-core 引用，注册惰性隐藏窗口
-//（cookie 由 CookieCloud 扩展/手动粘贴维护，不创建登录窗口、不做保活）
-export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";
-
 /** Web 构建产物常见文件的 MIME 映射（覆盖 Vite 输出） */
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -189,3 +184,6 @@ async function tryServeStatic(request: Request, webRoot: string): Promise<Respon
     },
   });
 }
+
+// 供 Electron 主进程注入惰性隐藏窗口创建/销毁逻辑
+export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";

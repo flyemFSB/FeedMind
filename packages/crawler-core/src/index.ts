@@ -5,11 +5,13 @@ import "./routes/index.js";
 export {
   createBrowser,
   closeBrowser,
-  assertElectronCdp,
   setMarkedWindowFactory,
-  ensureMarkedWindow,
   setMarkedWindowDestroyer,
+  ensureMarkedWindow,
+  destroyMarkedWindow,
+  assertElectronCdp,
 } from "./core/browser.js";
+export type { MarkedWindowFactory, MarkedWindowDestroyer } from "./core/browser.js";
 export { CrawlerAuthError } from "./core/errors.js";
 export { buildRssXml, buildGuid, toRfc2822, fromUnixTimestamp } from "./core/rss-builder.js";
 export { registerRoute, getRouteHandler } from "./core/route-registry.js";

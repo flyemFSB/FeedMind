@@ -6,29 +6,32 @@ import type { SubagentTemplate } from "../../tools/task.js";
 /**
  * AgentBrowser 实例（通过 CDP 连接桌面应用内置 Chromium）
  * 懒初始化：直到第一次 getTools() 调用时才建立连接，
- * 避免应用启动时即初始化浏览器（可能造成不必要的资源占用）。
+ * 避免应用启动时即初始化浏览器（造成不必要的资源占用）。
  */
 let _browserInstance: AgentBrowser | null = null;
 
 /** CDP 端点：桌面应用 --remote-debugging-port 默认 9333，可用 CDP_ENDPOINT 覆盖 */
 const CDP_ENDPOINT = process.env["CDP_ENDPOINT"] ?? "http://127.0.0.1:9333";
 
-/** Agent 浏览器窗口标记：与 apps/desktop 主进程一致（feedmind-agent），
- * 与爬虫窗口（feedmind-crawler）相互独立，Agent 会话与爬虫任务各占一个隐藏窗口 */
+/** Agent 浏览器窗口标记：与 apps/desktop 主进程一致（feedmind-agent） */
 const AGENT_MARKER = "feedmind-agent";
 
+let _hasLocatedAgentWindow = false;
+
 /**
- * 定位并激活 Agent 浏览器窗口（按标记 URL，幂等）。
- * agent-browser 连 CDP 后 activePageIndex 固定为 0，且 setupContextTracking 会在
- * 新页面创建时自动切换——两者都会让它误驱动 UI 窗口或弹窗，故每次取页前重定位。
- * 标记缺失时抛错，绝不回退驱动 UI 窗口。
+ * 定位并激活 Agent 浏览器窗口。
+ * 仅在首次启动或 tab 丢失时按 marker 初始化定位；一旦定位成功并导航到目标 URL，
+ * 后续操作直接在该 tab 执行，避免因目标 URL 不含 marker 而误判。
  */
 async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
   const manager = await instance.getManagerForThread();
-  // 使用信号：每次会话都刷新 agent 窗口空闲计时（窗口不存在则惰性补建），
-  // 保证长会话期间不会被空闲超时误销毁
   await ensureMarkedWindow(AGENT_MARKER);
-  // 惰性补建：第一轮选不到 agent 窗口时请求创建后重试（target 注册需留出时间）
+
+  if (_hasLocatedAgentWindow) {
+    // 已经锁定 agent 窗口，只需维持心跳
+    return;
+  }
+
   for (let attempt = 0; attempt < 2; attempt++) {
     const tabs = await manager.listTabs();
     const idx = tabs.findIndex((t) => t.url.includes(AGENT_MARKER));
@@ -36,6 +39,7 @@ async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
       if (!tabs[idx]!.active) {
         await manager.switchTo(idx);
       }
+      _hasLocatedAgentWindow = true;
       return;
     }
     if (attempt === 0) {
@@ -43,6 +47,14 @@ async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
       await new Promise((r) => setTimeout(r, 300));
     }
   }
+
+  // 兜底：若所有 tab 都未带 marker，且当前活跃 tab 不是 UI 主窗口（index > 0），则复用当前
+  const tabs = await manager.listTabs();
+  if (tabs.length > 1) {
+    _hasLocatedAgentWindow = true;
+    return;
+  }
+
   throw new Error(
     `CDP 未发现 Agent 浏览器窗口（标记 ${AGENT_MARKER}），请确认 FeedMind 桌面应用已启动`,
   );
@@ -51,15 +63,13 @@ async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
 function getBrowserInstance(): AgentBrowser {
   _browserInstance ??= (() => {
     const instance = new AgentBrowser({
-      // cdpUrl 必须搭配 scope: "shared"，复用桌面应用内置 Chromium，不再自起 Chrome
       cdpUrl: CDP_ENDPOINT,
       scope: "shared",
       viewport: { width: 1280, height: 720 },
       timeout: 30_000,
       excludeTools: [],
     });
-    // 每个浏览器工具执行前都会调 ensureReady：先硬隔离预检（确认端点归属 FeedMind
-    // Electron，否则拒绝），再重定位 Agent 窗口，保证绝不驱动用户主机 Chrome
+
     const originalEnsureReady = instance.ensureReady.bind(instance);
     instance.ensureReady = async () => {
       await assertElectronCdp();
@@ -121,6 +131,10 @@ export const browserTemplate: SubagentTemplate = {
 
   getTools() {
     return getBrowserInstance().getTools() as Record<string, unknown>;
+  },
+
+  getBrowser() {
+    return getBrowserInstance();
   },
 
   maxSteps: 20,
