@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { ExtractItem } from "@feedmind/contracts";
-import { buildScript, fallbackScript, parseScriptJson } from "./script.js";
+import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
+import { buildScript, fallbackScript } from "./script.js";
 
 const items: ExtractItem[] = [
   { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },
 ];
 
-const validJson = JSON.stringify({
+const validScript: DailyReportScript = {
   date: "2026-08-09",
   opening: { hook: "早上好" },
   items: [
@@ -20,43 +20,24 @@ const validJson = JSON.stringify({
     },
   ],
   closing: { summary: "今天的内容就到这里。" },
-});
-
-describe("parseScriptJson", () => {
-  it("剥离 markdown 代码块后解析", () => {
-    const script = parseScriptJson(`\`\`\`json\n${validJson}\n\`\`\``);
-    expect(script.opening.hook).toBe("早上好");
-    expect(script.items[0]?.narration).toBe("我们来看看标题A。");
-  });
-
-  it("非 JSON 文本抛错（触发调用方兜底）", () => {
-    expect(() => parseScriptJson("抱歉，我无法生成")).toThrow();
-  });
-});
+};
 
 describe("buildScript", () => {
-  it("LLM 生成合法 JSON 时采用生成结果", async () => {
-    const script = await buildScript(items, { generateScript: async () => validJson });
+  it("LLM 生成合法脚本时采用生成结果", async () => {
+    const script = await buildScript(items, { generateScript: async () => validScript });
     expect(script.opening.hook).toBe("早上好");
     expect(script.items).toHaveLength(1);
   });
 
-  it("LLM 返回非法 JSON 时回退最小脚本", async () => {
+  it("生成抛错（含 schema 校验失败）时回退最小脚本", async () => {
     const script = await buildScript(items, {
-      generateScript: async () => "这不是 JSON",
+      generateScript: async () => {
+        throw new Error("structuredOutput 校验失败");
+      },
     });
     expect(script.opening.hook).toBeTruthy();
     expect(script.closing.summary).toBeTruthy();
     expect(script.items[0]?.narration).toBe("摘要A");
-  });
-
-  it("LLM 抛错时回退最小脚本", async () => {
-    const script = await buildScript(items, {
-      generateScript: async () => {
-        throw new Error("模型不可用");
-      },
-    });
-    expect(script.items[0]?.source).toBe("来源A");
   });
 
   it("空输入不触发 LLM，直接回退", async () => {
@@ -64,7 +45,7 @@ describe("buildScript", () => {
     const script = await buildScript([], {
       generateScript: async () => {
         called = true;
-        return validJson;
+        return validScript;
       },
     });
     expect(called).toBe(false);

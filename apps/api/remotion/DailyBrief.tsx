@@ -1,7 +1,7 @@
 import { AbsoluteFill, Sequence, staticFile } from "remotion";
 import { Audio } from "@remotion/media";
 import type { DailyReportScript } from "@feedmind/contracts";
-import { OPENING_FRAMES, CLOSING_FRAMES, itemFrames } from "./layout";
+import { createFallbackTimeline, type VideoTimeline } from "./layout";
 import { theme } from "./theme";
 import { Cover, ItemScene, Closing } from "./scenes";
 import { CaptionBar } from "./captions";
@@ -15,34 +15,35 @@ export interface CaptionCue {
 export interface DailyBriefProps {
   script: DailyReportScript;
   captions: CaptionCue[];
+  timeline?: VideoTimeline;
 }
 
-export function DailyBrief({ script, captions }: DailyBriefProps) {
-  let cursor = OPENING_FRAMES;
+export function DailyBrief({ script, captions, timeline: propTimeline }: DailyBriefProps) {
+  const timeline = propTimeline ?? createFallbackTimeline(script);
 
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bg, overflow: "hidden" }}>
-      <Sequence from={0} durationInFrames={OPENING_FRAMES}>
+      {/* 1. 开场场景与音频 */}
+      <Sequence from={timeline.opening.fromFrame} durationInFrames={timeline.opening.frames}>
         <Cover date={script.date} hook={script.opening.hook} />
+        {timeline.opening.audioFile && <Audio src={staticFile(timeline.opening.audioFile)} />}
       </Sequence>
 
-      {script.items.map((item, i) => {
-        const frames = itemFrames(item.narration);
-        const seq = (
-          <Sequence key={i} from={cursor} durationInFrames={frames}>
-            <ItemScene item={item} />
-          </Sequence>
-        );
-        cursor += frames;
-        return seq;
-      })}
+      {/* 2. 正文各场景与对应音频（帧级对齐起播） */}
+      {timeline.items.map((t, i) => (
+        <Sequence key={i} from={t.fromFrame} durationInFrames={t.frames}>
+          {script.items[i] && <ItemScene item={script.items[i]!} />}
+          {t.audioFile && <Audio src={staticFile(t.audioFile)} />}
+        </Sequence>
+      ))}
 
-      <Sequence from={cursor} durationInFrames={CLOSING_FRAMES}>
+      {/* 3. 收尾场景与音频 */}
+      <Sequence from={timeline.closing.fromFrame} durationInFrames={timeline.closing.frames}>
         <Closing summary={script.closing.summary} />
+        {timeline.closing.audioFile && <Audio src={staticFile(timeline.closing.audioFile)} />}
       </Sequence>
 
-      {/* 旁白与烧录字幕全程铺底；narration.mp3 由渲染服务预置到 bundle publicDir */}
-      <Audio src={staticFile("narration.mp3")} />
+      {/* 4. 精准烧录字幕 */}
       <CaptionBar captions={captions} />
     </AbsoluteFill>
   );

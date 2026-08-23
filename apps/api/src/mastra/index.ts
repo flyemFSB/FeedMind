@@ -8,13 +8,12 @@ import { dailyReportRunWorkflow } from "./workflows/run-workflow.js";
 import { ToolConfigClient } from "./tools/search/config.js";
 import { resolveDataDir } from "../lib/data-dir.js";
 
-const mastraDbPath = resolve(resolveDataDir(), "mastra.db");
-
 export function initToolConfig(): void {
   new ToolConfigClient();
 }
 
 export function createMastra(): Mastra {
+  const mastraDbPath = resolve(resolveDataDir(), "mastra.db");
   return new Mastra({
     agents: { feedmind: feedmindAgent },
     workflows: { dailyReport: dailyReportWorkflow, dailyReportRun: dailyReportRunWorkflow },
@@ -31,9 +30,26 @@ export function createMastra(): Mastra {
         chatRoute({
           path: "/v1/agent/chat/:agentId",
           sendReasoning: true,
-          version: "v6",
+          // 与前端 AI SDK v7（ai@7 + @ai-sdk/react@4）原生对齐
+          version: "v7",
         }),
       ],
     },
   });
+}
+
+/**
+ * 等待 Observational Memory 后台观察/反射周期写库完成。
+ * Electron 退出前调用，避免 OM 后台写 mastra.db 被截断。永不 reject，超时放行不阻塞退出。
+ */
+export async function waitForMemorySettled(timeoutMs = 5_000): Promise<void> {
+  try {
+    const memory = await feedmindAgent.getMemory();
+    await Promise.race([
+      memory?.settled(),
+      new Promise<void>((resolveSleep) => setTimeout(resolveSleep, timeoutMs)),
+    ]);
+  } catch {
+    // memory 不可用等场景直接放行，退出流程不因清理失败而阻塞
+  }
 }

@@ -12,30 +12,24 @@ const reviewResultSchema = z.object({
   issues: z.array(z.string()),
 });
 
+export type ReviewResult = z.infer<typeof reviewResultSchema>;
+
 export interface ReviewDeps {
-  /** LLM 审稿：返回 verdict JSON 文本；默认走 reviewAgent */
-  evaluate?: (script: DailyReportScript, items: ExtractItem[]) => Promise<string>;
+  /** LLM 审稿；默认走 reviewAgent（structuredOutput 直接产出判定对象） */
+  evaluate?: (script: DailyReportScript, items: ExtractItem[]) => Promise<ReviewResult>;
   /** 重写脚本：默认走 buildScript（script agent） */
   rewrite?: (items: ExtractItem[]) => Promise<DailyReportScript>;
 }
 
-async function defaultEvaluate(script: DailyReportScript, items: ExtractItem[]): Promise<string> {
+async function defaultEvaluate(
+  script: DailyReportScript,
+  items: ExtractItem[],
+): Promise<ReviewResult> {
   const result = await reviewAgent.generate(
     `分镜脚本：\n${JSON.stringify(script)}\n\n提炼要点（ground truth）：\n${JSON.stringify(items)}`,
+    { structuredOutput: { schema: reviewResultSchema } },
   );
-  return result.text;
-}
-
-// 从审稿 LLM 文本解析 verdict（剥离代码块，取首尾大括号）
-export function parseReview(raw: string): { verdict: "pass" | "fail"; issues: string[] } {
-  const cleaned = raw
-    .replace(/```json\s*/i, "")
-    .replace(/```/g, "")
-    .trim();
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("审稿输出解析失败");
-  return reviewResultSchema.parse(JSON.parse(cleaned.slice(start, end + 1)));
+  return result.object;
 }
 
 /**
@@ -56,11 +50,11 @@ export async function reviewAndFix(
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     if (attempt > 0) current = await rewrite(items);
     try {
-      const review = parseReview(await evaluate(current, items));
+      const review = await evaluate(current, items);
       if (review.verdict === "pass") return { script: current, attempts: attempt + 1 };
       logger.warn({ attempt, issues: review.issues }, "审稿未通过，重写脚本");
     } catch (err) {
-      // 评估输出无法解析按未通过处理，继续重试
+      // 评估失败（含 structuredOutput 校验不过）按未通过处理，继续重试
       logger.warn({ err, attempt }, "审稿评估失败，按未通过处理");
     }
   }

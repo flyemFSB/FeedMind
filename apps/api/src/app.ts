@@ -17,13 +17,8 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
 
   const app = new Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>();
 
-  // 1. 请求唯一标识
   app.use("*", requestId());
-
-  // 2. 基础安全防御响应头（X-Content-Type-Options、X-Frame-Options 等）
   app.use("*", secureHeaders());
-
-  // 3. 跨域资源共享（CORS）
   app.use(
     "*",
     cors({
@@ -36,7 +31,7 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
     }),
   );
 
-  // 4. 请求体大小防御（最大 25MB，防止超大请求导致 OOM）
+  // 限制请求体最大 25MB，防止超大文档上传导致内存溢出
   app.use(
     "*",
     bodyLimit({
@@ -53,7 +48,7 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
     }),
   );
 
-  // 5. 结构化请求耗时与状态日志
+  // 记录请求耗时与状态（高频接口如健康检查走 debug 级别，避免日志刷屏）
   app.use("*", async (c, next) => {
     const startedAt = performance.now();
     await next();
@@ -65,10 +60,9 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
       status: c.res.status,
       durationMs: Math.round(performance.now() - startedAt),
     };
-    // 健康检查等高频接口用 debug 避免日志刷屏
-    if (c.res.status >= 500) logger.error(details, "请求完成");
-    else if (c.res.status >= 400) logger.warn(details, "请求完成");
-    else logger.debug(details, "请求完成");
+    if (c.res.status >= 500) logger.error(details, "请求处理异常");
+    else if (c.res.status >= 400) logger.warn(details, "请求客户端错误");
+    else logger.debug(details, "请求处理成功");
   });
 
   app.notFound((c) =>

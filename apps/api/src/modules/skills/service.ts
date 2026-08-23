@@ -122,7 +122,7 @@ export async function installSkill(rawName: string, buffer: Buffer): Promise<Ski
     const skillMdPath = path.join(targetDir, "SKILL.md");
     const skillMd = await fsp.readFile(skillMdPath, "utf-8").catch(() => null);
     if (!skillMd) {
-      // 也许 zip 根目录有一个子目录
+      // 兼容 zip 带单层包裹目录：SKILL.md 不在根目录时，找到含它的子目录并把内容上提一层
       const subDirs = (await fsp.readdir(targetDir, { withFileTypes: true })).filter((e) =>
         e.isDirectory(),
       );

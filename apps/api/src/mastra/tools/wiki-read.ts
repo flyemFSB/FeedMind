@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { getWikiPage } from "../../modules/wiki/page-store.js";
 
 const MAX_PAGE_CHARS = 4096;
 
@@ -12,48 +13,31 @@ The pageId is the bundle-relative path without the .md extension, such as "table
     spaceId: z.string().describe("The wiki space ID (e.g., 'my-research')."),
     pageId: z.string().describe("The OKF Concept ID, a bundle-relative path without .md."),
   }),
-  execute: async ({ spaceId, pageId }, { requestContext }) => {
-    const backendApiUrl =
-      (requestContext?.get("backendApiUrl") as string) || "http://localhost:18790";
-    const baseUrl = backendApiUrl.replace(/\/+$/, "");
-    const url = `${baseUrl}/wiki/spaces/${encodeURIComponent(spaceId)}/pages/${encodeURIComponent(pageId)}`;
+  execute: async ({ spaceId, pageId }) => {
+    try {
+      const data = await getWikiPage(spaceId, pageId);
+      const content = data.content ?? "";
+      const truncated =
+        content.length > MAX_PAGE_CHARS
+          ? content.slice(0, MAX_PAGE_CHARS) + "\n\n[... content truncated ...]"
+          : content;
 
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(5_000),
-    });
-
-    if (!response.ok) {
+      return [
+        `Title: ${data.title}`,
+        `Type: ${data.type}`,
+        `Path: ${data.path}`,
+        ...(data.description ? [`Description: ${data.description}`] : []),
+        ...(data.resource ? [`Resource: ${data.resource}`] : []),
+        ...(data.tags && data.tags.length > 0 ? [`Tags: ${data.tags.join(", ")}`] : []),
+        "",
+        truncated,
+      ].join("\n");
+    } catch {
       return JSON.stringify({
-        error: "WIKI_READ_FAILED",
+        error: "WIKI_PAGE_NOT_FOUND",
         spaceId,
         pageId,
-        status: response.status,
       });
     }
-
-    const data = (await response.json()) as Record<string, unknown>;
-    const content = (data["content"] as string) ?? "";
-    const truncated =
-      content.length > MAX_PAGE_CHARS
-        ? content.slice(0, MAX_PAGE_CHARS) + "\n\n[... content truncated ...]"
-        : content;
-
-    return [
-      `Title: ${data["title"] as string}`,
-      `Type: ${data["type"] as string}`,
-      `Path: ${data["path"] as string}`,
-      ...((data["description"] as string | undefined)
-        ? [`Description: ${data["description"] as string}`]
-        : []),
-      ...((data["resource"] as string | null | undefined)
-        ? [`Resource: ${data["resource"] as string}`]
-        : []),
-      ...((data["tags"] as string[] | undefined)?.length
-        ? [`Tags: ${(data["tags"] as string[]).join(", ")}`]
-        : []),
-      "",
-      truncated,
-    ].join("\n");
   },
 });

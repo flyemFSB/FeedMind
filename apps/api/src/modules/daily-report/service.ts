@@ -12,6 +12,7 @@ import { syncAll } from "../feeds/service.js";
 import { dailyReportWorkflow } from "../../mastra/workflows/daily-report/index.js";
 import { synthesizeNarration } from "./tts-service.js";
 import { renderReportVideo } from "./render-service.js";
+import type { VideoTimeline } from "./timeline.js";
 import { getMastra } from "./mastra-holder.js";
 import { syncScheduleById } from "./schedule-sync.js";
 
@@ -239,16 +240,21 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
       const outDir = resolve(resolveDataDir(), "videos", videoId);
       await updateStage(videoId, "tts");
       // 配音（Fish → edge-tts 双源降级；全失败写占位音频，不阻断管线）
+      let narrationTimeline: VideoTimeline | undefined;
       try {
         const narration = await synthesizeNarration(result.result.script, outDir);
-        logger.info({ audioPath: narration.audioPath, srtPath: narration.srtPath }, "日报配音完成");
+        narrationTimeline = narration.timeline;
+        logger.info(
+          { srtPath: narration.srtPath, totalFrames: narration.timeline.totalFrames },
+          "日报配音与实测时间轴构建完成",
+        );
       } catch (err) {
         logger.warn({ err }, "日报配音异常");
       }
       await updateStage(videoId, "render");
       // 渲染（Remotion；浏览器/字体不可用时回退占位文件）
       try {
-        const rendered = await renderReportVideo(result.result.script, outDir);
+        const rendered = await renderReportVideo(result.result.script, outDir, narrationTimeline);
         filePath = rendered.videoPath;
         duration = Math.round(rendered.durationSec);
       } catch (err) {

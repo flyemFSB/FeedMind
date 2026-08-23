@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { DailyReportScript } from "@feedmind/contracts";
 import { logger } from "../../lib/logger.js";
 import { ToolConfigClient } from "../../mastra/tools/search/config.js";
+import { buildTimeline, fallbackDurationSec, type VideoTimeline } from "./timeline.js";
 
 export interface TtsProvider {
   id: string;
@@ -65,9 +66,6 @@ export function createEdgeProvider(): TtsProvider {
       // 动态加载：仅在兜底路径用到时引入该依赖
       const { MsEdgeTTS, OUTPUT_FORMAT } = await import("msedge-tts");
       const tts = new MsEdgeTTS();
-      // setMetadata 建立 WebSocket 连接，必须调用一次后才能合成。
-      // 注意：开启句/词级边界 metadata 会使微软服务端当前报 Premature close（合成整体失败），
-      // 故不请求 metadata；字幕时间轴走按字数估算。
       await tts.setMetadata("zh-CN-XiaoxiaoNeural", OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
       try {
         const { audioStream } = tts.toStream(text);
@@ -94,34 +92,57 @@ export function buildSegments(script: DailyReportScript): NarrationSegment[] {
   ].filter((s) => s.text.trim().length > 0);
 }
 
-// 中文旁白平均语速约 300ms/字，用于按段估算字幕时长。
-// 注：msedge-tts 的句/词级边界 metadata 当前被服务端拒绝（Premature close），
-// 字幕时间轴暂无法精确到音频，只能估算（见 createEdgeProvider）。
-const CHAR_MS = 300;
-
-function estimateDurationMs(text: string): number {
-  return Array.from(text).length * CHAR_MS;
+/**
+ * 探测已写入音频文件的真实时长（秒）。
+ * 遇到占位文件或损坏文件时自动回退到字数估算（Fail-Safe）。
+ */
+export async function probeAudioDurationSec(
+  filePath: string,
+  fallbackText: string,
+): Promise<number> {
+  try {
+    const { getVideoMetadata } = await import("@remotion/renderer");
+    const meta = await getVideoMetadata(filePath);
+    if (
+      typeof meta.durationInSeconds === "number" &&
+      Number.isFinite(meta.durationInSeconds) &&
+      meta.durationInSeconds > 0
+    ) {
+      return meta.durationInSeconds;
+    }
+  } catch {
+    // 占位文件或非标准媒体走兜底
+  }
+  return fallbackDurationSec(fallbackText);
 }
 
 function formatSrtTime(ms: number): string {
   const total = Math.floor(ms / 1000);
-  const milli = ms % 1000;
+  const milli = Math.round(ms % 1000);
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(milli).padStart(3, "0")}`;
 }
 
-// 每段一条字幕，时长按字数估算
-export function buildSrt(segments: NarrationSegment[]): string {
-  let cursor = 0;
+/**
+ * 基于实测 Timeline 生成段级高精度 SRT 字幕
+ */
+export function buildSrtFromTimeline(
+  segments: NarrationSegment[],
+  timeline: VideoTimeline,
+): string {
+  const allTimelineSegments = [timeline.opening, ...timeline.items, timeline.closing];
+
   const lines: string[] = [];
   for (let i = 0; i < segments.length; i++) {
-    const start = cursor;
-    cursor += estimateDurationMs(segments[i]!.text);
-    lines.push(
-      `${i + 1}\n${formatSrtTime(start)} --> ${formatSrtTime(cursor)}\n${segments[i]!.text}\n`,
-    );
+    const seg = allTimelineSegments[i];
+    const text = segments[i]?.text ?? "";
+    if (!seg || !text) continue;
+
+    const startMs = (seg.fromFrame / timeline.fps) * 1000;
+    const endMs = startMs + seg.durationSec * 1000;
+    lines.push(`${i + 1}\n${formatSrtTime(startMs)} --> ${formatSrtTime(endMs)}\n${text}\n`);
   }
   return lines.join("\n");
 }
@@ -152,32 +173,31 @@ async function synthesizeWithFallback(text: string, providers: TtsProvider[]): P
     try {
       const { audio } = await withTimeout(provider.synthesize(text), SEGMENT_TIMEOUT_MS);
       if (audio.length > 0) return audio;
-      logger.warn({ provider: provider.id }, "TTS 返回空音频，尝试下一个");
+      logger.warn({ provider: provider.id }, "语音合成返回空音频，尝试降级渠道");
     } catch (err) {
-      logger.warn({ provider: provider.id, err }, "TTS provider 失败，尝试下一个");
+      logger.warn({ provider: provider.id, err }, "当前语音合成渠道失败，尝试降级渠道");
     }
   }
-  throw new Error("所有 TTS provider 均失败");
+  throw new Error("所有语音合成渠道均失败");
 }
 
 /**
- * 把脚本旁白合成为 narration.mp3 + narration.srt，写入 outputDir。
- * 全部 provider 失败时写占位音频，不让配音问题中断管线。
+ * 把脚本旁白逐段合成并落盘为 seg-0.mp3, seg-1.mp3...，测量真实时长构建 Timeline 与 SRT。
+ * 全部 provider 失败时写占位音频并回退估算时长，不让配音问题中断管线。
  */
 export async function synthesizeNarration(
   script: DailyReportScript,
   outputDir: string,
   deps: SynthesizeDeps = {},
-): Promise<{ audioPath: string; srtPath: string }> {
+): Promise<{ timeline: VideoTimeline; srtPath: string }> {
   await mkdir(outputDir, { recursive: true });
-  const audioPath = resolve(outputDir, "narration.mp3");
   const srtPath = resolve(outputDir, "narration.srt");
 
   const segments = buildSegments(script);
   if (segments.length === 0) {
-    await writeFile(audioPath, Buffer.alloc(0));
+    const timeline = buildTimeline([0, ...script.items.map(() => 0), 0]);
     await writeFile(srtPath, "", "utf8");
-    return { audioPath, srtPath };
+    return { timeline, srtPath };
   }
 
   let providers = deps.providers;
@@ -188,19 +208,39 @@ export async function synthesizeNarration(
     providers.push(createEdgeProvider());
   }
 
-  try {
-    const parts: Buffer[] = [];
-    for (const seg of segments) {
-      parts.push(await synthesizeWithFallback(seg.text, providers));
+  const rawTexts = [
+    script.opening.hook,
+    ...script.items.map((item) => item.narration),
+    script.closing.summary,
+  ];
+
+  const durations: number[] = [];
+
+  for (let i = 0; i < rawTexts.length; i++) {
+    const text = rawTexts[i] ?? "";
+    const fileName = `seg-${i}.mp3`;
+    const filePath = resolve(outputDir, fileName);
+
+    if (text.trim().length === 0) {
+      durations.push(0);
+      continue;
     }
-    await writeFile(audioPath, Buffer.concat(parts));
-    await writeFile(srtPath, buildSrt(segments), "utf8");
-  } catch (err) {
-    logger.warn({ err }, "配音合成失败，写入占位音频");
-    await writeFile(audioPath, Buffer.from("FeedMind 配音占位（TTS 不可用）", "utf8"));
-    // 占位音频无时长信息：字幕仍按估算生成，保证渲染有 SRT 可读
-    await writeFile(srtPath, buildSrt(segments), "utf8");
+
+    try {
+      const audio = await synthesizeWithFallback(text, providers);
+      await writeFile(filePath, audio);
+      const duration = await probeAudioDurationSec(filePath, text);
+      durations.push(duration);
+    } catch (err) {
+      logger.warn({ err, segIndex: i }, "单段配音合成失败，写入占位音频并使用估算时长");
+      await writeFile(filePath, Buffer.from("FeedMind 配音占位（TTS 不可用）", "utf8"));
+      durations.push(fallbackDurationSec(text));
+    }
   }
 
-  return { audioPath, srtPath };
+  const timeline = buildTimeline(durations);
+  const srtContent = buildSrtFromTimeline(segments, timeline);
+  await writeFile(srtPath, srtContent, "utf8");
+
+  return { timeline, srtPath };
 }

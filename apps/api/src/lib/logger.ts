@@ -46,17 +46,26 @@ const pinoOptions: pino.LoggerOptions = {
   },
 };
 
-// 显式传 process.stdout 走 Node 原生宽字符通道，避免 Windows 控制台乱码
-export const logger = usePretty
-  ? pino({
-      ...pinoOptions,
-      transport: {
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
-          ignore: "pid,hostname,service,env,version",
+function createLogger(): pino.Logger {
+  if (usePretty) {
+    try {
+      return pino({
+        ...pinoOptions,
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            translateTime: "SYS:yyyy-mm-dd HH:MM:ss",
+            ignore: "pid,hostname,service,env,version",
+          },
         },
-      },
-    })
-  : pino(pinoOptions, process.stdout);
+      });
+    } catch {
+      // 在打包、Worker 或环境缺失 pino-pretty 时降级至标准输出
+    }
+  }
+  return pino(pinoOptions, process.stdout);
+}
+
+// 显式传 process.stdout 走 Node 原生宽字符通道，避免 Windows 控制台乱码
+export const logger = createLogger();

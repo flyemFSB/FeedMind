@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq, and, inArray, sql, desc, isNotNull } from "drizzle-orm";
-import Parser from "rss-parser";
+import { parseFeed } from "feedsmith";
 import { db, feeds, rssSources, cookieStore } from "@feedmind/db";
 import type { FeedRow } from "@feedmind/db";
 import { getRouteHandler } from "@feedmind/crawler-core";
@@ -8,6 +8,7 @@ import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { joinCookies } from "../cookiecloud/service.js";
 import { shouldBackfillTitle } from "../rss-sources/service.js";
+import { checkSSRF } from "../../lib/ssrf.js";
 
 export async function listFeeds(params: {
   source_id?: string;
@@ -85,38 +86,114 @@ function normalizeDate(raw: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-// rss-parser 解析 RSS 2.0 / Atom / RDF，自动剥离 CDATA 与 XML 转义、处理命名空间。
-// 通过 customFields 提取 item 级配图（media:content）——该字段不在 rss-parser 默认输出中。
-const rssParser = new Parser({
-  customFields: { item: [["media:content", "media"]] },
-});
-
 // 导出供测试直接验证解析/兜底逻辑
 export async function parseRssXml(
   xml: string,
 ): Promise<{ title?: string; items: ParsedRssItem[] }> {
-  const feed = await rssParser.parseString(xml);
+  const result = parseFeed(xml);
+  const feed = (result?.feed ?? {}) as Record<string, unknown>;
+  const rawItems: unknown[] =
+    (Array.isArray(feed["items"]) ? feed["items"] : null) ??
+    (Array.isArray(feed["entries"]) ? feed["entries"] : null) ??
+    [];
+
   const items: ParsedRssItem[] = [];
-  for (const item of feed.items) {
-    const guid = item.guid ?? item.link;
+  for (const rawItem of rawItems) {
+    if (!rawItem || typeof rawItem !== "object") continue;
+    const item = rawItem as Record<string, unknown>;
+
+    // GUID 优先级：guid (string/object) -> id -> link (兜底唯一标识)
+    let guid = "";
+    if (typeof item["guid"] === "string") {
+      guid = item["guid"];
+    } else if (item["guid"] && typeof item["guid"] === "object") {
+      guid = String((item["guid"] as Record<string, unknown>)["value"] ?? "");
+    }
+    if (!guid && typeof item["id"] === "string") {
+      guid = item["id"];
+    }
+
+    let link = "";
+    if (typeof item["link"] === "string") {
+      link = item["link"];
+    } else if (item["link"] && typeof item["link"] === "object") {
+      link = String((item["link"] as Record<string, unknown>)["href"] ?? "");
+    } else if (Array.isArray(item["links"]) && item["links"][0]) {
+      const firstLink = item["links"][0];
+      link = typeof firstLink === "string" ? firstLink : String(firstLink?.href ?? "");
+    }
+
+    guid = guid || link;
     if (!guid) continue;
+
     const image = extractItemImage(item);
+
+    const rawTitle =
+      typeof item["title"] === "string"
+        ? item["title"]
+        : item["title"] && typeof item["title"] === "object"
+          ? String((item["title"] as Record<string, unknown>)["value"] ?? "")
+          : "";
+
+    const description = String(
+      item["content"] ??
+        item["contentSnippet"] ??
+        item["summary"] ??
+        item["description"] ??
+        item["content:encoded"] ??
+        "",
+    );
+
+    const rawDate = String(
+      item["isoDate"] ??
+        item["pubDate"] ??
+        item["published"] ??
+        item["updated"] ??
+        (item["dc"] as Record<string, unknown> | undefined)?.["date"] ??
+        "",
+    );
+
+    const author =
+      typeof item["author"] === "string"
+        ? item["author"]
+        : ((item["author"] as Record<string, unknown> | undefined)?.["name"] ??
+          (item["dc"] as Record<string, unknown> | undefined)?.["creator"] ??
+          (Array.isArray(item["authors"])
+            ? ((item["authors"][0] as Record<string, unknown> | undefined)?.["name"] ??
+              item["authors"][0])
+            : undefined));
+
+    let category: string[] | undefined;
+    if (Array.isArray(item["categories"])) {
+      category = item["categories"]
+        .map((c) =>
+          typeof c === "string"
+            ? c
+            : ((c as Record<string, unknown> | undefined)?.["name"] ??
+              (c as Record<string, unknown> | undefined)?.["term"] ??
+              (c as Record<string, unknown> | undefined)?.["label"]),
+        )
+        .filter((c): c is string => typeof c === "string" && c.trim().length > 0);
+      if (category.length === 0) category = undefined;
+    }
 
     items.push({
       // title 可能是空串（上游 RSS 常见 bug），?? 兜不住，需显式回退；
       // 回退顺序：link 路径最后一段 slug（如 langchain 空标题条的 slug 即完整标题）→ 占位符
       // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- 空串也算缺失，必须用 || 而非 ??
-      title: item.title?.trim() || fallbackTitle(item.link ?? "") || "(无标题)",
-      description: item.content ?? item.summary ?? "",
-      link: item.link ?? "",
+      title: rawTitle.trim() || fallbackTitle(link) || "(无标题)",
+      description,
+      link,
       guid,
-      pubDate: normalizeDate(item.isoDate ?? item.pubDate ?? ""),
-      ...(item.creator ? { author: item.creator } : {}),
-      ...(item.categories?.length ? { category: item.categories } : {}),
+      pubDate: normalizeDate(rawDate),
+      ...(author ? { author: String(author) } : {}),
+      ...(category ? { category } : {}),
       ...(image ? { image } : {}),
     });
   }
-  return { items, ...(feed.title !== undefined ? { title: feed.title } : {}) };
+
+  const feedTitle = typeof feed["title"] === "string" ? feed["title"] : undefined;
+  return { items, ...(feedTitle !== undefined ? { title: feedTitle } : {}) };
 }
 
 // 空标题兜底：取 link 路径最后一段 slug（如 "building-monday-com-sidekick"），连字符转空格；
@@ -129,13 +206,71 @@ function fallbackTitle(link: string): string {
     .replace(/[-_]+/g, " ");
 }
 
-// 提取 item 缩略图：优先 media:content 的 url，其次图片类型的 enclosure
-function extractItemImage(
-  item: Parser.Item & { media?: Array<{ $?: { url?: string } }> },
-): string | undefined {
-  const mediaUrl = item.media?.[0]?.$?.url;
-  if (mediaUrl) return mediaUrl;
-  if (item.enclosure?.type?.startsWith("image/")) return item.enclosure.url;
+// 提取文章缩略图：按优先级兼容多种 RSS 规范（Media RSS 命名空间 → 图片附件 enclosure → iTunes 播客封面 → 通用 image 字段）
+function extractItemImage(item: Record<string, unknown>): string | undefined {
+  const media = item["media"] as Record<string, unknown> | undefined;
+  if (media && typeof media === "object") {
+    // 优先从 Media RSS 命名空间的缩略图列表提取
+    if (Array.isArray(media["thumbnails"]) && media["thumbnails"][0]) {
+      const firstThumb = media["thumbnails"][0] as Record<string, unknown>;
+      const url = firstThumb["url"];
+      if (typeof url === "string" && url) return url;
+    }
+    // 其次尝试 Media RSS 媒体内容列表
+    if (Array.isArray(media["contents"]) && media["contents"][0]) {
+      const firstContent = media["contents"][0] as Record<string, unknown>;
+      const url = firstContent["url"];
+      if (typeof url === "string" && url) return url;
+    }
+    // 尝试 Media RSS 媒体分组中的子内容
+    if (Array.isArray(media["groups"]) && media["groups"][0]) {
+      const group = media["groups"][0] as Record<string, unknown>;
+      if (Array.isArray(group["contents"]) && group["contents"][0]) {
+        const firstGroupContent = group["contents"][0] as Record<string, unknown>;
+        const url = firstGroupContent["url"];
+        if (typeof url === "string" && url) return url;
+      }
+    }
+    // 兜底读取媒体直链或 XML 属性中的 URL
+    const rawUrl =
+      typeof media["url"] === "string"
+        ? media["url"]
+        : (media["$"] as Record<string, unknown> | undefined)?.["url"];
+    if (typeof rawUrl === "string" && rawUrl) return rawUrl;
+  }
+
+  // 提取 MIME 类型为图片的 enclosure 附件
+  const enclosures = Array.isArray(item["enclosures"])
+    ? item["enclosures"]
+    : item["enclosure"]
+      ? [item["enclosure"]]
+      : [];
+  for (const enc of enclosures) {
+    if (enc && typeof enc === "object") {
+      const e = enc as Record<string, unknown>;
+      const type = typeof e["type"] === "string" ? e["type"] : "";
+      const url = typeof e["url"] === "string" ? e["url"] : "";
+      if (type.startsWith("image/") && url) return url;
+    }
+  }
+
+  // 提取 iTunes 播客扩展的图片标签（itunes:image）
+  const itunes = item["itunes"] as Record<string, unknown> | undefined;
+  if (itunes && typeof itunes === "object") {
+    if (typeof itunes["image"] === "string" && itunes["image"]) return itunes["image"];
+    if (itunes["image"] && typeof itunes["image"] === "object") {
+      const href = (itunes["image"] as Record<string, unknown>)["href"];
+      if (typeof href === "string" && href) return href;
+    }
+  }
+
+  // 兜底提取条目顶层的 image 字段
+  if (typeof item["image"] === "string" && item["image"]) return item["image"];
+  if (item["image"] && typeof item["image"] === "object") {
+    const imgUrl = (item["image"] as Record<string, unknown>)["url"];
+    if (typeof imgUrl === "string" && imgUrl) return imgUrl;
+  }
+
   return undefined;
 }
 
@@ -239,6 +374,7 @@ export async function syncAll(): Promise<SyncResult> {
     let backfillTitle: string | undefined;
     try {
       if (source.type === "rss") {
+        await checkSSRF(source.url);
         const res = await fetch(source.url, { signal: AbortSignal.timeout(30_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const xml = await res.text();

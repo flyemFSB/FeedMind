@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { searchWiki } from "../../modules/wiki/search-service.js";
 
 export const wikiSearchTool = createTool({
   id: "wiki_search",
@@ -17,54 +18,35 @@ Use this when you need to find information across the wiki.`,
       .optional()
       .describe("Number of results to return (default 10)."),
   }),
-  execute: async ({ spaceId, query, topK }, { requestContext }) => {
-    const backendApiUrl =
-      (requestContext?.get("backendApiUrl") as string) || "http://localhost:18790";
-    const baseUrl = backendApiUrl.replace(/\/+$/, "");
-    const url = `${baseUrl}/wiki/spaces/${encodeURIComponent(spaceId)}/search`;
+  execute: async ({ spaceId, query, topK }) => {
+    try {
+      const data = await searchWiki(spaceId, query, topK ?? 10);
+      const results = data.results ?? [];
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ query, topK: topK ?? 10 }),
-      signal: AbortSignal.timeout(5_000),
-    });
+      if (results.length === 0) {
+        return `No results found for "${query}".`;
+      }
 
-    if (!response.ok) {
+      const lines = [
+        `Search results for "${query}" (${data.totalHits ?? results.length} hits):`,
+        "",
+      ];
+
+      for (const r of results.slice(0, topK ?? 10)) {
+        lines.push(`- ${r.title}${r.titleMatch ? " [TITLE MATCH]" : ""}`);
+        lines.push(`  Path: ${r.path}`);
+        lines.push(`  ${r.snippet}`);
+        lines.push(`  Score: ${r.score.toFixed(1)}`);
+        lines.push("");
+      }
+
+      return lines.join("\n");
+    } catch {
       return JSON.stringify({
         error: "WIKI_SEARCH_FAILED",
         spaceId,
         query,
-        status: response.status,
       });
     }
-
-    const data = (await response.json()) as {
-      results?: Array<{
-        title: string;
-        titleMatch?: boolean;
-        path: string;
-        snippet: string;
-        score: number;
-      }>;
-      totalHits?: number;
-    };
-    const results = data.results ?? [];
-
-    if (results.length === 0) {
-      return `No results found for "${query}".`;
-    }
-
-    const lines = [`Search results for "${query}" (${data.totalHits ?? results.length} hits):`, ""];
-
-    for (const r of results.slice(0, topK ?? 10)) {
-      lines.push(`- ${r.title}${r.titleMatch ? " [TITLE MATCH]" : ""}`);
-      lines.push(`  Path: ${r.path}`);
-      lines.push(`  ${r.snippet}`);
-      lines.push(`  Score: ${r.score.toFixed(1)}`);
-      lines.push("");
-    }
-
-    return lines.join("\n");
   },
 });

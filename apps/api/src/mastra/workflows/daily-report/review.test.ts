@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
-import { parseReview, reviewAndFix } from "./review.js";
+import type { ReviewResult } from "./review.js";
+import { reviewAndFix } from "./review.js";
 
 const items: ExtractItem[] = [
   { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },
@@ -22,18 +23,8 @@ const script: DailyReportScript = {
   closing: { summary: "总结" },
 };
 
-const passJson = JSON.stringify({ verdict: "pass", issues: [] });
-const failJson = JSON.stringify({ verdict: "fail", issues: ["来源标注不一致"] });
-
-describe("parseReview", () => {
-  it("剥离代码块后解析 pass", () => {
-    expect(parseReview(`\`\`\`json\n${passJson}\n\`\`\``).verdict).toBe("pass");
-  });
-
-  it("非法 verdict 抛错", () => {
-    expect(() => parseReview('{"verdict":"maybe","issues":[]}')).toThrow();
-  });
-});
+const passResult: ReviewResult = { verdict: "pass", issues: [] };
+const failResult: ReviewResult = { verdict: "fail", issues: ["来源标注不一致"] };
 
 describe("reviewAndFix", () => {
   it("首次评估通过即放行", async () => {
@@ -41,7 +32,7 @@ describe("reviewAndFix", () => {
     const result = await reviewAndFix(script, items, {
       evaluate: async () => {
         evaluated++;
-        return passJson;
+        return passResult;
       },
     });
     expect(result.attempts).toBe(1);
@@ -55,7 +46,7 @@ describe("reviewAndFix", () => {
     const result = await reviewAndFix(script, items, {
       evaluate: async () => {
         evaluated++;
-        return evaluated === 1 ? failJson : passJson;
+        return evaluated === 1 ? failResult : passResult;
       },
       rewrite: async () => {
         rewrites++;
@@ -70,16 +61,16 @@ describe("reviewAndFix", () => {
   it("达上限仍失败则抛错（上层标记运行失败）", async () => {
     await expect(
       reviewAndFix(script, items, {
-        evaluate: async () => failJson,
+        evaluate: async () => failResult,
       }),
     ).rejects.toThrow("审稿 3 次未通过");
   });
 
-  it("评估输出无法解析按未通过处理并重试", async () => {
+  it("评估抛错（含 structuredOutput 校验失败）按未通过处理并重试", async () => {
     const result = await reviewAndFix(script, items, {
       evaluate: async (s) => {
-        if (s.opening.hook === "重写后") return passJson;
-        return "无法解析的输出";
+        if (s.opening.hook === "重写后") return passResult;
+        throw new Error("structuredOutput 校验失败");
       },
       rewrite: async () => ({ ...script, opening: { hook: "重写后" } }),
     });
@@ -91,7 +82,7 @@ describe("reviewAndFix", () => {
     const result = await reviewAndFix(script, [], {
       evaluate: async () => {
         evaluated = true;
-        return passJson;
+        return passResult;
       },
     });
     expect(result.attempts).toBe(0);

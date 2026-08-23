@@ -1,4 +1,11 @@
+import { enableCompileCache } from "node:module";
 import "./env-loader.js";
+
+try {
+  enableCompileCache();
+} catch {
+  // 忽略低版本 Node.js 环境
+}
 
 import { startApi } from "./server-core.js";
 import { logger } from "./lib/logger.js";

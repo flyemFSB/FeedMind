@@ -7,15 +7,28 @@ describe("checkSSRF", () => {
   it("拒绝 localhost 与常见回环别名", async () => {
     await expect(checkSSRF("http://localhost:8080/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://127.0.0.1/")).rejects.toThrow("SSRF blocked");
+    await expect(checkSSRF("http://127.127.1.1/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://0.0.0.0/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://[::1]/")).rejects.toThrow("SSRF blocked");
   });
 
-  it("拒绝各私网 IP 段（含 172.16-31 边界）", async () => {
+  it("拒绝各私网 IP 段（含 172.16-31 边界与 10/192.168）", async () => {
     await expect(checkSSRF("http://10.0.0.1/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://172.16.0.1/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://172.31.255.255/")).rejects.toThrow("SSRF blocked");
     await expect(checkSSRF("http://192.168.1.1/")).rejects.toThrow("SSRF blocked");
+  });
+
+  it("拒绝云厂商元数据与链路本地地址 (169.254.0.0/16)", async () => {
+    await expect(checkSSRF("http://169.254.169.254/latest/meta-data/")).rejects.toThrow(
+      "SSRF blocked",
+    );
+    await expect(checkSSRF("http://169.254.1.1/")).rejects.toThrow("SSRF blocked");
+  });
+
+  it("拒绝 IPv4-mapped IPv6 私有地址", async () => {
+    await expect(checkSSRF("http://[::ffff:127.0.0.1]/")).rejects.toThrow("SSRF blocked");
+    await expect(checkSSRF("http://[::ffff:192.168.1.1]/")).rejects.toThrow("SSRF blocked");
   });
 
   it("拒绝 IPv6 私网/链路本地段", async () => {
@@ -27,5 +40,6 @@ describe("checkSSRF", () => {
   it("公网域名与公网 IP 放行", async () => {
     await expect(checkSSRF("https://example.com/article")).resolves.toBeUndefined();
     await expect(checkSSRF("https://8.8.8.8/")).resolves.toBeUndefined();
+    await expect(checkSSRF("https://1.1.1.1/dns-query")).resolves.toBeUndefined();
   });
 });

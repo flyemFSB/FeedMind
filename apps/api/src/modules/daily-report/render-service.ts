@@ -3,6 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { DailyReportScript } from "@feedmind/contracts";
 import { logger } from "../../lib/logger.js";
+import { createFallbackTimeline, type VideoTimeline } from "./timeline.js";
 
 export interface CaptionCue {
   startSec: number;
@@ -56,13 +57,14 @@ export function resolveBrowserExecutable(
 
 /**
  * 用 Remotion 渲染日报视频：bundle 组合 → 选 composition → renderMedia 产出 mp4。
- * narration.mp3 / narration.srt 由配音步写入 outputDir，作为 bundle publicDir 供 staticFile 引用。
+ * 分段音频 seg-*.mp3 / narration.srt / timeline 由配音步写入 outputDir，作为 bundle publicDir 供 staticFile 引用。
  * 优先系统 Chrome/Edge（无则 Remotion 自动下载 headless shell），字体用系统内置不额外下载；
  * 渲染失败抛错由调用方回退占位。
  */
 export async function renderReportVideo(
   script: DailyReportScript,
   outputDir: string,
+  timeline?: VideoTimeline,
 ): Promise<{ videoPath: string; durationSec: number }> {
   // 动态加载：仅渲染时引入 Remotion 重依赖，避免拖慢服务启动与无关测试
   const [{ bundle }, { renderMedia, selectComposition }] = await Promise.all([
@@ -80,13 +82,15 @@ export async function renderReportVideo(
     logger.warn({ outputDir }, "未找到 narration.srt，本视频将无字幕");
   }
 
+  const effectiveTimeline = timeline ?? createFallbackTimeline(script);
+
   const serveUrl = await bundle({
     entryPoint,
     publicDir: outputDir,
     onProgress: (p) => logger.debug({ progress: p }, "Remotion bundle 进度"),
   });
 
-  const inputProps = { script, captions };
+  const inputProps = { script, captions, timeline: effectiveTimeline };
   const composition = await selectComposition({ serveUrl, id: "DailyBrief", inputProps });
 
   // 优先系统浏览器（Chrome→Edge），避免下载 headless shell；系统浏览器用 --headless=new

@@ -1,9 +1,20 @@
 import { eq } from "drizzle-orm";
 import { db, remoteConnections } from "@feedmind/db";
 import { randomUUID } from "node:crypto";
-import { Client, AppType, EventDispatcher, WSClient, LoggerLevel } from "@larksuiteoapi/node-sdk";
+import type * as LarkSdk from "@larksuiteoapi/node-sdk";
+import type { Client, WSClient } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
+
+type LarkSdkModule = typeof LarkSdk;
+let larkSdkModule: LarkSdkModule | null = null;
+
+async function getLarkSdk(): Promise<LarkSdkModule> {
+  if (!larkSdkModule) {
+    larkSdkModule = await import("@larksuiteoapi/node-sdk");
+  }
+  return larkSdkModule;
+}
 
 let sdkClient: Client | null = null;
 let wsClient: WSClient | null = null;
@@ -31,12 +42,13 @@ async function getConfig() {
   }
 }
 
-function ensureClient(cfg: { appId: string; appSecret: string }): Client {
+async function ensureClient(cfg: { appId: string; appSecret: string }): Promise<Client> {
   if (sdkClient) {
     const cached = sdkClient as unknown as { appId?: string; appSecret?: string };
     if (cached.appId === cfg.appId && cached.appSecret === cfg.appSecret) return sdkClient;
   }
-  sdkClient = new Client({
+  const { Client: LarkClient, AppType } = await getLarkSdk();
+  sdkClient = new LarkClient({
     appId: cfg.appId,
     appSecret: cfg.appSecret,
     appType: AppType.SelfBuild,
@@ -129,7 +141,7 @@ function buildMessageHandler() {
         const cfg = await getConfig();
         if (!cfg) return;
 
-        feishuClient = ensureClient(cfg);
+        feishuClient = await ensureClient(cfg);
         const threadId = `feishu:${openId}`;
 
         const stream = await feedmindAgent.stream(userText, {
@@ -207,7 +219,7 @@ function scheduleReconnect(): void {
   if (isStopping || reconnectTimer || isReconnecting) return;
   const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt), RECONNECT_MAX_MS);
   reconnectAttempt++;
-  logger.info({ delay, attempt: reconnectAttempt }, "飞书计划重连");
+  logger.info({ delay, attempt: reconnectAttempt }, "准备重连飞书 WebSocket");
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     void reconnect();
@@ -221,11 +233,11 @@ function startHealthCheck(): void {
     try {
       const ws = (wsClient as FeishuWsHandle)?.ws;
       if (ws?.readyState === 3) {
-        logger.warn("健康检查：飞书 WebSocket 已关闭，准备重连");
+        logger.warn("健康检查发现飞书 WebSocket 已关闭，准备重连");
         scheduleReconnect();
       }
     } catch {
-      /* 健康检查尽力而为 */
+      /* 健康检查异常无需阻塞主流程 */
     }
   }, HEALTH_CHECK_INTERVAL_MS);
 }
@@ -236,16 +248,16 @@ function attachWsEventListeners(): void {
     if (!ws) return;
     ws.on("close", () => {
       if (!isStopping) {
-        logger.warn("飞书 WebSocket 连接关闭，准备重连");
+        logger.warn("飞书 WebSocket 连接已关闭，准备重连");
         scheduleReconnect();
       }
     });
     ws.on("error", (err: unknown) => {
-      logger.error({ err }, "飞书 WebSocket 连接错误");
+      logger.error({ err }, "飞书 WebSocket 连接异常");
       if (!isStopping) scheduleReconnect();
     });
   } catch {
-    /* attachWsEventListeners 尽力而为 */
+    /* 事件监听器绑定失败不影响主流程 */
   }
 }
 
@@ -253,12 +265,14 @@ export async function startLongConnection(): Promise<void> {
   isStopping = false;
   const cfg = await getConfig();
   if (!cfg?.appId || !cfg?.appSecret) {
-    logger.info("飞书未配置，跳过长连接启动");
+    logger.info("飞书机器人未配置，跳过长连接启动");
     return;
   }
 
   wsClient = null;
   clearConnectionTimers();
+
+  const { EventDispatcher, WSClient, LoggerLevel } = await getLarkSdk();
 
   const ed = new EventDispatcher({}).register({
     "im.message.receive_v1": buildMessageHandler(),
@@ -283,7 +297,7 @@ export async function startLongConnection(): Promise<void> {
     startHealthCheck();
     attachWsEventListeners();
   } catch (err) {
-    logger.error({ err }, "飞书长连接启动失败");
+    logger.error({ err }, "飞书 WebSocket 长连接启动失败");
     wsClient = null;
     await db
       .update(remoteConnections)
@@ -297,11 +311,12 @@ export function stopLongConnection(): void {
   isStopping = true;
   clearConnectionTimers();
   closeWsClient();
-  logger.info("飞书长连接已断开");
+  logger.info("飞书 WebSocket 长连接已断开");
 }
 
 export async function saveAndVerify(config: { appId: string; appSecret: string }): Promise<void> {
-  const c = new Client({
+  const { Client: LarkClient, AppType } = await getLarkSdk();
+  const c = new LarkClient({
     appId: config.appId,
     appSecret: config.appSecret,
     appType: AppType.SelfBuild,
@@ -357,7 +372,7 @@ export async function sendMessage(
 ): Promise<void> {
   const cfg = await getConfig();
   if (!cfg) throw new Error("飞书未配置");
-  const c = ensureClient(cfg);
+  const c = await ensureClient(cfg);
   await c.im.message.create({
     params: { receive_id_type: receiveIdType },
     data: { receive_id: receiveId, msg_type: msgType, content },

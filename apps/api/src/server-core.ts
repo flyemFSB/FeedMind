@@ -1,5 +1,5 @@
-import { existsSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { createReadStream, existsSync, statSync } from "node:fs";
+import { Readable } from "node:stream";
 import path from "node:path";
 import type { ServerType } from "@hono/node-server";
 import { serve } from "@hono/node-server";
@@ -29,14 +29,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
   await initDbPragmas();
   await initDatabase();
 
-  if (apiEnv.DISABLE_INGEST_WORKER !== "1") {
-    startIngestWorker();
-  }
-
   initToolConfig();
-
-  // 飞书 WebSocket 长连接（无需公网 IP，飞书服务器主动推送事件）
-  await startLongConnection();
 
   const mastra = createMastra();
   setMastra(mastra);
@@ -44,9 +37,6 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
 
   const mastraServer = new MastraServer({ app, mastra });
   await mastraServer.init();
-
-  // 日报定时调度：Mastra schedules 承担触发，schedule_tasks 记账/UI 由同步层镜像
-  await startDailyReportScheduler(mastra);
 
   const webDist = options.webDist ? path.resolve(options.webDist) : undefined;
 
@@ -117,11 +107,23 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
     return baseFetch(request);
   };
 
-  return serve({
+  const server = serve({
     fetch: app.fetch,
     hostname: apiEnv.API_HOST,
     port: apiEnv.API_PORT,
   });
+
+  // 延迟启动后台常驻任务（Ingest Worker、飞书长连接、定时报表调度），
+  // 确保 HTTP Server 与 UI 首屏毫秒级就绪，平滑冷启动阶段的 CPU/内存峰值
+  setImmediate(() => {
+    if (apiEnv.DISABLE_INGEST_WORKER !== "1") {
+      startIngestWorker();
+    }
+    void startLongConnection();
+    void startDailyReportScheduler(mastra);
+  });
+
+  return server;
 }
 
 /** Web 构建产物常见文件的 MIME 映射（覆盖 Vite 输出） */
@@ -177,13 +179,19 @@ async function tryServeStatic(request: Request, webRoot: string): Promise<Respon
   const isRealFile = requestPath !== "/" && existsSync(filePath) && statSync(filePath).isFile();
 
   const target = isRealFile ? filePath : path.join(webRoot, "index.html");
-  const content = await readFile(target);
-  return new Response(content, {
+  const stat = statSync(target);
+  const nodeStream = createReadStream(target);
+  const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+  return new Response(webStream, {
     headers: {
       "content-type": isRealFile ? contentType(target) : "text/html; charset=utf-8",
+      "content-length": String(stat.size),
     },
   });
 }
 
 // 供 Electron 主进程注入惰性隐藏窗口创建/销毁逻辑
 export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";
+
+// 退出前等待 OM 后台写库完成（实现在 mastra/index.ts）
+export { waitForMemorySettled } from "./mastra/index.js";

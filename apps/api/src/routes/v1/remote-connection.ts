@@ -53,7 +53,7 @@ remoteConnectionRoutes.get("/remote-connections/feishu/status", async (c) => {
   return jsonOk(c, {
     configured: !!cfg,
     connected: !!cfg,
-    config: cfg ? { appId: cfg.appId, appSecret: cfg.appSecret } : null,
+    config: cfg ? { appId: cfg.appId } : null,
   });
 });
 

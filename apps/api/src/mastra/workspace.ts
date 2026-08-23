@@ -1,4 +1,4 @@
-import { Workspace } from "@mastra/core/workspace";
+import { Workspace, WORKSPACE_TOOLS } from "@mastra/core/workspace";
 import { LocalFilesystem } from "@mastra/core/workspace";
 import { resolveDataDir } from "../lib/data-dir.js";
 
@@ -10,26 +10,27 @@ import { resolveDataDir } from "../lib/data-dir.js";
  * Agent 将自动发现并注入 skill / skill_search / skill_read 工具。
  *
  * 禁用所有 workspace file tools（read_file, write_file 等），
- * 仅保留 skill 发现能力。
+ * 仅保留 skill 发现能力。工具名用官方常量，防上游改名静默失效。
  */
 export function createFeedMindWorkspace(): Workspace {
+  const { FILESYSTEM, SEARCH } = WORKSPACE_TOOLS;
   return new Workspace({
     id: "feedmind-skills",
     name: "FeedMind Skills",
     filesystem: new LocalFilesystem({ basePath: resolveDataDir() }),
     skills: ["skills"],
     tools: {
-      mastra_workspace_read_file: { enabled: false },
-      mastra_workspace_write_file: { enabled: false },
-      mastra_workspace_edit_file: { enabled: false },
-      mastra_workspace_list_files: { enabled: false },
-      mastra_workspace_delete: { enabled: false },
-      mastra_workspace_file_stat: { enabled: false },
-      mastra_workspace_mkdir: { enabled: false },
-      mastra_workspace_grep: { enabled: false },
-      mastra_workspace_ast_edit: { enabled: false },
-      mastra_workspace_search: { enabled: false },
-      mastra_workspace_index: { enabled: false },
+      [FILESYSTEM.READ_FILE]: { enabled: false },
+      [FILESYSTEM.WRITE_FILE]: { enabled: false },
+      [FILESYSTEM.EDIT_FILE]: { enabled: false },
+      [FILESYSTEM.LIST_FILES]: { enabled: false },
+      [FILESYSTEM.DELETE]: { enabled: false },
+      [FILESYSTEM.FILE_STAT]: { enabled: false },
+      [FILESYSTEM.MKDIR]: { enabled: false },
+      [FILESYSTEM.GREP]: { enabled: false },
+      [FILESYSTEM.AST_EDIT]: { enabled: false },
+      [SEARCH.SEARCH]: { enabled: false },
+      [SEARCH.INDEX]: { enabled: false },
     },
   });
 }

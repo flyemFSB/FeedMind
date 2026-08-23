@@ -24,12 +24,15 @@ import { logger } from "../../lib/logger.js";
 const feedmindWorkspace = createFeedMindWorkspace();
 
 // ── Memory / Observational Memory ─────────────────────────────────────────
-// mastra.db 必须与 Mastra storage（mastra/index.ts）同一文件：向量表与消息/线程
-// 表同库，不额外增加连接。
-const mastraDbUrl = `file:${resolve(resolveDataDir(), "mastra.db").replace(/\\/g, "/")}`;
-
-// LibSQLVector 无会话状态，跨请求共享单例；embedder 依赖用户配置，见 buildMemory。
-const feedmindVector = new LibSQLVector({ id: "feedmind-vector", url: mastraDbUrl });
+// LibSQLVector 无会话状态，跨请求共享单例；惰性初始化确保 resolveDataDir 读取到正确的 DATA_DIR
+let _feedmindVector: LibSQLVector | null = null;
+function getFeedmindVector(): LibSQLVector {
+  if (!_feedmindVector) {
+    const mastraDbUrl = `file:${resolve(resolveDataDir(), "mastra.db").replace(/\\/g, "/")}`;
+    _feedmindVector = new LibSQLVector({ id: "feedmind-vector", url: mastraDbUrl });
+  }
+  return _feedmindVector;
+}
 
 /**
  * memory 用函数形式（Mastra 每请求解析一次）：embedder 需异步查模型表，静态构造拿不到。
@@ -41,7 +44,7 @@ const feedmindVector = new LibSQLVector({ id: "feedmind-vector", url: mastraDbUr
 async function buildMemory(): Promise<Memory> {
   const embedder = await resolveEmbeddingModel();
   return new Memory({
-    ...(embedder ? { vector: feedmindVector, embedder } : {}),
+    ...(embedder ? { vector: getFeedmindVector(), embedder } : {}),
     options: {
       observationalMemory: {
         // 观察/反射后台模型：复用当前选中聊天模型（OM 的 model 支持函数动态解析，
@@ -109,6 +112,9 @@ ${getSubagentDescriptions()}
           temperature: cfg.temperature,
           topP: cfg.top_p,
           ...(maxTokens ? { maxOutputTokens: maxTokens } : {}),
+          // 运行硬上限（core 1.60+）：stepMs 防单次 LLM 调用挂死，totalMs 防工具循环失控。
+          // 深度研究任务合法耗时可达数分钟，故给足余量而非激进值。
+          timeout: { totalMs: 15 * 60_000, stepMs: 120_000 },
         },
       };
     } catch (err) {
