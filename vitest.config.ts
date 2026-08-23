@@ -6,6 +6,18 @@ const root = import.meta.dirname;
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "json-summary"],
+      include: ["packages/*/src/**/*.ts", "apps/api/src/**/*.ts", "apps/web/lib/**/*.ts"],
+      exclude: [
+        "**/*.d.ts",
+        "**/*.test.ts",
+        "**/*.integration.test.ts",
+        "**/dist/**",
+        "**/node_modules/**",
+      ],
+    },
     projects: [
       {
         test: {
@@ -40,6 +52,8 @@ export default defineConfig({
           root: `${root}/apps/api`,
           include: ["src/**/*.test.ts"],
           setupFiles: ["./vitest.setup.ts"],
+          hookTimeout: 30000,
+          testTimeout: 30000,
         },
       },
       {

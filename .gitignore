@@ -1,83 +1,137 @@
-# Environment
+# ==============================================================================
+# FeedMind .gitignore
+# 知识管理、AI 对话、内容爬取服务平台
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. 环境变量与敏感凭据 (Environment & Secrets)
+# ------------------------------------------------------------------------------
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
 
-# Python / uv
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-pytest-cache-files-*/
-tests/
-.mypy_cache/
-.ruff_cache/
-.cache/
-.coverage
-htmlcov/
-.hypothesis/
-.tox/
-.nox/
-dist/
-release/
-
-# Node / Bun / Next.js
+# ------------------------------------------------------------------------------
+# 2. 依赖管理与包管理器 (Dependencies & Package Managers)
+# ------------------------------------------------------------------------------
 node_modules/
 .pnpm-store/
-.next/
-out/
-build/
-coverage/
-.turbo/
-.vercel/
-*.tsbuildinfo
+package-lock.json
+yarn.lock
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-package-lock.json
 
-# Runtime data
-*.sqlite
-*.sqlite3
-*.db
-*.db-*
-*.log
+# ------------------------------------------------------------------------------
+# 3. 构建与编译产物 (Build Outputs & Release)
+# ------------------------------------------------------------------------------
+dist/
+dist-electron/
+build/
+out/
+release/
+release-builds/
+*.exe
+*.zip
+*.asar
+*.asar.unpacked
+builder-effective-config.yaml
+builder-debug.yml
+*.tsbuildinfo
+.tsbuildinfo/
+.turbo/
+.vercel/
+.next/
+
+# ------------------------------------------------------------------------------
+# 4. 测试与覆盖率产物 (Test & Coverage Artifacts)
+# ------------------------------------------------------------------------------
+coverage/
+htmlcov/
+.coverage
+.pytest_cache/
+pytest-cache-files-*/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+.playwright-mcp/
+.vitest/
+
+# ------------------------------------------------------------------------------
+# 5. 运行时数据与数据库 (Runtime Data & Databases)
+# ------------------------------------------------------------------------------
 data/
 logs/
-
-# Mastra build output
+*.log
+*.sqlite*
+*.db*
 .mastra/
+drizzle/
+raw/
+.feedmind/
+**/raw/
+**/.feedmind/
 
-# Impeccable design system sidecar
-.impeccable/
-
-# Qoder AI agent working directory
-.qoder/
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.idea/
-.vscode/
-
-# Local temp files
-_tmp_*
-*.tmp
+# ------------------------------------------------------------------------------
+# 6. 本地临时与缓存文件 (Temp & Cache Files)
+# ------------------------------------------------------------------------------
 tmp/
 temp/
-
-# Playwright MCP 输出（页面快照/控制台日志）
-.playwright-mcp/
-
-# Documentation
-docs/
-
-# 本地草稿/实验目录
+_tmp_*
+*.tmp
 .scratch/
+.cache/
+.venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
 
-# Claude Code 项目配置
-# .claude/settings.json 跟随仓库（跨机器/团队共享插件与配置）；
-# 个人本地配置不进 git
-.claude/settings.local.json
+# ------------------------------------------------------------------------------
+# 7. 操作系统与编辑器/IDE (OS & IDEs / AI Assistants)
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 编辑器临时与备份
+*~
+*.swp
+*.swo
+*.swn
+*.bak
+
+# IDE & AI 工具
+.idea/
+.vscode/
+.cursor/
+.gemini/
+.antigravity/
+.impeccable/
+.qoder/
 .pi-subagents/
+
+# Claude Code: 保留团队共享 settings.json，仅忽略本地个人配置
+.claude/settings.local.json
+.claude/mcp.local.json
+
+# Husky 内部生成目录
+.husky/_/

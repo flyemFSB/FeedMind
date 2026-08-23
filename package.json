@@ -17,6 +17,8 @@
     "build:packages": "pnpm --filter \"./packages/*\" build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck",
     "db:init": "pnpm --filter @feedmind/db db:init",
     "db:push": "pnpm --filter @feedmind/db db:push",
@@ -25,20 +27,23 @@
     "api:dev": "pnpm --filter @feedmind/api dev",
     "desktop:dev": "chcp 65001 >nul && pnpm run build:packages && pnpm --filter @feedmind/api build && pnpm --filter @feedmind/desktop build && concurrently -k -n web,desktop \"pnpm --filter @feedmind/web dev\" \"pnpm --filter @feedmind/desktop dev\"",
     "desktop": "pnpm run build && pnpm --filter @feedmind/desktop start",
+    "desktop:dist": "pnpm run build && pnpm --filter @feedmind/desktop dist && git archive --format=zip --output=release/FeedMind-0.1.0-source.zip HEAD",
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.0.2",
-    "@commitlint/config-conventional": "^21.0.2",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@types/node": "catalog:",
-    "concurrently": "^10.0.3",
+    "concurrently": "^10.0.5",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.7",
+    "lint-staged": "^17.3.0",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "@playwright/test": "catalog:"
   },
   "lint-staged": {
     "*.{ts,tsx,mjs}": [

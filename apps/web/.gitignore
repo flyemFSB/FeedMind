@@ -1,2 +1,0 @@
-# 本地 HTTPS 开发证书（其余产物：node_modules/dist/.env 等由根 .gitignore 统一管理）
-*.pem

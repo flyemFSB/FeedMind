@@ -41,5 +41,11 @@ jobs:
       - name: 代码检查
         run: pnpm lint
 
-      - name: 测试
+      - name: 单元与 API 集成测试
         run: pnpm test
+
+      - name: 安装 Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Web 端核心 E2E 测试
+        run: pnpm test:e2e
