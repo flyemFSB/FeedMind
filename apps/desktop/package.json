@@ -1,25 +1,31 @@
 {
   "name": "@feedmind/desktop",
   "version": "0.1.0",
+  "description": "FeedMind 桌面应用",
+  "author": "FeedMind Team",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
   "scripts": {
-    "build": "tsc -b",
-    "dev": "cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:13790 electron .",
+    "build": "node build.mjs",
+    "dev": "electron .",
     "start": "electron .",
     "lint": "oxlint .",
     "typecheck": "tsc -b --pretty false",
     "dist": "electron-builder --config electron-builder.yml"
   },
   "dependencies": {
-    "@feedmind/api": "workspace:*",
-    "dotenv": "catalog:"
+    "@libsql/client": "^0.17.3",
+    "@remotion/bundler": "4.0.507",
+    "@remotion/renderer": "4.0.507",
+    "playwright-core": "^1.60.0",
+    "remotion": "4.0.507"
   },
   "devDependencies": {
-    "cross-env": "^7.0.3",
+    "@feedmind/api": "workspace:*",
     "electron": "^43.0.0",
     "electron-builder": "^26.0.0",
+    "esbuild": "^0.25.0",
     "oxlint": "catalog:",
     "typescript": "catalog:"
   }

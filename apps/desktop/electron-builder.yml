@@ -3,17 +3,51 @@ productName: FeedMind
 artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 directories:
   output: ../../release
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
+  customDir: "{{ version }}"
+afterPack: ./after-pack.mjs
+asar: true
+asarUnpack:
+  - "**/better-sqlite3/**/*"
+  - "**/@libsql/**/*"
+  - "**/@remotion/compositor-win32-x64-msvc/**/*"
+  - "**/@firecrawl/anydoc-win32-x64-msvc/**/*"
 files:
-  - dist/**/*
+  - dist/main.js
   - package.json
-  # API 生产服务所需全量产物（node_modules 由 builder 根据 dependencies 打包）
-  - node_modules/@feedmind/api/dist/**/*
-  - node_modules/@feedmind/contracts/dist/**/*
-  - node_modules/@feedmind/db/dist/**/*
-  - node_modules/@feedmind/env/dist/**/*
-  - node_modules/@feedmind/shared/dist/**/*
-  - node_modules/@feedmind/wiki-core/dist/**/*
-  - node_modules/@feedmind/crawler-core/dist/**/*
+  # Remotion 组合源码：render-service 运行时按相对路径 bundle 此目录
+  - node_modules/@feedmind/api/remotion/**/*
+  # 仅保留必需的原生依赖与二进制
+  - node_modules/@libsql/client/**/*
+  - node_modules/@libsql/win32-x64-msvc/**/*
+  - node_modules/@remotion/**/*
+  - node_modules/remotion/**/*
+  - node_modules/@rspack/binding-win32-x64-msvc/**/*
+  - node_modules/@esbuild/win32-x64/**/*
+  - node_modules/@firecrawl/anydoc-win32-x64-msvc/**/*
+  - node_modules/playwright-core/**/*
+  # 剔除已被 bundle 进 dist/main.js 的纯 JS 重型依赖
+  - "!node_modules/@mastra/**"
+  - "!node_modules/@ai-sdk/**"
+  - "!node_modules/ai/**"
+  - "!node_modules/@larksuiteoapi/**"
+  - "!node_modules/@modelcontextprotocol/**"
+  - "!node_modules/drizzle-orm/**"
+  - "!node_modules/js-tiktoken/**"
+  - "!node_modules/openai/**"
+  - "!node_modules/zod/**"
+  - "!node_modules/react-dom/**"
+  - "!node_modules/@a2a-js/**"
+  - "!node_modules/@zip.js/**"
+  # 剔除非 win32-x64 平台的无效变体
+  - "!node_modules/**/@rspack/binding-{darwin,linux}-*/**"
+  - "!node_modules/**/@rspack/binding-win32-{arm64,ia32}-msvc/**"
+  - "!node_modules/**/@rspack/binding-wasm32-wasi/**"
+  - "!node_modules/**/@esbuild/{aix-ppc64,android-*,darwin-*,freebsd-*,linux-*,netbsd-*,openbsd-*,openharmony-*,sunos-x64,win32-arm64,win32-ia32}/**"
+  - "!node_modules/**/@remotion/compositor-{darwin,linux}-*/**"
+  - "!node_modules/**/@libsql/{darwin,linux}-*/**"
+  - "!node_modules/**/@firecrawl/anydoc-{darwin,linux}-*/**"
 extraResources:
   # Web 静态产物打入 resources/web-dist，API 在生产模式同源提供 SPA 托管
   - from: ../web/dist
@@ -23,3 +57,4 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  differentialPackage: false
