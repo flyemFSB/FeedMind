@@ -1,4 +1,4 @@
-import CryptoJS from "crypto-js";
+import { createHash, createDecipheriv } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { db, cookieCloud, cookieStore } from "@feedmind/db";
 import { eq } from "drizzle-orm";
@@ -217,7 +217,28 @@ export async function saveManualCookies(platform: string, cookies: string): Prom
     });
 }
 
-// 严格对齐 CryptoJS 行为以保证兼容性；
+// EVP_BytesToKey：兼容 OpenSSL / CryptoJS legacy 加密格式（Salted__ + MD5 派生 key/iv）
+function evpBytesToKey(
+  password: string,
+  salt: Buffer,
+  keyLen: number,
+  ivLen: number,
+): { key: Buffer; iv: Buffer } {
+  let d = Buffer.alloc(0);
+  let concatenated = Buffer.alloc(0);
+  while (concatenated.length < keyLen + ivLen) {
+    d = createHash("md5")
+      .update(Buffer.concat([d, Buffer.from(password, "utf8"), salt]))
+      .digest();
+    concatenated = Buffer.concat([concatenated, d]);
+  }
+  return {
+    key: concatenated.subarray(0, keyLen),
+    iv: concatenated.subarray(keyLen, keyLen + ivLen),
+  };
+}
+
+// 严格对齐 CookieCloud 算法以保证兼容性；
 // CookieCloud 如果改算法这里需要同步更新。
 export function decrypt(
   uuid: string,
@@ -225,24 +246,33 @@ export function decrypt(
   password: string,
   cryptoType: string = "legacy",
 ): unknown {
-  const hash = CryptoJS.MD5(uuid + "-" + password).toString();
+  const hash = createHash("md5")
+    .update(uuid + "-" + password)
+    .digest("hex");
 
   if (cryptoType === "aes-128-cbc-fixed") {
-    const key = CryptoJS.enc.Utf8.parse(hash.substring(0, 16));
-    const iv = CryptoJS.enc.Hex.parse("00000000000000000000000000000000");
-    const decrypted = CryptoJS.AES.decrypt(encrypted, key, {
-      iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7,
-    });
-    return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+    const key = Buffer.from(hash.substring(0, 16), "utf8");
+    const iv = Buffer.alloc(16, 0);
+    const decipher = createDecipheriv("aes-128-cbc", key, iv);
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(encrypted, "base64")),
+      decipher.final(),
+    ]);
+    return JSON.parse(decrypted.toString("utf8"));
   }
 
-  // legacy: CryptoJS.AES.decrypt(ciphertext, password_string)
-  //   → uses EVP_BytesToKey internally with random salt (Salted__ format)
-  const key = hash.substring(0, 16);
-  const decrypted = CryptoJS.AES.decrypt(encrypted, key);
-  return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
+  // legacy 模式：对齐 CookieCloud 默认 OpenSSL Salted 格式（EVP_BytesToKey MD5 派生 32 字节 Key 与 16 字节 IV）
+  const keyStr = hash.substring(0, 16);
+  const raw = Buffer.from(encrypted, "base64");
+  if (raw.subarray(0, 8).toString("utf8") !== "Salted__") {
+    throw new Error("Invalid legacy ciphertext: missing Salted__ header");
+  }
+  const salt = raw.subarray(8, 16);
+  const ciphertext = raw.subarray(16);
+  const { key, iv } = evpBytesToKey(keyStr, salt, 32, 16);
+  const decipher = createDecipheriv("aes-256-cbc", key, iv);
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return JSON.parse(decrypted.toString("utf8"));
 }
 
 // 扩展同步数据结构：{ cookie_data: { "域名": [{name, value, ...}, ...], ... } }

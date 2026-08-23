@@ -21,7 +21,7 @@ crawlerRoutes.post("/crawler/tasks", async (c) => {
   const payload = await parseJson(c, taskCreateSchema);
   const task = await createCrawlerTask(payload);
   void logOperation({ action: "create", target: "crawler_task", targetName: task.route });
-  return jsonOk(c, { data: task }, 201);
+  return jsonOk(c, task, 201);
 });
 
 // 列出微信读书书架中的公众号（供前端选择指定订阅）
@@ -68,7 +68,7 @@ crawlerRoutes.get("/crawler/tasks", async (c) => {
 
 crawlerRoutes.get("/crawler/tasks/:id", async (c) => {
   const task = await getTask(c.req.param("id"));
-  return jsonOk(c, { data: task });
+  return jsonOk(c, task);
 });
 
 crawlerRoutes.get("/crawler/tasks/:id/rss", async (c) => {
@@ -85,7 +85,7 @@ crawlerRoutes.post("/crawler/tasks/:id/cancel", async (c) => {
     targetName: task.route,
     detail: "取消任务",
   });
-  return jsonOk(c, { data: task }, 202);
+  return jsonOk(c, task, 202);
 });
 
 crawlerRoutes.delete("/crawler/tasks/:id", async (c) => {
