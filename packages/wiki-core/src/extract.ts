@@ -181,10 +181,10 @@ async function extractImageInfo(filePath: string, fileName: string): Promise<Ext
   }
 
   return {
-    text: `# ${fileName}\n\nImage file — included for reference.\n\n${metadata ? `## Metadata\n${metadata}` : ""}`,
+    text: `# ${fileName}\n\n图片文件（作为参考材料归档）\n\n${metadata ? `## 元数据\n${metadata}` : ""}`,
     wordCount: 0,
     mimeType: mimeFromExt(ext) || "image/unknown",
-    warnings: IMAGE_EXTS.has(ext) ? [] : [`Unsupported image format: ${ext}`],
+    warnings: IMAGE_EXTS.has(ext) ? [] : [`不支持的图片格式: .${ext}`],
   };
 }
 

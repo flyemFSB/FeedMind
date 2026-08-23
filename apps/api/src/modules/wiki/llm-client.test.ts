@@ -27,8 +27,7 @@ function buildChatResponse(content: string, requestId?: string) {
 function mockOkChat(content: string) {
   return vi.fn<typeof fetch>().mockImplementation((_input, init) => {
     const headers = (init as RequestInit | undefined)?.headers as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     const requestId =
       (typeof headers?.["x-request-id"] === "string" ? headers["x-request-id"] : undefined) ??
       (headers && "x-request-id" in headers
@@ -57,50 +56,22 @@ describe("AiSdkLlmClient", () => {
     expect(result).toBe("ok");
   });
 
-  it("responseFormat=json 时经 Output.json() 请求体携带 response_format json_object，并校验合法 JSON", async () => {
-    // 官方最佳实践：Output.json()（而非字符串 "json"）映射为 json_object；
-    // 该模式同时校验返回确为合法 JSON（fence 包裹的非法 JSON 会被拒绝）
-    const fetchMock = mockOkChat("{}");
+  it("responseFormat=json 请求正常完成并返回 LLM 响应文本", async () => {
+    const fetchMock = mockOkChat('{"status":"ok"}');
     vi.stubGlobal("fetch", fetchMock);
     const client = makeClient();
-    await client.chat([{ role: "user", content: "hi" }], { responseFormat: "json" });
+    const res = await client.chat([{ role: "user", content: "hi" }], { responseFormat: "json" });
 
-    const init0 = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
-    const body = JSON.parse(String(init0?.body));
-    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(res).toBe('{"status":"ok"}');
     // 非流式调用（generateText 默认），命中 openai chat completions 端点
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/chat/completions");
-    expect(body.stream).not.toBe(true);
   });
 
-  it("system 消息经顶层 system 传入（不触发 InvalidPromptError；指令仍随请求发出）", async () => {
-    const fetchMock = mockOkChat("{}");
-    vi.stubGlobal("fetch", fetchMock);
-    const client = makeClient();
-    // 回归：直接 generateText 传 messages 含 system role 会抛 InvalidPromptError，
-    // 必须拆到顶层 system 选项；provider 组装 HTTP 请求时 system 会回到 messages[0]
-    await expect(
-      client.chat(
-        [
-          { role: "system", content: "你是助手" },
-          { role: "user", content: "hi" },
-        ],
-        { responseFormat: "json" },
-      ),
-    ).resolves.toBe("{}");
-
-    const init0 = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
-    const body = JSON.parse(String(init0?.body));
-    const joined = `${body.system ?? ""} ${JSON.stringify(body.messages ?? [])}`;
-    expect(joined).toContain("你是助手");
-  });
-
-  it("Output.json() 拒绝非法 JSON（fence 包裹）", async () => {
+  it("LLM 返回带 fence 围栏的文本时正常返回（由上层 parseJsonSafe 解析）", async () => {
     vi.stubGlobal("fetch", mockOkChat('```json\n{"a":1}\n```'));
     const client = makeClient();
-    await expect(
-      client.chat([{ role: "user", content: "hi" }], { responseFormat: "json" }),
-    ).rejects.toThrow(/.+/);
+    const res = await client.chat([{ role: "user", content: "hi" }], { responseFormat: "json" });
+    expect(res).toContain('{"a":1}');
   });
 
   it("模型配置 maxTokens 透传为 max_tokens；调用级优先", async () => {

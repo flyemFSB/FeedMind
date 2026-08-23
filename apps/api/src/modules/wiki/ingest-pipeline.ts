@@ -263,6 +263,43 @@ function readSpaceContext(spaceId: string): SpaceContext {
   };
 }
 
+function parseJsonSafe<T = unknown>(raw: string): T {
+  // 1. 剔除思考模型（如 DeepSeek-R1 / Qwen 等）输出的思维链
+  const textWithoutThink = raw.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+  // 2. 优先提取 Markdown 代码围栏内的 JSON 文本
+  const fenceMatch = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(textWithoutThink);
+  const candidate = fenceMatch ? fenceMatch[1]!.trim() : textWithoutThink;
+
+  // 3. 尝试直接解析
+  try {
+    return JSON.parse(candidate) as T;
+  } catch {
+    // 4. 容错兜底：尝试截取最外层的 { ... } 或 [ ... ] 边界
+    const startObj = candidate.indexOf("{");
+    const endObj = candidate.lastIndexOf("}");
+    if (startObj !== -1 && endObj > startObj) {
+      try {
+        return JSON.parse(candidate.slice(startObj, endObj + 1)) as T;
+      } catch {
+        // 忽略并尝试数组
+      }
+    }
+
+    const startArr = candidate.indexOf("[");
+    const endArr = candidate.lastIndexOf("]");
+    if (startArr !== -1 && endArr > startArr) {
+      try {
+        return JSON.parse(candidate.slice(startArr, endArr + 1)) as T;
+      } catch {
+        // 忽略
+      }
+    }
+
+    throw new Error(`无法从 LLM 响应中解析出合法 JSON: ${candidate.slice(0, 200)}...`);
+  }
+}
+
 async function stage1Analysis(
   sourceContent: string,
   context: SpaceContext,
@@ -277,12 +314,7 @@ async function stage1Analysis(
   );
 
   try {
-    // 不依赖 json_object（推理模型不支持，见 llm-client 注）：剥离可能的代码围栏后解析
-    const normalized = raw
-      .trim()
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "");
-    const parsed = JSON.parse(normalized) as Record<string, unknown>;
+    const parsed = parseJsonSafe<Record<string, unknown>>(raw);
     return {
       keyEntities: Array.isArray(parsed["keyEntities"])
         ? (parsed["keyEntities"] as AnalysisResult["keyEntities"])
@@ -323,11 +355,7 @@ async function stage2Generation(
 }
 
 function parseGeneratedDocuments(raw: string): GeneratedDocument[] {
-  const normalized = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-  const parsed = JSON.parse(normalized) as { documents?: unknown };
+  const parsed = parseJsonSafe<{ documents?: unknown }>(raw);
   if (!Array.isArray(parsed.documents)) throw new Error("LLM 未返回 documents 数组");
 
   const results: GeneratedDocument[] = [];
@@ -514,9 +542,9 @@ export async function runIngest(
       );
     }
     if (documents.length === 0) {
-      // 与"源内容本就为空"区分：这是 LLM 生成失败，落 warn 而非静默当成功空结果
-      logger.warn({ spaceId, sourceIdentity }, "LLM 未生成 OKF Concept，导入空结果");
-      warnings.push("LLM 未生成 OKF Concept");
+      // 区分“源内容为空”与“LLM 生成失败”，记录告警避免静默吞掉异常结果
+      logger.warn({ spaceId, sourceIdentity }, "大模型未生成有效的 OKF 概念页面，导入结果为空");
+      warnings.push("大模型未生成有效的 OKF 概念页面");
       return { pagesCreated: 0, pagesUpdated: 0, warnings, log, writtenFiles: [] };
     }
 

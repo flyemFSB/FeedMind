@@ -1,4 +1,4 @@
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 import type { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -10,11 +10,21 @@ export interface LlmClient {
 
 /** AI SDK 驱动 ingest 的 LLM 调用，与 chat 共用 provider 与网络层 */
 export class AiSdkLlmClient implements LlmClient {
+  private provider: ReturnType<typeof createOpenAICompatible>;
+  private modelName: string;
+  private maxTokens?: number;
+
   constructor(
-    private provider: ReturnType<typeof createOpenAICompatible>,
-    private modelName: string,
-    private maxTokens?: number,
-  ) {}
+    provider: ReturnType<typeof createOpenAICompatible>,
+    modelName: string,
+    maxTokens?: number,
+  ) {
+    this.provider = provider;
+    this.modelName = modelName;
+    if (maxTokens !== undefined) {
+      this.maxTokens = maxTokens;
+    }
+  }
 
   async chat(messages: LlmMessage[], opts: LlmOptions = {}): Promise<string> {
     const maxTokens = opts.maxTokens ?? this.maxTokens;
@@ -31,8 +41,6 @@ export class AiSdkLlmClient implements LlmClient {
       temperature: 0.3,
       maxRetries: 3,
       ...(maxTokens !== undefined ? { maxOutputTokens: maxTokens } : {}),
-      // 使用 Output.json() 确保返回合法 JSON
-      ...(opts.responseFormat === "json" ? { output: Output.json() } : {}),
     });
     if (!text.trim()) {
       throw new Error("LLM 未返回内容");
@@ -42,7 +50,12 @@ export class AiSdkLlmClient implements LlmClient {
 }
 
 export class MockLlmClient implements LlmClient {
-  constructor(private response: string) {}
+  private response: string;
+
+  constructor(response: string) {
+    this.response = response;
+  }
+
   async chat(): Promise<string> {
     return this.response;
   }
