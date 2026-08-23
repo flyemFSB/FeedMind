@@ -11,9 +11,16 @@ export const sharedEnv = createEnv({
     /**
      * AES 加密密钥，用于加密存储的 API Key 等敏感数据。
      * 首次使用后请保持稳定，否则已加密数据无法解密。
-     * 生成命令：openssl rand -hex 32
+     * 桌面端零配置下由主进程自动生成持久化 .secret_key 注入。
      */
-    ENCRYPTION_KEY: z.string().min(1, "ENCRYPTION_KEY 不能为空，请使用 openssl rand -hex 32 生成"),
+    ENCRYPTION_KEY: z
+      .string()
+      .min(1)
+      .default(
+        () =>
+          process.env["ENCRYPTION_KEY"] ??
+          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      ),
   },
   runtimeEnv: process.env,
   skipValidation:

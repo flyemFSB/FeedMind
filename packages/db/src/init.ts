@@ -1,7 +1,14 @@
-import "dotenv/config";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+
+try {
+  process.loadEnvFile(resolve(import.meta.dirname, "../../../.env"));
+} catch {
+  // .env 文件可选
+}
+
 import { client, closeDb } from "./client.js";
+import { ensureSchema } from "./schema/ddl.js";
 import { dbLogger } from "./logger.js";
 
 const SEED_TOOLS = [
@@ -74,7 +81,8 @@ const SEED_TOOLS = [
 ];
 
 export async function initDatabase(): Promise<void> {
-  // 注意：表结构由 `pnpm run db:push`（drizzle-kit push）同步，本脚本仅负责种子数据
+  // 自动确保所有表结构和索引已创建（全新安装可直接拉起）
+  await ensureSchema(client);
 
   for (const tool of SEED_TOOLS) {
     await client.execute({
@@ -103,7 +111,7 @@ export async function initDatabase(): Promise<void> {
     });
   }
 
-  dbLogger.info("数据库种子数据写入完成（表结构请先执行 pnpm run db:push）");
+  dbLogger.info("数据库种子数据初始化完成");
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

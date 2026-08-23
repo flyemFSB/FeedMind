@@ -9,3 +9,4 @@ export * from "./cookie-cloud.js";
 export * from "./rss-sources.js";
 export * from "./feeds.js";
 export * from "./daily-report.js";
+export * from "./ddl.js";

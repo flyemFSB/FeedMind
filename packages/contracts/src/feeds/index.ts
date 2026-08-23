@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const feedSchema = z.object({
   id: z.string(),
-  source_id: z.string(),
+  sourceId: z.string(),
   title: z.string(),
   description: z.string().nullable(),
   link: z.string().nullable(),
@@ -10,12 +10,13 @@ export const feedSchema = z.object({
   author: z.string().nullable(),
   category: z.string().nullable(),
   image: z.string().nullable(),
-  pub_date: z.string().nullable(),
-  fetched_at: z.string(),
-  is_read: z.number(),
-  created_at: z.string(),
+  pubDate: z.string().nullable(),
+  fetchedAt: z.string(),
+  isRead: z.number(),
+  createdAt: z.string(),
 });
 export type Feed = z.infer<typeof feedSchema>;
+export type FeedItem = Feed;
 
 // 批量删除入参：前端一次仅能选到已加载条目（上限 100），此处不做数量硬限，
 // 但最小为 1 避免空请求

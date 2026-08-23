@@ -1,4 +1,11 @@
-import "dotenv/config";
+import { resolve } from "node:path";
+
+try {
+  process.loadEnvFile(resolve(import.meta.dirname, "../../../.env"));
+} catch {
+  // .env 文件可选
+}
+
 import { sql } from "drizzle-orm";
 import { client, closeDb, db } from "./client.js";
 import { dbLogger } from "./logger.js";
