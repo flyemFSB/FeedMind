@@ -3,7 +3,6 @@
  * 使用 @ai-sdk/react 的 useChat hook 与 Mastra 后端通信
  * 消息持久化由 Agent Memory 自动处理
  */
-"use client";
 
 import {
   createContext,

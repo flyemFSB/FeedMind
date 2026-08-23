@@ -45,7 +45,6 @@ export async function getChatSessionMessages(
   );
 }
 
-/** 创建新会话 */
 export async function createChatSession(
   agentThreadId?: string,
   title?: string | null,

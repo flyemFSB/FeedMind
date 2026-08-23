@@ -1,8 +1,3 @@
-"use client";
-
-// 本组件移植自 AI SDK 官方聊天示例（Vercel ai 包），内部英文注释随上游保留，
-// 升级时整体替换该文件，不做逐行翻译。改动请保持与上游结构对齐。
-
 import {
   InputGroup,
   InputGroupAddon,
@@ -13,7 +8,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
 import { CornerDownLeftIcon, SquareIcon, XIcon } from "lucide-react";
-import { nanoid } from "nanoid";
 import type {
   ChangeEventHandler,
   ClipboardEventHandler,
@@ -34,15 +28,11 @@ import {
   useState,
 } from "react";
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
+    // FileReader 基于回调设计，包装为 Promise 便于异步处理
     // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -56,10 +46,6 @@ const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
     return null;
   }
 };
-
-// ============================================================================
-// Attachments Context
-// ============================================================================
 
 export interface AttachmentsContext {
   files: (FileUIPart & { id: string })[];
@@ -90,14 +76,13 @@ export interface PromptInputMessage {
 }
 
 export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" | "onError"> & {
-  // e.g., "image/*" or leave undefined for any
+  // 允许上传的文件类型（如 "image/*"），缺省接受任意类型
   accept?: string;
   multiple?: boolean;
-  // When true, accepts drops anywhere on document. Default false (opt-in).
+  // 为 true 时支持在全局文档任意位置拖拽放开文件，默认为 false
   globalDrop?: boolean;
-  // Minimal constraints
   maxFiles?: number;
-  // bytes
+  // 单文件最大字节数
   maxFileSize?: number;
   onError?: (err: { code: "max_files" | "max_file_size" | "accept"; message: string }) => void;
   onSubmit: (
@@ -124,7 +109,7 @@ export const PromptInput = ({
   const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
   const files = items;
 
-  // Keep a ref to files for cleanup on unmount (avoids stale closure)
+  // 缓存最新文件列表，供组件卸载时清理 Blob URL 避免闭包过期
   const filesRef = useRef(files);
 
   useEffect(() => {
@@ -148,7 +133,7 @@ export const PromptInput = ({
 
       return patterns.some((pattern) => {
         if (pattern.endsWith("/*")) {
-          // e.g: image/* -> image/
+          // 通配符匹配：如 image/* -> image/
           const prefix = pattern.slice(0, -1);
           return f.type.startsWith(prefix);
         }
@@ -193,7 +178,7 @@ export const PromptInput = ({
         for (const file of capped) {
           next.push({
             filename: file.name,
-            id: nanoid(),
+            id: crypto.randomUUID(),
             mediaType: file.type,
             type: "file",
             url: URL.createObjectURL(file),
@@ -230,14 +215,14 @@ export const PromptInput = ({
     [],
   );
 
-  // Attach drop handlers on nearest form and document (opt-in)
+  // 监听表单和文档级拖拽事件
   useEffect(() => {
     const form = formRef.current;
     if (!form) {
       return;
     }
     if (globalDrop) {
-      // when global drop is on, let the document-level handler own drops
+      // 开启全局拖拽时由全局监听器统一处理
       return;
     }
 
@@ -304,7 +289,7 @@ export const PromptInput = ({
       if (event.currentTarget.files) {
         add(event.currentTarget.files);
       }
-      // Reset input value to allow selecting files that were previously removed
+      // 清空 input 原始值，确保重新选择同一文件时能正常触发 onChange
       event.currentTarget.value = "";
     },
     [add],
@@ -329,18 +314,17 @@ export const PromptInput = ({
       const form = event.currentTarget;
       const text = (new FormData(form).get("message") as string) || "";
 
-      // Reset form immediately after capturing text to avoid race condition
-      // where user input during async blob conversion would be lost
+      // 提取文本后立即重置表单，避免异步转换 Blob 期间丢失用户新输入的文字
       form.reset();
 
       void (async () => {
         try {
-          // Convert blob URLs to data URLs asynchronously
+          // 异步将 Blob URL 转换为 Data URL
           const convertedFiles: FileUIPart[] = await Promise.all(
             files.map(async ({ id: _id, ...item }) => {
               if (item.url?.startsWith("blob:")) {
                 const dataUrl = await convertBlobUrlToDataUrl(item.url);
-                // If conversion failed, keep the original blob URL
+                // 转换失败时保留原始 Blob URL 兜底
                 return {
                   ...item,
                   url: dataUrl ?? item.url,
@@ -352,20 +336,20 @@ export const PromptInput = ({
 
           const result = onSubmit({ files: convertedFiles, text }, event);
 
-          // Handle both sync and async onSubmit
+          // 同步与异步提交统一处理
           if (result instanceof Promise) {
             try {
               await result;
               clear();
             } catch {
-              // Don't clear on error - user may want to retry
+              // 提交失败时保留附件列表供用户重试
             }
           } else {
-            // Sync function completed without throwing, clear inputs
+            // 同步函数无异常执行完毕，清空附件
             clear();
           }
         } catch {
-          // Don't clear on error - user may want to retry
+          // 提交失败时保留附件列表供用户重试
         }
       })();
     },
@@ -374,17 +358,16 @@ export const PromptInput = ({
 
   return (
     <LocalAttachmentsContext.Provider value={attachmentsCtx}>
-      <input
-        accept={accept}
-        aria-label="Upload files"
-        className="hidden"
-        multiple={multiple}
-        onChange={handleChange}
-        ref={inputRef}
-        title="Upload files"
-        type="file"
-      />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} ref={formRef} {...props}>
+        <input
+          accept={accept}
+          aria-label="Upload files"
+          className="hidden"
+          multiple={multiple}
+          onChange={handleChange}
+          ref={inputRef}
+          type="file"
+        />
         <InputGroup className="overflow-hidden">{children}</InputGroup>
       </form>
     </LocalAttachmentsContext.Provider>
@@ -403,7 +386,7 @@ export const PromptInputTextarea = ({
   onChange,
   onKeyDown,
   className,
-  placeholder = "What would you like to know?",
+  placeholder = "输入你的研究任务...",
   ...props
 }: PromptInputTextareaProps) => {
   const attachments = usePromptInputAttachments();
@@ -411,10 +394,10 @@ export const PromptInputTextarea = ({
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
-      // Call the external onKeyDown handler first
+      // 优先执行外部传入的 onKeyDown 回调
       onKeyDown?.(e);
 
-      // If the external handler prevented default, don't run internal logic
+      // 外部回调若已 preventDefault，则跳过内部回车提交逻辑
       if (e.defaultPrevented) {
         return;
       }
@@ -428,7 +411,7 @@ export const PromptInputTextarea = ({
         }
         e.preventDefault();
 
-        // Check if the submit button is disabled before submitting
+        // 提交按钮处于禁用态时不触发提交
         const { form } = e.currentTarget;
         const submitButton = form?.querySelector(
           'button[type="submit"]',
@@ -440,7 +423,7 @@ export const PromptInputTextarea = ({
         form?.requestSubmit();
       }
 
-      // Remove last attachment when Backspace is pressed and textarea is empty
+      // 输入框为空时按退格键（Backspace）自动移除最后一个附件
       if (e.key === "Backspace" && e.currentTarget.value === "" && attachments.files.length > 0) {
         e.preventDefault();
         const lastAttachment = attachments.files.at(-1);

@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { Check, FileText, Globe, Play, RotateCw, Trash2, Type, XCircle } from "lucide-react";

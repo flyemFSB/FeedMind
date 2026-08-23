@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Check, Eye, EyeOff, Copy, QrCode } from "lucide-react";

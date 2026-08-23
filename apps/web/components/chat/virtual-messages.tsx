@@ -1,5 +1,3 @@
-"use client";
-
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useStickToBottomContext } from "use-stick-to-bottom";
 import type { UIMessage } from "ai";

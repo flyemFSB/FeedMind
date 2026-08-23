@@ -2,7 +2,6 @@
  * Thread — 聊天线程主组件
  * 使用 ai-elements Conversation + Message + PromptInput 渲染
  */
-"use client";
 
 import { useTranslation } from "react-i18next";
 import { motion } from "motion/react";

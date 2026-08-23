@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";

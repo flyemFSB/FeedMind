@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { motion } from "motion/react";
 import { ChevronDown, GripVertical, Plus, Trash2, X } from "lucide-react";

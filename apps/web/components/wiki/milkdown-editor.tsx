@@ -1,5 +1,3 @@
-"use client";
-
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Crepe, CrepeFeature } from "@milkdown/crepe";
 import "./milkdown-theme.css";

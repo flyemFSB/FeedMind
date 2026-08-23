@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { AppShellProvider, useAppShell } from "./app-shell-context";

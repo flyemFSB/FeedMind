@@ -23,7 +23,6 @@ export function setSelectedFeedMindModel(model: string): void {
   }
 }
 
-/** 获取选中模型的 API 模型 ID（如 "deepseek-v4-flash"） */
 export function getSelectedFeedMindModelId(): string {
   if (typeof window !== "undefined") {
     return window.localStorage.getItem(selectedModelIdStorageKey) ?? "";
@@ -31,7 +30,6 @@ export function getSelectedFeedMindModelId(): string {
   return "";
 }
 
-/** 存储选中模型的 API 模型 ID */
 export function setSelectedFeedMindModelId(modelId: string): void {
   if (typeof window !== "undefined") {
     if (modelId) {

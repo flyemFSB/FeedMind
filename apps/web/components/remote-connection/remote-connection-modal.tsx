@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { X, Smartphone, ChevronDown } from "lucide-react";

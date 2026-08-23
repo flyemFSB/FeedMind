@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useCallback, useMemo, useRef, useState } from "react";
 import Graph from "graphology";
 import {

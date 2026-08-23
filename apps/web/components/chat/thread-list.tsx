@@ -3,7 +3,6 @@
  * 使用 TanStack Query hooks 替代 assistant-ui 的 ThreadListPrimitive
  * 高内聚：列表项和操作逻辑集中在此
  */
-"use client";
 
 import { useChatSessions } from "@/lib/hooks/use-chats";
 import { useChatSessionDelete } from "@/lib/hooks/use-chat-session-delete";

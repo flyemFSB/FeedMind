@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "@/components/ui/toast";

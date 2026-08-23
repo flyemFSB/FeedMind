@@ -1,35 +1,7 @@
+import type { FeedItem, RssSource } from "@feedmind/contracts";
 import { apiFetch, backendApiPath, apiPost, apiDelete } from "./client";
 
-// ─── 类型（来自后端 /feeds 与 /rss-sources 响应） ───────────────
-
-export interface FeedItem {
-  id: string;
-  sourceId: string;
-  title: string;
-  description: string | null;
-  link: string | null;
-  guid: string;
-  author: string | null;
-  category: string | null;
-  image: string | null;
-  pubDate: string | null;
-  fetchedAt: string;
-  isRead: number;
-  createdAt: string;
-}
-
-export interface RssSource {
-  id: string;
-  type: "rss" | "social";
-  platform: string | null;
-  route: string | null;
-  url: string;
-  title: string;
-  params: string | null;
-  lastSyncedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { FeedItem, RssSource };
 
 /** cookie_store 明文 cookie 行（登录态校验结果） */
 export interface CookieStoreRow {

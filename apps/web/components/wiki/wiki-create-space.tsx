@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import type { WikiSpaceCreate } from "@feedmind/contracts";
 import { createWikiSpace } from "@/lib/api/wiki";

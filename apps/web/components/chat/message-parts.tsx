@@ -11,7 +11,6 @@
  * - 可理解执行过程：思考与工具调用按真实运行顺序交织成可折叠思考链，而非分区展示
  * - 克制的推理：不把原始思维链当作主内容
  */
-"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -563,7 +562,7 @@ function OutputVisual({
         ? (output as Record<string, unknown>)
         : null;
 
-  // 1. Subagent (task) 专属展示分支
+  // 子智能体（Subagent）专属执行轨迹分支
   const isTask =
     toolName === "task" ||
     (parsed &&
@@ -615,7 +614,7 @@ function OutputVisual({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Bot size={13} className="text-editorial-accent" />
-            <span className="font-semibold text-editorial-ink capitalize">{subType} 交付完成</span>
+            <span className="font-semibold text-editorial-ink capitalize">{subType} 执行完成</span>
             {duration !== undefined && (
               <span>
                 · {duration > 1000 ? `${(duration / 1000).toFixed(2)}s` : `${duration}ms`}
@@ -647,7 +646,7 @@ function OutputVisual({
     );
   }
 
-  // 2. 搜索结果 → 域名徽章
+  // 搜索结果列表渲染为来源域名徽章
   const results = parsed
     ? Array.isArray(parsed["results"])
       ? parsed["results"]
@@ -669,7 +668,7 @@ function OutputVisual({
               {url ? domainOf(url) : (item.title ?? `结果 ${i + 1}`)}
             </ChainOfThoughtSearchResult>
           );
-          // 可点击徽章：打开来源页
+          // 点击域名徽章在新标签页打开来源
           return url ? (
             <a key={i} href={url} target="_blank" rel="noreferrer" className="inline-flex">
               {badge}
@@ -682,7 +681,7 @@ function OutputVisual({
     );
   }
 
-  // 3. 页面抓取与纯文本：长文本 → 截断片段
+  // 网页抓取与长文本输出做截断展示
   if (typeof output === "string" && output.length > 0) {
     return (
       <div className="max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 px-2.5 py-2 text-editorial-ink-soft">
@@ -691,7 +690,7 @@ function OutputVisual({
     );
   }
 
-  // 4. 其它：友好摘要
+  // 其余类型输出展示格式化摘要
   return <div className="text-editorial-ink-soft">{outputText || "（无输出）"}</div>;
 }
 
@@ -725,7 +724,7 @@ function summarizeOutput(data: unknown): string {
 
   const d = data as Record<string, unknown>;
 
-  // 错误对象：直接展示错误码
+  // 错误对象：展示错误信息
   if (typeof d["error"] === "string") {
     return `⚠️ ${d["error"]}`;
   }
@@ -734,7 +733,7 @@ function summarizeOutput(data: unknown): string {
   if (typeof d["result"] === "string") {
     const subType = d["type"] ? `[${String(d["type"])}] ` : "";
     const dur = typeof d["duration"] === "number" ? ` (${d["duration"]}ms)` : "";
-    return `${subType}任务已完成${dur}`;
+    return `${subType}子任务执行完成${dur}`;
   }
 
   // 搜索结果：显示数量

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { ExternalLink, Globe2 } from "lucide-react";
 import {

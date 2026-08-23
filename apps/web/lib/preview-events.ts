@@ -1,5 +1,3 @@
-"use client";
-
 // CustomEvent 驱动的预览面板通信，markdown 链接点击 -> PreviewPanel 侧边栏
 export type PreviewPayload = {
   title?: string;

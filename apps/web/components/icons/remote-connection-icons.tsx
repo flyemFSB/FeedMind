@@ -2,7 +2,6 @@ import type { SVGAttributes } from "react";
 
 type Props = SVGAttributes<SVGSVGElement> & { size?: number | string };
 
-/** 飞书 */
 export function Feishu({ size = "1em", ...props }: Props) {
   return (
     <svg
@@ -32,7 +31,6 @@ export function Feishu({ size = "1em", ...props }: Props) {
   );
 }
 
-/** bilibili */
 export function Bilibili({ size = "1em", ...props }: Props) {
   return (
     <svg
@@ -58,7 +56,6 @@ export function Bilibili({ size = "1em", ...props }: Props) {
   );
 }
 
-/** 知乎 */
 export function Zhihu({ size = "1em", ...props }: Props) {
   return (
     <svg
@@ -76,7 +73,6 @@ export function Zhihu({ size = "1em", ...props }: Props) {
   );
 }
 
-/** 小红书 */
 export function Xiaohongshu({ size = "1em", ...props }: Props) {
   return (
     <svg
@@ -98,7 +94,6 @@ export function Xiaohongshu({ size = "1em", ...props }: Props) {
   );
 }
 
-/** 抖音 */
 export function Douyin({ size = "1em", ...props }: Props) {
   return (
     <svg
@@ -128,7 +123,6 @@ export function Douyin({ size = "1em", ...props }: Props) {
   );
 }
 
-/** 微信公众号 */
 export function Weread({ size = "1em", ...props }: Props) {
   return (
     <svg

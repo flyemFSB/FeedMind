@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { Check, ExternalLink, Eye, EyeOff, Sparkles } from "lucide-react";
 import { toast } from "@/components/ui/toast";

@@ -1,5 +1,3 @@
-"use client";
-
 import { AnimatePresence, motion } from "motion/react";
 import { Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import { useState } from "react";

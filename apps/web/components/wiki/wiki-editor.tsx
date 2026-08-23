@@ -1,5 +1,3 @@
-"use client";
-
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { WikiPageRead, WikiPageUpdate } from "@feedmind/contracts";
 import { getWikiPage, updateWikiPage } from "@/lib/api/wiki";

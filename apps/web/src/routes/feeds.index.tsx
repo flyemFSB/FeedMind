@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useMemo, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";

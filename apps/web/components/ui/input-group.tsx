@@ -1,3 +1,6 @@
+// 本组件移植自 shadcn/ui，内部英文注释随上游保留。
+// 升级时整体替换该文件，不做逐行翻译。改动请保持与上游结构对齐。
+
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
@@ -21,10 +24,10 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
         "has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>[data-align=block-start]]:[&>input]:pb-3",
         "has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-end]]:[&>input]:pt-3",
 
-        // Focus state.
+        // 聚焦状态高亮外圈
         "has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-[3px] has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50",
 
-        // Error state.
+        // 校验错误状态（红框与警告光晕）
         "has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-destructive/20 dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40",
 
         className,

@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, type ReactNode } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -79,8 +77,7 @@ export const ALL_TARGETS = [
 export type OpsTarget = (typeof ALL_TARGETS)[number];
 
 type VirtualOpsRow =
-  | { kind: "header"; label: string; count: number }
-  | { kind: "row"; item: OpsLogRow };
+  { kind: "header"; label: string; count: number } | { kind: "row"; item: OpsLogRow };
 
 const TARGET_ICONS: Record<string, LucideIcon> = {
   wiki_space: Network,
@@ -263,7 +260,6 @@ export function OperationLog() {
   const [action, setAction] = useState<OpsAction | undefined>(undefined);
   const [result, setResult] = useState<OpsResult | undefined>(undefined);
 
-  // 弹窗查看的日志项
   const [selectedLog, setSelectedLog] = useState<OpsLogRow | null>(null);
 
   const {

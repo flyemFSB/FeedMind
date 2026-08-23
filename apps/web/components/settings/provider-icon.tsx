@@ -1,5 +1,3 @@
-"use client";
-
 import { Cpu } from "lucide-react";
 import {
   Claude,

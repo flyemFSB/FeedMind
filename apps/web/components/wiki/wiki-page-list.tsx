@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -124,8 +122,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
 
 /** 展平后的虚拟行：组标题 或 单个页面 */
 type VirtualRow =
-  | { kind: "header"; type: string; count: number }
-  | { kind: "page"; page: WikiPageListItem };
+  { kind: "header"; type: string; count: number } | { kind: "page"; page: WikiPageListItem };
 
 function CategorizedPageList({
   pages,

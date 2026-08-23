@@ -1,5 +1,3 @@
-"use client";
-
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import type { WikiView } from "@/src/routes/wiki";
 import {

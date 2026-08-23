@@ -4,7 +4,6 @@
  * PromptInput(InputGroup 单边框) → PromptInputTextarea + PromptInputFooter → PromptInputSubmit
  * 全部为 ai-elements 内置组件，无自定义嵌套框
  */
-"use client";
 
 import { useState } from "react";
 import {

@@ -1,5 +1,3 @@
-"use client";
-
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";

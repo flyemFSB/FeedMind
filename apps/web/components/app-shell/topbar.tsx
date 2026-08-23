@@ -1,5 +1,3 @@
-"use client";
-
 import { MessageCircle, PanelRightClose } from "lucide-react";
 import { motion } from "motion/react";
 import { ModelSelector } from "@/components/settings/model-selector";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/use-models";
 import {
