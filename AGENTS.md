@@ -11,6 +11,7 @@ pnpm install                   # 安装所有依赖
 pnpm run dev                   # 构建共享包后并行启动 api + web
 pnpm run desktop:dev           # 构建后启动 desktop（Vite + Electron）
 pnpm run desktop               # 生产构建并启动桌面应用
+pnpm run desktop:dist          # 生产打包生成 Windows 安装包（NSIS）
 pnpm run build                 # 构建所有包和应用
 pnpm run build:packages        # 仅构建共享包
 pnpm run typecheck             # 全仓库 TypeScript 类型检查
@@ -81,9 +82,10 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 - SSRF 防护：抓取类工具必须校验 URL，拒绝内网/私有 IP 段（参照 `web-fetch.ts` 的 `checkSSRF`）。
 - 密钥管理：API Key 等敏感数据 AES 加密落库（`@feedmind/shared`），禁止硬编码、禁止提交 `.env`。
 
-### OpenAPI 文档
+### API 路由规范
 
-所有新路由用 `OpenAPIHono` + `createRoute` 模式；路由定义与 handler 分离，handler 返回类型显式标注。
+- 内部业务路由采用标准 `Hono` + `jsonOk`/`jsonError`（`lib/http.ts`）模式；
+- 对外开放或需要导出 API Spec 的核心路由推荐使用 `OpenAPIHono` + `createRoute` 模式。
 
 ### 依赖管理
 
@@ -98,4 +100,4 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 
 ### 实施流程
 
-新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、路由用 OpenAPI 模式）→ 收尾运行 `pnpm run typecheck && pnpm run lint`。
+新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、遵循 API 路由规范）→ 收尾运行 `pnpm run typecheck && pnpm run lint`。
