@@ -7,6 +7,8 @@ import type { UIMessage } from "ai";
 import type { ComponentProps, HTMLAttributes } from "react";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Streamdown, type MathPlugin, type DiagramPlugin } from "streamdown";
+import { useTranslation } from "react-i18next";
+import { streamdownTranslations } from "@/lib/streamdown-i18n";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -71,6 +73,7 @@ export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 // 首屏只含 streamdown 核心，消息里出现公式/图表时才下载渲染器。
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => {
+    const { t } = useTranslation();
     const [mathPlugin, setMathPlugin] = useState<MathPlugin | null>(null);
     const [mermaidPlugin, setMermaidPlugin] = useState<DiagramPlugin | null>(null);
 
@@ -96,6 +99,9 @@ export const MessageResponse = memo(
       [mathPlugin, mermaidPlugin],
     );
 
+    // t 引用在语言切换时才变化；对象身份稳定以避免击穿 Streamdown 的 memo
+    const translations = useMemo(() => streamdownTranslations(t), [t]);
+
     const normalizedChildren = useMemo(() => {
       if (typeof props.children === "string") {
         return normalizeMathMarkdown(props.children);
@@ -107,6 +113,7 @@ export const MessageResponse = memo(
       <Streamdown
         className={cn("size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
         plugins={plugins}
+        translations={translations}
         {...props}
       >
         {normalizedChildren}

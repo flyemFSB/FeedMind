@@ -24,6 +24,7 @@ import { Streamdown, type MathPlugin } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { loadMathPlugin } from "@/lib/math-mathjax";
 import { normalizeMathMarkdown } from "@/lib/math-normalize";
+import { streamdownTranslations } from "@/lib/streamdown-i18n";
 import type { WikiBacklink, WikiPageRead } from "@feedmind/contracts";
 import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,8 @@ interface WikiReaderProps {
 
 export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderProps) {
   const { t } = useTranslation();
+  // 引用必须稳定，否则重渲染会击穿 Streamdown 的 memo 导致全量重解析
+  const sdTranslations = useMemo(() => streamdownTranslations(t), [t]);
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [backlinks, setBacklinks] = useState<WikiBacklink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,6 +150,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               mode="static"
               plugins={{ cjk, ...(mathPlugin ? { math: mathPlugin } : {}) }}
               components={readerComponents}
+              translations={sdTranslations}
             >
               {markdown}
             </Streamdown>
