@@ -37,7 +37,9 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
       )}
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs dark:bg-black/40",
+        // 不用 backdrop-filter：软件渲染（FEEDMIND_DISABLE_GPU=1 / 驱动异常）下 blur 每帧采样整页，
+        // 是弹窗动画卡到 15-20 FPS 的主因（electron#29420）；纯色遮罩两条渲染路径都稳定
+        "fixed inset-0 isolate z-50 bg-black/30 dark:bg-black/50",
         className,
       )}
       {...props}

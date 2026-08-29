@@ -91,14 +91,35 @@ const cdpPort = getCdpPort();
 app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
 app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 
-// V8 Code Cache 与 GC 暴露支持：方便后台大任务后主动释放堆内存
+// V8 Code Cache 与 GC 暴露支持：方便后台大任务后主动释放堆内存。
+// 注意 appendSwitch('js-flags') 只影响子进程——主进程 V8 早于 main.js 初始化，
+// global.gc 在主进程不存在（Electron 硬限制）；--expose-gc 供渲染进程使用，
+// web 端在页面隐藏时调 globalThis.gc() 回收渲染堆（见 apps/web/src/main.tsx）
 app.commandLine.appendSwitch("v8-cache-options", "code");
 app.commandLine.appendSwitch("js-flags", "--expose-gc");
 
-// 2D 画布离屏光栅化：将图表与画布计算卸载至 GPU 显存，减少主渲染进程 RAM 峰值
-app.commandLine.appendSwitch("enable-features", "CanvasOopRasterization");
+// 默认启用 GPU 合成：禁用硬件加速后 backdrop-filter（弹窗遮罩 blur）与 sigma WebGL 图
+// 全部走 SwiftShader 软件光栅化，弹窗动画掉到 15-20 FPS（electron#29420 实证），
+// 与内存收益不成比例（业界 VS Code/Slack 均保留硬件合成）。
+// 内存收敛靠以下两项，而不是砍 GPU：
+//  1) 不启用 CanvasOopRasterization——画布/滚动光栅化留在渲染进程，避免 GPU 进程涨回 ~145MB
+//  2) 禁用 2D canvas 硬件加速——项目无重 2D canvas 负载（仅 1px 颜色解析），省 GPU 进程纹理
+// 极端环境（驱动异常/远程桌面）可用 FEEDMIND_DISABLE_GPU=1 回退到纯软件渲染。
+if (process.env["FEEDMIND_DISABLE_GPU"] === "1") {
+  // Electron 43（Chromium 139+）的 disableHardwareAcceleration() 会真正 append --disable-gpu
+  // 关闭 GPU 进程（PR #51817 之前只改 GpuDataManager 状态，GPU 进程仍会启动）。
+  app.disableHardwareAcceleration();
+}
+
+// 2D canvas 光栅化走 CPU：WebGL（sigma 图）不受影响，弹窗动画由 GPU 合成器驱动
+app.commandLine.appendSwitch("disable-accelerated-2d-canvas");
 
 // 精简 GPU 显存与后台开销：禁用非必要视频叠加与背景检测轮询，降低 GPU 进程 Working Set
+app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
+app.commandLine.appendSwitch("disable-direct-composition-video-overlays");
+
+// 精简 GPU 显存与后台开销：禁用非必要视频叠加与背景检测轮询，降低 GPU 进程 Working Set
+// （禁用 GPU 后无 GPU 进程，这些开关仅在有 GPU 时生效）
 app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
 app.commandLine.appendSwitch("disable-direct-composition-video-overlays");
 app.commandLine.appendSwitch("disable-renderer-backgrounding");

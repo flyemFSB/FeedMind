@@ -93,7 +93,7 @@ export function SubagentInspector() {
             exit="closed"
             variants={backdropVariants}
             onClick={closeInspector}
-            className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-black/30"
           />
 
           {/* 抽屉面板 */}
