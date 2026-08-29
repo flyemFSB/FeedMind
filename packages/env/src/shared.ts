@@ -23,6 +23,8 @@ export const sharedEnv = createEnv({
       ),
   },
   runtimeEnv: process.env,
+  // .env 中 KEY=（空串）视为未设置：避免空串覆盖 zod default（官方推荐显式开启）
+  emptyStringAsUndefined: true,
   skipValidation:
     !!process.env["SKIP_ENV_VALIDATION"] ||
     process.env["npm_lifecycle_event"] === "lint" ||

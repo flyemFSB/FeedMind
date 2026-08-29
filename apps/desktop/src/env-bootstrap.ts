@@ -47,6 +47,12 @@ const dataDir =
 process.env["DATA_DIR"] = dataDir;
 process.env["DATABASE_PATH"] = process.env["DATABASE_PATH"] ?? path.join(dataDir, "feedmind.db");
 process.env["WIKI_DIR"] = process.env["WIKI_DIR"] ?? path.join(dataDir, "wiki");
+
+// 打包后 stdout 无消费者（GUI 无控制台），API 侧 pino 日志默认全丢；
+// 落盘 userData/logs/app.log（logger.ts 依据 LOG_FILE 路由，文件为原生 JSON 行）
+if (app.isPackaged && !process.env["LOG_FILE"]) {
+  process.env["LOG_FILE"] = path.join(app.getPath("userData"), "logs", "app.log");
+}
 try {
   mkdirSync(dataDir, { recursive: true });
 } catch {

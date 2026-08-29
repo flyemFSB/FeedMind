@@ -80,7 +80,7 @@ export async function checkDbConnection(): Promise<boolean> {
     await c.execute("select 1");
     return true;
   } catch (error) {
-    dbLogger.error("数据库连接检查失败", error);
+    dbLogger.error({ err: error }, "数据库连接检查失败");
     return false;
   }
 }
