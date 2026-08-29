@@ -142,9 +142,38 @@ async function extractDocumentFile(
   const ext = fileName.includes(".") ? (fileName.split(".").pop()?.toLowerCase() ?? "") : "";
   if (ext === "pdf") return extractPdfFile(filePath, fileName, vl);
   // 转换失败直接抛错（code 为 ConvertErrorCode：unsupported | malformed | encrypted |
-  // resourceLimit | missingPart | io），由调用方决定如何处理；绝不产生占位文本当源内容
+  // resourceLimit | missingPart | io | needsOcr），由调用方决定如何处理；绝不产生占位文本当源内容
   const { toMarkdown } = await import("@firecrawl/anydoc");
-  const markdown = (await toMarkdown(filePath)).trim();
+  let markdown: string;
+  try {
+    markdown = (await toMarkdown(filePath)).trim();
+  } catch (err) {
+    // anydoc 0.2.4 起扫描型/纯图 PDF 不再静默丢页，而是抛 NeedsOcrError（含 pages/pageCount）。
+    // 内容级检测进来的错标/无扩展名 PDF 走到这里：有 VL 配置时交给视觉模型兜底
+    if ((err as { code?: string }).code === "needsOcr" && vl) {
+      const pageCount = (err as { pageCount?: number }).pageCount;
+      try {
+        const result = await parsePdfWithVl(vl, filePath);
+        const all = `# ${fileName}\n\n${result.markdown.trim() || "(empty document)"}`;
+        return {
+          text: all,
+          wordCount: all.split(/\s+/).filter(Boolean).length,
+          ...(pageCount !== undefined ? { pageCount } : {}),
+          mimeType: "application/pdf",
+          warnings: [],
+          images: result.images,
+        };
+      } catch (vlErr) {
+        // VL 也失败时不降级 unpdf——扫描页只会得到空文本（重蹈静默丢页），
+        // 以 VlParserError 重抛并保留 needsOcr 上下文
+        throw new VlParserError(
+          `扫描型 PDF 需 OCR${pageCount !== undefined ? `（共 ${pageCount} 页）` : ""}，VL 解析失败: ${vlErr instanceof Error ? vlErr.message : String(vlErr)}`,
+          vlErr,
+        );
+      }
+    }
+    throw err;
+  }
   const text = `# ${fileName}\n\n${markdown || "(empty document)"}`;
   return {
     text,
