@@ -86,7 +86,7 @@ Use this tool when you need the full text content of a page — articles, blog p
 Only fetch EXACT URLs that have been provided directly by the user or returned by web_search.
 URLs must include the schema (https://example.com, not example.com).`,
   inputSchema: z.object({
-    url: z.string().url().describe("The exact URL to fetch. Must include http:// or https://."),
+    url: z.url().describe("The exact URL to fetch. Must include http:// or https://."),
   }),
   execute: async ({ url }, { abortSignal }) => {
     return fetchArticleText(url, abortSignal);

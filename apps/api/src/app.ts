@@ -1,9 +1,11 @@
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
+import { methodNotAllowed } from "hono/method-not-allowed";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
+import type { ApiEnvelope } from "@feedmind/contracts";
 import { validateApiRuntime } from "./env.js";
 import { APP_NAME, APP_VERSION } from "./lib/constants.js";
 import { HttpError, jsonError } from "./lib/http.js";
@@ -103,6 +105,28 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
   app.get("/", (c) => c.json({ name: APP_NAME, version: APP_VERSION }));
   app.route("/api/v1", v1Router);
   app.route("/api/v1", openapiApp);
+
+  // 已注册路径用了不匹配的方法时回 405 + Allow（代替笼统 404）；须在全部路由注册后追加：
+  // middleware 在 next() 结果为 404 时按 app.routes 反查该路径允许的方法
+  app.use(
+    "*",
+    methodNotAllowed({
+      app,
+      onMethodNotAllowed: (c, methods) =>
+        c.json<ApiEnvelope<never>>(
+          {
+            data: null,
+            error: {
+              code: "METHOD_NOT_ALLOWED",
+              message: "请求方法不被该资源支持",
+              details: { allow: methods },
+            },
+          },
+          405,
+          { Allow: methods.join(", ") },
+        ),
+    }),
+  );
 
   return app;
 }

@@ -1,3 +1,7 @@
+// 全局启用 zod schema 自动编译：此后构造的 schema 首次解析时生成快速路径，
+// 复杂 schema 解析提速数倍；含 coerce/递归等不支持的 schema 静默回退常规解析。
+// 必须先于本模块图中所有会构造 schema 的业务 import（ESM 按声明顺序求值）。
+import "zod/compile";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { Readable } from "node:stream";
 import path from "node:path";

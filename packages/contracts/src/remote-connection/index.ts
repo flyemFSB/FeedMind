@@ -70,7 +70,7 @@ export type RemoteConnectionUpsert = z.infer<typeof remoteConnectionUpsertSchema
 
 // ─── Feishu OAuth ──────────────────────────────────────────────
 export const feishuAuthUrlResponseSchema = z.object({
-  authUrl: z.string().url(),
+  authUrl: z.url(),
 });
 export type FeishuAuthUrlResponse = z.infer<typeof feishuAuthUrlResponseSchema>;
 
