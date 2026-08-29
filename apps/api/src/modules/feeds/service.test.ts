@@ -1,4 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parseRssXml, pickFreshItems } from "./service.js";
 import { stripWww, shouldBackfillTitle } from "../rss-sources/service.js";
 
@@ -92,5 +95,172 @@ describe("stripWww / shouldBackfillTitle", () => {
       shouldBackfillTitle("docs.langchain.com", "https://docs.langchain.com/oss/rss.xml"),
     ).toBe(true);
     expect(shouldBackfillTitle("我的收藏", "https://www.langchain.com/blog/rss.xml")).toBe(false);
+  });
+});
+
+// ─── syncAll Cookie 状态回写（需 DB） ────────────────────────────
+// 回归：同步成功是登录态可用的最强证据，此前从不回写 valid=true，
+// 一次瞬时失败留下的"已失效"标记永远无法恢复，出现"已失效但同步正常"的自相矛盾
+const { mockGetRouteHandler } = vi.hoisted(() => ({ mockGetRouteHandler: vi.fn() }));
+vi.mock("@feedmind/crawler-core", async (importOriginal) => {
+  const orig = (await importOriginal()) as Record<string, unknown>;
+  return { ...orig, getRouteHandler: mockGetRouteHandler };
+});
+
+const MINI_RSS = `<?xml version="1.0"?>
+<rss version="2.0"><channel><title>书架</title><item>
+  <title>文章A</title><link>https://mp.weixin.qq.com/s/abc</link>
+  <guid>weread:MP_WXS_1:rev1</guid>
+  <pubDate>Tue, 11 Aug 2026 22:44:30 GMT</pubDate>
+</item></channel></rss>`;
+
+const SYNC_DDL = [
+  `CREATE TABLE rss_sources (
+    id TEXT PRIMARY KEY,
+    type TEXT NOT NULL,
+    platform TEXT,
+    route TEXT,
+    url TEXT NOT NULL,
+    title TEXT NOT NULL,
+    params TEXT,
+    last_synced_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (current_timestamp),
+    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
+  )`,
+  `CREATE TABLE feeds (
+    id TEXT PRIMARY KEY,
+    source_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    link TEXT,
+    guid TEXT NOT NULL,
+    author TEXT,
+    category TEXT,
+    image TEXT,
+    pub_date TEXT,
+    fetched_at TEXT NOT NULL,
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (current_timestamp)
+  )`,
+  `CREATE UNIQUE INDEX idx_feeds_source_guid ON feeds (source_id, guid)`,
+  `CREATE TABLE cookie_store (
+    uuid TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    cookies TEXT NOT NULL,
+    valid INTEGER,
+    checked_at TEXT,
+    PRIMARY KEY (uuid, platform)
+  )`,
+];
+
+describe("syncAll Cookie 状态回写", () => {
+  async function loadDb() {
+    return import("@feedmind/db");
+  }
+  type DbModule = Awaited<ReturnType<typeof loadDb>>;
+  let db: DbModule;
+  let dir: string;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    dir = mkdtempSync(join(tmpdir(), "feedmind-feeds-sync-"));
+    process.env["DATABASE_PATH"] = join(dir, "test.db");
+    db = await loadDb();
+    for (const sql of SYNC_DDL) await db.client.execute(sql);
+    mockGetRouteHandler.mockReset();
+  });
+
+  afterEach(() => {
+    db.closeDb();
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      /* 临时目录残留无害 */
+    }
+  });
+
+  it("social 源拉取成功回写 valid=true", async () => {
+    mockGetRouteHandler.mockReturnValue(async () => ({
+      rssXml: MINI_RSS,
+      metadata: { itemCount: 1 },
+    }));
+    await db.db.insert(db.rssSources).values({
+      id: "src-1",
+      type: "social",
+      platform: "weread",
+      route: "weread/shelf",
+      url: "https://weread.qq.com",
+      title: "书架",
+    });
+    await db.db.insert(db.cookieStore).values({
+      uuid: "ext",
+      platform: "weread",
+      cookies: "wr_skey=ok",
+      valid: false,
+      checkedAt: "2026-08-01T00:00:00Z",
+    });
+
+    const { syncAll } = await import("./service.js");
+    const result = await syncAll();
+
+    expect(result.succeeded).toBe(1);
+    const row = await db.db.select().from(db.cookieStore).get();
+    expect(row?.valid).toBe(true);
+    expect(row?.checkedAt).not.toBe("2026-08-01T00:00:00Z");
+  });
+
+  it("爬虫显式判定登录态失效（CrawlerAuthError）落库 valid=false", async () => {
+    const { CrawlerAuthError } = await import("@feedmind/crawler-core");
+    mockGetRouteHandler.mockReturnValue(async () => {
+      throw new CrawlerAuthError("微信读书登录态已失效");
+    });
+    await db.db.insert(db.rssSources).values({
+      id: "src-1",
+      type: "social",
+      platform: "weread",
+      route: "weread/shelf",
+      url: "https://weread.qq.com",
+      title: "书架",
+    });
+    await db.db.insert(db.cookieStore).values({
+      uuid: "ext",
+      platform: "weread",
+      cookies: "wr_skey=dead",
+      valid: true,
+    });
+
+    const { syncAll } = await import("./service.js");
+    const result = await syncAll();
+
+    expect(result.failed).toBe(1);
+    const row = await db.db.select().from(db.cookieStore).get();
+    expect(row?.valid).toBe(false);
+  });
+
+  it("普通网络错误不定论，cookie 状态保持原样", async () => {
+    mockGetRouteHandler.mockReturnValue(async () => {
+      throw new Error("网络波动");
+    });
+    await db.db.insert(db.rssSources).values({
+      id: "src-1",
+      type: "social",
+      platform: "weread",
+      route: "weread/shelf",
+      url: "https://weread.qq.com",
+      title: "书架",
+    });
+    await db.db.insert(db.cookieStore).values({
+      uuid: "ext",
+      platform: "weread",
+      cookies: "wr_skey=ok",
+      valid: true,
+    });
+
+    const { syncAll } = await import("./service.js");
+    const result = await syncAll();
+
+    expect(result.failed).toBe(1);
+    const row = await db.db.select().from(db.cookieStore).get();
+    expect(row?.valid).toBe(true);
   });
 });

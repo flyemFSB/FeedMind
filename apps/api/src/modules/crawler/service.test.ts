@@ -201,4 +201,23 @@ describe("listRouteOptions 降级", () => {
     const { listBiliFavs } = await import("./service.js");
     await expect(listBiliFavs()).resolves.toEqual([{ name: "收藏夹A", id: "fav-1" }]);
   });
+
+  it("拉取成功回写 valid=true（状态自愈路径）", async () => {
+    // 回归：此前只有失败写 false、成功从不写 true，一次瞬时失败留下的"已失效"无法恢复
+    mockGetRouteHandler.mockReturnValue(feedHandler);
+    const { listBiliFavs } = await import("./service.js");
+    await mod.db.insert(mod.cookieStore).values({
+      uuid: "u1",
+      platform: "bilibili",
+      cookies: "SESSDATA=ok",
+      valid: false,
+      checkedAt: "2026-08-01T00:00:00Z",
+    });
+
+    await listBiliFavs();
+
+    const row = await mod.db.select().from(mod.cookieStore).get();
+    expect(row?.valid).toBe(true);
+    expect(row?.checkedAt).not.toBe("2026-08-01T00:00:00Z");
+  });
 });

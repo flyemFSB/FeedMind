@@ -45,10 +45,11 @@ cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
   return jsonOk(c, { action: "done" });
 });
 
-// 查询已有配置（前端预填 UUID）
+// 查询已有配置（前端预填 UUID）：必须密码非空才算已配置——扩展推送数据时会隐式创建
+// 无密码行（storeEncrypted），不满足此条件会让前端误判“已保存”而实际无密码可解密
 cookieCloudRoutes.get("/cookiecloud/config/:uuid", async (c) => {
   const row = await getConfig(c.req.param("uuid"));
-  if (!row) return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的配置");
+  if (!row?.password) return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的配置");
   return jsonOk(c, { uuid: row.uuid, crypto_type: row.cryptoType });
 });
 

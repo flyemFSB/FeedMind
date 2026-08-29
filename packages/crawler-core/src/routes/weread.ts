@@ -82,8 +82,14 @@ async function fetchMps(cookies: string, signal?: AbortSignal): Promise<WereadMp
     cookies,
     signal,
   );
-  // -2010 登录态失效；其余业务错误（-2041 等）不代表 cookie 无效
+  // 非零 errCode 一律视为登录态异常（与 cookiecloud 校验的 mapWereadErrCode 同一语义），
+  // 显式报错而非静默空书架——否则风控时页面表现成"没有订阅公众号"的假象
   if (shelf.errCode === -2010) throw new CrawlerAuthError("微信读书登录态已失效");
+  if (shelf.errCode) {
+    throw new CrawlerAuthError(
+      `微信读书接口异常（errCode=${shelf.errCode}）：Cookie 可能被风控，请重新登录同步`,
+    );
+  }
   return (shelf.books ?? [])
     .filter((b) => String(b.bookId ?? "").startsWith("MP_WXS_"))
     .map((b) => ({ name: b.title ?? "(无名称)", bookId: b.bookId! }));
@@ -108,15 +114,13 @@ async function fetchArticles(
     .map((s) => s.review)
     .filter((r): r is NonNullable<typeof r> => !!r && !!r.mpInfo?.title)
     .slice(0, maxItems)
-    .map(
-      (r): WereadArticle => ({
-        reviewId: r.reviewId ?? "",
-        title: r.mpInfo!.title ?? "(无标题)",
-        time: r.createTime ?? 0,
-        content: "",
-        ...(r.mpInfo?.originalId ? { originalId: r.mpInfo.originalId } : {}),
-      }),
-    );
+    .map((r): WereadArticle => ({
+      reviewId: r.reviewId ?? "",
+      title: r.mpInfo!.title ?? "(无标题)",
+      time: r.createTime ?? 0,
+      content: "",
+      ...(r.mpInfo?.originalId ? { originalId: r.mpInfo.originalId } : {}),
+    }));
   return { list };
 }
 

@@ -141,6 +141,23 @@ describe("weread/shelf 直连路由", () => {
     ).rejects.toThrow(/登录态已失效/);
   });
 
+  it("书架接口返回风控错误（-2041）时显式报错而非静默空列表", async () => {
+    mockFetch({
+      "/web/shelf/sync": { errCode: -2041 },
+    });
+
+    const handler = getRouteHandler("weread/mps");
+    if (!handler) throw new Error("weread/mps 路由未注册");
+    await expect(
+      handler({
+        params: {},
+        cookies: "wr_vid=1",
+        abortSignal: new AbortController().signal,
+        maxItems: 100,
+      }),
+    ).rejects.toThrow(/errCode=-2041/);
+  });
+
   it("全部公众号文章接口失败时显式报错而非静默空列表", async () => {
     mockFetch({
       "/web/shelf/sync": SHELF,

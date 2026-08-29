@@ -1,7 +1,7 @@
 import { createHash, createDecipheriv } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { db, cookieCloud, cookieStore } from "@feedmind/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { encryptValue, decryptValue } from "@feedmind/shared";
 import type { CookieCloudRow, CookieStoreRow } from "@feedmind/db";
 import type { PlatformId } from "@feedmind/contracts";
@@ -144,9 +144,15 @@ export async function getAllCookies(): Promise<CookieStoreRow[]> {
   return db.select().from(cookieStore).all();
 }
 
+/** 支持 HTTP 登录态校验的平台（其余平台前端提示不支持校验） */
+const HTTP_CHECKABLE = new Set(["bilibili", "zhihu", "weread"]);
+
 /**
  * 校验指定平台 Cookie 登录态（纯 HTTP，不创建浏览器窗口），并把结果写回 cookie_store。
- * 各平台用自身轻量鉴权接口判断；接口不可用/网络异常时按"未知"处理不落库。
+ * 各平台用自身轻量鉴权接口判断；接口不可用/网络异常时按"未知"处理不落库；
+ * weread 风控类业务错误判失效落库（见 mapWereadErrCode，与爬虫语义一致）。
+ * supported 表示平台本身是否支持该校验方式，与 valid 是否可判定无关，
+ * 否则 weread 网络异常（valid=null）会被前端误读为"不支持校验"。
  */
 export async function checkPlatformCookie(platform: string): Promise<{
   valid: boolean | null;
@@ -156,13 +162,16 @@ export async function checkPlatformCookie(platform: string): Promise<{
   const rows = await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all();
   if (rows.length === 0) return { valid: null, checkedAt: null, supported: false };
 
+  const supported = HTTP_CHECKABLE.has(platform);
   const cookies = joinCookies(rows);
-  let valid: boolean | null;
-  try {
-    valid = await checkCookieHttp(platform, cookies);
-  } catch {
-    // 网络波动/风控等无法判定登录态：按"未知"处理，不落库，避免误报失效引导用户重登
-    valid = null;
+  let valid: boolean | null = null;
+  if (supported) {
+    try {
+      valid = await checkCookieHttp(platform, cookies);
+    } catch {
+      // 网络波动等无法判定登录态：按"未知"处理，不落库，避免误报失效引导用户重登
+      valid = null;
+    }
   }
   const checkedAt = new Date().toISOString();
 
@@ -172,10 +181,22 @@ export async function checkPlatformCookie(platform: string): Promise<{
       .set({ valid, checkedAt })
       .where(eq(cookieStore.platform, platform));
   }
-  return { valid, checkedAt, supported: valid !== null };
+  return { valid, checkedAt, supported };
 }
 
-// 各平台登录态探测：返回 true=有效 / false=失效 / null=该平台不支持 HTTP 校验
+/**
+ * weread shelf/sync 响应 → 登录态判定，与 crawler-core weread.ts 的抛错语义对齐：
+ * 非零 errCode（-2010 登录失效、-2041 风控等）判失效。注意成功响应不含 errCode 字段
+ * （实测 200 响应体只有 pureBookCount/synckey/books 等），不能以 errCode===0 判有效，
+ * 否则有效 cookie 永远校验不出"已生效"；以 books 数组存在佐证书架可用，
+ * 缺失时判未知不落库，避免意外响应格式被误报成"已生效"。
+ */
+export function judgeWereadShelf(resp: { errCode?: number; books?: unknown[] }): boolean | null {
+  if (resp.errCode) return false;
+  return Array.isArray(resp.books) ? true : null;
+}
+
+// 各平台登录态探测：返回 true=有效 / false=失效 / null=该平台不支持 HTTP 校验或无法判定
 async function checkCookieHttp(platform: string, cookies: string): Promise<boolean | null> {
   const UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
@@ -195,9 +216,8 @@ async function checkCookieHttp(platform: string, cookies: string): Promise<boole
       const r = await fetch("https://weread.qq.com/web/shelf/sync?synckey=0&teenmode=0&album=1", {
         headers: h,
       });
-      const o = (await r.json()) as { errCode?: number };
-      // -2010 为登录态失效；其余错误（含 -2041 上下文错误）不代表 cookie 无效
-      return o.errCode !== -2010;
+      const o = (await r.json()) as { errCode?: number; books?: unknown[] };
+      return judgeWereadShelf(o);
     }
     default:
       // douyin/xiaohongshu 无可靠轻量鉴权接口，返回 null 表示不支持
@@ -276,26 +296,41 @@ export function decrypt(
 }
 
 // 扩展同步数据结构：{ cookie_data: { "域名": [{name, value, ...}, ...], ... } }
-async function syncCookies(uuid: string, data: unknown): Promise<void> {
+export async function syncCookies(uuid: string, data: unknown): Promise<void> {
   const parsed = cookieDataSchema.safeParse(data);
   const cookieData = parsed.success ? parsed.data.cookie_data : undefined;
   if (!cookieData) return;
 
-  // 整批替换放事务里：先删后插中途失败会丢该 UUID 全部已存 cookie（静默丢数据）
+  // 逐平台 upsert 只覆盖 cookies，保留既有 valid/checked_at：推送代表 cookie 值更新而非
+  // 登录态变化，删表重建会把校验记录清零，面板状态在"有效/失效/未检测"间反复横跳。
+  // 推送中消失的平台仍要删除，否则拼接 cookie 会继续带上浏览器里已不存在的旧值
   await db.transaction(async (tx) => {
-    await tx.delete(cookieStore).where(eq(cookieStore.uuid, uuid));
-
+    const pushedPlatforms = new Set<string>();
     for (const [domain, cookies] of Object.entries(cookieData)) {
       const platform = matchPlatform(domain);
       if (!platform || !Array.isArray(cookies) || cookies.length === 0) continue;
+      pushedPlatforms.add(platform);
 
       const cookieStr = cookies.map((c) => `${String(c.name)}=${String(c.value)}`).join("; ");
+      await tx
+        .insert(cookieStore)
+        .values({ uuid, platform, cookies: cookieStr })
+        .onConflictDoUpdate({
+          target: [cookieStore.uuid, cookieStore.platform],
+          set: { cookies: cookieStr },
+        });
+    }
 
-      await tx.insert(cookieStore).values({
-        uuid,
-        platform,
-        cookies: cookieStr,
-      });
+    const existing = await tx
+      .select({ platform: cookieStore.platform })
+      .from(cookieStore)
+      .where(eq(cookieStore.uuid, uuid));
+    for (const row of existing) {
+      if (!pushedPlatforms.has(row.platform)) {
+        await tx
+          .delete(cookieStore)
+          .where(and(eq(cookieStore.uuid, uuid), eq(cookieStore.platform, row.platform)));
+      }
     }
   });
 }

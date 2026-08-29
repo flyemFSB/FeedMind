@@ -3,7 +3,7 @@ import { eq, and, inArray, sql, desc, isNotNull } from "drizzle-orm";
 import { parseFeed } from "feedsmith";
 import { db, feeds, rssSources, cookieStore } from "@feedmind/db";
 import type { FeedRow } from "@feedmind/db";
-import { getRouteHandler } from "@feedmind/crawler-core";
+import { getRouteHandler, CrawlerAuthError } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { joinCookies } from "../cookiecloud/service.js";
@@ -424,6 +424,15 @@ export async function syncAll(): Promise<SyncResult> {
         const { items } = await parseRssXml(routeResult.rssXml);
         const n = await upsertFeedsLimited(source.id, items, MAX_ITEMS_PER_SOURCE);
         result.inserted += n;
+
+        // 拉取成功即 cookie 登录态可用：回写有效状态让 Cookie 面板自愈
+        // （此前只有失败写 false、成功从不写 true，一次瞬时失败的"已失效"无法恢复）
+        if (platform) {
+          await db
+            .update(cookieStore)
+            .set({ valid: true, checkedAt: new Date().toISOString() })
+            .where(eq(cookieStore.platform, platform));
+        }
       }
 
       const now = new Date().toISOString();
@@ -438,6 +447,19 @@ export async function syncAll(): Promise<SyncResult> {
 
       result.succeeded++;
     } catch (err) {
+      // 爬虫显式判定登录态失效才落库 false；网络波动等不定论，避免误报引导用户重登
+      if (err instanceof CrawlerAuthError) {
+        const platform = source.route
+          ? ROUTE_TO_PLATFORM[source.route.split("/")[0] ?? ""]
+          : undefined;
+        if (platform) {
+          await db
+            .update(cookieStore)
+            .set({ valid: false, checkedAt: new Date().toISOString() })
+            .where(eq(cookieStore.platform, platform))
+            .catch(() => {});
+        }
+      }
       logger.error({ err, sourceId: source.id }, "同步失败");
       result.failed++;
       result.errors.push(`${source.title}: ${err instanceof Error ? err.message : String(err)}`);

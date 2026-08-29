@@ -90,6 +90,13 @@ async function listRouteOptions(
       ...(cookies !== undefined ? { cookies } : {}),
     });
 
+    // 实际拉取成功是登录态可用的最强证据：回写有效状态让面板自愈。
+    // 此前只有失败写 false、成功从不写 true，一次瞬时失败留下的"已失效"永远无法恢复
+    await db
+      .update(cookieStore)
+      .set({ valid: true, checkedAt: new Date().toISOString() })
+      .where(eq(cookieStore.platform, platform));
+
     const items = [...result.rssXml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map((m) => {
       const block = m[1] ?? "";
       const titleMatch = block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/i);

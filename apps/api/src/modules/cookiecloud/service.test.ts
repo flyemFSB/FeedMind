@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { gzipSync } from "node:zlib";
 import { createHash, createCipheriv, randomBytes } from "node:crypto";
-import { decrypt, parseUpdateBody } from "./service.js";
+import { decrypt, judgeWereadShelf, parseUpdateBody } from "./service.js";
 
 // 用官方 CookieCloud 算法（README「Cookie Encryption and Decryption Algorithm」）加密，
 // 验证本地解密兼容。官方密钥 = MD5(uuid-password) 前 16 字节：
@@ -52,6 +52,30 @@ function encryptFixed(data: unknown, hash: string): string {
     cipher.final(),
   ]).toString("base64");
 }
+
+describe("weread 登录态判定（judgeWereadShelf）", () => {
+  it("成功响应判有效：shelf/sync 的 200 响应体不含 errCode 字段，只有 books 等业务字段", () => {
+    // 回归：此前以 errCode===0 判有效，而真实成功响应没有 errCode，
+    // 导致有效 cookie 永远校验不出"已生效"（状态只能单向变坏）
+    expect(judgeWereadShelf({ books: [{ bookId: "MP_WXS_1" }] })).toBe(true);
+  });
+
+  it("errCode=0 判有效", () => {
+    expect(judgeWereadShelf({ errCode: 0, books: [] })).toBe(true);
+  });
+
+  it("-2010 登录失效判失效", () => {
+    expect(judgeWereadShelf({ errCode: -2010 })).toBe(false);
+  });
+
+  it("-2041 等风控业务错误判失效，与爬虫抛错语义一致（引导重新登录）", () => {
+    expect(judgeWereadShelf({ errCode: -2041, books: [] })).toBe(false);
+  });
+
+  it("无 errCode 且不含 books（意外响应格式）判未知，不误报“已生效”", () => {
+    expect(judgeWereadShelf({})).toBeNull();
+  });
+});
 
 describe("parseUpdateBody 请求体解析（明文/gzip）", () => {
   const BODY = JSON.stringify({
