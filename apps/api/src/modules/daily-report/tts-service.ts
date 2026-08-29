@@ -116,35 +116,27 @@ export async function probeAudioDurationSec(
   return fallbackDurationSec(fallbackText);
 }
 
-function formatSrtTime(ms: number): string {
-  const total = Math.floor(ms / 1000);
-  const milli = Math.round(ms % 1000);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")},${String(milli).padStart(3, "0")}`;
-}
-
 /**
- * 基于实测 Timeline 生成段级高精度 SRT 字幕
+ * 基于实测 Timeline 生成 CaptionCue[] 供 Remotion CaptionBar 烧入画中。
+ * 决策：选烧录不产 SRT（避免与 Remotion 字幕职责重复；社媒静音播放也必须看字）
  */
-export function buildSrtFromTimeline(
+export function buildCuesFromTimeline(
   segments: NarrationSegment[],
   timeline: VideoTimeline,
-): string {
+): { startSec: number; endSec: number; text: string }[] {
   const allTimelineSegments = [timeline.opening, ...timeline.items, timeline.closing];
-
-  const lines: string[] = [];
+  const cues: { startSec: number; endSec: number; text: string }[] = [];
   for (let i = 0; i < segments.length; i++) {
     const seg = allTimelineSegments[i];
     const text = segments[i]?.text ?? "";
     if (!seg || !text) continue;
-
-    const startMs = (seg.fromFrame / timeline.fps) * 1000;
-    const endMs = startMs + seg.durationSec * 1000;
-    lines.push(`${i + 1}\n${formatSrtTime(startMs)} --> ${formatSrtTime(endMs)}\n${text}\n`);
+    cues.push({
+      startSec: seg.fromFrame / timeline.fps,
+      endSec: seg.fromFrame / timeline.fps + seg.durationSec,
+      text,
+    });
   }
-  return lines.join("\n");
+  return cues;
 }
 
 // ─── 合成入口 ─────────────────────────────────────────────────
@@ -182,22 +174,21 @@ async function synthesizeWithFallback(text: string, providers: TtsProvider[]): P
 }
 
 /**
- * 把脚本旁白逐段合成并落盘为 seg-0.mp3, seg-1.mp3...，测量真实时长构建 Timeline 与 SRT。
+ * 把脚本旁白逐段合成并落盘为 seg-0.mp3, seg-1.mp3...，测量真实时长构建 Timeline。
  * 全部 provider 失败时写占位音频并回退估算时长，不让配音问题中断管线。
+ * 返回 timeline 与 cues：cues 由 Remotion CaptionBar 烧入画中。
  */
 export async function synthesizeNarration(
   script: DailyReportScript,
   outputDir: string,
   deps: SynthesizeDeps = {},
-): Promise<{ timeline: VideoTimeline; srtPath: string }> {
+): Promise<{ timeline: VideoTimeline; cues: ReturnType<typeof buildCuesFromTimeline> }> {
   await mkdir(outputDir, { recursive: true });
-  const srtPath = resolve(outputDir, "narration.srt");
 
   const segments = buildSegments(script);
   if (segments.length === 0) {
     const timeline = buildTimeline([0, ...script.items.map(() => 0), 0]);
-    await writeFile(srtPath, "", "utf8");
-    return { timeline, srtPath };
+    return { timeline, cues: [] };
   }
 
   let providers = deps.providers;
@@ -239,8 +230,7 @@ export async function synthesizeNarration(
   }
 
   const timeline = buildTimeline(durations);
-  const srtContent = buildSrtFromTimeline(segments, timeline);
-  await writeFile(srtPath, srtContent, "utf8");
+  const cues = buildCuesFromTimeline(segments, timeline);
 
-  return { timeline, srtPath };
+  return { timeline, cues };
 }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { desc, eq } from "drizzle-orm";
 import { db, feeds, rssSources, scheduleTasks, videos } from "@feedmind/db";
@@ -11,7 +11,7 @@ import { resolveDataDir } from "../../lib/data-dir.js";
 import { syncAll } from "../feeds/service.js";
 import { dailyReportWorkflow } from "../../mastra/workflows/daily-report/index.js";
 import { synthesizeNarration } from "./tts-service.js";
-import { renderReportVideo } from "./render-service.js";
+import { renderReportVideo, type RenderStage } from "./render-service.js";
 import type { VideoTimeline } from "./timeline.js";
 import { getMastra } from "./mastra-holder.js";
 import { syncScheduleById } from "./schedule-sync.js";
@@ -105,7 +105,7 @@ async function updateStage(videoId: string, stage: string | null): Promise<void>
   await db.update(videos).set({ stage, updatedAt: now() }).where(eq(videos.id, videoId));
 }
 
-// 读取产物文件供 web 端查看/播放；占位文件仅作为渲染失败的兜底
+// 读取产物文件供 web 端查看/播放
 export async function getVideoFile(id: string): Promise<{ buffer: Buffer; name: string }> {
   const video = await getVideo(id);
   if (!video.filePath)
@@ -120,15 +120,6 @@ export async function getVideoFile(id: string): Promise<{ buffer: Buffer; name: 
     );
   const buffer = await readFile(video.filePath);
   return { buffer, name: `${video.reportDate}.mp4` };
-}
-
-// 渲染失败时的兜底产物：写一个带标记的占位文件，避免日报无任何产物
-async function writePlaceholderArtifact(runId: string): Promise<string> {
-  const dir = resolve(resolveDataDir(), "videos", runId);
-  await mkdir(dir, { recursive: true });
-  const filePath = resolve(dir, "report.mp4");
-  await writeFile(filePath, "FeedMind 日报占位产物（渲染失败兜底）", "utf8");
-  return filePath;
 }
 
 // 读取最近抓入的 feeds 作为本日报提炼输入（join 来源名作为 source）
@@ -241,26 +232,39 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
       await updateStage(videoId, "tts");
       // 配音（Fish → edge-tts 双源降级；全失败写占位音频，不阻断管线）
       let narrationTimeline: VideoTimeline | undefined;
+      let narrationCues: Awaited<ReturnType<typeof synthesizeNarration>>["cues"] = [];
       try {
         const narration = await synthesizeNarration(result.result.script, outDir);
         narrationTimeline = narration.timeline;
+        narrationCues = narration.cues;
         logger.info(
-          { srtPath: narration.srtPath, totalFrames: narration.timeline.totalFrames },
+          { totalFrames: narration.timeline.totalFrames, cueCount: narration.cues.length },
           "日报配音与实测时间轴构建完成",
         );
       } catch (err) {
         logger.warn({ err }, "日报配音异常");
       }
       await updateStage(videoId, "render");
-      // 渲染（Remotion；浏览器/字体不可用时回退占位文件）
+      // 渲染（Remotion）；把细粒度阶段写回 videos.stage 让前端可显示粗进度。
+      // 失败交给外层 catch 统一置 failed，不产出占位文件——浏览器播放非 mp4 只会显示加载失败
       try {
-        const rendered = await renderReportVideo(result.result.script, outDir, narrationTimeline);
+        const rendered = await renderReportVideo(
+          result.result.script,
+          outDir,
+          narrationTimeline,
+          { cues: narrationCues },
+          {
+            onStage: (stage: RenderStage, progress?: number) => {
+              const detail = typeof progress === "number" ? `:${Math.round(progress * 100)}%` : "";
+              void updateStage(videoId, `render/${stage}${detail}`);
+            },
+          },
+        );
         filePath = rendered.videoPath;
         duration = Math.round(rendered.durationSec);
       } catch (err) {
-        logger.warn({ err }, "Remotion 渲染失败，写入占位产物");
-        filePath = await writePlaceholderArtifact(videoId);
-        duration = 0;
+        logger.warn({ err, runId: videoId }, "Remotion 渲染失败，将整体置为 failed");
+        throw err;
       }
     }
   } catch (err) {

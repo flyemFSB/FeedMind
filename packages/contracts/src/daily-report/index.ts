@@ -53,12 +53,24 @@ export const extractFeedSchema = z.object({
 });
 export type ExtractFeed = z.infer<typeof extractFeedSchema>;
 
-// extract 步输出：今日要点
+// extract 提炼证据结构（供提炼 agent 结构化输出）
+export const extractEvidenceSchema = z.object({
+  summary: z.string(),
+  facts: z.array(z.string()).default([]),
+  quotes: z.array(z.string()).default([]),
+  keyContext: z.string().default(""),
+});
+export type ExtractEvidence = z.infer<typeof extractEvidenceSchema>;
+
+// extract 步输出：今日要点（携带事实、原话引语与背景证据，支持向后兼容）
 export const extractItemSchema = z.object({
   title: z.string(),
   url: z.string(),
-  summary: z.string(),
   source: z.string(),
+  summary: z.string(),
+  facts: z.array(z.string()).default([]),
+  quotes: z.array(z.string()).default([]),
+  keyContext: z.string().default(""),
 });
 export type ExtractItem = z.infer<typeof extractItemSchema>;
 

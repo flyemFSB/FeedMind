@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DailyReportScript } from "@feedmind/contracts";
 import {
+  buildCuesFromTimeline,
   buildSegments,
-  buildSrtFromTimeline,
   createFishProvider,
   probeAudioDurationSec,
   synthesizeNarration,
@@ -65,16 +65,18 @@ describe("buildSegments", () => {
   });
 });
 
-describe("buildSrtFromTimeline", () => {
-  it("按 Timeline 实测起始与时长生成精确 SRT", () => {
+describe("buildCuesFromTimeline", () => {
+  it("按 Timeline 实测起始与时长生成烧录字幕 cue", () => {
     const timeline = buildTimeline([2.5, 6.0, 7.5, 3.2]);
     const segments = buildSegments(script);
-    const srt = buildSrtFromTimeline(segments, timeline);
+    const cues = buildCuesFromTimeline(segments, timeline);
 
-    expect(srt).toContain("1\n00:00:00,000 --> 00:00:02,500\n早上好");
-    expect(srt).toContain("2\n");
-    expect(srt).toContain("第一条内容。");
-    expect(srt.split("\n\n").filter(Boolean).length).toBe(4);
+    expect(cues).toHaveLength(4);
+    expect(cues[0]?.text).toBe("早上好");
+    expect(cues[0]?.startSec).toBe(0);
+    expect(cues[0]?.endSec).toBeCloseTo(2.5);
+    expect(cues[1]?.text).toBe("第一条内容。");
+    expect(cues[3]?.text).toBe("今天到此为止。");
   });
 });
 
@@ -114,13 +116,13 @@ describe("createFishProvider", () => {
 });
 
 describe("synthesizeNarration", () => {
-  it("按段落盘 seg-*.mp3 并输出实测 Timeline 和 SRT", async () => {
+  it("按段落落盘 seg-*.mp3 并输出实测 Timeline 和烧录 cues", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "tts-"));
     const provider: TtsProvider = {
       id: "fake",
       synthesize: async (text) => ({ audio: Buffer.from(`audio:${text}`) }),
     };
-    const { timeline, srtPath } = await synthesizeNarration(script, dir, {
+    const { timeline, cues } = await synthesizeNarration(script, dir, {
       providers: [provider],
     });
 
@@ -128,8 +130,9 @@ describe("synthesizeNarration", () => {
     expect(existsSync(resolve(dir, "seg-1.mp3"))).toBe(true);
     expect(existsSync(resolve(dir, "seg-2.mp3"))).toBe(true);
     expect(existsSync(resolve(dir, "seg-3.mp3"))).toBe(true);
-    expect(existsSync(srtPath)).toBe(true);
-    expect(readFileSync(srtPath, "utf8")).toContain("第一条内容。");
+    expect(existsSync(resolve(dir, "narration.srt"))).toBe(false);
+    expect(cues.length).toBeGreaterThan(0);
+    expect(cues.some((c) => c.text === "第一条内容。")).toBe(true);
 
     expect(timeline.opening.audioFile).toBe("seg-0.mp3");
     expect(timeline.items).toHaveLength(2);
@@ -166,13 +169,13 @@ describe("synthesizeNarration", () => {
         throw new Error("down");
       },
     };
-    const { timeline, srtPath } = await synthesizeNarration(script, dir, { providers: [failing] });
+    const { timeline, cues } = await synthesizeNarration(script, dir, { providers: [failing] });
     expect(readFileSync(resolve(dir, "seg-0.mp3")).toString()).toContain("配音占位");
     expect(timeline.totalFrames).toBeGreaterThan(0);
-    expect(readFileSync(srtPath, "utf8")).toContain("早上好");
+    expect(cues.some((c) => c.text === "早上好")).toBe(true);
   });
 
-  it("空旁白返回空时间轴与空字幕", async () => {
+  it("空旁白返回空时间轴与空 cues", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "tts-"));
     const provider: TtsProvider = {
       id: "fake",
@@ -180,12 +183,12 @@ describe("synthesizeNarration", () => {
         throw new Error("不应被调用");
       },
     };
-    const { timeline, srtPath } = await synthesizeNarration(
+    const { timeline, cues } = await synthesizeNarration(
       { ...script, opening: { hook: "" }, items: [], closing: { summary: "" } },
       dir,
       { providers: [provider] },
     );
     expect(timeline.items).toHaveLength(0);
-    expect(readFileSync(srtPath, "utf8")).toBe("");
+    expect(cues).toEqual([]);
   });
 });

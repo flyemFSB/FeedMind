@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { scheduleUpsertSchema, dailyReportScriptSchema, extractOutputSchema } from "./index.js";
+import {
+  scheduleUpsertSchema,
+  dailyReportScriptSchema,
+  extractOutputSchema,
+  extractEvidenceSchema,
+} from "./index.js";
 
 describe("scheduleUpsertSchema", () => {
   it("接受合法的 cron 与名称", () => {
@@ -54,13 +59,63 @@ describe("dailyReportScriptSchema", () => {
   });
 });
 
+describe("extractEvidenceSchema", () => {
+  it("接受合法的提炼证据对象", () => {
+    const result = extractEvidenceSchema.safeParse({
+      summary: "一句话摘要",
+      facts: ["事实1", "事实2"],
+      quotes: ["原文引语"],
+      keyContext: "背景上下文",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("缺省 facts/quotes/keyContext 时自动填充默认值", () => {
+    const result = extractEvidenceSchema.safeParse({
+      summary: "一句话摘要",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.facts).toEqual([]);
+      expect(result.data.quotes).toEqual([]);
+      expect(result.data.keyContext).toBe("");
+    }
+  });
+});
+
 describe("extractOutputSchema", () => {
-  it("接受合法要点列表", () => {
-    expect(
-      extractOutputSchema.safeParse({
-        items: [{ title: "A", url: "https://a", summary: "摘要", source: "来源" }],
-      }).success,
-    ).toBe(true);
+  it("接受包含完整证据字段的要点列表", () => {
+    const parsed = extractOutputSchema.safeParse({
+      items: [
+        {
+          title: "A",
+          url: "https://a",
+          summary: "摘要",
+          source: "来源",
+          facts: ["数据点100万"],
+          quotes: ["这是原话"],
+          keyContext: "行业背景",
+        },
+      ],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.items[0]?.facts).toEqual(["数据点100万"]);
+      expect(parsed.data.items[0]?.quotes).toEqual(["这是原话"]);
+      expect(parsed.data.items[0]?.keyContext).toBe("行业背景");
+    }
+  });
+
+  it("LLM 漏输出 facts/quotes/keyContext 时 default 补齐空默认值", () => {
+    const parsed = extractOutputSchema.safeParse({
+      items: [{ title: "A", url: "https://a", summary: "摘要", source: "来源" }],
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.items[0]?.facts).toEqual([]);
+      expect(parsed.data.items[0]?.quotes).toEqual([]);
+      expect(parsed.data.items[0]?.keyContext).toBe("");
+    }
   });
 
   it("缺 summary 时拒绝", () => {

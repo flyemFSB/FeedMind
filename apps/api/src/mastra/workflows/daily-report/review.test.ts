@@ -4,7 +4,15 @@ import type { ReviewResult } from "./review.js";
 import { reviewAndFix } from "./review.js";
 
 const items: ExtractItem[] = [
-  { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },
+  {
+    title: "标题A",
+    url: "https://example.com/a",
+    summary: "摘要A",
+    source: "来源A",
+    facts: ["要点"],
+    quotes: [],
+    keyContext: "背景A",
+  },
 ];
 
 const script: DailyReportScript = {
@@ -39,22 +47,27 @@ describe("reviewAndFix", () => {
     expect(evaluated).toBe(1);
   });
 
-  it("首次未通过则重写后再次评估，通过返回", async () => {
+  it("首次未通过则将 issues 回灌给 rewrite，重写后再次评估通过并返回", async () => {
     let evaluated = 0;
     let rewrites = 0;
+    let receivedIssues: string[] | undefined;
     const rewritten: DailyReportScript = { ...script, opening: { hook: "重写后" } };
     const result = await reviewAndFix(script, items, {
       evaluate: async () => {
         evaluated++;
-        return evaluated === 1 ? failResult : passResult;
+        return evaluated === 1
+          ? { verdict: "fail", issues: ["深度不足：缺少背景与趋势分析", "引用不真实"] }
+          : passResult;
       },
-      rewrite: async () => {
+      rewrite: async (_list, options) => {
         rewrites++;
+        receivedIssues = options?.previousIssues;
         return rewritten;
       },
     });
     expect(result.attempts).toBe(2);
     expect(rewrites).toBe(1);
+    expect(receivedIssues).toEqual(["深度不足：缺少背景与趋势分析", "引用不真实"]);
     expect(result.script.opening.hook).toBe("重写后");
   });
 

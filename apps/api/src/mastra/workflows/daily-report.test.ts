@@ -4,7 +4,7 @@ import { dailyReportWorkflow } from "./daily-report/index.js";
 const RUN_INIT = { runId: "test-run", scheduleId: "daily-video", feeds: [] };
 
 describe("dailyReportWorkflow 编排", () => {
-  it("按序执行六步并产出占位视频路径", async () => {
+  it("按序执行七步并产出占位视频路径", async () => {
     const run = await dailyReportWorkflow.createRun();
     const result = await run.start({ inputData: RUN_INIT });
 
@@ -13,6 +13,7 @@ describe("dailyReportWorkflow 编排", () => {
 
     expect(result.stepExecutionPath).toEqual([
       "fetch-sources",
+      "select-feeds",
       "extract",
       "script",
       "review",
@@ -30,8 +31,7 @@ describe("dailyReportWorkflow 编排", () => {
 
     const script = (result.steps as Record<string, { output?: { script?: unknown } }>)["script"]
       ?.output?.script as
-      | { opening: { hook: string }; closing: { summary: string }; items: unknown[] }
-      | undefined;
+      { opening: { hook: string }; closing: { summary: string }; items: unknown[] } | undefined;
     expect(script?.opening?.hook).toBeTruthy();
     expect(script?.closing?.summary).toBeTruthy();
     expect(Array.isArray(script?.items)).toBe(true);

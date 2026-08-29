@@ -3,7 +3,15 @@ import type { DailyReportScript, ExtractItem } from "@feedmind/contracts";
 import { buildScript, fallbackScript } from "./script.js";
 
 const items: ExtractItem[] = [
-  { title: "标题A", url: "https://example.com/a", summary: "摘要A", source: "来源A" },
+  {
+    title: "标题A",
+    url: "https://example.com/a",
+    summary: "摘要A",
+    source: "来源A",
+    facts: ["要点一", "要点二"],
+    quotes: ["引语A"],
+    keyContext: "背景A",
+  },
 ];
 
 const validScript: DailyReportScript = {
@@ -13,7 +21,7 @@ const validScript: DailyReportScript = {
     {
       title: "标题A",
       points: ["要点一"],
-      quote: null,
+      quote: "引语A",
       narration: "我们来看看标题A。",
       source: "来源A",
       image: null,
@@ -27,6 +35,22 @@ describe("buildScript", () => {
     const script = await buildScript(items, { generateScript: async () => validScript });
     expect(script.opening.hook).toBe("早上好");
     expect(script.items).toHaveLength(1);
+    expect(script.items[0]?.quote).toBe("引语A");
+  });
+
+  it("接收并透传 previousIssues 供重写修正", async () => {
+    let capturedOptions: { previousIssues?: string[] } | undefined;
+    await buildScript(
+      items,
+      {
+        generateScript: async (_items, opts) => {
+          capturedOptions = opts;
+          return validScript;
+        },
+      },
+      { previousIssues: ["缺少深度解读", "quote 来源不匹配"] },
+    );
+    expect(capturedOptions?.previousIssues).toEqual(["缺少深度解读", "quote 来源不匹配"]);
   });
 
   it("生成抛错（含 schema 校验失败）时回退最小脚本", async () => {
@@ -54,14 +78,14 @@ describe("buildScript", () => {
 });
 
 describe("fallbackScript", () => {
-  it("条目映射为最小脚本（summary 作旁白）", () => {
+  it("条目映射为最小脚本（facts 转 points，quotes 转 quote）", () => {
     const script = fallbackScript(items);
     expect(script.items[0]).toMatchObject({
       title: "标题A",
       narration: "摘要A",
       source: "来源A",
-      points: [],
-      quote: null,
+      points: ["要点一", "要点二"],
+      quote: "引语A",
       image: null,
     });
   });
