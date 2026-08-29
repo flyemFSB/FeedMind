@@ -54,6 +54,8 @@ export default defineConfig({
           setupFiles: ["./vitest.setup.ts"],
           hookTimeout: 30000,
           testTimeout: 30000,
+          // 内存 SQLite + server 生命周期是异步泄漏高发区：泄漏的定时器/句柄直接报失败而非挂起
+          detectAsyncLeaks: true,
         },
       },
       {

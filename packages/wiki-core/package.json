@@ -10,21 +10,20 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --builders 4",
     "lint": "oxlint .",
     "test": "vitest run --project wiki-core",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {
     "@feedmind/contracts": "workspace:*",
-    "@firecrawl/anydoc": "^0.1.9",
+    "@firecrawl/anydoc": "^0.2.4",
     "@paddleocr/api-sdk": "^0.2.3",
-    "file-type": "^22.0.1",
-    "js-yaml": "^4.2.0",
+    "file-type": "^22.0.2",
+    "js-yaml": "^5.4.1",
     "unpdf": "^1.8.1"
   },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "catalog:",
     "oxlint": "catalog:",
     "typescript": "catalog:",

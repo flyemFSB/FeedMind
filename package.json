@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@12.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -27,7 +27,7 @@
     "api:dev": "pnpm --filter @feedmind/api dev",
     "desktop:dev": "chcp 65001 >nul && pnpm run build:packages && pnpm --filter @feedmind/api build && pnpm --filter @feedmind/desktop build && concurrently -k -n web,desktop \"pnpm --filter @feedmind/web dev\" \"pnpm --filter @feedmind/desktop dev\"",
     "desktop": "pnpm run build && pnpm --filter @feedmind/desktop start",
-    "desktop:dist": "pnpm run build && pnpm --filter @feedmind/desktop dist && git archive --format=zip --output=release/FeedMind-0.1.0-source.zip HEAD",
+    "desktop:dist": "pnpm run build && pnpm --filter @feedmind/desktop dist && node -e \"const v=require('./apps/desktop/package.json').version;require('child_process').execSync('git archive --format=zip --output=release/FeedMind-'+v+'-source.zip HEAD')\"",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -36,7 +36,7 @@
     "@types/node": "catalog:",
     "concurrently": "^10.0.5",
     "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
+    "lint-staged": "^17.4.1",
     "oxlint": "catalog:",
     "oxlint-tsgolint": "catalog:",
     "prettier": "catalog:",

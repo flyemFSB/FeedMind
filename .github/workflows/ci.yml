@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # pnpm v11 用 pnpm/setup（pnpm/action-setup 的继任者）；pnpm 版本自动取自 packageManager 字段
+      # pnpm/setup（pnpm/action-setup 的继任者）；pnpm 版本自动取自 packageManager 字段（v2 起直接下载 pnpm 12 原生二进制）
       - name: 安装 pnpm 与 Node.js
         uses: pnpm/setup@v2
         with:

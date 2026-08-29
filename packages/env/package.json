@@ -10,9 +10,9 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --builders 4",
     "lint": "oxlint .",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {
     "@t3-oss/env-core": "catalog:",

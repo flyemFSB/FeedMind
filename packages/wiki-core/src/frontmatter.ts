@@ -1,4 +1,5 @@
-import yaml from "js-yaml";
+// js-yaml 5 无 default export（官方设计决定），改具名导入；v5 自带 TS 类型，@types/js-yaml 已移除
+import { dump, load, JSON_SCHEMA } from "js-yaml";
 
 export interface FrontmatterParseResult {
   frontmatter: Record<string, unknown>;
@@ -28,7 +29,7 @@ export function parseFrontmatter(content: string): FrontmatterParseResult {
   const body = content.slice(rawBlock.length);
 
   try {
-    const parsed = yaml.load(yamlPayload, { schema: yaml.JSON_SCHEMA });
+    const parsed = load(yamlPayload, { schema: JSON_SCHEMA });
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return {
         frontmatter: {},
@@ -67,10 +68,11 @@ export function formatFrontmatter(frontmatter: Record<string, unknown>): string 
 
   return (
     "---\n" +
-    yaml.dump(filtered, {
+    // v4 的 quotingType（字符）在 v5 更名为 quoteStyle（枚举）
+    dump(filtered, {
       lineWidth: -1,
       noRefs: true,
-      quotingType: '"',
+      quoteStyle: "double",
       forceQuotes: false,
     }) +
     "---"

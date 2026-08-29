@@ -10,14 +10,14 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b --builders 4",
     "lint": "oxlint .",
     "test": "vitest run --project crawler-core",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {
     "cheerio": "catalog:",
-    "playwright-core": "^1.60.0"
+    "playwright-core": "^1.62.1"
   },
   "devDependencies": {
     "@types/node": "catalog:",

@@ -4,27 +4,27 @@ packages:
 
 catalog:
   typescript: ^7.0.2
-  zod: ^4.4.3
+  zod: ^4.5.2
   drizzle-orm: ^0.45.2
-  ai: ^7.0.22
+  ai: ^7.0.84
   vitest: ^4.1.11
   "@vitest/coverage-v8": ^4.1.11
-  "@playwright/test": ^1.50.0
-  oxlint: ^1.79.0
+  "@playwright/test": ^1.62.0
+  oxlint: ^1.80.0
   oxlint-tsgolint: ^7.0.2001
   prettier: ^3.9.6
-  "@types/node": ^26.2.0
-  "@t3-oss/env-core": ^0.12.0
+  "@types/node": ^26.4.0
+  "@t3-oss/env-core": ^0.13.11
   cheerio: ^1.2.0
   pino: ^10.3.1
-  hono: ^4.13.0
+  hono: ^4.13.5
   feedsmith: ^2.9.6
   motion: ^13.1.1
 
 overrides:
   "@electron/get": "^5.1.0"
 
-# pnpm v11: onlyBuiltDependencies → allowBuilds
+# pnpm v11/v12: onlyBuiltDependencies → allowBuilds
 allowBuilds:
   esbuild: true
   agent-browser: true
@@ -42,16 +42,19 @@ publicHoistPattern:
   - "@libsql/client"
   - "drizzle-orm"
 linkWorkspacePackages: true
+# pnpm 12 默认启用 minimumReleaseAge=1440min（24 小时供应链门禁，新版发布不满 1 天不可安装）。
+# 此清单是被门禁拦截版本的放行名单（失败时 pnpm 会自动追加）；删除它会让含新版本的 lockfile 校验失败
 minimumReleaseAgeExclude:
-  - "@hono/node-server@2.0.5"
-  - "@ai-sdk/gateway@4.0.7"
-  - "@ai-sdk/react@4.0.10"
-  - "@mastra/ai-sdk@1.6.1"
-  - "@mastra/core@1.48.0"
-  - "@mastra/hono@1.5.3"
-  - "@mastra/libsql@1.14.3"
-  - "@mastra/schema-compat@1.3.2"
-  - "@mastra/server@1.48.0"
-  - ai@7.0.9
-  - shadcn@4.16.1
-  - hono@4.13.0
+  - "@ai-sdk/gateway@4.0.68"
+  - "@ai-sdk/mcp@2.0.40"
+  - "@ai-sdk/openai-compatible@3.0.40"
+  - "@ai-sdk/provider-utils@5.0.33"
+  - "@ai-sdk/react@4.0.87"
+  - "@mastra/core@1.63.2"
+  - "@mastra/hono@1.7.5"
+  - "@mastra/libsql@1.22.2"
+  - "@mastra/memory@1.28.1"
+  - "@mastra/server@1.63.2"
+  - ai@7.0.84
+  - lucide-react@1.37.0
+  - zod@4.5.2

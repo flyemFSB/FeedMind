@@ -9,45 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WikiRouteImport } from './routes/wiki'
-import { Route as SourcesRouteImport } from './routes/sources'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as OpsLogRouteImport } from './routes/ops-log'
-import { Route as FeedsRouteImport } from './routes/feeds'
-import { Route as DailyReportRouteImport } from './routes/daily-report'
-import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as FeedsIndexRouteImport } from './routes/feeds.index'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as DailyReportRouteImport } from './routes/daily-report'
+import { Route as FeedsRouteImport } from './routes/feeds'
+import { Route as OpsLogRouteImport } from './routes/ops-log'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SourcesRouteImport } from './routes/sources'
+import { Route as WikiRouteImport } from './routes/wiki'
 import { Route as DailyReportIndexRouteImport } from './routes/daily-report.index'
+import { Route as FeedsIndexRouteImport } from './routes/feeds.index'
 
-const WikiRoute = WikiRouteImport.update({
-  id: '/wiki',
-  path: '/wiki',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SourcesRoute = SourcesRouteImport.update({
-  id: '/sources',
-  path: '/sources',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OpsLogRoute = OpsLogRouteImport.update({
-  id: '/ops-log',
-  path: '/ops-log',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FeedsRoute = FeedsRouteImport.update({
-  id: '/feeds',
-  path: '/feeds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DailyReportRoute = DailyReportRouteImport.update({
-  id: '/daily-report',
-  path: '/daily-report',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatRoute = ChatRouteImport.update({
@@ -55,20 +30,45 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DailyReportRoute = DailyReportRouteImport.update({
+  id: '/daily-report',
+  path: '/daily-report',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeedsIndexRoute = FeedsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => FeedsRoute,
+const FeedsRoute = FeedsRouteImport.update({
+  id: '/feeds',
+  path: '/feeds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpsLogRoute = OpsLogRouteImport.update({
+  id: '/ops-log',
+  path: '/ops-log',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SourcesRoute = SourcesRouteImport.update({
+  id: '/sources',
+  path: '/sources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WikiRoute = WikiRouteImport.update({
+  id: '/wiki',
+  path: '/wiki',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DailyReportIndexRoute = DailyReportIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DailyReportRoute,
+} as any)
+const FeedsIndexRoute = FeedsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FeedsRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -156,46 +156,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/wiki': {
-      id: '/wiki'
-      path: '/wiki'
-      fullPath: '/wiki'
-      preLoaderRoute: typeof WikiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sources': {
-      id: '/sources'
-      path: '/sources'
-      fullPath: '/sources'
-      preLoaderRoute: typeof SourcesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ops-log': {
-      id: '/ops-log'
-      path: '/ops-log'
-      fullPath: '/ops-log'
-      preLoaderRoute: typeof OpsLogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/feeds': {
-      id: '/feeds'
-      path: '/feeds'
-      fullPath: '/feeds'
-      preLoaderRoute: typeof FeedsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/daily-report': {
-      id: '/daily-report'
-      path: '/daily-report'
-      fullPath: '/daily-report'
-      preLoaderRoute: typeof DailyReportRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chat': {
@@ -205,19 +170,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/daily-report': {
+      id: '/daily-report'
+      path: '/daily-report'
+      fullPath: '/daily-report'
+      preLoaderRoute: typeof DailyReportRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/feeds/': {
-      id: '/feeds/'
-      path: '/'
-      fullPath: '/feeds/'
-      preLoaderRoute: typeof FeedsIndexRouteImport
-      parentRoute: typeof FeedsRoute
+    '/feeds': {
+      id: '/feeds'
+      path: '/feeds'
+      fullPath: '/feeds'
+      preLoaderRoute: typeof FeedsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ops-log': {
+      id: '/ops-log'
+      path: '/ops-log'
+      fullPath: '/ops-log'
+      preLoaderRoute: typeof OpsLogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sources': {
+      id: '/sources'
+      path: '/sources'
+      fullPath: '/sources'
+      preLoaderRoute: typeof SourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wiki': {
+      id: '/wiki'
+      path: '/wiki'
+      fullPath: '/wiki'
+      preLoaderRoute: typeof WikiRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/daily-report/': {
       id: '/daily-report/'
@@ -225,6 +218,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/daily-report/'
       preLoaderRoute: typeof DailyReportIndexRouteImport
       parentRoute: typeof DailyReportRoute
+    }
+    '/feeds/': {
+      id: '/feeds/'
+      path: '/'
+      fullPath: '/feeds/'
+      preLoaderRoute: typeof FeedsIndexRouteImport
+      parentRoute: typeof FeedsRoute
     }
   }
 }

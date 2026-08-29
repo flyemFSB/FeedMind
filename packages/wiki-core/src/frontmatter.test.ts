@@ -39,6 +39,14 @@ describe("parseFrontmatter", () => {
     expect(result.valid).toBe(false);
     expect(result.error).toMatch(/mapping/);
   });
+
+  // js-yaml 5 起 load('') 从返回 undefined 改为抛错：空 frontmatter 块两侧版本都须标记无效
+  it("空 frontmatter 块标记为无效", () => {
+    const result = parseFrontmatter("---\n\n---\nbody");
+    expect(result.valid).toBe(false);
+    expect(result.hasFrontmatter).toBe(true);
+    expect(result.error).toBeTruthy();
+  });
 });
 
 describe("buildConceptContent", () => {
