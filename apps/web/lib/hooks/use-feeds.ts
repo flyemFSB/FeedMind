@@ -1,5 +1,11 @@
 import { markFeedReadInCache, removeFeedsFromCache } from "./feed-cache";
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   listFeeds,
   syncFeeds,
@@ -32,6 +38,21 @@ export const feedOptions = {
 
 // ─── Feeds ──────────────────────────────────────────────────────
 
+// 长耗时操作（同步订阅 / Cookie 批量校验需逐源驱动爬虫，可达数十秒）的"进行中"反馈
+// 必须跨页面导航存活：mutation 实体驻留 MutationCache，与组件生命周期无关，页面卸载后
+// 仍可按 mutationKey 读到 pending 态；组件内 useState 或 observer.isPending 都随卸载丢失，
+// 导致返回后按钮复位成可点击态、用户误以为同步已中断而重复触发
+export const syncFeedsMutationKey = [...feedOptions.all, "sync"] as const;
+export const checkCookieMutationKey = [...feedOptions.all, "cookie-check"] as const;
+
+// 派生当前 pending 中各次调用的 variables（同步无 variables 时数组元素为 undefined，仅用长度）
+export function usePendingMutationVariables<T>(mutationKey: readonly unknown[]): T[] {
+  return useMutationState({
+    filters: { mutationKey, status: "pending" },
+    select: (mutation) => mutation.state.variables as T,
+  });
+}
+
 export function useFeeds() {
   return useQuery(feedOptions.list());
 }
@@ -39,12 +60,15 @@ export function useFeeds() {
 export function useSyncFeeds() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: syncFeedsMutationKey,
     mutationFn: syncFeeds,
     onSuccess: () => {
       // 同步会更新 lastSyncedAt 与条目数，订阅管理页（sources）同样需要刷新，
-      // 否则同步后页面看起来毫无变化（后端已生效但缓存未失效）
+      // 否则同步后页面看起来毫无变化（后端已生效但缓存未失效）；
+      // 同步成功还会回写 cookie 有效状态，一并失效让 Cookie 面板反映最新结论
       void queryClient.invalidateQueries({ queryKey: feedOptions.list().queryKey });
       void queryClient.invalidateQueries({ queryKey: feedOptions.sources().queryKey });
+      void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
     },
   });
 }
@@ -123,6 +147,7 @@ export function useCookies() {
 
 export function useCheckPlatformCookie() {
   return useMutation({
+    mutationKey: checkCookieMutationKey,
     mutationFn: checkPlatformCookie,
   });
 }

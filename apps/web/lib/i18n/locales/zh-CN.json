@@ -441,8 +441,6 @@
     "cookiePasswordSavedPlaceholder": "已保存（如需更换请输入新密码）",
     "cookieSaveConfig": "保存配置",
     "cookieCloudSaved": "CookieCloud 配置已保存",
-    "cookieCloudVerifyOk": "密码验证通过，同步将正常进行",
-    "cookieCloudVerifyFail": "密码与扩展不一致，同步会失败，请核对扩展中的密码",
     "cookieCheck": "校验",
     "cookieCloudStep5Title": "配置 Cookie 保活",
     "cookieCloudStep5Desc": "自动同步间隔设为 30 分钟内（微信读书 Cookie 约 90 分钟过期），日常打开微信读书页面可续期。",

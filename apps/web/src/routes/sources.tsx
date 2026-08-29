@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
 import { Button } from "@/components/ui/button";
@@ -35,12 +36,11 @@ import {
   useCookies,
   useCheckPlatformCookie,
   useCrawlerOptions,
+  checkCookieMutationKey,
+  usePendingMutationVariables,
+  feedOptions,
 } from "@/lib/hooks/use-feeds";
-import {
-  getCookieCloudConfig,
-  saveCookieCloudConfig,
-  verifyCookieCloudPassword,
-} from "@/lib/api/feeds";
+import { getCookieCloudConfig, saveCookieCloudConfig } from "@/lib/api/feeds";
 import type { RssSource } from "@/lib/api/feeds";
 
 export const Route = createFileRoute("/sources")({
@@ -199,17 +199,7 @@ function SourcesPage() {
         // localStorage 不可用（隐私模式等）不影响保存本身
       }
       setCloudConfigured(true);
-      // 保存后立即用最近一次推送数据验证密码：与扩展不一致立刻提示，不等到同步失败
-      try {
-        const check = await verifyCookieCloudPassword(cookiecloudUuid.trim(), cookiecloudPassword);
-        if (check.empty) {
-          toast.add({ title: t("feeds.cookieCloudSaved"), type: "success" });
-        } else {
-          toast.add({ title: t("feeds.cookieCloudVerifyOk"), type: "success" });
-        }
-      } catch {
-        toast.add({ title: t("feeds.cookieCloudVerifyFail"), type: "error" });
-      }
+      toast.add({ title: t("feeds.cookieCloudSaved"), type: "success" });
     } catch {
       // apiFetch 已 toast 错误，避免重复提示
     } finally {
@@ -224,10 +214,10 @@ function SourcesPage() {
   const [selectedOption, setSelectedOption] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<RssSource | null>(null);
 
-  // Cookie 管理：基础状态由 cookieRows 派生（useMemo），校验/登录/失效联动结果写入临时覆盖层
-  const [cookieOverlay, setCookieOverlay] = useState<Partial<Record<string, CookieState>>>({});
-  // 批量校验全部平台 Cookie（账号 Cookie 标题右侧通用刷新按钮）
-  const [checkingAll, setCheckingAll] = useState(false);
+  // Cookie 管理：状态完全由服务端 cookie_store 派生（不设前端覆盖层）——
+  // 校验/同步/下拉的结果后端都会落库（成功回写有效、鉴权失败写失效），前端失效只需重新拉取；
+  // 覆盖层会随离开页面而丢失，导致状态在导航往返间"重置"
+  const queryClient = useQueryClient();
 
   // 下拉模式平台的收藏夹/公众号列表（react-query 按 listApi 缓存，切换平台不重复请求）
   const activeOption = SOCIAL_OPTIONS.find((o) => o.id === socialPlatform);
@@ -235,12 +225,15 @@ function SourcesPage() {
   const listOptions = crawlerQuery.data ?? [];
   const listLoading = crawlerQuery.isPending;
   const listError = crawlerQuery.error ? crawlerQuery.error.message : null;
-  // 正在校验的平台（刷新按钮 loading）；批量校验期间由全局按钮反馈，避免单槽位 variables 闪现错误平台
-  const checkingPlatform =
-    !checkingAll && checkCookieMutation.isPending ? checkCookieMutation.variables : null;
+  // 校验进行中从 MutationCache 派生（非本地 state）：单平台/批量校验都需驱动爬虫、耗时长，
+  // 导航往返后反馈不丢失。恰一个 pending 视为单平台校验（对应行 spinner），
+  // ≥2 即批量校验（全局按钮统一反馈，避免单槽位 variables 闪现错误平台）
+  const pendingCheckPlatforms = usePendingMutationVariables<string>(checkCookieMutationKey);
+  const checkingPlatform = pendingCheckPlatforms.length === 1 ? pendingCheckPlatforms[0]! : null;
+  const checkingAll = pendingCheckPlatforms.length > 1;
 
-  // 基础状态：每平台取 checkedAt 最新一行的 valid（服务器记录）
-  const baseCookieStatus = useMemo(() => {
+  // 状态：每平台取 checkedAt 最新一行的 valid（服务器记录，探活/同步/推送时更新）
+  const cookieStatus = useMemo(() => {
     const status: Record<string, CookieState> = { ...DEFAULT_COOKIE_STATUS };
     if (cookieRows.length === 0) return status;
     const latest = new Map<string, { valid: boolean | null; checkedAt: string | null }>();
@@ -257,21 +250,14 @@ function SourcesPage() {
     return status;
   }, [cookieRows]);
 
-  // 服务器记录刷新后覆盖层作废，避免校验结果与落库状态互相覆盖出错
+  // 爬虫下拉加载失败（多为登录失效）联动刷新 Cookie 状态：后端已落库失效标记，
+  // 这里只需拉取最新记录让面板反映出来；手动输入平台（无下拉列表）不受影响
   useEffect(() => {
-    setCookieOverlay({});
-  }, [cookieRows]);
-
-  const cookieStatus = { ...baseCookieStatus, ...cookieOverlay };
-
-  // 爬虫下拉加载失败（多为登录失效）联动标记该平台 Cookie 过期
-  useEffect(() => {
-    // 仅当下拉平台自身加载失败（401 登录失效）时标记；手动输入平台（无下拉列表）不受影响
     const err = crawlerQuery.error as (Error & { status?: number }) | null;
     if (activeOption?.select && err?.status === 401) {
-      setCookieOverlay((prev) => ({ ...prev, [socialPlatform]: "expired" }));
+      void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
     }
-  }, [crawlerQuery.error, socialPlatform, activeOption]);
+  }, [crawlerQuery.error, socialPlatform, activeOption, queryClient]);
 
   const handleAddRss = async () => {
     const url = rssUrl.trim();
@@ -341,7 +327,7 @@ function SourcesPage() {
     }
   };
 
-  // 校验指定平台 Cookie 有效性（刷新按钮），后端落库并更新界面状态
+  // 校验指定平台 Cookie 有效性（刷新按钮）：后端落库，拉取最新记录刷新面板状态
   const handleCheckCookie = async (platformId: string) => {
     if (checkingPlatform || checkingAll) return;
     try {
@@ -358,7 +344,7 @@ function SourcesPage() {
       } else if (result) {
         const next: CookieState =
           result.valid == null ? "unknown" : result.valid ? "valid" : "expired";
-        setCookieOverlay((prev) => ({ ...prev, [platformId]: next }));
+        void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
         toast.add({
           title:
             next === "expired"
@@ -380,30 +366,16 @@ function SourcesPage() {
 
   // 应用内浏览器登录已移除：Cookie 由 CookieCloud 扩展 / 手动粘贴维护，平台行按钮改为单平台校验（handleCheckCookie）
 
-  // 批量校验所有平台 Cookie 有效性（账号 Cookie 标题右侧通用按钮）
+  // 批量校验所有平台 Cookie 有效性（账号 Cookie 标题右侧通用按钮）；
+  // 进行中反馈由 pendingCheckPlatforms 派生，结果后端落库后统一拉取刷新
   const handleCheckAllCookies = async () => {
     if (checkingAll) return;
-    setCheckingAll(true);
     const platforms = Object.keys(DEFAULT_COOKIE_STATUS);
-    const results = await Promise.all(
-      platforms.map(async (p) => {
-        try {
-          const result = await checkCookieMutation.mutateAsync(p);
-          return { p, valid: result.valid };
-        } catch {
-          return { p, valid: null };
-        }
-      }),
+    await Promise.all(
+      // 单个平台失败（网络波动等）不阻断其余平台；apiFetch 已 toast 错误
+      platforms.map((p) => checkCookieMutation.mutateAsync(p).catch(() => undefined)),
     );
-    // 仅用真实校验结果更新（null=不支持/未配置，保持原状态）
-    setCookieOverlay((prev) => {
-      const next = { ...prev };
-      for (const r of results) {
-        if (r.valid != null) next[r.p] = r.valid ? "valid" : "expired";
-      }
-      return next;
-    });
-    setCheckingAll(false);
+    void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
     toast.add({ title: t("feeds.cookieRefreshDone"), type: "success" });
   };
 

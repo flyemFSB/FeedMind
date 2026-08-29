@@ -441,8 +441,6 @@
     "cookiePasswordSavedPlaceholder": "Saved (enter a new password to change)",
     "cookieSaveConfig": "Save config",
     "cookieCloudSaved": "CookieCloud config saved",
-    "cookieCloudVerifyOk": "Password verified, sync will work",
-    "cookieCloudVerifyFail": "Password does not match the extension; sync will fail. Check the password in the extension",
     "cookieCheck": "Check",
     "cookieCloudStep5Title": "Enable Cookie keep-alive",
     "cookieCloudStep5Desc": "Set the auto-sync interval to 30 min or less (WeRead cookies expire in ~90 min); opening WeRead pages renews them.",

@@ -36,6 +36,8 @@ import {
   useSyncFeeds,
   useMarkFeedRead,
   useDeleteFeeds,
+  syncFeedsMutationKey,
+  usePendingMutationVariables,
 } from "@/lib/hooks/use-feeds";
 import type { FeedItem, RssSource } from "@/lib/api/feeds";
 
@@ -94,7 +96,9 @@ const iconFor = (src: RssSource | undefined): React.ElementType | null => {
 
 function FeedsIndexPage() {
   const { t, i18n } = useTranslation();
-  const [refreshing, setRefreshing] = useState(false);
+  // "同步中"从 MutationCache 派生而非本地 state：同步期间跳到别的页面再回来，
+  // 仍在进行的同步不会丢失反馈（本地 state 会随组件卸载复位）
+  const isSyncing = usePendingMutationVariables(syncFeedsMutationKey).length > 0;
   // 选择模式：与浏览互斥，避免卡片点击在"打开链接/勾选"间语义打架
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -125,7 +129,6 @@ function FeedsIndexPage() {
   const sources = useMemo(() => new Map(sourceList.map((s) => [s.id, s])), [sourceList]);
 
   const handleSync = async () => {
-    setRefreshing(true);
     try {
       const result = await syncMutation.mutateAsync();
       if ((result.failed ?? 0) > 0) {
@@ -144,8 +147,6 @@ function FeedsIndexPage() {
       }
     } catch {
       // apiFetch 已 toast 错误，避免重复提示
-    } finally {
-      setRefreshing(false);
     }
   };
 
@@ -432,12 +433,12 @@ function FeedsIndexPage() {
                     </Button>
                     <Button
                       onClick={() => void handleSync()}
-                      disabled={refreshing}
+                      disabled={isSyncing}
                       size="sm"
                       className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                     >
-                      {refreshing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
-                      {refreshing ? t("feeds.syncing") : t("feeds.sync")}
+                      {isSyncing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
+                      {isSyncing ? t("feeds.syncing") : t("feeds.sync")}
                     </Button>
                   </div>
                 </motion.div>

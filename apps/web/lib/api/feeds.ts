@@ -97,14 +97,6 @@ export async function getCookieCloudConfig(
   return apiFetch(backendApiPath(`/cookiecloud/config/${encodeURIComponent(uuid)}`));
 }
 
-/** 用指定密码解密库中最近一次推送数据，验证密码与扩展是否一致 */
-export async function verifyCookieCloudPassword(
-  uuid: string,
-  password: string,
-): Promise<{ empty: boolean }> {
-  return apiPost(`/cookiecloud/get/${encodeURIComponent(uuid)}`, { password });
-}
-
 // ─── 爬虫下拉选项 ───────────────────────────────────────────────
 
 export async function listCrawlerOptions(listApi: string): Promise<CrawlerOption[]> {
