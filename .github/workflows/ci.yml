@@ -41,6 +41,17 @@ jobs:
       - name: 代码检查
         run: pnpm lint
 
+      # react-doctor 分数门禁：防诊断回退（当前稳态 88，阈值 85 留余量；
+      # 剩置的 11 条为已决议暂不重构的 no-giant/no-multi 项）
+      - name: React Doctor 分数门禁
+        run: |
+          SCORE=$(npx react-doctor . --project @feedmind/web -y --score 2>/dev/null | grep -oE '[0-9]+' | head -1)
+          echo "react-doctor score: ${SCORE:-"?"}"
+          if [ -z "$SCORE" ] || [ "$SCORE" -lt 85 ]; then
+            echo "::error::react-doctor 分数低于 85（当前 ${SCORE:-无输出}），请先修复新引入的诊断"
+            exit 1
+          fi
+
       - name: 单元与 API 集成测试
         run: pnpm test
 
