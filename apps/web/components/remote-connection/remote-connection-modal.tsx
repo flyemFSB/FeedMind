@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
 import { X, Smartphone, ChevronDown } from "lucide-react";
 import { Feishu } from "@/components/icons/remote-connection-icons";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { apiFetch, backendApiPath } from "@/lib/api/client";
+import { accordionVariants } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { FeishuConfigPanel } from "./feishu-config-panel";
 
@@ -39,38 +41,40 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
   const loadConnections = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/v1/remote-connections");
-      const json = await res.json();
+      // apiFetch 统一处理 res.ok 与信封拆包，避免把错误响应体当数据渲染
+      const list = await apiFetch<Array<{ platform: string; status: string }>>(
+        backendApiPath("/remote-connections"),
+      );
       const map: Record<string, boolean> = {};
-      for (const conn of json.data ?? []) {
+      for (const conn of list) {
         map[conn.platform] = conn.status === "connected";
       }
       setConnections(map);
     } catch {
-      // 静默失败，使用本地状态
+      // apiFetch 已对业务/网络错误弹过 toast，这里保留本地状态即可
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (open) {
-      void loadConnections();
-      setExpandedId(null);
-    }
+    if (open) void loadConnections();
   }, [open, loadConnections]);
+
+  const handleDialogChange = (v: boolean) => {
+    if (!v) {
+      // 关闭时就地重置展开态，替代「监听 open 变化再 setState」的反模式
+      setExpandedId(null);
+      onClose();
+    }
+  };
 
   const handleConnect = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose();
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent
         showCloseButton={false}
         className="w-full max-w-[420px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink shadow-sm"
@@ -122,11 +126,11 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
                     />
                     <AnimatePresence initial={false}>
                       {expanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        <m.div
+                          variants={accordionVariants}
+                          initial="closed"
+                          animate="open"
+                          exit="closed"
                           className="overflow-hidden"
                         >
                           <div className="px-3 pb-3">
@@ -138,7 +142,7 @@ export function RemoteConnectionModal({ open, onClose }: RemoteConnectionModalPr
                               </p>
                             )}
                           </div>
-                        </motion.div>
+                        </m.div>
                       )}
                     </AnimatePresence>
                   </div>
@@ -171,7 +175,7 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
   const { id, nameKey, descriptionKey, icon: Icon } = platform;
 
   return (
-    <motion.button
+    <m.button
       type="button"
       onClick={() => onConnect(id)}
       whileHover={{ scale: 1.01 }}
@@ -192,7 +196,7 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
       </div>
 
       <div className="shrink-0">
-        <motion.span
+        <m.span
           className={cn(
             "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium",
             connected
@@ -202,7 +206,7 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
           animate={{ opacity: connected ? 1 : 0.75 }}
           transition={{ duration: 0.18 }}
         >
-          <motion.span
+          <m.span
             className={cn(
               "h-[5px] w-[5px] rounded-full",
               connected ? "bg-editorial-semantic-success" : "bg-editorial-ink-muted",
@@ -211,16 +215,16 @@ function PlatformRow({ platform, connected, expanded, onConnect }: PlatformRowPr
             transition={{ duration: 0.18 }}
           />
           {connected ? t("remoteConnection.connected") : t("remoteConnection.disconnected")}
-        </motion.span>
+        </m.span>
       </div>
 
-      <motion.span
+      <m.span
         className="shrink-0 text-editorial-ink-muted"
         animate={{ rotate: expanded ? 180 : 0 }}
         transition={{ duration: 0.2 }}
       >
         <ChevronDown size={16} strokeWidth={1.7} />
-      </motion.span>
-    </motion.button>
+      </m.span>
+    </m.button>
   );
 }

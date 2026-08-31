@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { motion } from "motion/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { m } from "motion/react";
 import { Check, Eye, EyeOff, Copy, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { fadeSlideVariants, motionSpring } from "@/lib/motion";
 import { toast } from "@/components/ui/toast";
-import { apiPost } from "@/lib/api/client";
+import { apiFetch, apiPost, backendApiPath } from "@/lib/api/client";
 import i18n from "@/lib/i18n";
 
 interface FeishuConfigPanelProps {
@@ -15,6 +16,15 @@ interface FeishuConfigPanelProps {
 }
 
 type Step = "loading" | "config" | "showConfig" | "done";
+
+interface FeishuStatus {
+  configured: boolean;
+  connected: boolean;
+  config: { appId: string } | null;
+}
+
+// 状态查询在保存/重配置间共享，key 提出来供失效使用
+const feishuStatusKey = ["remote-connections", "feishu", "status"] as const;
 
 /**
  * FeishuConfigPanel — 飞书机器人接入面板（内嵌于远程连接弹窗）
@@ -24,6 +34,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
   const { t } = useTranslation();
   // 短别名，避免重复书写完整命名空间路径
   const fp = (key: string) => t(`remoteConnection.feishuPanel.${key}`);
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>("loading");
   const [appId, setAppId] = useState("");
   const [appSecret, setAppSecret] = useState("");
@@ -45,21 +56,23 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
     };
   }, []);
 
-  useEffect(() => {
-    setSecretVisible(false);
-    void fetch("/api/v1/remote-connections/feishu/status")
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.data?.configured) {
-          setStoredAppId(res.data.config?.appId ?? "");
-          setStoredAppSecret(res.data.config?.appSecret ?? "");
-          setStep("showConfig");
-        } else {
-          setStep("config");
-        }
-      })
-      .catch(() => setStep("config"));
-  }, []);
+  const feishuStatusQuery = useQuery({
+    queryKey: feishuStatusKey,
+    queryFn: () => apiFetch<FeishuStatus>(backendApiPath("/remote-connections/feishu/status")),
+  });
+  const feishuStatus = feishuStatusQuery.data;
+  // 渲染期按查询结果推进状态机（React 官方模式，替代 effect 内取数 + setState）：
+  // 查询失败同样落到手填表单，与原 catch 行为一致
+  if (step === "loading") {
+    if (feishuStatus) {
+      setStep(feishuStatus.configured ? "showConfig" : "config");
+      setStoredAppId(feishuStatus.config?.appId ?? "");
+      // 接口不回传 secret（不外泄），展示态由用户重输入或保持为空
+      setStoredAppSecret("");
+    } else if (feishuStatusQuery.isError) {
+      setStep("config");
+    }
+  }
 
   const saveConfig = async (id: string, secret: string) => {
     setSaving(true);
@@ -75,6 +88,8 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
       setStoredAppSecret(secret.trim());
       setStep("done");
       onConnected();
+      // 凭据已变更，失效状态查询让面板下次进入拿到最新配置
+      void queryClient.invalidateQueries({ queryKey: feishuStatusKey });
       doneTimerRef.current = setTimeout(() => setStep("showConfig"), 1000);
       return true;
     } catch {
@@ -133,33 +148,38 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
   useEffect(() => {
     if (!qrUrl || !scanRef.current) return;
     const { deviceCode, interval } = scanRef.current;
+    // 轮询 tick 里的 await 可能晚于 cleanup 返回（effect 重跑/卸载），
+    // 置位后丢弃陈旧响应，避免上一个会话的响应写坏新会话状态
+    let cancelled = false;
     const timer = setInterval(
       () => {
         void (async () => {
           try {
-            const res = await fetch("/api/v1/remote-connections/feishu/register/poll", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ deviceCode }),
-            });
-            const json = await res.json();
-            if (json.error) throw new Error(json.error.message);
-            if (json.data.status === "success") {
+            // apiPost 统一检查 res.ok 与信封错误，网络抖动抛错后由下方 catch 继续轮询
+            const data = await apiPost<{
+              status: "pending" | "success" | "error";
+              appId?: string;
+              appSecret?: string;
+              error?: string;
+              errorCode?: string;
+            }>("/remote-connections/feishu/register/poll", { deviceCode });
+            if (cancelled) return;
+            if (data.status === "success") {
               clearInterval(timer);
               scanRef.current = null;
-              const ok = await saveConfig(json.data.appId, json.data.appSecret);
-              if (!ok) {
+              const ok = await saveConfig(data.appId ?? "", data.appSecret ?? "");
+              if (!ok && !cancelled) {
                 setScanState("idle");
                 setScanError(fp("saveFailed"));
               }
-            } else if (json.data.status === "error") {
+            } else if (data.status === "error") {
               clearInterval(timer);
               scanRef.current = null;
               setScanState("idle");
               // 按飞书错误码查词条（scanErrors.*），未知码回退后端中文消息（defaultValue）
-              const errText = json.data.error ?? fp("authFailed");
+              const errText = data.error ?? fp("authFailed");
               setScanError(
-                i18n.t(`remoteConnection.feishuPanel.scanErrors.${json.data.errorCode}`, {
+                i18n.t(`remoteConnection.feishuPanel.scanErrors.${data.errorCode}`, {
                   defaultValue: errText,
                 }),
               );
@@ -171,7 +191,10 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
       },
       Math.max(interval, 3) * 1000,
     );
-    return () => clearInterval(timer);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrUrl]);
 
@@ -391,7 +414,7 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
 
         {step === "done" && (
           <div className="flex items-center gap-3 rounded-lg bg-editorial-semantic-success/10 px-4 py-3">
-            <motion.svg
+            <m.svg
               width="18"
               height="18"
               viewBox="0 0 24 24"
@@ -404,13 +427,13 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
               animate={{ opacity: 1, scale: 1 }}
               transition={motionSpring}
             >
-              <motion.polyline
+              <m.polyline
                 points="20 6 9 17 4 12"
                 initial={{ pathLength: 0, opacity: 0 }}
                 animate={{ pathLength: 1, opacity: 1 }}
                 transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               />
-            </motion.svg>
+            </m.svg>
             <span className="text-body font-medium text-editorial-semantic-success">
               {fp("verificationPassed")}
             </span>
@@ -423,14 +446,8 @@ export function FeishuConfigPanel({ onConnected }: FeishuConfigPanelProps) {
 
 function AnimatedStep({ step, children }: { step: Step; children: React.ReactNode }) {
   return (
-    <motion.div
-      key={step}
-      variants={fadeSlideVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-    >
+    <m.div key={step} variants={fadeSlideVariants} initial="initial" animate="animate" exit="exit">
       {children}
-    </motion.div>
+    </m.div>
   );
 }
