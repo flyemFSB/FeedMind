@@ -39,7 +39,8 @@ dailyReportRoutes.post("/daily-report/trigger", async (c) => {
 
 dailyReportRoutes.get("/daily-report/videos", async (c) => jsonOk(c, await listVideos()));
 
-// 产物文件（web 查看/播放；占位阶段为标记文件）
+// 产物文件（web 查看/播放；占位阶段为标记文件）。
+// 裸 Response 而非 c.body：后者类型签名不收 Node Buffer（强转会引入整段视频的拷贝）
 dailyReportRoutes.get("/daily-report/videos/:id/file", async (c) => {
   try {
     const file = await getVideoFile(c.req.param("id"));

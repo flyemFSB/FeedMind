@@ -24,6 +24,12 @@ const updateSessionTitleSchema = z.object({
   title: z.string().min(1).max(200),
 });
 
+// catch 兜住 NaN/越界等垃圾输入：Math.max/min 链对 NaN 直接放行，会把 NaN 一路传进 DB 分页
+const messagesPageQuerySchema = z.object({
+  page: z.coerce.number().int().min(0).default(0).catch(0),
+  limit: z.coerce.number().int().min(1).max(100).default(30).catch(30),
+});
+
 chatRoutes.post("/chats", async (c) => {
   const payload = await parseJson(c, createSessionSchema);
   return jsonOk(c, await createChatSession(payload.agent_thread_id, payload.title), 201);
@@ -37,8 +43,10 @@ chatRoutes.get("/chats/:sessionId", async (c) =>
 /** 读取会话消息（分页：page=0 为最新一页，递增向前翻更早的消息） */
 chatRoutes.get("/chats/:sessionId/messages", async (c) => {
   const threadId = c.req.param("sessionId");
-  const page = Math.max(0, Number(c.req.query("page") ?? 0));
-  const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 30)));
+  const { page, limit } = messagesPageQuerySchema.parse({
+    page: c.req.query("page"),
+    limit: c.req.query("limit"),
+  });
   return jsonOk(c, await getChatSessionMessagesPage(threadId, page, limit));
 });
 

@@ -1,4 +1,4 @@
-import { z } from "zod/v4";
+import { z } from "zod";
 
 // ─── 枚举 ───────────────────────────────────────────────────────
 export const PlatformId = z.enum([

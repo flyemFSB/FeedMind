@@ -55,11 +55,17 @@ const sourcePathSchema = z
   .min(1)
   .max(512)
   .refine((v) => !v.includes("..") && !v.startsWith("/") && !v.startsWith("\\"), {
-    message: "sourcePath 包含非法路径字符",
+    // 限制相对路径，禁止跨目录穿透（..）与绝对路径
+    error: "sourcePath 包含非法路径字符",
   });
 
 const ingestBodySchema = z.object({
   sourcePath: sourcePathSchema,
+});
+
+// 队列入队额外支持 folderContext，路径合法性复用 sourcePathSchema 单一来源
+const ingestJobBodySchema = ingestBodySchema.extend({
+  folderContext: z.string().optional(),
 });
 
 /** 上传成功后自动入队导入任务并唤醒 worker，无需等 30s 轮询。入队失败不阻塞上传。 */
@@ -300,7 +306,9 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
 });
 
 // ─── 搜索 ──────────────────────────────────────────────────────
-wikiRoutes.post("/wiki/spaces/:spaceId/search", async (c) => {
+// QUERY（RFC 10008，hono 4.13 一等支持）：安全幂等的带体查询方法，正是搜索的语义；
+// 误用 POST/GET 会收到 methodNotAllowed 的 405 + Allow 提示
+wikiRoutes.query("/wiki/spaces/:spaceId/search", async (c) => {
   const spaceId = c.req.param("spaceId");
   const body = await parseJson(c, searchBodySchema);
   return jsonOk(c, await searchWiki(spaceId, body.query, body.topK));
@@ -320,16 +328,11 @@ wikiRoutes.get("/wiki/spaces/:spaceId/jobs/ingest", async (c) =>
 );
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
-  const body = await c.req.json().catch(() => ({}));
-  const sourcePath = body.sourcePath as string;
-  if (!sourcePath) return jsonError(c, 400, "VALIDATION_ERROR", "缺少 sourcePath 参数");
-  if (sourcePath.includes("..") || sourcePath.startsWith("/") || sourcePath.startsWith("\\")) {
-    return jsonError(c, 400, "VALIDATION_ERROR", "sourcePath 包含非法路径字符");
-  }
-  const folderContext = body.folderContext as string | undefined;
-  const sourceTitle = readSourceTitle(spaceId, sourcePath);
+  // 统一走 schema 校验与非法 JSON 兜底
+  const body = await parseJson(c, ingestJobBodySchema);
+  const sourceTitle = readSourceTitle(spaceId, body.sourcePath);
 
-  const job = await enqueueIngest(spaceId, sourcePath, folderContext, sourceTitle);
+  const job = await enqueueIngest(spaceId, body.sourcePath, body.folderContext, sourceTitle);
   wakeIngestWorker();
   return jsonOk(c, job);
 });

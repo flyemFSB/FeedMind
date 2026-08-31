@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { remoteConnectionUpsertSchema } from "@feedmind/contracts";
 import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 import {
@@ -58,13 +59,15 @@ remoteConnectionRoutes.get("/remote-connections/feishu/status", async (c) => {
 });
 
 // ─── 飞书: 保存配置 + 验证 ─────────────────────────────────
+const feishuConfigUpsertSchema = z.object({
+  appId: z.string().min(1),
+  appSecret: z.string().min(1),
+});
+
 remoteConnectionRoutes.post("/remote-connections/feishu/config", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  if (!body.appId || !body.appSecret) {
-    return jsonError(c, 400, "MISSING_FIELDS", "App ID 和 App Secret 不能为空");
-  }
+  const { appId, appSecret } = await parseJson(c, feishuConfigUpsertSchema);
   try {
-    await saveAndVerify({ appId: body.appId, appSecret: body.appSecret });
+    await saveAndVerify({ appId, appSecret });
     return jsonOk(c, { success: true });
   } catch (err) {
     return jsonError(c, 400, "VERIFY_FAILED", err instanceof Error ? err.message : "凭证验证失败");

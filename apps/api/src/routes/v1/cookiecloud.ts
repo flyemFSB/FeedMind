@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { z } from "zod";
 import { PlatformId } from "@feedmind/contracts";
-import { jsonOk, jsonError } from "../../lib/http.js";
+import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 import {
   saveConfig,
   storeEncrypted,
@@ -18,22 +19,29 @@ import { logger } from "../../lib/logger.js";
 
 export const cookieCloudRoutes = new Hono();
 
+// 前端保存 UUID + 密码配置；crypto_type 与官方扩展对齐默认 legacy
+const cookieCloudConfigSchema = z.object({
+  uuid: z.string().min(1),
+  password: z.string().min(1),
+  crypto_type: z.string().default("legacy"),
+});
+
+// 手动解密排查入口（curl 调用）
+const cookieCloudDecryptSchema = z.object({
+  uuid: z.string().min(1),
+  password: z.string().min(1),
+  crypto_type: z.string().optional(),
+});
+
+// 手动录入账号 Cookie；platform 直接复用 contracts 的受控枚举替代手工 safeParse
+const manualCookieSchema = z.object({
+  platform: PlatformId,
+  cookies: z.string().min(1),
+});
+
 // 保存 UUID + 密码配置（供 CookieCloud 扩展推送时解密）
 cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const {
-    uuid,
-    password,
-    crypto_type = "legacy",
-  } = body as {
-    uuid?: string;
-    password?: string;
-    crypto_type?: string;
-  };
-
-  if (!uuid || !password) {
-    return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 password 不能为空");
-  }
+  const { uuid, password, crypto_type } = await parseJson(c, cookieCloudConfigSchema);
 
   await saveConfig(uuid, password, crypto_type);
   void logOperation({
@@ -138,16 +146,7 @@ cookieCloudRoutes.post("/cookiecloud/check/:platform", async (c) => {
 // 此接口不新增明文出口。crypto_type 可传参覆盖：web 端保存配置时硬编码 legacy，
 // 若扩展实际用 aes-128-cbc-fixed（0.3.0+ 默认），不覆盖会导致调试解密误导。
 cookieCloudRoutes.post("/cookiecloud/decrypt", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const { uuid, password, crypto_type } = body as {
-    uuid?: string;
-    password?: string;
-    crypto_type?: string;
-  };
-
-  if (!uuid || !password) {
-    return jsonError(c, 400, "MISSING_FIELDS", "uuid 和 password 不能为空");
-  }
+  const { uuid, password, crypto_type } = await parseJson(c, cookieCloudDecryptSchema);
 
   const row = await getConfig(uuid);
   if (!row?.encrypted) {
@@ -165,23 +164,13 @@ cookieCloudRoutes.post("/cookiecloud/decrypt", async (c) => {
 
 // 保存手动输入的 cookie（账号 Cookie）
 cookieCloudRoutes.post("/cookiecloud/cookies", async (c) => {
-  const body = await c.req.json().catch(() => ({}));
-  const { platform, cookies } = body as { platform?: string; cookies?: string };
+  const { platform, cookies } = await parseJson(c, manualCookieSchema);
 
-  if (!platform || !cookies) {
-    return jsonError(c, 400, "MISSING_FIELDS", "platform 和 cookies 不能为空");
-  }
-
-  const platformResult = PlatformId.safeParse(platform);
-  if (!platformResult.success) {
-    return jsonError(c, 400, "INVALID_PLATFORM", `无效的平台: ${platform}`);
-  }
-
-  await saveManualCookies(platformResult.data, cookies);
+  await saveManualCookies(platform, cookies);
   void logOperation({
     action: "update",
     target: "cookie_store",
-    targetName: platformResult.data,
+    targetName: platform,
     detail: "更新 Cookie",
   });
   return jsonOk(c, { action: "done" });

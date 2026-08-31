@@ -8,6 +8,15 @@ const MAX_OUTPUT_CHARS = 4096; // 按字符截断（非 UTF-16 code unit），�
 import { checkSSRF } from "../../lib/ssrf.js";
 export { checkSSRF };
 
+// 只取 Firecrawl v2 响应里的 markdown 字段；模块级构造一次，避免每次抓取重建 schema
+const firecrawlResponseSchema = z.object({
+  data: z
+    .object({
+      markdown: z.string().optional(),
+    })
+    .optional(),
+});
+
 /** 通过 Firecrawl v2 API 获取 Markdown 内容（支持匿名模式） */
 async function fetchViaFirecrawl(
   url: string,
@@ -34,13 +43,6 @@ async function fetchViaFirecrawl(
   }
 
   const rawJson = (await response.json().catch(() => null)) as unknown;
-  const firecrawlResponseSchema = z.object({
-    data: z
-      .object({
-        markdown: z.string().optional(),
-      })
-      .optional(),
-  });
   const parsed = firecrawlResponseSchema.safeParse(rawJson);
   const markdown = parsed.success ? parsed.data.data?.markdown : undefined;
   return markdown?.trim() ? markdown : null;

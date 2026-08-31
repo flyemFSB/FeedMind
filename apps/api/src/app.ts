@@ -13,6 +13,14 @@ import { logger } from "./lib/logger.js";
 import { openapiApp } from "./lib/openapi.js";
 import { v1Router } from "./routes/v1/index.js";
 
+// 本机回环来源（vite dev 端口、Electron 同源端口等任意本机端口）。
+// 生产 UI 与 API 同源、dev 经 Vite 代理亦同源，本不依赖跨源；放行 loopback 仅为
+// 本地调试页直连留口子。其余来源（用户浏览器里的任意网页）不返回 ACAO 头被浏览器拦截，
+// 避免携带凭证跨源打本地 API（服务存有 Cookie/密钥，是最典型的 localhost CSRF 面）。
+function isLoopbackOrigin(origin: string): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?\/?$/.test(origin);
+}
+
 /** 供 server.ts 和测试分别组装 Mastra / 纯 REST 场景 */
 export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVariables }> {
   validateApiRuntime();
@@ -24,8 +32,10 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
   app.use(
     "*",
     cors({
-      origin: (origin) => origin,
-      allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      // 回调返回 falsy 即拒绝（hono cors 约定：不设置 ACAO 头）；无 Origin 的请求（curl/同源）不受影响
+      origin: (origin) => (isLoopbackOrigin(origin) ? origin : null),
+      // QUERY 为 RFC 10008 带体查询方法（hono 4.13 一等支持），wiki 搜索已采用
+      allowMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "QUERY", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization", "X-Request-Id", "x-feedmind-model-id"],
       exposeHeaders: ["Content-Length", "X-Request-Id"],
       maxAge: 600,
