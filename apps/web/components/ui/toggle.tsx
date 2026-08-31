@@ -1,6 +1,6 @@
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { motionPressTransition } from "@/lib/motion";
@@ -36,7 +36,7 @@ function Toggle({
   return (
     <TogglePrimitive
       render={(elementProps, state) => (
-        <motion.button
+        <m.button
           {...elementProps}
           animate={{ scale: state.pressed ? 0.98 : 1 }}
           whileHover={{ scale: 1.015 }}

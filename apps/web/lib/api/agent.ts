@@ -23,13 +23,6 @@ export function setSelectedFeedMindModel(model: string): void {
   }
 }
 
-export function getSelectedFeedMindModelId(): string {
-  if (typeof window !== "undefined") {
-    return window.localStorage.getItem(selectedModelIdStorageKey) ?? "";
-  }
-  return "";
-}
-
 export function setSelectedFeedMindModelId(modelId: string): void {
   if (typeof window !== "undefined") {
     if (modelId) {

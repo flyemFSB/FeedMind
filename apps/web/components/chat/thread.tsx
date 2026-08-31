@@ -4,7 +4,7 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   Conversation,
   ConversationContent,
@@ -106,7 +106,7 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
             >
               <div className="mt-6 flex flex-wrap justify-center gap-2 max-w-xl">
                 {suggestions.map((suggestion) => (
-                  <motion.button
+                  <m.button
                     key={suggestion}
                     type="button"
                     onClick={() => sendMessage?.({ text: suggestion })}
@@ -115,7 +115,7 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
                     className="cursor-pointer rounded-md bg-editorial-surface-soft px-3 py-2 text-xs text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
                   >
                     {suggestion}
-                  </motion.button>
+                  </m.button>
                 ))}
               </div>
             </ConversationEmptyState>

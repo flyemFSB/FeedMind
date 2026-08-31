@@ -17,11 +17,7 @@ import {
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
-import {
-  getSelectedFeedMindModel,
-  getSelectedFeedMindModelId,
-  onSelectedFeedMindModelChange,
-} from "@/lib/api/agent";
+import { getSelectedFeedMindModel } from "@/lib/api/agent";
 import {
   getChatSessionMessages,
   createChatSession,
@@ -77,15 +73,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     activeThreadIdRef.current = activeThreadId;
   }, [activeThreadId]);
-
-  // ── 当前选中模型的 modelId ──
-  const modelIdRef = useRef(getSelectedFeedMindModelId());
-  useEffect(() => {
-    const unsubscribe = onSelectedFeedMindModelChange(() => {
-      modelIdRef.current = getSelectedFeedMindModelId();
-    });
-    return unsubscribe;
-  }, []);
 
   // ── Transport：传 memory.thread 给 chatRoute，Memory 自动管理历史 ──
   const transport = useMemo(

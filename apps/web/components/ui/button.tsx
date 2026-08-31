@@ -1,6 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button";
 import { cva, type VariantProps } from "class-variance-authority";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { motionPressTransition } from "@/lib/motion";
@@ -51,7 +51,7 @@ function Button({
     <ButtonPrimitive
       data-slot="button"
       render={
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.015 }}
           whileTap={{ scale: 0.96 }}
           transition={motionPressTransition}

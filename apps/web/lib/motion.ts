@@ -61,38 +61,6 @@ export const drawerVariants: Variants = {
   },
 };
 
-export function getSheetVariants(side: "top" | "right" | "bottom" | "left"): Variants {
-  const closed = {
-    top: { y: "-100%" },
-    right: { x: "100%" },
-    bottom: { y: "100%" },
-    left: { x: "-100%" },
-  }[side];
-
-  return {
-    closed: { ...closed, opacity: 0 },
-    open: {
-      x: 0,
-      y: 0,
-      opacity: 1,
-      transition: { duration: motionDuration.layout, ease: motionEase },
-    },
-  };
-}
-
-export const collapseVariants: Variants = {
-  closed: {
-    height: 0,
-    opacity: 0,
-    transition: { duration: motionDuration.layout, ease: motionEaseIn },
-  },
-  open: {
-    height: "auto",
-    opacity: 1,
-    transition: { duration: motionDuration.layout, ease: motionEase },
-  },
-};
-
 export const listContainerVariants: Variants = {
   initial: {},
   animate: {
@@ -104,28 +72,25 @@ export const listContainerVariants: Variants = {
   exit: {},
 };
 
-export const tabPanelVariants: Variants = {
-  hidden: { opacity: 0, y: 6 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: motionDuration.base, ease: motionEase },
-  },
-};
-
 export const fadeSlideVariants: Variants = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0, transition: motionTransition },
   exit: { opacity: 0, y: -4, transition: { duration: motionDuration.fast, ease: motionEaseIn } },
 };
 
-export const scaleFadeVariants: Variants = {
-  initial: { opacity: 0, scale: 0.96 },
-  animate: { opacity: 1, scale: 1, transition: motionTransition },
-  exit: {
+// 手风琴高度开合（height 0↔auto）：用户触发、有界、小子树的展开动画，高度由内容决定、
+// transform 无法表达——属 no-layout-property-animation 规则文档明示的 intentional exception，
+// 集中在此统一记录，不在各使用点重复豁免
+export const accordionVariants: Variants = {
+  closed: {
+    height: 0,
     opacity: 0,
-    scale: 0.98,
-    transition: { duration: motionDuration.fast, ease: motionEaseIn },
+    transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+  },
+  open: {
+    height: "auto",
+    opacity: 1,
+    transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
   },
 };
 

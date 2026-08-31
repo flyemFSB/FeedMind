@@ -1,6 +1,6 @@
 import { RouterProvider } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { MotionConfig } from "motion/react";
+import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { useState } from "react";
 import { ChatProvider } from "@/lib/chat/chat-context";
 import { ErrorBoundary } from "@/components/app-shell/error-boundary";
@@ -17,21 +17,25 @@ function App() {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    <MotionConfig reducedMotion="user">
-      <ErrorBoundary>
-        <ThemeProvider>
-          <I18nProvider>
-            <QueryClientProvider client={queryClient}>
-              <ChatProvider>
-                <RouterProvider router={router} />
-                <TanStackQueryDevtools />
-              </ChatProvider>
-            </QueryClientProvider>
-          </I18nProvider>
-        </ThemeProvider>
-      </ErrorBoundary>
-      <Toaster />
-    </MotionConfig>
+    // LazyMotion strict：全应用只允许 m.* 组件（全量 motion.* 会把整套动画运行时打进包体）。
+    // domAnimation 覆盖本项目全部用法（变换/手势/AniPresence）；strict 下漏改的 motion.* 直接抛错而非静默不动画
+    <LazyMotion features={domAnimation} strict>
+      <MotionConfig reducedMotion="user">
+        <ErrorBoundary>
+          <ThemeProvider>
+            <I18nProvider>
+              <QueryClientProvider client={queryClient}>
+                <ChatProvider>
+                  <RouterProvider router={router} />
+                  <TanStackQueryDevtools />
+                </ChatProvider>
+              </QueryClientProvider>
+            </I18nProvider>
+          </ThemeProvider>
+        </ErrorBoundary>
+        <Toaster />
+      </MotionConfig>
+    </LazyMotion>
   );
 }
 

@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import type { CSSProperties } from "react";
 import { memo, useMemo } from "react";
 
@@ -14,7 +14,7 @@ const ShimmerComponent = ({ children, className, duration = 2, spread = 2 }: Tex
   const dynamicSpread = useMemo(() => (children?.length ?? 0) * spread, [children, spread]);
 
   return (
-    <motion.span
+    <m.span
       animate={{ backgroundPosition: "0% center" }}
       className={cn(
         "relative inline-block bg-[length:250%_100%,auto] bg-clip-text text-transparent",
@@ -36,7 +36,7 @@ const ShimmerComponent = ({ children, className, duration = 2, spread = 2 }: Tex
       }}
     >
       {children}
-    </motion.span>
+    </m.span>
   );
 };
 

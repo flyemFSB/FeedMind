@@ -1,5 +1,5 @@
 import * as React from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
@@ -41,7 +41,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
 
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
-    <motion.tr
+    <m.tr
       data-slot="table-row"
       className={cn(
         "border-b hover:bg-editorial-surface-soft has-aria-expanded:bg-editorial-surface-soft data-[state=selected]:bg-editorial-surface-soft",

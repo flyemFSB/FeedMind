@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
@@ -242,7 +242,7 @@ function FilterChip({
   onClick: () => void;
 }) {
   return (
-    <motion.button
+    <m.button
       onClick={onClick}
       whileTap={{ scale: 0.96 }}
       className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${
@@ -252,7 +252,7 @@ function FilterChip({
       }`}
     >
       {label}
-    </motion.button>
+    </m.button>
   );
 }
 
@@ -268,7 +268,7 @@ function PageListItem({
   const color = wikiTypeColor(page.type);
 
   return (
-    <motion.button
+    <m.button
       onClick={onClick}
       whileHover={{ x: 2 }}
       whileTap={{ scale: 0.99 }}
@@ -282,6 +282,6 @@ function PageListItem({
       <div className="min-w-0 flex-1">
         <span className="block truncate text-body font-medium">{page.title}</span>
       </div>
-    </motion.button>
+    </m.button>
   );
 }

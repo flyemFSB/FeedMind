@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
     <DialogPrimitive.Backdrop
       forceRender
       render={(elementProps, state) => (
-        <motion.div
+        <m.div
           {...elementProps}
           initial="closed"
           animate={state.open ? "open" : "closed"}
@@ -60,7 +60,7 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Popup
         render={(elementProps, state) => (
-          <motion.div
+          <m.div
             {...elementProps}
             style={{ translate: "-50% -50%" }}
             initial="closed"

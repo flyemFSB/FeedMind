@@ -7,7 +7,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
   ArrowLeft,
   BookOpen,
@@ -93,7 +93,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
         const target = href ? resolveInternalTarget(href, page?.concept_id ?? "") : null;
         if (target) {
           return (
-            <motion.button
+            <m.button
               type="button"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.98 }}
@@ -101,12 +101,12 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
               onClick={() => onNavigate(target)}
             >
               {children}
-            </motion.button>
+            </m.button>
           );
         }
 
         return (
-          <motion.a
+          <m.a
             href={href}
             target="_blank"
             rel="noreferrer"
@@ -114,7 +114,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
             className="font-medium text-editorial-primary underline decoration-editorial-primary/30 underline-offset-4 hover:decoration-editorial-primary"
           >
             {children}
-          </motion.a>
+          </m.a>
         );
       },
       table: MarkdownTable,
@@ -162,14 +162,14 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
                 {t("wiki.backlinksCount", { count: backlinks.length })}
               </h2>
               <AnimatePresence initial={false}>
-                <motion.div
+                <m.div
                   className="grid gap-1 sm:grid-cols-2"
                   variants={listContainerVariants}
                   initial="initial"
                   animate="animate"
                 >
                   {backlinks.map((backlink) => (
-                    <motion.button
+                    <m.button
                       key={backlink.page_id}
                       type="button"
                       layout
@@ -186,9 +186,9 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
                       <span className="truncate text-xs text-editorial-ink-muted">
                         {backlink.path}
                       </span>
-                    </motion.button>
+                    </m.button>
                   ))}
-                </motion.div>
+                </m.div>
               </AnimatePresence>
             </section>
           )}

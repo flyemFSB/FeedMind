@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react";
@@ -39,7 +39,7 @@ function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       render={(elementProps, state) => (
-        <motion.button
+        <m.button
           {...elementProps}
           animate={{ scale: state.open ? 1.005 : 1 }}
           transition={motionPressTransition}
@@ -94,7 +94,7 @@ function SelectContent({
             className,
           )}
           render={(elementProps, state) => (
-            <motion.div
+            <m.div
               {...elementProps}
               initial="closed"
               animate={state.open ? "open" : "closed"}

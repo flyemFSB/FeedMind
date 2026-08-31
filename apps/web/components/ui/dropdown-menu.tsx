@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
@@ -19,7 +19,7 @@ function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
     <MenuPrimitive.Trigger
       data-slot="dropdown-menu-trigger"
       render={(elementProps, state) => (
-        <motion.button
+        <m.button
           {...elementProps}
           animate={{ scale: state.open ? 1.005 : 1 }}
           transition={motionPressTransition}
@@ -56,7 +56,7 @@ function DropdownMenuContent({
             className,
           )}
           render={(elementProps, state) => (
-            <motion.div
+            <m.div
               {...elementProps}
               initial="closed"
               animate={state.open ? "open" : "closed"}

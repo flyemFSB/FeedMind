@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { toast } from "@/components/ui/toast";
 import { Package, Trash2, Upload } from "lucide-react";
 import type { SkillRead } from "@feedmind/contracts";
@@ -123,7 +123,7 @@ export function SkillsPanel() {
       </div>
 
       {/* Drop zone */}
-      <motion.div
+      <m.div
         onDragOver={(e: React.DragEvent<HTMLDivElement>) => {
           e.preventDefault();
           setDragOver(true);
@@ -157,7 +157,7 @@ export function SkillsPanel() {
             {t("settings.skillDropzoneHint")}
           </p>
         </div>
-      </motion.div>
+      </m.div>
 
       {/* Installed skills */}
       {skills.length === 0 ? (
@@ -167,22 +167,22 @@ export function SkillsPanel() {
         </div>
       ) : (
         <AnimatePresence initial={false}>
-          <motion.div
+          <m.div
             className="divide-y divide-editorial-hairline overflow-hidden rounded-lg border border-editorial-hairline"
             variants={listContainerVariants}
             initial="initial"
             animate="animate"
           >
             {skills.map((skill) => (
-              <motion.div key={skill.name} layout variants={listItemVariants}>
+              <m.div key={skill.name} layout variants={listItemVariants}>
                 <SkillRow
                   skill={skill}
                   onDelete={() => setDeleteTarget(skill.name)}
                   isDeleting={deleteMutation.isPending && deleteMutation.variables === skill.name}
                 />
-              </motion.div>
+              </m.div>
             ))}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       )}
 

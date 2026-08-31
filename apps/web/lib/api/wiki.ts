@@ -1,9 +1,8 @@
-import { apiDelete, apiFetch, apiPatch, apiPost, apiPut, backendApiPath } from "./client";
+import { apiDelete, apiFetch, apiPost, apiPut, backendApiPath } from "./client";
 import type { IngestJob } from "@feedmind/contracts";
 import type {
   WikiBacklink,
   WikiGraph,
-  WikiPageCreate,
   WikiPageListItem,
   WikiPageRead,
   WikiPageUpdate,
@@ -14,7 +13,6 @@ import type {
   WikiSpaceCreate,
   WikiSpaceListItem,
   WikiSpaceRead,
-  WikiSpaceUpdate,
 } from "@feedmind/contracts";
 
 // ─── Spaces ────────────────────────────────────────────────────
@@ -24,10 +22,6 @@ export function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
 
 export function createWikiSpace(payload: WikiSpaceCreate): Promise<WikiSpaceRead> {
   return apiPost("/wiki/spaces", payload);
-}
-
-export function updateWikiSpace(spaceId: string, payload: WikiSpaceUpdate): Promise<WikiSpaceRead> {
-  return apiPatch(`/wiki/spaces/${spaceId}`, payload);
 }
 
 export function deleteWikiSpace(spaceId: string): Promise<{ success: boolean }> {
@@ -48,10 +42,6 @@ export function listWikiPages(
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages${qs ? `?${qs}` : ""}`));
 }
 
-export function createWikiPage(spaceId: string, payload: WikiPageCreate): Promise<WikiPageRead> {
-  return apiPost(`/wiki/spaces/${spaceId}/pages`, payload);
-}
-
 export function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`));
 }
@@ -62,10 +52,6 @@ export function updateWikiPage(
   payload: WikiPageUpdate,
 ): Promise<WikiPageRead> {
   return apiPut(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`, payload);
-}
-
-export function deleteWikiPage(spaceId: string, pageId: string): Promise<void> {
-  return apiDelete(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}`);
 }
 
 export function resolveWikiLink(spaceId: string, target: string): Promise<WikiResolveResult> {
@@ -170,12 +156,4 @@ export function enqueueIngestJob(
 
 export function cancelIngestJob(spaceId: string, jobId: string): Promise<{ success: boolean }> {
   return apiPost(`/wiki/spaces/${spaceId}/jobs/${jobId}/cancel`, {});
-}
-
-// ─── Direct Ingest（同步导入：完成后由后端标记来源已导入）──────
-export function runIngest(
-  spaceId: string,
-  sourcePath: string,
-): Promise<{ pagesCreated: number; pagesUpdated: number; warnings: string[]; log: string[] }> {
-  return apiPost(`/wiki/spaces/${spaceId}/ingest`, { sourcePath });
 }

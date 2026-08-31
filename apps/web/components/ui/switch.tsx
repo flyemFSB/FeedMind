@@ -1,5 +1,5 @@
 import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { motionSpring, motionTransition } from "@/lib/motion";
@@ -14,7 +14,7 @@ function Switch({
   return (
     <SwitchPrimitive.Root
       render={(elementProps, state) => (
-        <motion.span
+        <m.span
           {...elementProps}
           animate={{
             backgroundColor: state.checked ? "var(--primary)" : "var(--input)",
@@ -32,7 +32,7 @@ function Switch({
     >
       <SwitchPrimitive.Thumb
         render={(elementProps, state) => (
-          <motion.span
+          <m.span
             {...elementProps}
             animate={{ x: state.checked ? "calc(100% - 2px)" : 0 }}
             transition={motionSpring}

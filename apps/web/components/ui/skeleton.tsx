@@ -1,11 +1,11 @@
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
-    <motion.div
+    <m.div
       data-slot="skeleton"
       className={cn("rounded-md bg-editorial-hairline", className)}
       animate={shouldReduceMotion ? { opacity: 0.8 } : { opacity: [0.55, 1, 0.55] }}

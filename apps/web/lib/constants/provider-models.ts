@@ -203,20 +203,6 @@ export const PROVIDER_MODELS: ProviderModelsMap = {
   ],
 };
 
-export function getProviderBaseUrl(provider: string): string {
-  const baseUrls: Record<string, string> = {
-    ChatGPT: "https://api.openai.com/v1",
-    Claude: "https://api.anthropic.com/v1",
-    DeepSeek: "https://api.deepseek.com",
-    Gemini: "https://generativelanguage.googleapis.com/v1beta/openai",
-    GLM: "https://open.bigmodel.cn/api/paas/v4",
-    Kimi: "https://api.moonshot.cn/v1",
-    MiniMax: "https://api.minimax.chat/v1",
-    Qwen: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-  };
-  return baseUrls[provider] ?? "";
-}
-
 export function lookupModelInfo(
   provider: string,
   modelName: string,

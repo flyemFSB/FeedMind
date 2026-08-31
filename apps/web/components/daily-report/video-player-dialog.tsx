@@ -68,6 +68,7 @@ export function VideoPlayerDialog({ video, onClose }: VideoPlayerDialogProps) {
         <div className="relative overflow-hidden rounded-xl border border-editorial-hairline-strong bg-black aspect-video flex items-center justify-center my-2 shadow-inner">
           <video
             controls
+            // eslint-disable-next-line react-doctor/no-autoplay-without-muted -- 用户显式打开播放弹窗（含用户手势），旁白音频即内容主体，静音自动播放反而破坏体验
             autoPlay
             preload="auto"
             src={url}

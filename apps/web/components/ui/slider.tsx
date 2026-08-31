@@ -1,5 +1,5 @@
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { motionPressTransition } from "@/lib/motion";
@@ -42,7 +42,7 @@ function Slider({
         {Array.from({ length: _values.length }, (_, index) => (
           <SliderPrimitive.Thumb
             render={(elementProps, state) => (
-              <motion.div
+              <m.div
                 {...elementProps}
                 animate={{ scale: state.dragging ? 1.16 : 1 }}
                 transition={motionPressTransition}

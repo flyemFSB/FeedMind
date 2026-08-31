@@ -1,5 +1,5 @@
 import { MessageCircle, PanelRightClose } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { ModelSelector } from "@/components/settings/model-selector";
 import { useAppShell } from "@/components/app-shell/app-shell-context";
 import { useTranslation } from "react-i18next";
@@ -40,7 +40,7 @@ export function Topbar({ title, subtitle, showModelSelector = false, rightConten
 function AgentToggleButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   const { t } = useTranslation();
   return (
-    <motion.button
+    <m.button
       type="button"
       onClick={onClick}
       aria-label={t("common.askAI")}
@@ -60,6 +60,6 @@ function AgentToggleButton({ active, onClick }: { active: boolean; onClick: () =
     >
       {active ? <PanelRightClose size={15} /> : <MessageCircle size={15} />}
       <span className="text-xs font-medium">{t("common.askAI")}</span>
-    </motion.button>
+    </m.button>
   );
 }

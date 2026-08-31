@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
 import { useState } from "react";
 import type { LLMModel } from "@/lib/types";
@@ -138,7 +138,7 @@ export function SettingsView({ activeTab, onTabChange }: SettingsViewProps) {
       <main className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-8 py-8 max-sm:px-4 max-sm:py-6">
           <AnimatePresence mode="wait" initial={false}>
-            <motion.div
+            <m.div
               key={activeTab}
               variants={fadeSlideVariants}
               initial="initial"
@@ -208,7 +208,7 @@ export function SettingsView({ activeTab, onTabChange }: SettingsViewProps) {
               {activeTab === "tools" && <ToolsPanel />}
               {activeTab === "skills" && <SkillsPanel />}
               {activeTab === "system" && <SystemPanel />}
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
       </main>

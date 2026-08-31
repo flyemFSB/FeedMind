@@ -5,7 +5,7 @@ import { useDeleteChatSession } from "@/lib/hooks/use-chats";
 
 /**
  * 会话删除确认的共享逻辑：删除目标状态 + 确认/关闭处理。
- * thread-list 与 agent-drawer 复用，避免各自维护一份。
+ * agent-drawer 等消费方复用，避免各自维护一份。
  */
 export function useChatSessionDelete() {
   const { clearSession, activeThreadId } = useChatContext();
