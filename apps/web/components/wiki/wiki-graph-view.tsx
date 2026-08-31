@@ -10,7 +10,7 @@ import {
 import "@react-sigma/core/lib/style.css";
 import type { NodeHoverDrawingFunction } from "sigma/rendering";
 import forceAtlas2 from "graphology-layout-forceatlas2";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
   AlertTriangle,
   Layers,
@@ -769,7 +769,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
         {/* Insights Panel */}
         <AnimatePresence initial={false}>
           {showInsights && insights && (
-            <motion.div
+            <m.div
               className="w-80 shrink-0 border-l border-editorial-hairline bg-editorial-surface-card overflow-y-auto p-4 shadow-[-2px_0_4px_rgba(0,0,0,0.03)]"
               key="insights"
               variants={drawerVariants}
@@ -781,7 +781,11 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                 <span className="text-body font-semibold text-editorial-ink">
                   {t("wiki.insightsTitle")}
                 </span>
-                <button onClick={() => setShowInsights(false)}>
+                <button
+                  type="button"
+                  onClick={() => setShowInsights(false)}
+                  aria-label={t("common.close")}
+                >
                   <X size={14} />
                 </button>
               </div>
@@ -791,12 +795,20 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
                     <Link2 size={14} className="text-blue-500" /> {t("wiki.unexpectedLinks")}
                   </div>
-                  {insights.surprising.map((conn, i: number) => (
+                  {insights.surprising.map((conn) => (
                     <div
-                      key={i}
+                      key={`${conn.source.id}:${conn.target.id}`}
+                      role="button"
+                      tabIndex={0}
                       className="rounded-lg border p-3 mb-2 text-sm hover:bg-editorial-canvas-soft cursor-pointer"
                       onClick={() => {
                         onPageSelect(conn.source.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onPageSelect(conn.source.id);
+                        }
                       }}
                     >
                       <div className="font-medium text-xs mb-1">
@@ -813,8 +825,8 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
                     <AlertTriangle size={14} className="text-amber-500" /> {t("wiki.knowledgeGaps")}
                   </div>
-                  {insights.gaps.map((gap, i: number) => (
-                    <div key={i} className="rounded-lg border p-3 mb-2">
+                  {insights.gaps.map((gap) => (
+                    <div key={gap.title} className="rounded-lg border p-3 mb-2">
                       <div className="font-medium text-xs mb-1">{gap.title}</div>
                       <p className="text-xs text-editorial-ink-muted mb-1">{gap.description}</p>
                       <p className="text-xs italic text-editorial-ink-muted">{gap.suggestion}</p>
@@ -822,13 +834,13 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                   ))}
                 </div>
               )}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
         <AnimatePresence initial={false}>
           {selectedNodeId && (
-            <motion.aside
+            <m.aside
               className="flex w-[min(560px,45vw)] shrink-0 flex-col border-l border-editorial-hairline bg-editorial-surface-card shadow-[-2px_0_4px_rgba(0,0,0,0.03)]"
               key={`preview-${selectedNodeId}`}
               variants={drawerVariants}
@@ -856,7 +868,7 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
                   onNavigate={(target) => void handlePanelNavigate(target)}
                 />
               </div>
-            </motion.aside>
+            </m.aside>
           )}
         </AnimatePresence>
       </div>

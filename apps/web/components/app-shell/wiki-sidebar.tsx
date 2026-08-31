@@ -11,7 +11,7 @@ import {
   Settings,
   Smartphone,
 } from "lucide-react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
 ] as const;
 
 export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   // 全局侧边栏读取当前 URL 的 view（合并所有路由 search），仅 /wiki 定义该参数
   const search = useSearch({ strict: false });
@@ -43,7 +44,7 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
       className="relative z-20 flex h-full w-[48px] shrink-0 flex-col items-center overflow-hidden bg-editorial-canvas-soft max-sm:w-[44px]"
     >
       <div className="flex w-full flex-col items-center pt-1.5">
-        <motion.button
+        <m.button
           type="button"
           onClick={() => goToView("pages")}
           whileHover={{ scale: 1.04 }}
@@ -61,12 +62,12 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
             loading="eager"
             decoding="async"
           />
-        </motion.button>
+        </m.button>
       </div>
 
       <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
-      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
+      <nav aria-label={t("wiki.title")} className="flex w-full flex-col items-center gap-1.5 px-1">
         {NAV_ITEMS.map((tool) => (
           <NavIconButton
             key={tool.id}
@@ -80,7 +81,7 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
 
       <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
-      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
+      <nav aria-label={t("feeds.title")} className="flex w-full flex-col items-center gap-1.5 px-1">
         <NavIconButton
           icon={Rss}
           label="feeds.title"
@@ -103,7 +104,10 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
 
       <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
 
-      <nav className="flex w-full flex-col items-center gap-1.5 px-1">
+      <nav
+        aria-label={t("opsLog.title")}
+        className="flex w-full flex-col items-center gap-1.5 px-1"
+      >
         <NavIconButton
           icon={History}
           label="opsLog.title"
@@ -112,7 +116,10 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
         />
       </nav>
 
-      <nav className="mt-auto flex w-full flex-col items-center gap-1.5 px-1 pb-3">
+      <nav
+        aria-label={t("common.settings")}
+        className="mt-auto flex w-full flex-col items-center gap-1.5 px-1 pb-3"
+      >
         <NavIconButton icon={Smartphone} label="common.remoteConnection" onClick={onRemoteClick} />
         <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
         <NavIconButton
@@ -137,7 +144,7 @@ function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProp
   const { t } = useTranslation();
   const labelText = t(label);
   return (
-    <motion.button
+    <m.button
       type="button"
       onClick={onClick}
       animate={{ scale: active ? 1.04 : 1 }}
@@ -156,6 +163,6 @@ function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProp
       aria-current={active ? "page" : undefined}
     >
       <Icon size={18} strokeWidth={active ? 2 : 1.6} />
-    </motion.button>
+    </m.button>
   );
 }

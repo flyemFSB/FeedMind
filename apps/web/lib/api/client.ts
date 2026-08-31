@@ -40,7 +40,8 @@ export async function apiFetch<T>(input: RequestInfo, init?: ApiFetchInit): Prom
       defaultValue: "无法连接到后端服务，请检查后端是否已启动",
     });
     toast.add({ title: msg, type: "error" });
-    throw new Error(msg);
+    // cause 保留原始网络异常堆栈，排障不丢根因（与 API 侧 { cause: err } 规范一致）
+    throw new Error(msg, { cause: error });
   }
 
   if (!response.ok) {

@@ -15,7 +15,7 @@ import {
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import type { ScheduleTask } from "@/lib/api/daily-report";
 
-export const CRON_PRESETS = [
+const CRON_PRESETS = [
   { value: "0 7 * * *", labelKey: "dailyReport.preset.daily0700" },
   { value: "0 8 * * *", labelKey: "dailyReport.preset.daily0800" },
   { value: "0 9 * * *", labelKey: "dailyReport.preset.daily0900" },

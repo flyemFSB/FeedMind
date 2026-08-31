@@ -2,7 +2,7 @@ import * as React from "react";
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
 import { type VariantProps } from "class-variance-authority";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 
 import { cn } from "@/lib/utils";
 import { toggleVariants } from "@/components/ui/toggle";
@@ -47,7 +47,12 @@ function ToggleGroup({
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider value={{ variant, size, spacing, orientation }}>
+      <ToggleGroupContext.Provider
+        value={React.useMemo(
+          () => ({ variant, size, spacing, orientation }),
+          [variant, size, spacing, orientation],
+        )}
+      >
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive>
@@ -66,7 +71,7 @@ function ToggleGroupItem({
   return (
     <TogglePrimitive
       render={(elementProps, state) => (
-        <motion.button
+        <m.button
           {...elementProps}
           animate={{ scale: state.pressed ? 0.98 : 1 }}
           whileHover={{ scale: 1.015 }}

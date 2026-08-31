@@ -34,7 +34,10 @@ export const MilkdownEditor = forwardRef<MilkdownEditorHandle, MilkdownEditorPro
     const containerRef = useRef<HTMLDivElement>(null);
     const crepeRef = useRef<Crepe | null>(null);
     const onChangeRef = useRef(onChange);
-    onChangeRef.current = onChange;
+    // latest-ref 赋值放 effect：渲染期写 ref.current 在并发渲染下不安全
+    useEffect(() => {
+      onChangeRef.current = onChange;
+    });
 
     useImperativeHandle(ref, () => ({
       getMarkdown: () => crepeRef.current?.getMarkdown() ?? "",

@@ -61,6 +61,15 @@ function getApiKeyTooltip(
   return apiKey ?? t("settings.loadingKey");
 }
 
+// 纯工具函数（仅依赖模块级 toast）：模块级定义避免每次渲染重建
+function copyToClipboard(text: string, msg: string) {
+  if (!text) return;
+  void navigator.clipboard
+    .writeText(text)
+    .then(() => toast.add({ title: msg, type: "success" }))
+    .catch(() => {});
+}
+
 interface ModelsPanelProps {
   models: LLMModel[];
   title?: string;
@@ -101,14 +110,6 @@ export function ModelsPanel({
     () => [ALL_FILTER, ...Array.from(new Set(models.map((model) => model.provider)))],
     [models],
   );
-
-  function copyToClipboard(text: string, msg: string) {
-    if (!text) return;
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => toast.add({ title: msg, type: "success" }))
-      .catch(() => {});
-  }
 
   function loadApiKey(model: LLMModel): Promise<string> {
     const cached = apiKeyCache[model.id];

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { m, AnimatePresence } from "motion/react";
 import {
   X,
   Bot,
@@ -87,17 +87,18 @@ export function SubagentInspector() {
       {isOpen && activeTask && (
         <div className="fixed inset-0 z-50 flex justify-end overflow-hidden">
           {/* 背景遮罩 */}
-          <motion.div
+          <m.div
             initial="closed"
             animate="open"
             exit="closed"
             variants={backdropVariants}
+            // eslint-disable-next-line react-doctor/click-events-have-key-events -- 装饰性遮罩：点击关闭仅为便捷，键盘路径由组件级 Escape 监听提供
             onClick={closeInspector}
             className="absolute inset-0 bg-black/30"
           />
 
           {/* 抽屉面板 */}
-          <motion.div
+          <m.div
             ref={drawerRef}
             initial="closed"
             animate="open"
@@ -106,7 +107,7 @@ export function SubagentInspector() {
             className="relative flex h-full w-full max-w-2xl flex-col border-l border-editorial-hairline bg-editorial-surface-card shadow-2xl"
           >
             <SubagentInspectorContent task={activeTask} onClose={closeInspector} />
-          </motion.div>
+          </m.div>
         </div>
       )}
     </AnimatePresence>
@@ -235,7 +236,11 @@ function SubagentInspectorContent({
             </div>
             <div className="space-y-2">
               {task.childTools.map((ct, idx) => (
-                <ChildToolCard key={ct.toolCallId ?? idx} tool={ct} index={idx} />
+                <ChildToolCard
+                  key={ct.toolCallId ?? `${ct.toolName}:${JSON.stringify(ct.args ?? "")}`}
+                  tool={ct}
+                  index={idx}
+                />
               ))}
             </div>
           </div>

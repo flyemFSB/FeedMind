@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { CheckCircle2, FileText, Globe, Upload, X } from "lucide-react";
 import { uploadWikiFile, createWikiSource } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,16 @@ import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { fadeSlideVariants } from "@/lib/motion";
 
 // ─── Props ────────────────────────────────────────────────────
+
+// 纯校验函数：模块级定义避免每次渲染重建
+function isValidUrl(u: string) {
+  try {
+    new URL(u);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 interface WikiImportDialogProps {
   open: boolean;
@@ -39,19 +49,19 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
         {/* 头部行：无边框，保持简洁 */}
         <div className="flex items-center justify-between px-6 pt-4">
           <DialogTitle className="text-base font-semibold">{t("wiki.importTitle")}</DialogTitle>
-          <motion.button
+          <m.button
             onClick={onClose}
             type="button"
             whileTap={{ scale: 0.92 }}
             className="flex h-7 w-7 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft"
           >
             <X size={16} />
-          </motion.button>
+          </m.button>
         </div>
 
         {/* Tab 栏：用纯按钮，样式完全自控 */}
         <div className="mx-6 mt-3 flex gap-5 border-b border-editorial-surface-strong">
-          <motion.button
+          <m.button
             onClick={() => setTab("file")}
             type="button"
             whileTap={{ scale: 0.98 }}
@@ -64,14 +74,15 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <FileText size={15} strokeWidth={1.6} />
             {t("wiki.uploadFile")}
             {tab === "file" && (
-              <motion.span
-                layoutId="import-tab-indicator"
+              <m.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute right-0 bottom-0 left-0 h-0.5 rounded-md bg-editorial-primary"
+                className="absolute right-0 bottom-0 left-0 h-0.5 origin-left rounded-md bg-editorial-primary"
               />
             )}
-          </motion.button>
-          <motion.button
+          </m.button>
+          <m.button
             onClick={() => setTab("url")}
             type="button"
             whileTap={{ scale: 0.98 }}
@@ -84,19 +95,20 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
             <Globe size={15} strokeWidth={1.6} />
             {t("wiki.pasteLink")}
             {tab === "url" && (
-              <motion.span
-                layoutId="import-tab-indicator"
+              <m.span
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute right-0 bottom-0 left-0 h-0.5 rounded-md bg-editorial-primary"
+                className="absolute right-0 bottom-0 left-0 h-0.5 origin-left rounded-md bg-editorial-primary"
               />
             )}
-          </motion.button>
+          </m.button>
         </div>
 
         <div className="min-h-[240px] px-6 py-5">
           <AnimatePresence mode="wait" initial={false}>
             {tab === "file" ? (
-              <motion.div
+              <m.div
                 key="file"
                 variants={fadeSlideVariants}
                 initial="initial"
@@ -104,9 +116,9 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
                 exit="exit"
               >
                 <FileUploadTab spaceId={spaceId} onImported={onImported} />
-              </motion.div>
+              </m.div>
             ) : (
-              <motion.div
+              <m.div
                 key="url"
                 variants={fadeSlideVariants}
                 initial="initial"
@@ -114,7 +126,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
                 exit="exit"
               >
                 <UrlPasteTab spaceId={spaceId} onImported={onImported} />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
         </div>
@@ -139,31 +151,41 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
       setUploading(true);
       setResults([]);
 
-      const newResults: Array<{
+      // 文件彼此独立，并行上传替代串行 for…of，整体结果仍按输入顺序返回
+      let newResults: Array<{
         name: string;
         status: "success" | "error";
         message?: string;
       }> = [];
-
-      for (const file of Array.from(files)) {
-        try {
-          const result = await uploadWikiFile(spaceId, file);
-          newResults.push({
-            name: file.name,
-            status: "success",
-            message: result.title,
-          });
-        } catch (err) {
-          newResults.push({
-            name: file.name,
-            status: "error",
-            message: err instanceof Error ? err.message : t("wiki.uploadFailed"),
-          });
-        }
+      try {
+        newResults = await Promise.all(
+          Array.from(files).map(
+            async (
+              file,
+            ): Promise<{ name: string; status: "success" | "error"; message?: string }> => {
+              try {
+                const result = await uploadWikiFile(spaceId, file);
+                return {
+                  name: file.name,
+                  status: "success",
+                  message: result.title,
+                };
+              } catch (err) {
+                return {
+                  name: file.name,
+                  status: "error",
+                  message: err instanceof Error ? err.message : t("wiki.uploadFailed"),
+                };
+              }
+            },
+          ),
+        );
+      } finally {
+        // 无论成败都退出上传态（内层已全量 catch，finally 主要为语义显式）
+        setUploading(false);
       }
 
       setResults(newResults);
-      setUploading(false);
       if (newResults.some((r) => r.status === "success")) {
         onImported();
       }
@@ -195,6 +217,15 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
     <div className="space-y-4">
       {/* Drop zone */}
       <div
+        role="button"
+        tabIndex={0}
+        aria-label={t("wiki.dropFiles")}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setDragOver(true);
@@ -232,9 +263,9 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
       {/* Results */}
       {results.length > 0 && (
         <div className="space-y-1.5 max-h-48 overflow-y-auto">
-          {results.map((r, i) => (
+          {results.map((r) => (
             <div
-              key={i}
+              key={r.name}
               className={`flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-xs ${
                 r.status === "success"
                   ? "bg-editorial-semantic-success/10 text-editorial-ink"
@@ -291,43 +322,42 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
     setProcessing(true);
     setResults([]);
 
-    const newResults: Array<{
+    // URL 逐一建源彼此独立，并行创建替代串行 for…of；结果顺序与输入一致
+    let newResults: Array<{
       url: string;
       status: "success" | "error";
       message?: string;
     }> = [];
-
-    for (const url of urlList) {
-      try {
-        await createWikiSource(spaceId, {
-          kind: "url",
-          title: url,
-          content: url,
-          metadata: {},
-        });
-        newResults.push({ url, status: "success" });
-      } catch (err) {
-        newResults.push({
-          url,
-          status: "error",
-          message: err instanceof Error ? err.message : t("wiki.processFailed"),
-        });
-      }
+    try {
+      newResults = await Promise.all(
+        urlList.map(
+          async (url): Promise<{ url: string; status: "success" | "error"; message?: string }> => {
+            try {
+              await createWikiSource(spaceId, {
+                kind: "url",
+                title: url,
+                content: url,
+                metadata: {},
+              });
+              return { url, status: "success" };
+            } catch (err) {
+              return {
+                url,
+                status: "error",
+                message: err instanceof Error ? err.message : t("wiki.processFailed"),
+              };
+            }
+          },
+        ),
+      );
+    } finally {
+      // 无论成败都退出处理态（内层已全量 catch，finally 主要为语义显式）
+      setProcessing(false);
     }
 
     setResults(newResults);
-    setProcessing(false);
     if (newResults.some((r) => r.status === "success")) {
       onImported();
-    }
-  };
-
-  const isValidUrl = (u: string) => {
-    try {
-      new URL(u);
-      return true;
-    } catch {
-      return false;
     }
   };
 
@@ -341,10 +371,14 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-body font-medium text-editorial-ink">
+        <label
+          htmlFor="wiki-import-urls"
+          className="mb-1.5 block text-body font-medium text-editorial-ink"
+        >
           {t("wiki.urlLabel")}
         </label>
         <textarea
+          id="wiki-import-urls"
           className="min-h-[100px] w-full resize-none rounded-md border border-editorial-hairline bg-editorial-surface-card p-3 text-body text-editorial-ink placeholder:text-editorial-ink-muted outline-none focus:border-editorial-primary focus:ring-1 focus:ring-editorial-primary"
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
@@ -389,9 +423,9 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
       {/* Results */}
       {results.length > 0 && (
         <div className="max-h-[120px] space-y-1 overflow-y-auto">
-          {results.map((r, i) => (
+          {results.map((r) => (
             <div
-              key={i}
+              key={r.url}
               className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs ${
                 r.status === "success"
                   ? "bg-editorial-semantic-success/10 text-editorial-ink"

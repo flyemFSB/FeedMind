@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import { Check, FileText, Globe, Play, RotateCw, Trash2, Type, XCircle } from "lucide-react";
 import {
   cancelIngestJob,
@@ -37,6 +37,18 @@ function formatDateTimeStr(value: string | number | undefined): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// 纯映射函数（仅依赖模块级图标组件）：模块级定义避免每次渲染重建
+function kindIcon(kind: string) {
+  switch (kind) {
+    case "url":
+      return <Globe size={14} />;
+    case "text":
+      return <Type size={14} />;
+    default:
+      return <FileText size={14} />;
+  }
+}
+
 export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -53,7 +65,8 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
   // 入队导入），多维度映射 key（identity/slug/title/original_name），按 added_at 倒序让最新任务优先展示
   const jobBySource = useMemo(() => {
     const map = new Map<string, IngestJob>();
-    const sorted = [...jobs].sort((a, b) => b.added_at - a.added_at);
+    // toSorted 不改动原数组，语义与 [...jobs].sort 相同且省一次中间拷贝
+    const sorted = jobs.toSorted((a, b) => b.added_at - a.added_at);
     for (const job of sorted) {
       const keys = [
         job.source_path,
@@ -160,17 +173,6 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
     }
   };
 
-  const kindIcon = (kind: string) => {
-    switch (kind) {
-      case "url":
-        return <Globe size={14} />;
-      case "text":
-        return <Type size={14} />;
-      default:
-        return <FileText size={14} />;
-    }
-  };
-
   const statusBadge = (status: string) => {
     switch (status) {
       case "ingested":
@@ -264,7 +266,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
             <p className="mt-1 text-xs text-editorial-ink-muted">{t("wiki.noSourcesHint")}</p>
           </div>
         ) : (
-          <motion.div
+          <m.div
             className="divide-y divide-editorial-surface-soft"
             variants={listContainerVariants}
             initial="initial"
@@ -325,7 +327,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                   : subLine;
 
               return (
-                <motion.div
+                <m.div
                   key={source.id}
                   layout
                   variants={listItemVariants}
@@ -354,7 +356,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                     )}
                   </div>
                   {activeJob ? (
-                    <motion.button
+                    <m.button
                       onClick={() => void handleCancel(job!.id, source.identity)}
                       whileHover={{ scale: 1.08, opacity: 1 }}
                       whileTap={{ scale: 0.9 }}
@@ -367,12 +369,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                       ) : (
                         <XCircle size={13} />
                       )}
-                    </motion.button>
+                    </m.button>
                   ) : source.status === "ingested" ? (
                     // 已导入来源不再提供重新导入入口（避免重复导入语义混乱）
                     <Check size={13} className="mr-0.5 text-editorial-semantic-success" />
                   ) : (
-                    <motion.button
+                    <m.button
                       onClick={() => handleIngest(source.identity, source.title)}
                       disabled={ingestingIds.has(source.identity)}
                       whileHover={{ scale: 1.08, opacity: 1 }}
@@ -393,11 +395,11 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                       ) : (
                         <Play size={12} />
                       )}
-                    </motion.button>
+                    </m.button>
                   )}
                   {/* 进行中只保留取消按钮，避免操作冲突 */}
                   {!activeJob && (
-                    <motion.button
+                    <m.button
                       onClick={() => requestDelete(source)}
                       whileHover={{ scale: 1.08, opacity: 1 }}
                       whileTap={{ scale: 0.9 }}
@@ -405,12 +407,12 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
                       title={t("wiki.deleteSource")}
                     >
                       <Trash2 size={13} />
-                    </motion.button>
+                    </m.button>
                   )}
-                </motion.div>
+                </m.div>
               );
             })}
-          </motion.div>
+          </m.div>
         )}
       </div>
 

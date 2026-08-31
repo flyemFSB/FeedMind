@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import i18n from "@/lib/i18n";
 import { useTheme } from "@/components/theme-provider";
 import { Sun, Moon, Monitor } from "lucide-react";
@@ -11,16 +11,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// 纯事件处理器（仅依赖模块级 i18n）：模块级定义避免每次渲染重建
+function handleLanguageChange(value: string | null) {
+  if (!value) return;
+  void i18n.changeLanguage(value);
+}
+
 export function SystemPanel() {
   const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
 
   const currentLang = i18n.language?.startsWith("zh") ? "zh-CN" : "en-US";
-
-  function handleLanguageChange(value: string | null) {
-    if (!value) return;
-    void i18n.changeLanguage(value);
-  }
 
   const themes = [
     { value: "light", label: t("common.light"), icon: Sun },
@@ -43,7 +44,7 @@ export function SystemPanel() {
       {/* Language */}
       <div className="flex items-center justify-between rounded-lg border border-editorial-hairline px-5 py-4">
         <div className="min-w-0">
-          <label className="text-body font-medium text-editorial-ink">{t("common.language")}</label>
+          <span className="text-body font-medium text-editorial-ink">{t("common.language")}</span>
           <p className="mt-0.5 text-xs text-editorial-ink-muted">{t("settings.language")}</p>
         </div>
         <Select value={currentLang} onValueChange={handleLanguageChange}>
@@ -69,7 +70,7 @@ export function SystemPanel() {
       {/* Theme */}
       <div className="flex items-center justify-between rounded-lg border border-editorial-hairline px-5 py-4">
         <div className="min-w-0">
-          <label className="text-body font-medium text-editorial-ink">{t("common.theme")}</label>
+          <span className="text-body font-medium text-editorial-ink">{t("common.theme")}</span>
           <p className="mt-0.5 text-xs text-editorial-ink-muted">{t("settings.theme")}</p>
         </div>
         <div className="flex overflow-hidden rounded-lg border border-editorial-hairline">
@@ -77,7 +78,7 @@ export function SystemPanel() {
             const Icon = item.icon;
             const isActive = (theme ?? "system") === item.value;
             return (
-              <motion.button
+              <m.button
                 key={item.value}
                 type="button"
                 onClick={() => setTheme(item.value)}
@@ -90,7 +91,7 @@ export function SystemPanel() {
               >
                 <Icon size={14} />
                 {item.label}
-              </motion.button>
+              </m.button>
             );
           })}
         </div>

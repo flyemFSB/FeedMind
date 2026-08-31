@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { motion } from "motion/react";
+import { m } from "motion/react";
 import {
   Plus,
   Trash2,
@@ -428,7 +428,8 @@ function SourcesPage() {
                     value={rssUrl}
                     onChange={(e) => setRssUrl(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") void handleAddRss();
+                      // isComposing：拼音候选确认的回车不触发提交（IME 组合输入守卫）
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing) void handleAddRss();
                     }}
                     placeholder={t("feeds.rssUrlPlaceholder")}
                     className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
@@ -482,6 +483,7 @@ function SourcesPage() {
                             <select
                               value={selectedOption}
                               onChange={(e) => setSelectedOption(e.target.value)}
+                              aria-label={t(opt.labelKey)}
                               className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
                             >
                               {opt.hasAll ? (
@@ -549,7 +551,9 @@ function SourcesPage() {
                           value={socialId}
                           onChange={(e) => setSocialId(e.target.value)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter") void handleAddSocial();
+                            // isComposing：拼音候选确认的回车不触发提交（IME 组合输入守卫）
+                            if (e.key === "Enter" && !e.nativeEvent.isComposing)
+                              void handleAddSocial();
                           }}
                           placeholder={t(opt.placeholderKey ?? "feeds.socialIdPlaceholder")}
                           className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
@@ -577,7 +581,7 @@ function SourcesPage() {
                 <p className="text-body text-editorial-ink-muted">{t("feeds.noSubscriptions")}</p>
               </div>
             ) : (
-              <motion.div
+              <m.div
                 className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
                 variants={listContainerVariants}
                 initial="initial"
@@ -589,7 +593,7 @@ function SourcesPage() {
                       ? (PLATFORM_ICONS[source.platform] ?? Globe)
                       : Rss;
                   return (
-                    <motion.div
+                    <m.div
                       key={source.id}
                       layout
                       variants={listItemVariants}
@@ -620,7 +624,7 @@ function SourcesPage() {
                           )}
                         </p>
                       </div>
-                      <motion.button
+                      <m.button
                         type="button"
                         onClick={() => setDeleteTarget(source)}
                         whileHover={{ scale: 1.05 }}
@@ -628,11 +632,11 @@ function SourcesPage() {
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-editorial-ink-muted opacity-0 hover:bg-editorial-surface-strong hover:text-editorial-semantic-error group-hover:opacity-100 focus:opacity-100"
                       >
                         <Trash2 size={13} />
-                      </motion.button>
-                    </motion.div>
+                      </m.button>
+                    </m.div>
                   );
                 })}
-              </motion.div>
+              </m.div>
             )}
           </div>
         </div>
@@ -663,13 +667,17 @@ function SourcesPage() {
               </div>
               <p className="mt-1 text-xs text-editorial-ink-muted">{t("feeds.cookieCloudDesc")}</p>
             </div>
-            <div className="rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 transition-all duration-150 ease-out hover:border-editorial-hairline-strong hover:shadow-sm">
+            <div className="rounded-xl border border-editorial-hairline bg-editorial-surface-card p-4 transition-[border-color,box-shadow] duration-150 ease-out hover:border-editorial-hairline-strong hover:shadow-sm">
               <div className="flex flex-col gap-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-editorial-ink-muted">
+                  <label
+                    htmlFor="cookiecloud-uuid"
+                    className="mb-1 block text-xs font-medium text-editorial-ink-muted"
+                  >
                     {t("feeds.cookieUuidLabel")}
                   </label>
                   <input
+                    id="cookiecloud-uuid"
                     value={cookiecloudUuid}
                     onChange={(e) => setCookiecloudUuid(e.target.value)}
                     placeholder={t("feeds.cookieUuidPlaceholder")}
@@ -677,10 +685,14 @@ function SourcesPage() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-editorial-ink-muted">
+                  <label
+                    htmlFor="cookiecloud-password"
+                    className="mb-1 block text-xs font-medium text-editorial-ink-muted"
+                  >
                     {t("feeds.cookiePasswordLabel")}
                   </label>
                   <input
+                    id="cookiecloud-password"
                     type="password"
                     value={cookiecloudPassword}
                     onChange={(e) => setCookiecloudPassword(e.target.value)}
@@ -728,7 +740,7 @@ function SourcesPage() {
                 {t("feeds.accountCookieDesc")}
               </p>
             </div>
-            <motion.div
+            <m.div
               className="divide-y divide-editorial-hairline border-y border-editorial-hairline"
               variants={listContainerVariants}
               initial="initial"
@@ -751,7 +763,7 @@ function SourcesPage() {
                         ? t("feeds.cookieUnknown")
                         : t("feeds.notConfigured");
                 return (
-                  <motion.div
+                  <m.div
                     key={platform.id}
                     layout
                     variants={listItemVariants}
@@ -783,10 +795,10 @@ function SourcesPage() {
                       )}
                       {t("feeds.cookieCheck")}
                     </Button>
-                  </motion.div>
+                  </m.div>
                 );
               })}
-            </motion.div>
+            </m.div>
           </div>
         </div>
       </div>

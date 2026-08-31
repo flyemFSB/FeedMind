@@ -221,11 +221,15 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   const chainSteps = useChainSteps(message, isLastMessage, isStreaming);
   const stepCount = message.parts.filter((p) => p.type === "step-start").length;
 
-  // 流式开始时自动展开思考链，让用户实时看到当前思考步骤（含 shimmer）
-  const [chainOpen, setChainOpen] = useState(isStreaming);
-  useEffect(() => {
+  // 流式开始时自动展开思考链，让用户实时看到当前思考步骤（含 shimmer）。
+  // render 期 prev 比较模式（React 官方 adjust-state-on-prop-change）：仅 isStreaming 上升沿
+  // 触发；用户手动折叠后不会被重新打开。挂载即流式的极边缘场景首帧为折叠态
+  const [chainOpen, setChainOpen] = useState(false);
+  const [prevStreaming, setPrevStreaming] = useState(isStreaming);
+  if (isStreaming !== prevStreaming) {
+    setPrevStreaming(isStreaming);
     if (isStreaming) setChainOpen(true);
-  }, [isStreaming]);
+  }
 
   const sourceParts: Array<{ url?: string | undefined; title?: string | undefined }> = [];
   for (const part of message.parts) {
@@ -309,8 +313,8 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
               <SourcesTrigger count={sourceParts.length}>
                 {t("chat.sourcesCount", { count: sourceParts.length })}
               </SourcesTrigger>
-              {sourceParts.map((src, i) => (
-                <SourcesContent key={`src-${i}`}>
+              {sourceParts.map((src) => (
+                <SourcesContent key={`${src.url ?? ""}#${src.title ?? ""}`}>
                   <Source href={src.url ?? "#"} title={src.title} />
                 </SourcesContent>
               ))}
@@ -325,8 +329,7 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
           <MessageAction
             onClick={() => {
               const text = message.parts
-                .filter((p) => p.type === "text")
-                .map((p) => (p as { text: string }).text)
+                .flatMap((p) => (p.type === "text" ? [(p as { text: string }).text] : []))
                 .join("");
               void navigator.clipboard.writeText(text);
             }}
@@ -657,20 +660,22 @@ function OutputVisual({
   if (results) {
     return (
       <ChainOfThoughtSearchResults>
-        {results.map((r, i) => {
+        {results.map((r) => {
           const item = (typeof r === "object" && r !== null ? r : {}) as {
             title?: string;
             url?: string;
           };
           const url = item.url;
+          // 内容键：url/title 即条目身份；列表随消息只追加不重排，重复内容行本就可互换
+          const itemKey = `${item.url ?? ""}#${item.title ?? ""}`;
           const badge = (
-            <ChainOfThoughtSearchResult key={i} title={item.title}>
-              {url ? domainOf(url) : (item.title ?? `结果 ${i + 1}`)}
+            <ChainOfThoughtSearchResult key={itemKey} title={item.title}>
+              {url ? domainOf(url) : (item.title ?? "")}
             </ChainOfThoughtSearchResult>
           );
           // 点击域名徽章在新标签页打开来源
           return url ? (
-            <a key={i} href={url} target="_blank" rel="noreferrer" className="inline-flex">
+            <a key={itemKey} href={url} target="_blank" rel="noreferrer" className="inline-flex">
               {badge}
             </a>
           ) : (

@@ -58,7 +58,7 @@ const ALL_ACTIONS: OpsAction[] = ["create", "update", "delete", "import", "run"]
 const ALL_RESULTS: OpsResult[] = ["success", "failed"];
 
 // 所有系统对象/模块分类定义（严格对齐侧边栏与设置页图标规范）
-export const ALL_TARGETS = [
+const ALL_TARGETS = [
   "wiki_space",
   "wiki_page",
   "wiki_source",
@@ -486,7 +486,15 @@ export function OperationLog() {
                       </div>
                     ) : (
                       <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setSelectedLog(row.item)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedLog(row.item);
+                          }
+                        }}
                         className={`group/row grid grid-cols-[90px_96px_130px_minmax(200px,1fr)_96px] items-center cursor-pointer border-b border-editorial-hairline/40 px-4 py-2.5 transition-colors ${
                           row.item.result === "failed"
                             ? "bg-destructive/5 hover:bg-destructive/10"

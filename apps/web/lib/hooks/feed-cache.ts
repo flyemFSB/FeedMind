@@ -8,5 +8,7 @@ export function markFeedReadInCache(list: FeedItem[], id: string): FeedItem[] {
 
 /** 乐观删除：移除命中的条目，其余原样返回 */
 export function removeFeedsFromCache(list: FeedItem[], ids: string[]): FeedItem[] {
-  return list.filter((f) => !ids.includes(f.id));
+  // Set 命中 O(1)，避免列表 x ids 的双重线性扫描
+  const idSet = new Set(ids);
+  return list.filter((f) => !idSet.has(f.id));
 }

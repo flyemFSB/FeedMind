@@ -79,12 +79,17 @@ export const MessageResponse = memo(
 
     useEffect(() => {
       let cancelled = false;
-      void loadMathPlugin().then((p) => {
-        if (!cancelled) setMathPlugin(p);
-      });
-      void import("@streamdown/mermaid").then((m) => {
-        if (!cancelled) setMermaidPlugin(m.mermaid);
-      });
+      // 动态导入失败按「无插件」降级：catch 兜底，避免 unhandled rejection
+      void loadMathPlugin()
+        .then((p) => {
+          if (!cancelled) setMathPlugin(p);
+        })
+        .catch(() => {});
+      void import("@streamdown/mermaid")
+        .then((m) => {
+          if (!cancelled) setMermaidPlugin(m.mermaid);
+        })
+        .catch(() => {});
       return () => {
         cancelled = true;
       };

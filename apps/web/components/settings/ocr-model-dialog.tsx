@@ -90,10 +90,14 @@ export function OcrModelDialog({
 
         <div className="space-y-3.5 py-1 text-sm">
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="ocr-model-name"
+              className="block text-xs font-medium text-editorial-ink-soft"
+            >
               {t("settings.ocrModelName")}
             </label>
             <Input
+              id="ocr-model-name"
               value={modelName}
               onChange={(e) => setModelName(e.target.value)}
               placeholder="PaddleOCR-VL-1.6"
@@ -102,10 +106,14 @@ export function OcrModelDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="ocr-endpoint"
+              className="block text-xs font-medium text-editorial-ink-soft"
+            >
               {t("settings.ocrEndpoint")}
             </label>
             <Input
+              id="ocr-endpoint"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://paddleocr.aistudio-app.com"
@@ -115,11 +123,15 @@ export function OcrModelDialog({
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="ocr-token"
+              className="block text-xs font-medium text-editorial-ink-soft"
+            >
               {t("settings.ocrToken")}
             </label>
             <div className="flex gap-2">
               <Input
+                id="ocr-token"
                 type={showKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}

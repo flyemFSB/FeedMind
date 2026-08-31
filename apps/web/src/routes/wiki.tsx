@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
   ArrowLeft,
   BookOpen,
@@ -119,7 +119,10 @@ function MyWikiPage() {
   );
 
   const spaceIdRef = useRef(spaceId);
-  spaceIdRef.current = spaceId;
+  // latest-ref 赋值放 effect：渲染期写 ref.current 在并发渲染下不安全
+  useEffect(() => {
+    spaceIdRef.current = spaceId;
+  }, [spaceId]);
 
   const handleConceptLinkClick = useCallback(
     async (target: string): Promise<string | null> => {
@@ -308,7 +311,7 @@ function MyWikiPage() {
         <div className="flex min-h-0 flex-1">
           <div className="flex min-h-0 min-w-0 flex-1">
             <AnimatePresence mode="wait" initial={false}>
-              <motion.div
+              <m.div
                 key={activeView}
                 className="flex min-h-0 min-w-0 flex-1"
                 variants={fadeSlideVariants}
@@ -353,7 +356,7 @@ function MyWikiPage() {
                     <WikiSourcesView spaceId={spaceId} />
                   </div>
                 )}
-              </motion.div>
+              </m.div>
             </AnimatePresence>
           </div>
         </div>
@@ -458,7 +461,7 @@ function DualPaneLayout({
           </div>
         )}
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div
+          <m.div
             key={activePageId ? `${activePageId}-${isEditing ? "edit" : "read"}` : "empty"}
             className="flex min-h-0 min-w-0 flex-1 flex-col"
             variants={fadeSlideVariants}
@@ -487,7 +490,7 @@ function DualPaneLayout({
             ) : (
               <WikiEmptyState />
             )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </div>
     </div>

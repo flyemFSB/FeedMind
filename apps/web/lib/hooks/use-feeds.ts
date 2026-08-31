@@ -146,9 +146,14 @@ export function useCookies() {
 }
 
 export function useCheckPlatformCookie() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationKey: checkCookieMutationKey,
     mutationFn: checkPlatformCookie,
+    // 校验会把 valid/checkedAt 写回服务端，失效 cookies 缓存让面板即时反映最新结论
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
+    },
   });
 }
 

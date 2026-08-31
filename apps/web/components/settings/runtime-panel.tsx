@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
 import { useModels } from "@/lib/hooks/use-models";
@@ -152,7 +152,7 @@ export function RuntimePanel() {
 
       {/* Inner tabs: 会话模型 | WIKI 模型 */}
       <div className="flex gap-1 border-b border-editorial-hairline">
-        <motion.button
+        <m.button
           onClick={() => setInnerTab("session")}
           whileTap={{ scale: 0.98 }}
           className={`px-4 py-2 text-body font-medium border-b-2 ${
@@ -162,8 +162,8 @@ export function RuntimePanel() {
           }`}
         >
           {t("settings.sessionModelTab")}
-        </motion.button>
-        <motion.button
+        </m.button>
+        <m.button
           onClick={() => setInnerTab("wiki")}
           whileTap={{ scale: 0.98 }}
           className={`px-4 py-2 text-body font-medium border-b-2 ${
@@ -173,12 +173,12 @@ export function RuntimePanel() {
           }`}
         >
           {t("settings.wikiModelTab")}
-        </motion.button>
+        </m.button>
       </div>
 
       {/* Model selector area */}
       <AnimatePresence mode="wait" initial={false}>
-        <motion.div
+        <m.div
           key={innerTab}
           className="space-y-4"
           variants={fadeSlideVariants}
@@ -195,15 +195,15 @@ export function RuntimePanel() {
               onSelect={(id) => void handleWikiModelSelect(id)}
             />
           )}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
       {/* Config fields */}
       <div className="grid min-w-0 grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-editorial-ink-muted mb-1.5 block">
+          <span className="text-xs text-editorial-ink-muted mb-1.5 block">
             {t("settings.temperature")}
-          </label>
+          </span>
           <div className="flex items-center gap-2">
             <Slider
               aria-label={t("settings.temperature")}
@@ -227,9 +227,9 @@ export function RuntimePanel() {
           </div>
         </div>
         <div>
-          <label className="text-xs text-editorial-ink-muted mb-1.5 block">
+          <span className="text-xs text-editorial-ink-muted mb-1.5 block">
             {t("settings.topP")}
-          </label>
+          </span>
           <div className="flex items-center gap-2">
             <Slider
               aria-label={t("settings.topP")}
@@ -286,9 +286,9 @@ function SessionModelSelectorSection() {
   const { t } = useTranslation();
   return (
     <div>
-      <label className="text-xs text-editorial-ink-muted mb-1.5 block">
+      <span className="text-xs text-editorial-ink-muted mb-1.5 block">
         {t("settings.sessionModel")}
-      </label>
+      </span>
       <ModelSelector />
       <p className="mt-1 text-xs text-editorial-ink-muted">{t("settings.sessionModelDesc")}</p>
     </div>
@@ -312,9 +312,9 @@ function WikiModelSelectorSection({
 
   return (
     <div>
-      <label className="text-xs text-editorial-ink-muted mb-1.5 block">
+      <span className="text-xs text-editorial-ink-muted mb-1.5 block">
         {t("settings.wikiModel")}
-      </label>
+      </span>
       <Select
         value={hasModels ? selectedId : ""}
         onValueChange={(v: string | null) => {

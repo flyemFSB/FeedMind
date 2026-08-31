@@ -34,10 +34,12 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card shadow-xs hover:border-editorial-hairline-strong hover:shadow-md hover:-translate-y-0.5 transition-all">
-      {/* 媒体封面/预览区 */}
-      <div
+    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card shadow-xs hover:border-editorial-hairline-strong hover:shadow-md hover:-translate-y-0.5 transition-[border-color,box-shadow,transform]">
+      {/* 媒体封面/预览区：真实 button 语义，键盘可达（原 div+onClick 无键盘路径） */}
+      <button
+        type="button"
         onClick={() => playable && onPlay(video)}
+        aria-label={`${video.reportDate} ${t("dailyReport.title")}`}
         className={`relative aspect-video w-full overflow-hidden bg-editorial-canvas-soft flex items-center justify-center ${
           playable ? "cursor-pointer" : ""
         }`}
@@ -86,7 +88,7 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
             <span>{video.reportDate}</span>
           </Badge>
         </div>
-      </div>
+      </button>
 
       {/* 卡片下半部分内容 */}
       <div className="flex flex-1 flex-col justify-between p-4 space-y-3">
@@ -150,6 +152,7 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
                   onClick={(e) => void handleCopy(e)}
                   className="h-7 w-7 text-editorial-ink-muted hover:text-editorial-ink"
                   title={t("dailyReport.copyLink")}
+                  aria-label={t("dailyReport.copyLink")}
                 >
                   <Copy size={13} />
                 </Button>
@@ -164,6 +167,7 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
                     size="icon-xs"
                     className="h-7 w-7 text-editorial-ink-muted hover:text-editorial-ink"
                     title={t("dailyReport.download")}
+                    aria-label={t("dailyReport.download")}
                   >
                     <Download size={13} />
                   </Button>
@@ -180,6 +184,7 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
                     size="icon-xs"
                     className="h-7 w-7 text-editorial-ink-muted hover:text-editorial-ink"
                     title={t("dailyReport.openInNewTab")}
+                    aria-label={t("dailyReport.openInNewTab")}
                   >
                     <ExternalLink size={13} />
                   </Button>

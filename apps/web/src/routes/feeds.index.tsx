@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Rss,
@@ -47,6 +47,33 @@ type FeedsIndexSearch = {
   filter?: string | undefined;
   keyword?: string | undefined;
 };
+
+// Intl.DateTimeFormat 构造开销大：按 语言+变体 模块级缓存，避免每次渲染重建
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>();
+function cachedDateTimeFormat(
+  lang: string,
+  variant: string,
+  options: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = lang + ":" + variant;
+  let fmt = dateTimeFormatCache.get(key);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(lang, options);
+    dateTimeFormatCache.set(key, fmt);
+  }
+  return fmt;
+}
+
+// item.category 是 JSON 字符串：解析失败按无分类处理（纯函数，模块级避免每渲染重建）
+function categoriesFor(item: FeedItem): string[] {
+  if (!item.category) return [];
+  try {
+    const parsed = JSON.parse(item.category);
+    return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === "string") : [];
+  } catch {
+    return [];
+  }
+}
 
 export const Route = createFileRoute("/feeds/")({
   // 筛选与关键词放入 URL search params：可分享/刷新保留，官方推荐替代组件内 useState
@@ -168,7 +195,7 @@ function FeedsIndexPage() {
     const days = Math.floor(hours / 24);
     if (days < 7) return t("time.daysAgo", { n: days });
     const sameYear = date.getFullYear() === new Date().getFullYear();
-    return new Intl.DateTimeFormat(i18n.language, {
+    return cachedDateTimeFormat(i18n.language, sameYear ? "monthDay" : "yearMonthDay", {
       month: "long",
       day: "numeric",
       ...(sameYear ? {} : { year: "numeric" }),
@@ -207,8 +234,7 @@ function FeedsIndexPage() {
       .filter((k) => counts.has(k))
       .map((k) => ({ key: k, ...counts.get(k)! }));
     const rssItems = [...counts.entries()]
-      .filter(([k]) => k.startsWith("src:"))
-      .map(([key, v]) => ({ key, ...v }))
+      .flatMap(([key, v]) => (key.startsWith("src:") ? [{ key, ...v }] : []))
       .sort((a, b) => a.label.localeCompare(b.label, "zh"));
     return [
       { key: "all", count: feeds.length, label: t("feeds.all"), Icon: Globe },
@@ -320,160 +346,157 @@ function FeedsIndexPage() {
     }
   };
 
-  const categoriesFor = (item: FeedItem): string[] => {
-    if (!item.category) return [];
-    try {
-      const parsed = JSON.parse(item.category);
-      return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === "string") : [];
-    } catch {
-      return [];
-    }
-  };
-
   return (
     <div ref={setScrollEl} className="h-full overflow-y-auto">
       <div className="mx-auto max-w-[1080px] px-6 pb-6 max-sm:px-4">
         {/* 来源筛选条 + 关键词查询：吸顶 + 半透明毛玻璃，仅在内容就绪后显示 */}
-        {!isLoading && (
-          <div className="sticky top-0 z-10 mb-3 space-y-2 bg-background/90 py-2 backdrop-blur-sm">
-            <AnimatePresence mode="wait" initial={false}>
-              {selectMode ? (
-                <motion.div
-                  key="select"
-                  variants={fadeSlideVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Checkbox
-                      checked={allVisibleSelected}
-                      indeterminate={someVisibleSelected}
-                      onCheckedChange={() => toggleSelectAllVisible()}
-                      aria-label={t("feeds.selectAll")}
-                      className="cursor-pointer"
-                    />
-                    <span className="text-body font-medium text-editorial-ink tabular-nums">
-                      {t("feeds.selectedCount", { count: selected.size })}
-                    </span>
-                    <div className="ml-auto flex items-center gap-2">
+        {/* 外层边界常挂载（条件只包子级）：加载态出现/消失时整体过渡；
+            内层边界专职 selectMode 切换，两边界均不被自身子级条件同拆，退出动画可观察 */}
+        <AnimatePresence mode="wait" initial={false}>
+          {!isLoading && (
+            <m.div
+              key="sticky-bar"
+              className="sticky top-0 z-10 mb-3 space-y-2 bg-background/90 py-2 backdrop-blur-sm"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                {selectMode ? (
+                  <m.div
+                    key="select"
+                    variants={fadeSlideVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        indeterminate={someVisibleSelected}
+                        onCheckedChange={() => toggleSelectAllVisible()}
+                        aria-label={t("feeds.selectAll")}
+                        className="cursor-pointer"
+                      />
+                      <span className="text-body font-medium text-editorial-ink tabular-nums">
+                        {t("feeds.selectedCount", { count: selected.size })}
+                      </span>
+                      <div className="ml-auto flex items-center gap-2">
+                        <Button
+                          onClick={exitSelectMode}
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                        >
+                          <X size={14} />
+                          {t("feeds.exitSelect")}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => setDeleteOpen(true)}
+                          disabled={selected.size === 0}
+                          size="sm"
+                          className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                        >
+                          <Trash2 size={14} />
+                          {t("feeds.deleteSelected")}
+                          <span className="tabular-nums">({selected.size})</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </m.div>
+                ) : (
+                  <m.div
+                    key="normal"
+                    variants={fadeSlideVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                        {filterItems.map(({ key, count, label, Icon }) => {
+                          const active = filter === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setFilter(key)}
+                              aria-pressed={active}
+                              className={cn(
+                                "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                                active
+                                  ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
+                                  : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
+                              )}
+                            >
+                              <Icon size={12} />
+                              {label}
+                              <span
+                                className={cn(
+                                  "rounded-full px-1.5 text-tiny tabular-nums",
+                                  active
+                                    ? "bg-editorial-accent/15 font-semibold text-editorial-accent"
+                                    : "bg-editorial-surface-strong font-medium text-editorial-ink-muted",
+                                )}
+                              >
+                                {count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
                       <Button
-                        onClick={exitSelectMode}
+                        onClick={() => setSelectMode(true)}
+                        disabled={feeds.length === 0}
                         size="sm"
                         variant="ghost"
                         className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                       >
-                        <X size={14} />
-                        {t("feeds.exitSelect")}
+                        <SquareCheckBig size={14} />
+                        {t("feeds.select")}
                       </Button>
                       <Button
-                        variant="destructive"
-                        onClick={() => setDeleteOpen(true)}
-                        disabled={selected.size === 0}
+                        onClick={() => void handleSync()}
+                        disabled={isSyncing}
                         size="sm"
                         className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
                       >
-                        <Trash2 size={14} />
-                        {t("feeds.deleteSelected")}
-                        <span className="tabular-nums">({selected.size})</span>
+                        {isSyncing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
+                        {isSyncing ? t("feeds.syncing") : t("feeds.sync")}
                       </Button>
                     </div>
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="normal"
-                  variants={fadeSlideVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-                      {filterItems.map(({ key, count, label, Icon }) => {
-                        const active = filter === key;
-                        return (
-                          <button
-                            key={key}
-                            type="button"
-                            onClick={() => setFilter(key)}
-                            aria-pressed={active}
-                            className={cn(
-                              "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                              active
-                                ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
-                                : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
-                            )}
-                          >
-                            <Icon size={12} />
-                            {label}
-                            <span
-                              className={cn(
-                                "rounded-full px-1.5 text-tiny tabular-nums",
-                                active
-                                  ? "bg-editorial-accent/15 font-semibold text-editorial-accent"
-                                  : "bg-editorial-surface-strong font-medium text-editorial-ink-muted",
-                              )}
-                            >
-                              {count}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      onClick={() => setSelectMode(true)}
-                      disabled={feeds.length === 0}
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
-                    >
-                      <SquareCheckBig size={14} />
-                      {t("feeds.select")}
-                    </Button>
-                    <Button
-                      onClick={() => void handleSync()}
-                      disabled={isSyncing}
-                      size="sm"
-                      className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
-                    >
-                      {isSyncing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
-                      {isSyncing ? t("feeds.syncing") : t("feeds.sync")}
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            {/* 搜索框常驻：选择模式可先搜索再批量选择，输入焦点不因模式切换丢失 */}
-            <div className="relative">
-              <Search
-                size={14}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted"
-              />
-              <input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder={t("feeds.searchPlaceholder")}
-                className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
-              />
-              {keyword && (
-                <button
-                  type="button"
-                  onClick={() => setKeyword("")}
-                  aria-label={t("feeds.clearSearch")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-editorial-ink-muted transition-colors hover:text-editorial-ink"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            {/* 底部渐隐：滚动内容从筛选条下方穿过时柔和淡入，避免硬边截断 */}
-            <div className="pointer-events-none absolute inset-x-0 -bottom-4 h-4 bg-linear-to-b from-background/90 to-transparent" />
-          </div>
-        )}
+                  </m.div>
+                )}
+              </AnimatePresence>
+              {/* 搜索框常驻：选择模式可先搜索再批量选择，输入焦点不因模式切换丢失 */}
+              <div className="relative">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-editorial-ink-muted"
+                />
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder={t("feeds.searchPlaceholder")}
+                  className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                />
+                {keyword && (
+                  <button
+                    type="button"
+                    onClick={() => setKeyword("")}
+                    aria-label={t("feeds.clearSearch")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-editorial-ink-muted transition-colors hover:text-editorial-ink"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              {/* 底部渐隐：滚动内容从筛选条下方穿过时柔和淡入，避免硬边截断 */}
+              <div className="pointer-events-none absolute inset-x-0 -bottom-4 h-4 bg-linear-to-b from-background/90 to-transparent" />
+            </m.div>
+          )}
+        </AnimatePresence>
         <AnimatePresence mode="wait" initial={false}>
           {isLoading ? (
-            <motion.div
+            <m.div
               key="loading"
               variants={fadeSlideVariants}
               initial="initial"
@@ -499,9 +522,9 @@ function FeedsIndexPage() {
                   </div>
                 ))}
               </div>
-            </motion.div>
+            </m.div>
           ) : (
-            <motion.div
+            <m.div
               key="content"
               variants={fadeSlideVariants}
               initial="initial"
@@ -572,7 +595,7 @@ function FeedsIndexPage() {
                     ))}
                 </div>
               )}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
@@ -616,7 +639,7 @@ function FeedCard({
   const BadgeIcon = iconFor(src);
 
   return (
-    <motion.a
+    <m.a
       whileTap={{ scale: 0.99 }}
       href={item.link ?? undefined}
       target={item.link ? "_blank" : undefined}
@@ -662,7 +685,7 @@ function FeedCard({
       )}
       {item.image && (
         <div className="aspect-[16/9] w-full overflow-hidden bg-editorial-surface-soft">
-          <motion.img
+          <m.img
             src={item.image}
             alt=""
             loading="lazy"
@@ -698,7 +721,7 @@ function FeedCard({
             {src?.title ?? (src?.type === "rss" ? t("feeds.rss") : t("feeds.unknownSource"))}
           </span>
           <span
-            title={new Intl.DateTimeFormat(lang, {
+            title={cachedDateTimeFormat(lang, "full", {
               dateStyle: "full",
               timeStyle: "short",
             }).format(new Date(item.pubDate ?? item.fetchedAt))}
@@ -742,7 +765,7 @@ function FeedCard({
           {/* RSS 资讯发布日期（左下角）：可见的具体日期，区别于 badge 行的相对时间 */}
           <span className="flex shrink-0 items-center gap-1 text-tiny tabular-nums text-editorial-ink-muted">
             <CalendarDays size={11} className="shrink-0" />
-            {new Intl.DateTimeFormat(lang, {
+            {cachedDateTimeFormat(lang, "shortDate", {
               year: "numeric",
               month: "short",
               day: "numeric",
@@ -757,6 +780,6 @@ function FeedCard({
           />
         </div>
       </div>
-    </motion.a>
+    </m.a>
   );
 }

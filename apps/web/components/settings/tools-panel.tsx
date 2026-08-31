@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useRef, useState, useEffect } from "react";
+import { AnimatePresence, m } from "motion/react";
 import { toast } from "@/components/ui/toast";
 import { updateAllToolConfigs } from "@/lib/api/tools";
 import { useTools } from "@/lib/hooks/use-tools";
@@ -14,16 +14,17 @@ export function ToolsPanel() {
   const { data: initialTools = [], isLoading } = useTools();
   const [activeTool, setActiveTool] = useState("");
   const [configs, setConfigs] = useState<Record<string, Record<string, unknown>>>({});
-  const [initialized, setInitialized] = useState(false);
+  // 仅作 effect 内的「只初始化一次」标记，不参与渲染：ref 足矣，state 徒增多余重渲染
+  const initializedRef = useRef(false);
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (initialTools.length > 0 && !initialized) {
+    if (initialTools.length > 0 && !initializedRef.current) {
       setActiveTool(initialTools[0]!.name);
       setConfigs(Object.fromEntries(initialTools.map((t) => [t.name, { ...t.config }])));
-      setInitialized(true);
+      initializedRef.current = true;
     }
-  }, [initialTools, initialized]);
+  }, [initialTools]);
 
   function handleChange(toolName: string, key: string, value: unknown) {
     setTouched((prev) => new Set(prev).add(`${toolName}:${key}`));
@@ -135,7 +136,7 @@ export function ToolsPanel() {
       {/* Active tool pane */}
       <div className="px-5 space-y-4">
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div
+          <m.div
             key={currentTool.name}
             variants={fadeSlideVariants}
             initial="initial"
@@ -150,12 +151,12 @@ export function ToolsPanel() {
             ) : (
               currentTool.config_fields.map((field) => (
                 <div key={field.key}>
-                  <label className="mb-1 block text-xs font-medium text-editorial-ink">
+                  <span className="mb-1 block text-xs font-medium text-editorial-ink">
                     {field.label}
                     {field.required && (
                       <span className="ml-0.5 text-editorial-semantic-error">*</span>
                     )}
-                  </label>
+                  </span>
                   {field.description && (
                     <p className="mb-1.5 text-xs text-editorial-ink-muted">
                       {field.description}
@@ -184,7 +185,7 @@ export function ToolsPanel() {
                 </div>
               ))
             )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </div>
     </div>

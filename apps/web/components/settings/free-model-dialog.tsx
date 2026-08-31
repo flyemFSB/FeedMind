@@ -135,11 +135,15 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-editorial-ink-soft">
+            <label
+              htmlFor="free-model-api-key"
+              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+            >
               {keyTerm}
             </label>
             <div className="relative">
               <Input
+                id="free-model-api-key"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 type={showKey ? "text" : "password"}

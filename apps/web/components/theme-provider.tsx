@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 type Theme = "dark" | "light" | "system";
@@ -51,13 +51,17 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
     return;
   }, [theme]);
 
-  const value: ThemeProviderState = {
-    theme,
-    setTheme: (newTheme: Theme) => {
-      localStorage.setItem("feedmind-theme", newTheme);
-      setTheme(newTheme);
-    },
-  };
+  // useMemo 稳定 context value：字面量每次渲染都新建，会击穿全部消费组件的 memo
+  const value = useMemo<ThemeProviderState>(
+    () => ({
+      theme,
+      setTheme: (newTheme: Theme) => {
+        localStorage.setItem("feedmind-theme", newTheme);
+        setTheme(newTheme);
+      },
+    }),
+    [theme],
+  );
 
   return <ThemeProviderContext.Provider value={value}>{children}</ThemeProviderContext.Provider>;
 }

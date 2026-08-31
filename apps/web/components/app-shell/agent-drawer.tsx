@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { motion } from "motion/react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState, type PointerEvent } from "react";
+import { m } from "motion/react";
 import { ChevronDown, GripVertical, Plus, Trash2, X } from "lucide-react";
 import {
   DropdownMenu,
@@ -42,11 +42,14 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const [instantClose, setInstantClose] = useState(false);
   // 会话下拉菜单的 open 受控，删除按钮需要先关菜单再弹确认框
   const [menuOpen, setMenuOpen] = useState(false);
-  // Thread 首次打开后才挂载，避免启动即加载聊天渲染管线（streamdown/mermaid/历史 DOM）
+  // Thread 首次打开后才挂载，避免启动即加载聊天渲染管线（streamdown/mermaid/历史 DOM）。
+  // 用渲染期按 props 调整 state（React 官方模式）替代 effect 里的 setState
   const [hasMountedThread, setHasMountedThread] = useState(open);
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) setHasMountedThread(true);
-  }, [open]);
+  }
 
   const [isDesktop, setIsDesktop] = useState(true);
 
@@ -70,53 +73,57 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
     }
     return 560;
   });
-  const drawerWidthRef = useRef(drawerWidth);
-  drawerWidthRef.current = drawerWidth;
 
   useEffect(() => {
     localStorage.setItem("feedmind:agent-drawer-width", String(drawerWidth));
   }, [drawerWidth]);
 
-  const handleResizePointerDown = useCallback((e: PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = drawerWidthRef.current;
+  const handleResizePointerDown = useCallback(
+    (e: PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      // 拖拽起点宽度取自 state 闭包：起拖后本次手势内宽度固定，宽度变化只重建 handler 不影响进行中的拖拽
+      const startWidth = drawerWidth;
 
-    const handlePointerMove = (event: globalThis.PointerEvent) => {
-      const newWidth = startWidth - (event.clientX - startX);
-      const clamped = Math.min(Math.max(newWidth, 400), 800);
-      setDrawerWidth(clamped);
-    };
+      const handlePointerMove = (event: globalThis.PointerEvent) => {
+        const newWidth = startWidth - (event.clientX - startX);
+        const clamped = Math.min(Math.max(newWidth, 400), 800);
+        setDrawerWidth(clamped);
+      };
 
-    const handlePointerUp = () => {
-      document.removeEventListener("pointermove", handlePointerMove);
-      document.removeEventListener("pointerup", handlePointerUp);
-      document.removeEventListener("pointercancel", handlePointerUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
+      const handlePointerUp = () => {
+        document.removeEventListener("pointermove", handlePointerMove);
+        document.removeEventListener("pointerup", handlePointerUp);
+        document.removeEventListener("pointercancel", handlePointerUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
 
-    document.addEventListener("pointermove", handlePointerMove);
-    document.addEventListener("pointerup", handlePointerUp);
-    document.addEventListener("pointercancel", handlePointerUp);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  }, []);
+      document.addEventListener("pointermove", handlePointerMove);
+      document.addEventListener("pointerup", handlePointerUp);
+      document.addEventListener("pointercancel", handlePointerUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [drawerWidth],
+  );
 
   const currentSession = sessions.find((s) => s.agent_thread_id === activeThreadId);
   const currentLabel = currentSession?.title ?? t("common.newChat");
 
+  // useEffectEvent 隔离 onOpenChange：监听器只在 open 变化时重挂，不随回调身份重订阅
+  const onEscape = useEffectEvent(() => {
+    setInstantClose(true);
+    onOpenChange(false);
+  });
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setInstantClose(true);
-        onOpenChange(false);
-      }
+      if (e.key === "Escape") onEscape();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, onOpenChange]);
+  }, [open]);
 
   useEffect(() => {
     if (!instantClose) return;
@@ -133,7 +140,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
     : Math.min(400, Math.max((typeof window === "undefined" ? 400 : window.innerWidth) - 48, 0));
 
   return (
-    <motion.div
+    <m.div
       ref={drawerRef}
       tabIndex={-1}
       data-island="agent"
@@ -141,6 +148,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
       aria-hidden={!open}
       inert={!open}
       initial={false}
+      // eslint-disable-next-line react-doctor/no-layout-property-animation -- 有界开合（用户触发的一次性抽屉动画）：桌面端 push 布局必须动 width，FLIP/layout 会拉伸文本内容
       animate={{ width: open ? expandedWidth : 0 }}
       transition={instantClose ? motionInstant : motionLayoutTransition}
       className={`relative shrink-0 overflow-hidden border bg-editorial-surface-soft outline-none max-lg:fixed max-lg:bottom-0 max-lg:right-0 max-lg:top-0 max-lg:z-40 max-lg:max-w-[calc(100vw-48px)] ${
@@ -150,7 +158,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
       }`}
     >
       {open && (
-        <motion.button
+        <m.button
           type="button"
           whileHover={{ scale: 1.04, opacity: 1 }}
           whileTap={{ scale: 0.96 }}
@@ -161,9 +169,9 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
           title="拖动调整宽度 · 双击恢复默认"
         >
           <GripVertical size={14} strokeWidth={1.8} />
-        </motion.button>
+        </m.button>
       )}
-      <motion.div
+      <m.div
         data-instant-close={instantClose ? "true" : undefined}
         className="flex h-full w-full max-w-[calc(100vw-48px)] flex-col overflow-hidden"
         initial="closed"
@@ -249,8 +257,8 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
               : undefined
           }
         />
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 

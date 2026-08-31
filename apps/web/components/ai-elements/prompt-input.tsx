@@ -23,6 +23,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -31,6 +32,7 @@ import {
 const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url);
+    if (!response.ok) return null;
     const blob = await response.blob();
     // FileReader 基于回调设计，包装为 Promise 便于异步处理
     // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
@@ -164,28 +166,28 @@ export const PromptInput = ({
         return;
       }
 
-      setItems((prev) => {
-        const capacity =
-          typeof maxFiles === "number" ? Math.max(0, maxFiles - prev.length) : undefined;
-        const capped = typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-        if (typeof capacity === "number" && sized.length > capacity) {
-          onError?.({
-            code: "max_files",
-            message: "Too many files. Some were not added.",
-          });
-        }
-        const next: (FileUIPart & { id: string })[] = [];
-        for (const file of capped) {
-          next.push({
-            filename: file.name,
-            id: crypto.randomUUID(),
-            mediaType: file.type,
-            type: "file",
-            url: URL.createObjectURL(file),
-          });
-        }
-        return [...prev, ...next];
-      });
+      // 容量截断在 updater 外计算（filesRef 由 effect 与 items 保持同步）：
+      // state updater 必须是纯函数，onError 回调放里面会被 StrictMode 双调用
+      const capacity =
+        typeof maxFiles === "number" ? Math.max(0, maxFiles - filesRef.current.length) : undefined;
+      const capped = typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+      if (typeof capacity === "number" && sized.length > capacity) {
+        onError?.({
+          code: "max_files",
+          message: "Too many files. Some were not added.",
+        });
+      }
+      const next: (FileUIPart & { id: string })[] = [];
+      for (const file of capped) {
+        next.push({
+          filename: file.name,
+          id: crypto.randomUUID(),
+          mediaType: file.type,
+          type: "file",
+          url: URL.createObjectURL(file),
+        });
+      }
+      setItems((prev) => [...prev, ...next]);
     },
     [matchesAccept, maxFiles, maxFileSize, onError],
   );
@@ -215,6 +217,9 @@ export const PromptInput = ({
     [],
   );
 
+  // useEffectEvent 隔离 add 的最新闭包：拖拽监听器不随 add 身份重挂
+  const addFiles = useEffectEvent((fileList: FileList) => add(fileList));
+
   // 监听表单和文档级拖拽事件
   useEffect(() => {
     const form = formRef.current;
@@ -236,7 +241,7 @@ export const PromptInput = ({
         e.preventDefault();
       }
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
+        addFiles(e.dataTransfer.files);
       }
     };
     form.addEventListener("dragover", onDragOver);
@@ -245,7 +250,7 @@ export const PromptInput = ({
       form.removeEventListener("dragover", onDragOver);
       form.removeEventListener("drop", onDrop);
     };
-  }, [add, globalDrop]);
+  }, [globalDrop]);
 
   useEffect(() => {
     if (!globalDrop) {
@@ -262,7 +267,7 @@ export const PromptInput = ({
         e.preventDefault();
       }
       if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
+        addFiles(e.dataTransfer.files);
       }
     };
     document.addEventListener("dragover", onDragOver);
@@ -271,7 +276,7 @@ export const PromptInput = ({
       document.removeEventListener("dragover", onDragOver);
       document.removeEventListener("drop", onDrop);
     };
-  }, [add, globalDrop]);
+  }, [globalDrop]);
 
   useEffect(
     () => () => {
@@ -390,7 +395,8 @@ export const PromptInputTextarea = ({
   ...props
 }: PromptInputTextareaProps) => {
   const attachments = usePromptInputAttachments();
-  const [isComposing, setIsComposing] = useState(false);
+  // 仅在键盘/组合事件中读写、不参与渲染：用 ref 而非 state，避免无意义的重渲染
+  const isComposingRef = useRef(false);
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
@@ -403,7 +409,7 @@ export const PromptInputTextarea = ({
       }
 
       if (e.key === "Enter") {
-        if (isComposing || e.nativeEvent.isComposing) {
+        if (isComposingRef.current || e.nativeEvent.isComposing) {
           return;
         }
         if (e.shiftKey) {
@@ -432,7 +438,7 @@ export const PromptInputTextarea = ({
         }
       }
     },
-    [onKeyDown, isComposing, attachments],
+    [onKeyDown, attachments],
   );
 
   const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -462,8 +468,12 @@ export const PromptInputTextarea = ({
     [attachments],
   );
 
-  const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
-  const handleCompositionStart = useCallback(() => setIsComposing(true), []);
+  const handleCompositionEnd = useCallback(() => {
+    isComposingRef.current = false;
+  }, []);
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true;
+  }, []);
 
   return (
     <InputGroupTextarea
