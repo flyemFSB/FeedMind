@@ -7,9 +7,9 @@ try {
   // .env 文件可选
 }
 
-import { client, closeDb } from "./client.js";
-import { ensureSchema } from "./schema/ddl.js";
-import { dbLogger } from "./logger.js";
+import { client, closeDb } from "./client.ts";
+import { ensureSchema } from "./schema/ddl.ts";
+import { dbLogger } from "./logger.ts";
 
 const SEED_TOOLS = [
   {

@@ -3,8 +3,8 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { mkdirSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
-import * as schema from "./schema/index.js";
-import { dbLogger } from "./logger.js";
+import * as schema from "./schema/index.ts";
+import { dbLogger } from "./logger.ts";
 
 function resolveDbPath(): string {
   const envPath = process.env["DATABASE_PATH"];

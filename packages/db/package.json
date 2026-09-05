@@ -15,8 +15,8 @@
     "test": "vitest run --project db",
     "typecheck": "tsc -b --builders 4 --pretty false",
     "db:push": "drizzle-kit push",
-    "db:init": "tsx src/init.ts",
-    "db:reset": "tsx src/reset.ts"
+    "db:init": "node src/init.ts",
+    "db:reset": "node src/reset.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
@@ -27,7 +27,6 @@
     "@types/node": "catalog:",
     "drizzle-kit": "^0.31.10",
     "oxlint": "catalog:",
-    "tsx": "^4.23.12",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

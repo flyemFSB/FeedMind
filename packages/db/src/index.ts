@@ -1,3 +1,3 @@
-export * from "./client.js";
-export * from "./schema/index.js";
-export { initDatabase } from "./init.js";
+export * from "./client.ts";
+export * from "./schema/index.ts";
+export { initDatabase } from "./init.ts";

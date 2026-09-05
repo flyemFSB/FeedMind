@@ -7,8 +7,8 @@ try {
 }
 
 import { sql } from "drizzle-orm";
-import { client, closeDb, db } from "./client.js";
-import { dbLogger } from "./logger.js";
+import { client, closeDb, db } from "./client.ts";
+import { dbLogger } from "./logger.ts";
 
 await client.execute("pragma foreign_keys = off");
 

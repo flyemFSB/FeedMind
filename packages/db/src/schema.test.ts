@@ -2,7 +2,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { pushSQLiteSchema } from "drizzle-kit/api";
 import { beforeAll, describe, expect, it } from "vitest";
-import * as schema from "./schema/index.js";
+import * as schema from "./schema/index.ts";
 
 const client = createClient({ url: ":memory:" });
 const db = drizzle(client, { schema });

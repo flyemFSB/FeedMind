@@ -1,5 +1,5 @@
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { model } from "./model.js";
+import { model } from "./model.ts";
 
 export const runtimeConfig = sqliteTable("runtime_config", {
   id: integer("id").primaryKey({ autoIncrement: true }),
