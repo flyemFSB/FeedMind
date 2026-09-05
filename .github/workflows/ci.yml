@@ -41,6 +41,10 @@ jobs:
       - name: 代码检查
         run: pnpm lint
 
+      # oxfmt --check：格式门禁（本地提交已被 lint-staged 格式化，此处防 --no-verify 绕过）
+      - name: 格式检查
+        run: pnpm fmt:check
+
       # react-doctor 分数门禁：防诊断回退（当前稳态 88，阈值 85 留余量；
       # 剩置的 11 条为已决议暂不重构的 no-giant/no-multi 项）
       - name: React Doctor 分数门禁

@@ -31,7 +31,8 @@ describe("dailyReportWorkflow 编排", () => {
 
     const script = (result.steps as Record<string, { output?: { script?: unknown } }>)["script"]
       ?.output?.script as
-      { opening: { hook: string }; closing: { summary: string }; items: unknown[] } | undefined;
+      | { opening: { hook: string }; closing: { summary: string }; items: unknown[] }
+      | undefined;
     expect(script?.opening?.hook).toBeTruthy();
     expect(script?.closing?.summary).toBeTruthy();
     expect(Array.isArray(script?.items)).toBe(true);

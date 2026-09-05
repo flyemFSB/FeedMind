@@ -15,7 +15,9 @@ pnpm run desktop:dist          # 生产打包生成 Windows 安装包（NSIS）
 pnpm run build                 # 构建所有包和应用
 pnpm run build:packages        # 仅构建共享包
 pnpm run typecheck             # 全仓库 TypeScript 类型检查
-pnpm run lint                  # 全仓库 ESLint 检查
+pnpm run lint                  # 全仓库 oxlint 检查
+pnpm run fmt                   # 全仓库 oxfmt 格式化（写入）
+pnpm run fmt:check             # oxfmt 格式校验（不写入，CI/门禁用）
 pnpm run test                  # 运行所有测试（vitest）
 pnpm run db:push               # drizzle-kit push 同步 schema（改 schema 后执行）
 pnpm run db:init               # 写入种子数据（工具配置、默认运行配置）
@@ -56,9 +58,9 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 ### 提交规范
 
 - 约定式提交（`feat`/`fix`/`chore`/`docs`/`refactor`/`test`/`style`/`perf`，格式 `type(scope): 中文描述`）。
-- husky 自动跑 `lint-staged`（prettier）与 `commitlint`。
+- lefthook pre-commit 串行跑 `oxlint --fix`（自动修复 JS/TS）+ `oxfmt`（格式化所有暂存文件），`stage_fixed` 把修复写回暂存区；commit-msg 跑 `commitlint`。钩子装到 .git/hooks，pnpm install 自动生效。
 - 推送前运行 `pnpm run typecheck && pnpm run lint`。
-- **CI 门禁**：push/PR 到 `master` 时 GitHub Actions 自动执行 install → build:packages → typecheck → lint → test；CI 失败即阻塞合并，推送前本地先跑相同序列。
+- **CI 门禁**：push/PR 到 `master` 时 GitHub Actions 自动执行 install → build:packages → typecheck → lint → fmt:check → test；CI 失败即阻塞合并，推送前本地先跑相同序列。
 
 ### 分支与版本
 
@@ -100,4 +102,4 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 
 ### 实施流程
 
-新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、遵循 API 路由规范）→ 收尾运行 `pnpm run typecheck && pnpm run lint`。
+新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、遵循 API 路由规范）→ 收尾运行 `pnpm run fmt && pnpm run typecheck && pnpm run lint`（oxfmt 格式化无差异才算干净）。

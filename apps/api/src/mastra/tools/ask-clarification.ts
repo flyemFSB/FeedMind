@@ -16,11 +16,7 @@ export const askClarificationTool = createTool({
       .describe("Optional list of possible directions or choices for the user to pick from."),
   }),
   execute: async ({ question, options }) => {
-    const lines: string[] = [
-      `## 需要澄清`,
-      ``,
-      `${question}`,
-    ];
+    const lines: string[] = [`## 需要澄清`, ``, `${question}`];
 
     if (options && options.length > 0) {
       lines.push(``, `**可选方向：**`);

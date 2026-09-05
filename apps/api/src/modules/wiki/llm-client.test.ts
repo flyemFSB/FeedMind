@@ -27,7 +27,8 @@ function buildChatResponse(content: string, requestId?: string) {
 function mockOkChat(content: string) {
   return vi.fn<typeof fetch>().mockImplementation((_input, init) => {
     const headers = (init as RequestInit | undefined)?.headers as
-      Record<string, string> | undefined;
+      | Record<string, string>
+      | undefined;
     const requestId =
       (typeof headers?.["x-request-id"] === "string" ? headers["x-request-id"] : undefined) ??
       (headers && "x-request-id" in headers

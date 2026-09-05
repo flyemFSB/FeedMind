@@ -1,0 +1,18 @@
+# pre-commit 串行(piped):先 oxlint --fix 再 oxfmt,顺序与官方 coding-agents 工作流一致;
+# stage_fixed 把修复写回暂存区(对齐 lint-staged 行为);
+# oxfmt 自行跳过不支持文件(二进制/未知扩展 exit 0),故无需 glob 过滤
+pre-commit:
+  piped: true
+  commands:
+    oxlint:
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      stage_fixed: true
+      run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
+    oxfmt:
+      stage_fixed: true
+      run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}

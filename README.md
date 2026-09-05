@@ -212,7 +212,9 @@ pnpm run api:dev   # 仅后端
 pnpm run build          # 构建全部
 pnpm run build:packages # 仅构建共享包
 pnpm run typecheck      # TypeScript 类型检查
-pnpm run lint           # ESLint + Prettier
+pnpm run lint           # oxlint 代码检查
+pnpm run fmt            # oxfmt 代码格式化
+pnpm run fmt:check      # oxfmt 格式校验（不写入）
 pnpm run test           # Vitest 单元测试
 
 # 数据库管理
@@ -300,9 +302,10 @@ feedmind/
 ├── docs/                          # 文档与研究
 │   └── research/                 # 技术研究
 │
-├── .husky/                        # Git hooks
-├── eslint.config.mjs              # ESLint 扁平配置
-├── prettier.config.mjs            # Prettier 配置
+├── .gitattributes                 # 行尾策略（强制 LF）
+├── lefthook.yml                   # Git hooks 配置（pre-commit + commit-msg）
+├── .oxlintrc.json                 # oxlint 配置
+├── .oxfmtrc.json                  # oxfmt 配置
 ├── commitlint.config.mjs          # Commit 规范
 ├── tsconfig.base.json             # TypeScript 基础配置
 ├── vitest.config.ts               # 测试配置
@@ -381,8 +384,8 @@ perf(ingest): 引入缓存减少 IO 开销
 提交前自动运行：
 
 ```bash
-pnpm lint-staged  # Prettier 格式化
-commitlint        # Commit 消息校验
+lefthook pre-commit  # oxlint 自动修复 + oxfmt 格式化
+commitlint           # Commit 消息校验（lefthook commit-msg 触发）
 ```
 
 推送前需通过：
@@ -497,7 +500,7 @@ POST /llms/selected                  # 选中默认模型
 ### 开发前提
 
 - 已运行 `pnpm install` 和 `pnpm run build:packages`
-- 代码符合 ESLint + Prettier 规范
+- 代码符合 oxlint + oxfmt 规范
 - 新增功能需包含单元测试（Vitest）
 
 ---

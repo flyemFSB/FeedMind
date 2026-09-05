@@ -77,7 +77,8 @@ const ALL_TARGETS = [
 export type OpsTarget = (typeof ALL_TARGETS)[number];
 
 type VirtualOpsRow =
-  { kind: "header"; label: string; count: number } | { kind: "row"; item: OpsLogRow };
+  | { kind: "header"; label: string; count: number }
+  | { kind: "row"; item: OpsLogRow };
 
 const TARGET_ICONS: Record<string, LucideIcon> = {
   wiki_space: Network,
