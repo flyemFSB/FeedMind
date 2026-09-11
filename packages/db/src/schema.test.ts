@@ -1,15 +1,15 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
-import { pushSQLiteSchema } from "drizzle-kit/api";
+import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as schema from "./schema/index.ts";
+import { ensureSchema } from "./ensure-schema.ts";
 
 const client = createClient({ url: ":memory:" });
 const db = drizzle(client, { schema });
 
 beforeAll(async () => {
-  const push = await pushSQLiteSchema(schema, db);
-  await push.apply();
+  await ensureSchema(client);
 });
 
 describe("schema 与 SQLite 兼容", () => {
@@ -24,6 +24,7 @@ describe("schema 与 SQLite 兼容", () => {
     expect(names).toContain("videos");
     expect(names).toContain("feeds");
     expect(names).toContain("chat_sessions");
+    expect(names).toContain("operation_log");
   });
 
   it("model 插入后应用默认值，自增主键生效", async () => {
@@ -37,12 +38,25 @@ describe("schema 与 SQLite 兼容", () => {
     expect(rows[0]?.createdAt).toBeTruthy();
   });
 
-  it("model 唯一约束（type+model_id+base_url+encrypted_api_key）生效", async () => {
-    // 自包含：用非默认 model_id 构造独立 tuple，避免依赖其他用例插入的行
+  it("model 唯一约束（type+provider+model_id+base_url）生效", async () => {
     const first = { provider: "anthropic", modelName: "claude", modelId: "same-endpoint" };
     await db.insert(schema.model).values(first);
     await expect(
-      db.insert(schema.model).values({ ...first, provider: "cohere" }),
+      db.insert(schema.model).values({ ...first, modelName: "claude-2" }),
+    ).rejects.toThrow();
+  });
+
+  it("model 部分唯一索引：同 type 仅允许一个 is_selected", async () => {
+    await db.insert(schema.model).values([
+      { provider: "openai", modelName: "a", modelId: "sel-a", type: "embedding" },
+      { provider: "openai", modelName: "b", modelId: "sel-b", type: "embedding" },
+    ]);
+    await db
+      .update(schema.model)
+      .set({ isSelected: true })
+      .where(eq(schema.model.modelId, "sel-a"));
+    await expect(
+      db.update(schema.model).set({ isSelected: true }).where(eq(schema.model.modelId, "sel-b")),
     ).rejects.toThrow();
   });
 
@@ -54,6 +68,25 @@ describe("schema 与 SQLite 兼容", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.title).toBe("源");
     expect(rows[0]?.createdAt).toBeTruthy();
+  });
+
+  it("feeds.is_read 布尔模式往返", async () => {
+    await db.insert(schema.rssSources).values({
+      id: "src-feed",
+      type: "rss",
+      url: "https://x/f",
+      title: "s",
+    });
+    await db.insert(schema.feeds).values({
+      id: "f1",
+      sourceId: "src-feed",
+      title: "t",
+      guid: "g1",
+      fetchedAt: new Date().toISOString(),
+      isRead: true,
+    });
+    const [row] = await db.select().from(schema.feeds);
+    expect(row?.isRead).toBe(true);
   });
 
   it("schedule_tasks 的 boolean 模式往返为 JS 布尔", async () => {

@@ -2,14 +2,16 @@ import type { Client } from "@libsql/client";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { mkdirSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import * as schema from "./schema/index.ts";
 import { dbLogger } from "./logger.ts";
+import { findRepoRoot } from "./repo-root.ts";
 
 function resolveDbPath(): string {
   const envPath = process.env["DATABASE_PATH"];
   if (envPath && isAbsolute(envPath)) return envPath;
-  const dataDir = process.env["DATA_DIR"] ?? resolve(process.cwd(), "data");
+  // 未显式指定时锚定仓库根而非 process.cwd()（cwd 不同会读错库）
+  const dataDir = process.env["DATA_DIR"] ?? join(findRepoRoot(import.meta.dirname), "data");
   return resolve(dataDir, "feedmind.db");
 }
 
@@ -66,9 +68,11 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
 // - journal_mode=WAL：读写并发不互斥（FTS 批量重建与业务读请求并行），写入更快
 // - synchronous=NORMAL：WAL 模式下崩溃安全（最多丢最近事务），日常写入大幅减 fsync
 // - cache_size=-8000：页缓存上限 8MB，防大查询（FTS 重建/图遍历）撑爆内存
+// - foreign_keys=ON：SQLite 默认关闭外键；不打开则 REFERENCES 只是注释
 // 幂等，可在任意时机重复调用。
 export async function initDbPragmas(): Promise<void> {
   const c = getRawClient();
+  await c.execute("PRAGMA foreign_keys = ON");
   await c.execute("PRAGMA journal_mode = WAL");
   await c.execute("PRAGMA synchronous = NORMAL");
   await c.execute("PRAGMA cache_size = -8000");
@@ -93,3 +97,5 @@ export function closeDb(): void {
     _activeDbPath = null;
   }
 }
+
+export { findRepoRoot };

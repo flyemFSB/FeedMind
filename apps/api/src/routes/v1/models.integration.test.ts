@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiTestContext, type ApiTestContext } from "../../test-utils.js";
 
 describe("Models API 集成测试", () => {
@@ -21,8 +21,8 @@ describe("Models API 集成测试", () => {
       model_id: "gpt-4o-mini",
       base_url: "https://api.openai.com/v1",
       api_key: "sk-test-secret-key-12345",
-      context_window: "128k",
-      max_output: "16k",
+      context_window: 128,
+      max_output: 16,
     };
 
     const res = await ctx.request("/api/v1/models", {

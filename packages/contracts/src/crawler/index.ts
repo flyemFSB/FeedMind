@@ -8,7 +8,6 @@ export type TaskStatus = z.infer<typeof taskStatusSchema>;
 export const taskCreateSchema = z.object({
   route: z.string(),
   params: z.record(z.string(), z.unknown()),
-  proxy_url: z.string().optional(),
   max_items: z.number().int().positive().default(50),
 });
 export type TaskCreate = z.infer<typeof taskCreateSchema>;
@@ -19,10 +18,8 @@ export const taskReadSchema = z.object({
   route: z.string(),
   params: z.string(),
   cookies: z.string().nullable(),
-  proxy_url: z.string().nullable(),
   max_items: z.number().int(),
   status: taskStatusSchema,
-  progress: z.number().int().nullable(),
   error: z.string().nullable(),
   rss_url: z.string().nullable(),
   started_at: z.string().nullable(),
@@ -35,7 +32,6 @@ export const taskListItemSchema = taskReadSchema.pick({
   id: true,
   route: true,
   status: true,
-  progress: true,
   error: true,
   started_at: true,
   finished_at: true,

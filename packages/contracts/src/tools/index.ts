@@ -19,7 +19,6 @@ export const toolReadSchema = z.object({
   category: z.string(),
   display_name: z.string(),
   description: z.string().nullable(),
-  icon: z.string().nullable(),
   config_fields: z.array(configFieldSchema),
   config: z.record(z.string(), z.unknown()),
   password_set: z.record(z.string(), z.boolean()).default({}),

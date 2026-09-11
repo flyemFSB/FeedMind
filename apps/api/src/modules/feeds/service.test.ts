@@ -149,6 +149,7 @@ const SYNC_DDL = [
     cookies TEXT NOT NULL,
     valid INTEGER,
     checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
     PRIMARY KEY (uuid, platform)
   )`,
 ];

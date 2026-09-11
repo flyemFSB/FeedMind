@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // 覆盖网络层到 rssXml 的完整链路，改动接口字段时此处会先红。
 // 路由内置 1-1.5s 防风控间隔，测试用真实 sleep（不使用 fake timers）。
 import { getRouteHandler } from "../core/route-registry.js";
-import "../routes/index.js";
+import "./index.js";
 
 const SHELF = {
   errCode: 0,

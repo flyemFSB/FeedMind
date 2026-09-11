@@ -6,7 +6,7 @@ import type { FeedRow } from "@feedmind/db";
 import { getRouteHandler, CrawlerAuthError } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
-import { joinCookies } from "../cookiecloud/service.js";
+import { joinCookies } from "../cookie-cloud/service.js";
 import { shouldBackfillTitle } from "../rss-sources/service.js";
 import { checkSSRF } from "../../lib/ssrf.js";
 
@@ -53,11 +53,11 @@ export async function markRead(feedId: string): Promise<void> {
         i18nKey: "apiError.feedItemNotFound",
       },
     );
-  await db.update(feeds).set({ isRead: 1 }).where(eq(feeds.id, feedId));
+  await db.update(feeds).set({ isRead: true }).where(eq(feeds.id, feedId));
 }
 
 export async function markAllRead(sourceId: string): Promise<void> {
-  await db.update(feeds).set({ isRead: 1 }).where(eq(feeds.sourceId, sourceId));
+  await db.update(feeds).set({ isRead: true }).where(eq(feeds.sourceId, sourceId));
 }
 
 export async function deleteFeeds(ids: string[]): Promise<void> {

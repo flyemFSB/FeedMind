@@ -6,6 +6,5 @@
     "outDir": "dist",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*.ts"],
-  "references": [{ "path": "../shared" }]
+  "include": ["src/**/*.ts"]
 }

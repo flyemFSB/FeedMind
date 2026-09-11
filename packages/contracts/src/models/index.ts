@@ -7,8 +7,8 @@ export const modelCreateSchema = z.object({
   model_id: z.string().max(256).default(""),
   base_url: z.string().max(512).default(""),
   api_key: z.string().max(2048).default(""),
-  context_window: z.string().nullable().optional(),
-  max_output: z.string().nullable().optional(),
+  context_window: z.number().int().positive().nullable().optional(),
+  max_output: z.number().int().positive().nullable().optional(),
 });
 
 export const modelUpdateSchema = modelCreateSchema.partial();
@@ -28,12 +28,13 @@ export const selectedModelReadSchema = z.object({
 });
 
 export const modelRuntimeReadSchema = z.object({
+  provider: z.string(),
   model_name: z.string(),
   model_id: z.string().nullable(),
   base_url: z.string(),
   api_key: z.string(),
-  context_window: z.string().nullable(),
-  max_output: z.string().nullable(),
+  context_window: z.number().int().nullable(),
+  max_output: z.number().int().nullable(),
 });
 
 export type ModelCreate = z.infer<typeof modelCreateSchema>;

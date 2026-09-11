@@ -1,28 +1,31 @@
 import { sql } from "drizzle-orm";
-import { index, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// ─── 远程连接配置 ──────────────────────────────────────────────
-// 存储各平台连接配置：OAuth token、Cookie、Bot webhook 等
+// 远程连接配置：OAuth token / cookie / webhook 等；config 为 JSON，敏感段应用层加密。
+// 业务为「每平台至多一条」，platform 唯一。
 export const remoteConnections = sqliteTable(
   "remote_connections",
   {
     id: text("id").primaryKey(),
-    platform: text("platform").notNull(), // "feishu" | "xiaohongshu" | "douyin" | "bilibili" | "zhihu"
-    label: text("label").notNull(), // user-visible name
-    status: text("status").notNull().default("disconnected"), // "disconnected" | "connecting" | "connected" | "error"
-    config: text("config"), // JSON: OAuth tokens / cookies / webhook config
-    extra: text("extra"), // JSON: user info, platform-specific metadata
-    error: text("error"), // last error message
+    platform: text("platform").notNull().unique(),
+    label: text("label").notNull(),
+    status: text("status").notNull().default("disconnected"),
+    config: text("config"), // JSON 字符串；应用层 Fernet 加密后写入
+    extra: text("extra"), // JSON 元数据（明文）
+    error: text("error"),
     createdAt: text("created_at")
       .notNull()
-      .default(sql`(current_timestamp)`),
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     updatedAt: text("updated_at")
       .notNull()
-      .default(sql`(current_timestamp)`),
+      .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },
   (table) => ({
-    platformIdx: index("idx_remote_conn_platform").on(table.platform),
     statusIdx: index("idx_remote_conn_status").on(table.status),
+    statusCheck: check(
+      "ck_remote_connections_status",
+      sql`status IN ('disconnected', 'connecting', 'connected', 'error')`,
+    ),
   }),
 );
 

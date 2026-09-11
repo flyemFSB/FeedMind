@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apiEnvelopeSchema } from "./api/envelope.js";
 import { taskCreateSchema, taskListItemSchema, taskReadSchema } from "./crawler/index.js";
 import { feedBatchSchema } from "./feeds/index.js";
-import { modelCreateSchema, modelReadSchema, modelUpdateSchema } from "./model/index.js";
+import { modelCreateSchema, modelReadSchema, modelUpdateSchema } from "./models/index.js";
 
 describe("apiEnvelopeSchema", () => {
   const schema = apiEnvelopeSchema(taskCreateSchema);
@@ -51,10 +51,8 @@ describe("taskReadSchema / taskListItemSchema", () => {
     route: "x",
     params: "{}",
     cookies: null,
-    proxy_url: null,
     max_items: 50,
     status: "completed",
-    progress: 100,
     error: null,
     rss_url: null,
     started_at: null,
@@ -79,7 +77,6 @@ describe("taskReadSchema / taskListItemSchema", () => {
         "error",
         "finished_at",
         "id",
-        "progress",
         "route",
         "started_at",
         "status",

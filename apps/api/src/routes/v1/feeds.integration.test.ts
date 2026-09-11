@@ -29,7 +29,7 @@ describe("Feeds API 集成测试", () => {
         title: "文章一",
         guid: "g-1",
         fetchedAt: "2026-08-01T00:00:00Z",
-        isRead: 0,
+        isRead: false,
       },
       {
         id: "feed-2",
@@ -37,7 +37,7 @@ describe("Feeds API 集成测试", () => {
         title: "文章二",
         guid: "g-2",
         fetchedAt: "2026-08-02T00:00:00Z",
-        isRead: 0,
+        isRead: false,
       },
     ]);
 
@@ -69,7 +69,7 @@ describe("Feeds API 集成测试", () => {
       title: "待读文章",
       guid: "g-unread",
       fetchedAt: "2026-08-01T00:00:00Z",
-      isRead: 0,
+      isRead: false,
     });
 
     const readRes = await ctx.request("/api/v1/feeds/feed-unread/read", {
@@ -102,7 +102,7 @@ describe("Feeds API 集成测试", () => {
         title: "文章一",
         guid: "g-1",
         fetchedAt: "2026-08-01T00:00:00Z",
-        isRead: 0,
+        isRead: false,
       },
     ]);
 

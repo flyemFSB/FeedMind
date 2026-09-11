@@ -12,7 +12,7 @@ export const feedSchema = z.object({
   image: z.string().nullable(),
   pubDate: z.string().nullable(),
   fetchedAt: z.string(),
-  isRead: z.number(),
+  isRead: z.boolean(),
   createdAt: z.string(),
 });
 export type Feed = z.infer<typeof feedSchema>;

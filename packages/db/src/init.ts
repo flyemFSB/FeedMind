@@ -7,8 +7,8 @@ try {
   // .env 文件可选
 }
 
-import { client, closeDb } from "./client.ts";
-import { ensureSchema } from "./schema/ddl.ts";
+import { client, closeDb, initDbPragmas } from "./client.ts";
+import { ensureSchema } from "./ensure-schema.ts";
 import { dbLogger } from "./logger.ts";
 
 const SEED_TOOLS = [
@@ -81,7 +81,8 @@ const SEED_TOOLS = [
 ];
 
 export async function initDatabase(): Promise<void> {
-  // 自动确保所有表结构和索引已创建（全新安装可直接拉起）
+  await initDbPragmas();
+  // 幂等建表（开发期改结构请 db:reset / 删库，不跑迁移）
   await ensureSchema(client);
 
   for (const tool of SEED_TOOLS) {

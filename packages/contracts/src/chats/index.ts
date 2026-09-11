@@ -4,8 +4,6 @@ export const chatSessionReadSchema = z.object({
   id: z.string(),
   agent_thread_id: z.string(),
   title: z.string(),
-  message_count: z.number().int().nonnegative(),
-  last_message_at: z.string().nullable(),
 });
 
 export const chatSessionListItemSchema = chatSessionReadSchema.extend({

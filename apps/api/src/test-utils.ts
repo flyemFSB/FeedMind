@@ -3,158 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Hono } from "hono";
 
-// 全量业务表 DDL：与 packages/db/src/schema 保持 100% 一致，供集成测试单进程极速建表
-export const ALL_TABLE_DDLS = [
-  `CREATE TABLE IF NOT EXISTS model (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    type TEXT NOT NULL DEFAULT 'chat',
-    provider TEXT NOT NULL,
-    model_name TEXT NOT NULL,
-    model_id TEXT NOT NULL DEFAULT '',
-    base_url TEXT NOT NULL DEFAULT '',
-    encrypted_api_key TEXT NOT NULL DEFAULT '',
-    context_window TEXT,
-    max_output TEXT,
-    is_selected INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
-    CONSTRAINT uq_model_type_endpoint_key UNIQUE (type, model_id, base_url, encrypted_api_key)
-  )`,
-  `CREATE TABLE IF NOT EXISTS runtime_config (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    runtime TEXT NOT NULL UNIQUE,
-    llm_id INTEGER REFERENCES model(id) ON DELETE SET NULL,
-    temperature REAL NOT NULL DEFAULT 0.2,
-    top_p REAL NOT NULL DEFAULT 1,
-    system_prompt TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL DEFAULT ''
-  )`,
-  `CREATE TABLE IF NOT EXISTS tools (
-    name TEXT PRIMARY KEY,
-    category TEXT NOT NULL,
-    display_name TEXT NOT NULL,
-    description TEXT,
-    icon TEXT,
-    config_fields TEXT NOT NULL,
-    config TEXT NOT NULL DEFAULT '{}',
-    is_enabled INTEGER NOT NULL DEFAULT 0,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE IF NOT EXISTS crawler_tasks (
-    id TEXT PRIMARY KEY,
-    route TEXT NOT NULL,
-    params TEXT NOT NULL,
-    cookies TEXT,
-    proxy_url TEXT,
-    max_items INTEGER NOT NULL DEFAULT 50,
-    status TEXT NOT NULL DEFAULT 'queued',
-    progress INTEGER,
-    error TEXT,
-    rss_output TEXT,
-    started_at TEXT,
-    finished_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE IF NOT EXISTS cookie_store (
-    uuid TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    cookies TEXT NOT NULL,
-    valid INTEGER,
-    checked_at TEXT,
-    PRIMARY KEY (uuid, platform)
-  )`,
-  `CREATE TABLE IF NOT EXISTS cookie_cloud (
-    uuid TEXT PRIMARY KEY,
-    password TEXT NOT NULL,
-    encrypted TEXT NOT NULL,
-    crypto_type TEXT NOT NULL DEFAULT 'legacy'
-  )`,
-  `CREATE TABLE IF NOT EXISTS rss_sources (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    platform TEXT,
-    route TEXT,
-    url TEXT NOT NULL,
-    title TEXT NOT NULL,
-    params TEXT,
-    last_synced_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE IF NOT EXISTS feeds (
-    id TEXT PRIMARY KEY,
-    source_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    link TEXT,
-    guid TEXT NOT NULL,
-    author TEXT,
-    category TEXT,
-    image TEXT,
-    pub_date TEXT,
-    fetched_at TEXT NOT NULL,
-    is_read INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_feeds_source_guid ON feeds (source_id, guid)`,
-  `CREATE TABLE IF NOT EXISTS schedule_tasks (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    cron TEXT NOT NULL,
-    timezone TEXT NOT NULL DEFAULT 'Asia/Shanghai',
-    enabled INTEGER NOT NULL DEFAULT 1,
-    last_run_at TEXT,
-    last_run_status TEXT,
-    last_error TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS videos (
-    id TEXT PRIMARY KEY,
-    scheduleId TEXT NOT NULL,
-    reportDate TEXT NOT NULL,
-    status TEXT NOT NULL,
-    stage TEXT,
-    filePath TEXT,
-    duration INTEGER,
-    error TEXT,
-    createdAt TEXT NOT NULL,
-    updatedAt TEXT NOT NULL
-  )`,
-  `CREATE TABLE IF NOT EXISTS chat_sessions (
-    id TEXT PRIMARY KEY,
-    agent_thread_id TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL DEFAULT '新会话',
-    pinned INTEGER NOT NULL DEFAULT 0,
-    message_count INTEGER NOT NULL DEFAULT 0,
-    last_message_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE IF NOT EXISTS remote_connections (
-    id TEXT PRIMARY KEY,
-    platform TEXT NOT NULL,
-    label TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'disconnected',
-    config TEXT,
-    extra TEXT,
-    error TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE IF NOT EXISTS operation_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    ts INTEGER NOT NULL,
-    action TEXT NOT NULL,
-    target TEXT NOT NULL,
-    target_name TEXT NOT NULL,
-    detail TEXT,
-    result TEXT NOT NULL DEFAULT 'success'
-  )`,
-];
-
 async function loadDb() {
   return import("@feedmind/db");
 }
@@ -187,7 +35,7 @@ export interface ApiTestContext {
 
 /**
  * 启动一个自包含、内存隔离的 API 测试上下文。
- * 每个测试文件或 suite 独立调用，消除跨用例状态污染。
+ * 表结构由 @feedmind/db ensureSchema 统一创建，与生产同构。
  */
 export async function createApiTestContext(options?: {
   seedDefaults?: boolean;
@@ -196,13 +44,12 @@ export async function createApiTestContext(options?: {
   process.env["DATABASE_PATH"] = join(tempDir, "test.db");
 
   const dbMod = await import("@feedmind/db");
-
-  for (const ddl of ALL_TABLE_DDLS) {
-    await dbMod.client.execute(ddl);
-  }
-
+  // initDatabase = pragmas + ensureSchema + seed；勿再单独 ensureSchema（push 非幂等）
   if (options?.seedDefaults ?? true) {
     await dbMod.initDatabase();
+  } else {
+    await dbMod.initDbPragmas();
+    await dbMod.ensureSchema(dbMod.client);
   }
 
   const { createApp } = await import("./app.js");
@@ -257,7 +104,7 @@ export async function createApiTestContext(options?: {
     try {
       rmSync(tempDir, { recursive: true, force: true });
     } catch {
-      // 忽略临时文件释放时的偶发延迟
+      // 忽略临时文件释放的偶发延迟
     }
   };
 

@@ -1,7 +1,8 @@
 /**
- * 路由注册表：将路由名（如 "tieba/forum"）映射到处理函数。
+ * 站点适配器注册表：将站点路由名（如 "tieba/forum"）映射到处理函数。
+ * 与 HTTP 路由无关——这里的 name 是爬虫站点路径标识。
  *
- * 各路由文件在 import 时通过 registerRoute() 自注册。
+ * 各站点文件在 import 时通过 registerRoute() 自注册。
  * API 层通过此注册表分派任务到对应处理器。
  */
 
