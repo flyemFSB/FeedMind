@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
-import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
+import { LayoutWrapper } from "@/app/shell/layout-wrapper";
 
 export const Route = createFileRoute("/daily-report")({
   component: DailyReportLayout,

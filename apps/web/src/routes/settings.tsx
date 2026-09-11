@@ -1,12 +1,10 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { useTranslation } from "react-i18next";
-import { LayoutWrapper } from "@/components/app-shell/layout-wrapper";
-import { SettingsView } from "@/components/settings/settings-view";
-import type { TabId } from "@/components/settings/settings-types";
+import { createFileRoute } from "@tanstack/react-router";
+import { SettingsPage } from "@/pages/settings/settings-page";
+import type { TabId } from "@/pages/settings/settings-types";
 
-export interface SettingsSearch {
+type SettingsSearch = {
   tab?: TabId;
-}
+};
 
 const VALID_TABS: readonly TabId[] = ["models", "runtime", "tools", "skills", "system"];
 
@@ -19,24 +17,3 @@ export const Route = createFileRoute("/settings")({
   },
   component: SettingsPage,
 });
-
-function SettingsPage() {
-  const { t } = useTranslation();
-  const search = useSearch({ from: "/settings" });
-  const navigate = useNavigate();
-  const activeTab = search.tab ?? "models";
-
-  const handleTabChange = (tab: TabId) => {
-    void navigate({
-      to: "/settings",
-      search: { tab },
-      replace: false,
-    });
-  };
-
-  return (
-    <LayoutWrapper title={t("settings.title")}>
-      <SettingsView activeTab={activeTab} onTabChange={handleTabChange} />
-    </LayoutWrapper>
-  );
-}

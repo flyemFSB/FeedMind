@@ -29,7 +29,7 @@ test.describe("FeedMind Web 核心用户旅程 E2E", () => {
                 link: "https://example.com/1",
                 guid: "g-1",
                 fetchedAt: new Date().toISOString(),
-                isRead: 0,
+                isRead: false,
               },
             ],
             pagination: { offset: 0, limit: 50, total: 1, has_more: false },

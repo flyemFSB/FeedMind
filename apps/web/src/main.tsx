@@ -2,16 +2,16 @@ import { RouterProvider } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { LazyMotion, MotionConfig, domAnimation } from "motion/react";
 import { useState } from "react";
-import { ChatProvider } from "@/lib/chat/chat-context";
-import { ErrorBoundary } from "@/components/app-shell/error-boundary";
+import { ChatProvider } from "@/app/agent-drawer/chat-context";
+import { ErrorBoundary } from "@/app/shell/error-boundary";
 import { Toaster } from "@/components/ui/toast";
-import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeProvider } from "@/app/theme-provider";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { createQueryClient } from "@/lib/query-client";
-import { router } from "@/src/router";
-import { TanStackQueryDevtools } from "@/src/devtools";
+import { router } from "@/router";
+import { TanStackQueryDevtools } from "@/devtools";
 import { createRoot } from "react-dom/client";
-import "@/app/globals.css";
+import "@/styles/globals.css";
 
 function App() {
   const [queryClient] = useState(createQueryClient);

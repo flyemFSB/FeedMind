@@ -1,4 +1,4 @@
-﻿import { defineConfig } from "vitest/config";
+import { defineConfig } from "vitest/config";
 
 // root 必须基于配置文件位置解析，否则从子目录运行 pnpm test 时 include 会相对包目录失效
 const root = import.meta.dirname;
@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
-      include: ["packages/*/src/**/*.ts", "apps/api/src/**/*.ts", "apps/web/lib/**/*.ts"],
+      include: ["packages/*/src/**/*.ts", "apps/api/src/**/*.ts", "apps/web/src/**/*.ts"],
       exclude: [
         "**/*.d.ts",
         "**/*.test.ts",
@@ -59,7 +59,7 @@ export default defineConfig({
         test: {
           name: "web",
           root: `${root}/apps/web`,
-          include: ["lib/**/*.test.ts"],
+          include: ["src/**/*.test.ts"],
         },
         // 别名由 apps/web/tsconfig.json paths 原生解析，无需手动维护 alias
         resolve: { tsconfigPaths: true },
