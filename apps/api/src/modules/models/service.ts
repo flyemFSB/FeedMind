@@ -8,7 +8,7 @@ import type {
   SelectedModelUpdate,
 } from "@feedmind/contracts";
 import { db, model, type ModelRow, type ModelInsert } from "@feedmind/db";
-import { decryptValue, encryptValue } from "@feedmind/shared";
+import { decryptValue, encryptValue } from "../../lib/crypto/fernet.js";
 import { HttpError } from "../../lib/http.js";
 import { clearModelClientCache } from "./model-cache.js";
 
@@ -62,7 +62,7 @@ export async function createModel(payload: ModelCreate): Promise<ModelRead> {
     return toModelRead(row!);
   } catch (error) {
     if (isUniqueViolation(error))
-      throw new HttpError(409, "HTTP_ERROR", "相同类型、模型 ID、接口地址和 API Key 的模型已存在");
+      throw new HttpError(409, "HTTP_ERROR", "相同类型、提供商、模型 ID 与接口地址的模型已存在");
     throw error;
   }
 }
@@ -94,7 +94,7 @@ export async function updateModel(modelId: number, payload: ModelUpdate): Promis
     return toModelRead(row);
   } catch (error) {
     if (isUniqueViolation(error))
-      throw new HttpError(409, "HTTP_ERROR", "相同类型、模型 ID、接口地址和 API Key 的模型已存在");
+      throw new HttpError(409, "HTTP_ERROR", "相同类型、提供商、模型 ID 与接口地址的模型已存在");
     throw error;
   }
 }
@@ -136,6 +136,7 @@ export async function setSelectedModel(
       );
     if (m.type !== modelType) throw new HttpError(400, "HTTP_ERROR", "模型类型不匹配");
 
+    // 先清空再置位：uq_model_selected_per_type 部分唯一索引禁止同 type 双选中
     await tx
       .update(model)
       .set({ isSelected: false, updatedAt: new Date().toISOString() })
@@ -154,6 +155,7 @@ export async function getModelRuntime(modelId: number): Promise<ModelRuntimeRead
     throw new HttpError(404, "HTTP_ERROR", "模型不存在", {}, { i18nKey: "apiError.modelNotFound" });
 
   return {
+    provider: row.provider,
     model_name: row.modelName,
     model_id: row.modelId,
     base_url: row.baseUrl,

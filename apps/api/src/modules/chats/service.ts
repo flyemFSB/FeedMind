@@ -2,7 +2,6 @@ import { desc, eq } from "drizzle-orm";
 import { toAISdkV5Messages } from "@mastra/ai-sdk/ui";
 import type { ChatSessionListItem, ChatSessionRead } from "@feedmind/contracts";
 import { chatSessions, db, type ChatSessionRow } from "@feedmind/db";
-import { toIsoString } from "@feedmind/shared";
 import { HttpError } from "../../lib/http.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 
@@ -27,8 +26,6 @@ function toRead(row: ChatSessionRow): ChatSessionRead {
     id: row.id,
     agent_thread_id: row.agentThreadId,
     title: row.title,
-    message_count: row.messageCount,
-    last_message_at: toIsoString(row.lastMessageAt),
   };
 }
 
@@ -36,7 +33,7 @@ function toListItem(row: ChatSessionRow): ChatSessionListItem {
   return {
     ...toRead(row),
     pinned: row.pinned,
-    updated_at: toIsoString(row.updatedAt) ?? new Date(0).toISOString(),
+    updated_at: row.updatedAt,
   };
 }
 

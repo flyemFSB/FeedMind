@@ -34,6 +34,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 - **爬虫与 Cookie 认证**：Playwright 驱动，Cookie 存 `cookie_store`，来源为应用内浏览器登录（Electron 打开登录窗口捕获）与微信读书保活（每 30 分钟刷新 skey）。结果入 SQLite，输出 RSS。
 - **Wiki 导入管道**（`ingest-pipeline.ts`）：两阶段 LLM——先分析源内容为结构化数据，再生成 OKF Concept 写入 Markdown。
 - **消息持久化**：由 Agent Memory（Mastra `mastra.db`）自动处理，web 端不自行存消息。
+- **Monorepo 包边界**：apps 依赖 packages，反向禁止；跨包一律走 `@feedmind/*` 说明符，禁止相对路径穿透。是否抽包的判据是「**是否保护了一条真实边界**」（运行时 / 安全 / 领域 / 跨应用契约），**不是消费者数量**——6 个包里 4 个只有单一消费者属预期，因为它们换的是"可脱离 DB/HTTP/Electron 单测"而非复用。反判据：单消费者且无上述边界、总量小且以 re-export 为主、或名字是 `shared`/`utils`/`common` 却说不清保护什么。
 
 ## 开发规范
 
@@ -82,7 +83,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 
 - 信任边界：对外部输入（用户请求、爬虫响应、LLM 输出、RSS/网页）按不可信处理，先做类型/长度校验。
 - SSRF 防护：抓取类工具必须校验 URL，拒绝内网/私有 IP 段（参照 `web-fetch.ts` 的 `checkSSRF`）。
-- 密钥管理：API Key 等敏感数据 AES 加密落库（`@feedmind/shared`），禁止硬编码、禁止提交 `.env`。
+- 密钥管理：API Key 等敏感数据 AES 加密落库（`apps/api/src/lib/crypto`），禁止硬编码、禁止提交 `.env`。
 
 ### API 路由规范
 
@@ -103,3 +104,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 ### 实施流程
 
 新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、遵循 API 路由规范）→ 收尾运行 `pnpm run fmt && pnpm run typecheck && pnpm run lint`（oxfmt 格式化无差异才算干净）。
+
+改动架构（包边界、分层、依赖方向、跨应用契约）前先明确决策依据并写进 PR / 提交说明；新决策不覆盖旧结论，必要时另开条目。
+
+两处**有意偏离**通用风格指南，不要"修"回去：`import type` 是 `verbatimModuleSyntax: true` 的硬性要求（ts.dev/style 里禁止它的条款早于该编译选项普及，对本项目不适用）；未使用参数用 `_` 前缀，对齐 oxlint 的 `argsIgnorePattern`。

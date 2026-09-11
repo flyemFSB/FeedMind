@@ -2,10 +2,6 @@
   "name": "feedmind",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "type": "module",
   "scripts": {
     "dev": "chcp 65001 >nul && pnpm run build:packages && concurrently -n api,web -c cyan,green \"pnpm run api:dev\" \"pnpm run web:dev\"",

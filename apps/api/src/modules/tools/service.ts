@@ -2,8 +2,15 @@ import { eq } from "drizzle-orm";
 import type { ToolConfigUpdate, ToolRead, ConfigField } from "@feedmind/contracts";
 import { db, tools } from "@feedmind/db";
 import type { ToolRow } from "@feedmind/db";
-import { encryptValue, decryptValue } from "@feedmind/shared";
+import { encryptValue, decryptValue } from "../../lib/crypto/fernet.js";
 import { HttpError } from "../../lib/http.js";
+
+/** 配置写入版本号：ToolConfigClient 据此判断是否需要重新拉库，避免等满 TTL */
+let toolConfigVersion = 0;
+
+export function getToolConfigVersion(): number {
+  return toolConfigVersion;
+}
 
 function maskSensitiveFields(row: ToolRow): ToolRead {
   const fields = JSON.parse(row.configFields) as ConfigField[];
@@ -20,7 +27,6 @@ function maskSensitiveFields(row: ToolRow): ToolRead {
     category: row.category,
     display_name: row.displayName,
     description: row.description ?? null,
-    icon: row.icon ?? null,
     config_fields: fields,
     config,
     password_set: passwordSet,
@@ -44,7 +50,6 @@ function decryptRow(row: ToolRow): ToolRead {
     category: row.category,
     display_name: row.displayName,
     description: row.description ?? null,
-    icon: row.icon ?? null,
     config_fields: fields,
     config,
     password_set: passwordSet,
@@ -110,6 +115,7 @@ export async function updateToolConfig(name: string, payload: ToolConfigUpdate):
   }
 
   await db.update(tools).set(updateValues).where(eq(tools.name, name));
+  toolConfigVersion += 1;
 
   const [updated] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
   if (!updated)

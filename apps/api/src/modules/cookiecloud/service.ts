@@ -2,7 +2,7 @@ import { createHash, createDecipheriv } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { db, cookieCloud, cookieStore } from "@feedmind/db";
 import { and, eq } from "drizzle-orm";
-import { encryptValue, decryptValue } from "@feedmind/shared";
+import { encryptValue, decryptValue } from "../../lib/crypto/fernet.js";
 import type { CookieCloudRow, CookieStoreRow } from "@feedmind/db";
 import type { PlatformId } from "@feedmind/contracts";
 import { logger } from "../../lib/logger.js";

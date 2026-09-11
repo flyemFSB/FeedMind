@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+﻿import { defineConfig } from "vitest/config";
 
 // root 必须基于配置文件位置解析，否则从子目录运行 pnpm test 时 include 会相对包目录失效
 const root = import.meta.dirname;
@@ -25,9 +25,6 @@ export default defineConfig({
           root: `${root}/packages/contracts`,
           include: ["src/**/*.test.ts"],
         },
-      },
-      {
-        test: { name: "shared", root: `${root}/packages/shared`, include: ["src/**/*.test.ts"] },
       },
       {
         test: {

@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import type { RuntimeConfigRead, RuntimeConfigUpdate } from "@feedmind/contracts";
 import { db, model, runtimeConfig } from "@feedmind/db";
 import type { RuntimeConfigRow } from "@feedmind/db";
-import { decryptValue } from "@feedmind/shared";
+import { decryptValue } from "../../lib/crypto/fernet.js";
 import { HttpError } from "../../lib/http.js";
 
 function toConfigRead(

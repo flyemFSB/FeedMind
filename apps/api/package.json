@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "@feedmind/api",
   "version": "0.1.0",
   "private": true,
@@ -23,7 +23,6 @@
     "@feedmind/crawler-core": "workspace:*",
     "@feedmind/db": "workspace:*",
     "@feedmind/env": "workspace:*",
-    "@feedmind/shared": "workspace:*",
     "@feedmind/wiki-core": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-openapi": "^1.6.1",

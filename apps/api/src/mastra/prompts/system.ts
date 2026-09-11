@@ -1,4 +1,4 @@
-import { FEEDMIND_TIMEZONE } from "@feedmind/shared";
+import { FEEDMIND_TIMEZONE } from "../../lib/constants.js";
 
 export const DEFAULT_SYSTEM_PROMPT = `你是 FeedMind，面向研究任务的 AI 助手。
 
