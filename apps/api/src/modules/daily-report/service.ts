@@ -13,7 +13,7 @@ import { dailyReportWorkflow } from "../../mastra/workflows/daily-report/index.j
 import { synthesizeNarration } from "./tts-service.js";
 import { renderReportVideo, type RenderStage } from "./render-service.js";
 import type { VideoTimeline } from "./timeline.js";
-import { getMastra } from "./mastra-holder.js";
+import { getMastra } from "../../mastra/holder.js";
 import { syncScheduleById } from "./schedule-sync.js";
 
 function now(): string {
@@ -100,7 +100,8 @@ async function getVideo(id: string): Promise<VideoRow> {
   return row;
 }
 
-// 回写运行阶段（供 web 端展示进度）
+// 回写运行阶段（供 web 端展示进度）。
+// stage 允许 `render/bundling:42%` 这类细粒度进度串，故不限定枚举；CHECK 在 DDL 已放宽为自由文本。
 async function updateStage(videoId: string, stage: string | null): Promise<void> {
   await db.update(videos).set({ stage, updatedAt: now() }).where(eq(videos.id, videoId));
 }
@@ -281,7 +282,11 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
     .where(eq(videos.id, videoId));
   await db
     .update(scheduleTasks)
-    .set({ lastRunStatus: status, lastError: error, updatedAt: t })
+    .set({
+      lastRunStatus: status as "running" | "success" | "failed",
+      lastError: error,
+      updatedAt: t,
+    })
     .where(eq(scheduleTasks.id, scheduleId));
 
   if (status === "failed") {

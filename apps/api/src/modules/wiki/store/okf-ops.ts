@@ -13,8 +13,8 @@ import {
   readDirRecursive,
   safeUnlink,
   safeWriteFile,
-} from "./space-fs/index.js";
-import { getWikiDir } from "./space-fs/index.js";
+} from "../space-fs/index.js";
+import { getWikiDir } from "../space-fs/index.js";
 import { WIKI_CONCEPT_TYPES, WIKI_CONCEPT_TYPE_LABELS } from "@feedmind/contracts";
 
 interface ConceptEntry {

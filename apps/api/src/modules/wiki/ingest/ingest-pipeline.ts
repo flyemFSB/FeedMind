@@ -28,13 +28,13 @@ import {
   sha256,
   safeWriteFile,
   isSystemFile,
-} from "./space-fs/index.js";
-import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
-import { logger } from "../../lib/logger.js";
+} from "../space-fs/index.js";
+import { appendOkfLog, rebuildOkfIndexes } from "../store/okf-ops.js";
+import { logger } from "../../../lib/logger.js";
 import { AiSdkLlmClient, type LlmClient } from "./llm-client.js";
-import { resolveModelClient } from "../models/model-cache.js";
-import { parseTokenCount } from "../models/parse-token-count.js";
-import { getRuntimeConfig } from "../models/config-service.js";
+import { resolveModelClient } from "../../models/model-cache.js";
+import { parseTokenCount } from "../../models/parse-token-count.js";
+import { getRuntimeConfig } from "../../runtime-config/config-service.js";
 
 const MAX_SOURCE_CHARS = 80_000;
 // 每空间串行链：同一空间的导入排队执行，并发时后到的等待前一个完成后才开始，而不是直接报错

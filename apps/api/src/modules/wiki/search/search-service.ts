@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { extractString, parseFrontmatter, searchPages } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { client } from "@feedmind/db";
-import { logger } from "../../lib/logger.js";
-import { getSpaceDir, isSystemFile, readDirRecursive } from "./space-fs/index.js";
+import { client, ensureWikiFtsTables } from "@feedmind/db";
+import { logger } from "../../../lib/logger.js";
+import { getSpaceDir, isSystemFile, readDirRecursive } from "../space-fs/index.js";
 
 interface SearchablePage {
   path: string;
@@ -25,10 +25,7 @@ const pageCache = new Map<string, { pages: SearchablePage[]; fingerprint: string
 // ─── SQLite FTS5 索引 ────────────────────────────────────────────
 // 使用 trigram 分词器：支持 CJK 子串匹配（无需分词，3 字符滑动窗口）
 async function ensureFtsTables(): Promise<void> {
-  await client.execute(`CREATE VIRTUAL TABLE IF NOT EXISTS wiki_fts USING fts5(
-    space_id UNINDEXED, path UNINDEXED, title, content, tokenize='trigram')`);
-  await client.execute(`CREATE TABLE IF NOT EXISTS wiki_fts_meta (
-    space_id TEXT PRIMARY KEY, fingerprint TEXT, updated_at INTEGER)`);
+  await ensureWikiFtsTables(client);
 }
 
 // 目录指纹：.md 文件数 + 最大 mtime。本地文件型 wiki 无法自动感知改动，

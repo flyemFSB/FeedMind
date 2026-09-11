@@ -20,7 +20,7 @@ import {
   createSpaceDirs,
   deleteSpaceDir,
 } from "./space-fs/index.js";
-import { rebuildOkfIndexes } from "./okf-ops.js";
+import { rebuildOkfIndexes } from "./store/okf-ops.js";
 
 export async function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
   const registry = await readRegistry();

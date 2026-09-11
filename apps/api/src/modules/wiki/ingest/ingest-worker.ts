@@ -3,18 +3,18 @@ import path from "node:path";
 import { IngestCancelledError, runIngest } from "./ingest-pipeline.js";
 import { getQueueStore } from "./queue-store.js";
 import type { QueueStore } from "./queue-store.js";
-import { getWikiRootDir, invalidatePageCache, getSpaceDir } from "./space-fs/index.js";
+import { getWikiRootDir, invalidatePageCache, getSpaceDir } from "../space-fs/index.js";
 import {
   markSourceConvertFailed,
   markSourceImportFailed,
   markSourceIngested,
   persistExtractedImages,
   writeConvertedSource,
-} from "./source-store.js";
+} from "../store/source-store.js";
 import { extractDocument } from "@feedmind/wiki-core";
 import type { IngestJob } from "@feedmind/contracts";
-import { getRuntimeOcrConfig } from "../models/config-service.js";
-import { logger } from "../../lib/logger.js";
+import { getRuntimeOcrConfig } from "../../runtime-config/config-service.js";
+import { logger } from "../../../lib/logger.js";
 
 const POLL_INTERVAL_MS = 30_000;
 

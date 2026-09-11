@@ -11,7 +11,7 @@ async function ensureGraphLibs() {
 }
 import { buildWikiGraph, normalizePath } from "@feedmind/wiki-core";
 import type { GraphNode, GraphEdge, CommunityInfo } from "@feedmind/contracts";
-import { getWikiDir, collectFileEntries, isSystemFile } from "./space-fs/index.js";
+import { getWikiDir, collectFileEntries, isSystemFile } from "../space-fs/index.js";
 
 export async function getWikiGraph(
   spaceId: string,

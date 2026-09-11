@@ -1,5 +1,5 @@
 import { generateText } from "ai";
-import type { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { ResolvedModelClient } from "../../models/model-cache.js";
 
 export type LlmMessage = { role: "system" | "user" | "assistant"; content: string };
 export type LlmOptions = { responseFormat?: "json" | "text"; maxTokens?: number };
@@ -10,15 +10,11 @@ export interface LlmClient {
 
 /** AI SDK 驱动 ingest 的 LLM 调用，与 chat 共用 provider 与网络层 */
 export class AiSdkLlmClient implements LlmClient {
-  private provider: ReturnType<typeof createOpenAICompatible>;
+  private provider: ResolvedModelClient;
   private modelName: string;
   private maxTokens?: number;
 
-  constructor(
-    provider: ReturnType<typeof createOpenAICompatible>,
-    modelName: string,
-    maxTokens?: number,
-  ) {
+  constructor(provider: ResolvedModelClient, modelName: string, maxTokens?: number) {
     this.provider = provider;
     this.modelName = modelName;
     if (maxTokens !== undefined) {

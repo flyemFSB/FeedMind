@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Context } from "hono";
 import { z } from "zod";
 import { PlatformId } from "@feedmind/contracts";
@@ -13,11 +13,11 @@ import {
   decrypt,
   checkPlatformCookie,
   parseUpdateBody,
-} from "../../modules/cookiecloud/service.js";
+} from "../../modules/cookie-cloud/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 import { logger } from "../../lib/logger.js";
 
-export const cookieCloudRoutes = new Hono();
+export const cookieCloudRoutes = new OpenAPIHono();
 
 // 前端保存 UUID + 密码配置；crypto_type 与官方扩展对齐默认 legacy
 const cookieCloudConfigSchema = z.object({

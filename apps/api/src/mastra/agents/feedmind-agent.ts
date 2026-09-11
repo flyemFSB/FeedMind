@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { buildSystemPrompt } from "../prompts/system.js";
 import { resolveModelClient } from "../../modules/models/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
-import { getConfig } from "../../modules/models/config-service.js";
+import { getConfig } from "../../modules/runtime-config/config-service.js";
 import { askClarificationTool } from "../tools/ask-clarification.js";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";

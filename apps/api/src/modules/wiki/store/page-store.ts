@@ -12,7 +12,7 @@ import type {
   WikiPageUpdate,
   WikiResolveResult,
 } from "@feedmind/contracts";
-import { HttpError } from "../../lib/http.js";
+import { HttpError } from "../../../lib/http.js";
 import {
   dateSortDesc,
   ensureDir,
@@ -28,7 +28,7 @@ import {
   readPageListItem,
   readPageRaw,
   normalizePageRelPath,
-} from "./space-fs/index.js";
+} from "../space-fs/index.js";
 import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
 
 function toWikiPageRead(data: Record<string, unknown>): WikiPageRead {

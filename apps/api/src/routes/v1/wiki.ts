@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import {
   wikiPageCreateSchema,
   wikiPageUpdateSchema,
@@ -24,7 +24,7 @@ import {
   deleteWikiPage,
   resolveWikiLink,
   getWikiBacklinks,
-} from "../../modules/wiki/page-store.js";
+} from "../../modules/wiki/store/page-store.js";
 import {
   listWikiSources,
   getWikiSource,
@@ -34,9 +34,9 @@ import {
   markSourceIngested,
   markSourceImportFailed,
   saveUploadedSource,
-} from "../../modules/wiki/source-store.js";
-import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/graph-service.js";
-import { searchWiki } from "../../modules/wiki/search-service.js";
+} from "../../modules/wiki/store/source-store.js";
+import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/search/graph-service.js";
+import { searchWiki } from "../../modules/wiki/search/search-service.js";
 import {
   listIngestJobs,
   enqueueIngest,
@@ -44,9 +44,9 @@ import {
   cancelIngestJob,
   completeIngestJob,
   failIngestJob,
-} from "../../modules/wiki/job-service.js";
-import { runIngest } from "../../modules/wiki/ingest-pipeline.js";
-import { wakeIngestWorker } from "../../modules/wiki/ingest-worker.js";
+} from "../../modules/wiki/ingest/job-service.js";
+import { runIngest } from "../../modules/wiki/ingest/ingest-pipeline.js";
+import { wakeIngestWorker } from "../../modules/wiki/ingest/ingest-worker.js";
 import { readSourceTitle, validateSpaceId } from "../../modules/wiki/space-fs/index.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
@@ -84,7 +84,7 @@ const searchBodySchema = z.object({
   topK: z.number().int().min(1).max(50).default(20),
 });
 
-export const wikiRoutes = new Hono();
+export const wikiRoutes = new OpenAPIHono();
 
 // ─── 空间 ──────────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces", async (c) => jsonOk(c, await listWikiSpaces()));

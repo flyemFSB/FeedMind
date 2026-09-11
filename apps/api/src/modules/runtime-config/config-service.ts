@@ -195,7 +195,7 @@ export async function getRuntimeConfig(runtime: string): Promise<{
       modelId = m.modelId;
       baseUrl = m.baseUrl;
       apiKey = m.encryptedApiKey ? decryptValue(m.encryptedApiKey) : "";
-      maxOutput = m.maxOutput ?? "";
+      maxOutput = m.maxOutput != null ? String(m.maxOutput) : "";
       llmId = m.id;
     }
   } else if (row.llmId) {
@@ -205,7 +205,7 @@ export async function getRuntimeConfig(runtime: string): Promise<{
       modelId = m.modelId;
       baseUrl = m.baseUrl;
       apiKey = m.encryptedApiKey ? decryptValue(m.encryptedApiKey) : "";
-      maxOutput = m.maxOutput ?? "";
+      maxOutput = m.maxOutput != null ? String(m.maxOutput) : "";
       llmId = m.id;
     }
   }

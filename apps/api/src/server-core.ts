@@ -11,9 +11,9 @@ import { MastraServer } from "@mastra/hono";
 import { initDatabase, initDbPragmas } from "@feedmind/db";
 import { createApp } from "./app.js";
 import { apiEnv, validateApiRuntime } from "./env.js";
-import { startIngestWorker } from "./modules/wiki/ingest-worker.js";
+import { startIngestWorker } from "./modules/wiki/ingest/ingest-worker.js";
 import { startDailyReportScheduler } from "./modules/daily-report/schedule-sync.js";
-import { setMastra } from "./modules/daily-report/mastra-holder.js";
+import { setMastra } from "./mastra/holder.js";
 import { createMastra, initToolConfig } from "./mastra/index.js";
 import { startLongConnection } from "./modules/remote-connection/feishu-service.js";
 

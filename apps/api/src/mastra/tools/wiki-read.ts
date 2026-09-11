@@ -1,6 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { getWikiPage } from "../../modules/wiki/page-store.js";
+import { getWikiPage } from "../../modules/wiki/store/page-store.js";
 
 const MAX_PAGE_CHARS = 4096;
 

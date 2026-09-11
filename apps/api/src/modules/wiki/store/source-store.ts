@@ -10,7 +10,7 @@ import {
   resolveConceptLink,
 } from "@feedmind/wiki-core";
 import type { WikiSourceCreate, WikiSourceListItem, WikiSourceRead } from "@feedmind/contracts";
-import { HttpError } from "../../lib/http.js";
+import { HttpError } from "../../../lib/http.js";
 import {
   ensureDir,
   nowISO,
@@ -32,9 +32,9 @@ import {
   getSourceFilePath,
   sourcePageCounts,
   isSystemFile,
-} from "./space-fs/index.js";
+} from "../space-fs/index.js";
 import { appendOkfLog, rebuildOkfIndexes } from "./okf-ops.js";
-import { removeIngestCache } from "./ingest-pipeline.js";
+import { removeIngestCache } from "../ingest/ingest-pipeline.js";
 
 // ─── 后台转换支持（worker 调用）─────────────────────────────────────
 

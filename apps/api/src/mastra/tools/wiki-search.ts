@@ -1,6 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { searchWiki } from "../../modules/wiki/search-service.js";
+import { searchWiki } from "../../modules/wiki/search/search-service.js";
 
 export const wikiSearchTool = createTool({
   id: "wiki_search",

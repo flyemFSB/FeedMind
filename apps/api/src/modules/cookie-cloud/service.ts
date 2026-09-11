@@ -129,19 +129,37 @@ export async function getConfig(uuid: string): Promise<CookieCloudRow | null> {
  * 拼接串中同名 Cookie 后者覆盖前者，故按此排序保证取最新来源的值。 */
 const SOURCE_RANK: Record<string, number> = { manual: 1 };
 
+/**
+ * 读路径解密 cookie：Fernet 密文解密失败则按历史明文原样返回，
+ * 兼容迁移前落库的旧数据与加密新数据混存。
+ */
+export function decryptCookiesField(value: string): string {
+  try {
+    return decryptValue(value);
+  } catch {
+    return value;
+  }
+}
+
+export function encryptCookiesField(plain: string): string {
+  return encryptValue(plain);
+}
+
 export function joinCookies(rows: { uuid: string; cookies: string }[]): string {
   return [...rows]
     .sort((a, b) => (SOURCE_RANK[a.uuid] ?? 0) - (SOURCE_RANK[b.uuid] ?? 0))
-    .map((r) => r.cookies)
+    .map((r) => decryptCookiesField(r.cookies))
     .join("; ");
 }
 
 export async function getCookies(platform: string): Promise<CookieStoreRow[]> {
-  return db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all();
+  const rows = await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all();
+  return rows.map((r) => ({ ...r, cookies: decryptCookiesField(r.cookies) }));
 }
 
 export async function getAllCookies(): Promise<CookieStoreRow[]> {
-  return db.select().from(cookieStore).all();
+  const rows = await db.select().from(cookieStore).all();
+  return rows.map((r) => ({ ...r, cookies: decryptCookiesField(r.cookies) }));
 }
 
 /** 支持 HTTP 登录态校验的平台（其余平台前端提示不支持校验） */
@@ -225,15 +243,16 @@ async function checkCookieHttp(platform: string, cookies: string): Promise<boole
   }
 }
 
-// 保存手动输入的 cookie（账号 Cookie）
+// 保存手动输入的 cookie（账号 Cookie）——Fernet 加密落库
 export async function saveManualCookies(platform: string, cookies: string): Promise<void> {
   const uuid = "manual";
+  const encrypted = encryptCookiesField(cookies);
   await db
     .insert(cookieStore)
-    .values({ uuid, platform, cookies })
+    .values({ uuid, platform, cookies: encrypted, updatedAt: new Date().toISOString() })
     .onConflictDoUpdate({
       target: [cookieStore.uuid, cookieStore.platform],
-      set: { cookies },
+      set: { cookies: encrypted, updatedAt: new Date().toISOString() },
     });
 }
 
@@ -312,12 +331,13 @@ export async function syncCookies(uuid: string, data: unknown): Promise<void> {
       pushedPlatforms.add(platform);
 
       const cookieStr = cookies.map((c) => `${String(c.name)}=${String(c.value)}`).join("; ");
+      const encrypted = encryptCookiesField(cookieStr);
       await tx
         .insert(cookieStore)
-        .values({ uuid, platform, cookies: cookieStr })
+        .values({ uuid, platform, cookies: encrypted, updatedAt: new Date().toISOString() })
         .onConflictDoUpdate({
           target: [cookieStore.uuid, cookieStore.platform],
-          set: { cookies: cookieStr },
+          set: { cookies: encrypted, updatedAt: new Date().toISOString() },
         });
     }
 

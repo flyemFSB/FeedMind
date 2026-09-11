@@ -11,7 +11,7 @@ import {
   restoreQueue,
 } from "@feedmind/wiki-core";
 import type { IngestJob, IngestJobStatus } from "@feedmind/contracts";
-import { ensureDir, getSpaceDir, safeWriteFile } from "./space-fs/index.js";
+import { ensureDir, getSpaceDir, safeWriteFile } from "../space-fs/index.js";
 
 export interface QueueStore {
   list(spaceId: string): IngestJob[];

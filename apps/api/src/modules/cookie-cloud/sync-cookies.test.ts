@@ -15,8 +15,11 @@ async function loadService() {
 type DbModule = Awaited<ReturnType<typeof loadDb>>;
 type ServiceModule = Awaited<ReturnType<typeof loadService>>;
 
+process.env["ENCRYPTION_KEY"] ??= "test-encryption-key-not-secret";
+
 let db: DbModule;
 let syncCookies: ServiceModule["syncCookies"];
+let decryptCookiesField: ServiceModule["decryptCookiesField"];
 let dir: string;
 
 const DDL = [
@@ -26,6 +29,7 @@ const DDL = [
     cookies TEXT NOT NULL,
     valid INTEGER,
     checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
     PRIMARY KEY (uuid, platform)
   )`,
 ];
@@ -35,7 +39,7 @@ beforeEach(async () => {
   dir = mkdtempSync(join(tmpdir(), "feedmind-cookiecloud-"));
   process.env["DATABASE_PATH"] = join(dir, "test.db");
   db = await loadDb();
-  ({ syncCookies } = await loadService());
+  ({ syncCookies, decryptCookiesField } = await loadService());
   for (const sql of DDL) await db.client.execute(sql);
 });
 
@@ -72,7 +76,7 @@ describe("syncCookies 推送保留校验状态", () => {
 
     const rows = await allRows();
     const weread = rows.find((r) => r["platform"] === "weread");
-    expect(weread?.["cookies"]).toBe("wr_skey=fresh");
+    expect(decryptCookiesField(String(weread?.["cookies"]))).toBe("wr_skey=fresh");
     expect(weread?.["valid"]).toBe(1);
     expect(weread?.["checked_at"]).toBe("2026-08-01T00:00:00Z");
   });
@@ -113,6 +117,6 @@ describe("syncCookies 推送保留校验状态", () => {
 
     const rows = await allRows();
     const manual = rows.find((r) => r["uuid"] === "manual");
-    expect(manual?.["cookies"]).toBe("wr_skey=manual");
+    expect(decryptCookiesField(String(manual?.["cookies"]))).toBe("wr_skey=manual");
   });
 });

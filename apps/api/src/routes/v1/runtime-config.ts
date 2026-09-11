@@ -1,10 +1,10 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { runtimeConfigUpdateSchema } from "@feedmind/contracts";
 import { HttpError, jsonOk, parseJson } from "../../lib/http.js";
-import { getAllConfigs, updateConfig } from "../../modules/models/config-service.js";
+import { getAllConfigs, updateConfig } from "../../modules/runtime-config/config-service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const runtimeConfigRoutes = new Hono();
+export const runtimeConfigRoutes = new OpenAPIHono();
 
 runtimeConfigRoutes.get("/runtime-configs", async (c) => jsonOk(c, await getAllConfigs()));
 
