@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="apps/web/public/favicon.ico" width="72" height="72" alt="FeedMind Logo" />
+  <img src="apps/web/app/favicon.ico" width="72" height="72" alt="FeedMind Logo" />
   <h1>FeedMind</h1>
   <p><b>本地优先（Local-first）的趋势研究 AI 智能体与 OKF 知识沉淀系统</b></p>
   <p>打通「多平台情报采集 → 动态 Agent 深度研读 → Google OKF 知识图谱与视频简报沉淀」的生产级全流程闭环。</p>
@@ -298,9 +298,7 @@ feedmind/
 │   └── wiki/                     # Wiki Markdown 文件
 │
 ├── CLAUDE.md                      # AI 开发规范
-├── DESIGN.md                      # 架构设计说明
-├── docs/                          # 文档与研究
-│   └── research/                 # 技术研究
+├── DESIGN.md                      # 设计系统（色板 / 字体 / 组件 token）
 │
 ├── .gitattributes                 # 行尾策略（强制 LF）
 ├── lefthook.yml                   # Git hooks 配置（pre-commit + commit-msg）
