@@ -1,5 +1,6 @@
 ﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiTestContext, type ApiTestContext } from "../../test-utils.js";
+import { resolveModelClient, clearModelClientCache } from "../../modules/models/model-cache.js";
 
 describe("Models API 集成测试", () => {
   let ctx: ApiTestContext;
@@ -7,6 +8,9 @@ describe("Models API 集成测试", () => {
   beforeEach(async () => {
     vi.resetModules();
     ctx = await createApiTestContext();
+    // 缓存 key 是模型数字 id，而每个用例的新内存库 id 都从 1 重来——
+    // resetModules 不重建测试文件静态 import 的实例，需显式清缓存防串味
+    clearModelClientCache();
   });
 
   afterEach(async () => {
@@ -143,5 +147,53 @@ describe("Models API 集成测试", () => {
       method: "DELETE",
     });
     expect(invalidDelete.status).toBe(422);
+  });
+
+  it("内置 provider（ChatGPT）装配官方 OpenAI SDK 客户端，base_url 可留空", async () => {
+    const createRes = await ctx.request<{ id: number }>("/api/v1/models", {
+      method: "POST",
+      body: {
+        type: "chat",
+        provider: "ChatGPT",
+        model_name: "GPT 5.5",
+        model_id: "gpt-5.5",
+      },
+    });
+    const resolved = await resolveModelClient(createRes.body.data.id);
+    const chatModel = resolved.client.chatModel("gpt-5.5");
+    expect(chatModel.provider.startsWith("openai")).toBe(true);
+    expect(chatModel.modelId).toBe("gpt-5.5");
+  });
+
+  it("内置 provider（Claude）装配官方 Anthropic SDK 客户端", async () => {
+    const createRes = await ctx.request<{ id: number }>("/api/v1/models", {
+      method: "POST",
+      body: {
+        type: "chat",
+        provider: "Claude",
+        model_name: "Claude Sonnet 4.6",
+        model_id: "sonnet-4.6",
+      },
+    });
+    const resolved = await resolveModelClient(createRes.body.data.id);
+    const chatModel = resolved.client.chatModel("sonnet-4.6");
+    expect(chatModel.provider.startsWith("anthropic")).toBe(true);
+    expect(chatModel.modelId).toBe("sonnet-4.6");
+  });
+
+  it("未收录 provider（GLM）回退 OpenAI 兼容客户端并保留自定义端点", async () => {
+    const createRes = await ctx.request<{ id: number }>("/api/v1/models", {
+      method: "POST",
+      body: {
+        type: "chat",
+        provider: "GLM",
+        model_name: "GLM 5.1",
+        model_id: "glm-5.1",
+        base_url: "https://open.bigmodel.cn/api/paas/v4",
+      },
+    });
+    const resolved = await resolveModelClient(createRes.body.data.id);
+    const chatModel = resolved.client.chatModel("glm-5.1");
+    expect(chatModel.provider).toContain("feedmind");
   });
 });

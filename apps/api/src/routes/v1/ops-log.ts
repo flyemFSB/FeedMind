@@ -1,8 +1,8 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { jsonOk } from "../../lib/http.js";
 import { listOperations, type OpsAction, type OpsResult } from "../../modules/ops-log/service.js";
 
-export const opsLogRoutes = new Hono();
+export const opsLogRoutes = new OpenAPIHono();
 
 // 操作日志列表（倒序，分页）
 opsLogRoutes.get("/ops-log", async (c) => {

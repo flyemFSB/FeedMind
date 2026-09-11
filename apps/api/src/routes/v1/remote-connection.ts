@@ -1,7 +1,7 @@
-import { Hono } from "hono";
-import { z } from "zod";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import { remoteConnectionUpsertSchema } from "@feedmind/contracts";
-import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
+import { jsonOk, jsonError, parseJson, HttpError } from "../../lib/http.js";
+import { successEnvelope, errorResponse } from "../../lib/openapi-schemas.js";
 import {
   listConnections,
   getConnection,
@@ -9,9 +9,13 @@ import {
   deleteConnection,
 } from "../../modules/remote-connection/service.js";
 import { getFeishuConfig, saveAndVerify } from "../../modules/remote-connection/feishu-service.js";
+import {
+  beginRegistration,
+  pollRegistration,
+} from "../../modules/remote-connection/feishu-registration.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const remoteConnectionRoutes = new Hono();
+export const remoteConnectionRoutes = new OpenAPIHono();
 
 // ─── 列表 ─────────────────────────────────────────────────────
 remoteConnectionRoutes.get("/remote-connections", async (c) => {
@@ -71,5 +75,98 @@ remoteConnectionRoutes.post("/remote-connections/feishu/config", async (c) => {
     return jsonOk(c, { success: true });
   } catch (err) {
     return jsonError(c, 400, "VERIFY_FAILED", err instanceof Error ? err.message : "凭证验证失败");
+  }
+});
+
+// ─── 飞书: 扫码注册（一键创建应用） ─────────────────────────
+// 与上面的 status/config 同属一个资源，故同文件；响应走 { data, error } 信封
+
+const registerBeginDataSchema = z.object({
+  deviceCode: z.string().describe("注册会话设备码"),
+  qrUrl: z.string().describe("扫码授权二维码链接"),
+  interval: z.number().describe("轮询间隔（秒）"),
+  expireIn: z.number().describe("二维码有效期（秒）"),
+});
+
+const registerPollDataSchema = z.object({
+  status: z.enum(["pending", "success", "error"]),
+  appId: z.string().optional(),
+  appSecret: z.string().optional(),
+  error: z.string().optional(),
+});
+
+const registerBeginRoute = createRoute({
+  method: "post",
+  path: "/remote-connections/feishu/register/begin",
+  responses: {
+    200: {
+      content: { "application/json": { schema: successEnvelope(registerBeginDataSchema) } },
+      description: "创建飞书扫码注册会话，返回二维码链接",
+    },
+    502: errorResponse("注册会话创建失败"),
+  },
+});
+
+remoteConnectionRoutes.openapi(registerBeginRoute, async (c) => {
+  try {
+    return c.json({ data: await beginRegistration(), error: null }, 200);
+  } catch (err) {
+    // HttpError 已带用户可读消息与 i18n 锚点（网络失败/授权失败），原样透传
+    const e = err instanceof HttpError ? err : null;
+    // beginRegistration 只抛 502（网络失败/授权失败），断言收窄到 schema 声明的 502
+    const status = (e?.status ?? 502) as 502;
+    return c.json(
+      {
+        data: null,
+        error: {
+          code: e?.code ?? "REGISTER_BEGIN_FAILED",
+          message: e?.message ?? (err instanceof Error ? err.message : "创建注册会话失败"),
+          details: e?.details ?? {},
+          ...(e?.i18nKey
+            ? { i18n: { key: e.i18nKey, ...(e.i18nParams ? { params: e.i18nParams } : {}) } }
+            : {}),
+        },
+      },
+      status,
+    );
+  }
+});
+
+const registerPollRoute = createRoute({
+  method: "post",
+  path: "/remote-connections/feishu/register/poll",
+  request: {
+    body: {
+      content: {
+        "application/json": {
+          schema: z.object({ deviceCode: z.string().describe("注册会话设备码") }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      content: { "application/json": { schema: successEnvelope(registerPollDataSchema) } },
+      description: "轮询扫码授权结果",
+    },
+    502: errorResponse("轮询注册状态失败"),
+  },
+});
+
+remoteConnectionRoutes.openapi(registerPollRoute, async (c) => {
+  try {
+    const { deviceCode } = c.req.valid("json");
+    return c.json({ data: await pollRegistration(deviceCode), error: null }, 200);
+  } catch (err) {
+    return c.json(
+      {
+        data: null,
+        error: {
+          code: "REGISTER_POLL_FAILED",
+          message: err instanceof Error ? err.message : "轮询注册状态失败",
+        },
+      },
+      502,
+    );
   }
 });

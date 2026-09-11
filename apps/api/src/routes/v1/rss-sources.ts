@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { rssSourceCreateSchema, rssSourceUpdateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
@@ -10,7 +10,7 @@ import {
 } from "../../modules/rss-sources/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const rssSourceRoutes = new Hono();
+export const rssSourceRoutes = new OpenAPIHono();
 
 rssSourceRoutes.get("/rss-sources", async (c) => {
   const data = await listSources();

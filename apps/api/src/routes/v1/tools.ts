@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 import { toolConfigUpdateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
@@ -8,9 +8,8 @@ import {
   getToolRuntime,
   updateToolConfig,
 } from "../../modules/tools/service.js";
-import { ToolConfigClient } from "../../mastra/tools/search/config.js";
 
-export const toolsRoutes = new Hono();
+export const toolsRoutes = new OpenAPIHono();
 
 toolsRoutes.get("/tools", async (c) => jsonOk(c, await listTools()));
 
@@ -30,7 +29,6 @@ toolsRoutes.put("/tools", async (c) => {
   const results = await Promise.all(
     Object.entries(body).map(([name, payload]) => updateToolConfig(name, payload)),
   );
-  // 清除工具配置缓存，确保下次 Agent 调用能拿到最新配置
-  ToolConfigClient.getInstance().clearCache();
+  // Agent 侧配置缓存由 updateToolConfig 自增版本号失效，路由层无需介入
   return jsonOk(c, results);
 });

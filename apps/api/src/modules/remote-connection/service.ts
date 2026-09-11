@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, remoteConnections } from "@feedmind/db";
 import type { RemoteConnectionRow } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
+import { decryptValue, encryptValue } from "../../lib/crypto/fernet.js";
 import type {
   PlatformId,
   ConnectionStatus,
@@ -18,13 +19,27 @@ function safeParseJson(s: string): Record<string, unknown> | null {
   }
 }
 
+/** config 整段 Fernet 加密落库；解密失败按历史明文 JSON 回退 */
+function decryptConfigField(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+  try {
+    return safeParseJson(decryptValue(value));
+  } catch {
+    return safeParseJson(value);
+  }
+}
+
+function encryptConfigField(config: Record<string, unknown>): string {
+  return encryptValue(JSON.stringify(config));
+}
+
 function rowToObj(row: RemoteConnectionRow): RemoteConnection {
   return {
     id: row.id,
     platform: row.platform as PlatformId,
     label: row.label,
     status: row.status as ConnectionStatus,
-    config: row.config ? safeParseJson(row.config) : null,
+    config: decryptConfigField(row.config),
     extra: row.extra ? safeParseJson(row.extra) : null,
     error: row.error ?? null,
     createdAt: row.createdAt,
@@ -81,7 +96,7 @@ export async function upsertConnection(
     .where(eq(remoteConnections.platform, platform))
     .limit(1);
 
-  const configJson = payload.config ? JSON.stringify(payload.config) : undefined;
+  const configJson = payload.config ? encryptConfigField(payload.config) : undefined;
   const now = new Date().toISOString();
 
   if (existing) {
@@ -144,7 +159,7 @@ export async function updateConnectionConfig(
   await db
     .update(remoteConnections)
     .set({
-      config: JSON.stringify(config),
+      config: encryptConfigField(config),
       updatedAt: new Date().toISOString(),
     })
     .where(eq(remoteConnections.id, id));

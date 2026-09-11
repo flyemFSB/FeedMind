@@ -10,7 +10,6 @@ import { validateApiRuntime } from "./env.js";
 import { APP_NAME, APP_VERSION } from "./lib/constants.js";
 import { HttpError, jsonError } from "./lib/http.js";
 import { logger } from "./lib/logger.js";
-import { openapiApp } from "./lib/openapi.js";
 import { v1Router } from "./routes/v1/index.js";
 
 // 本机回环来源（vite dev 端口、Electron 同源端口等任意本机端口）。
@@ -114,7 +113,6 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
 
   app.get("/", (c) => c.json({ name: APP_NAME, version: APP_VERSION }));
   app.route("/api/v1", v1Router);
-  app.route("/api/v1", openapiApp);
 
   // 已注册路径用了不匹配的方法时回 405 + Allow（代替笼统 404）；须在全部路由注册后追加：
   // middleware 在 next() 结果为 404 时按 app.routes 反查该路径允许的方法

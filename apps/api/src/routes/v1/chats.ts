@@ -1,7 +1,6 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { z } from "zod";
 import { jsonOk, parseJson } from "../../lib/http.js";
-import { logger } from "../../lib/logger.js";
 import {
   createChatSession,
   deleteChatSession,
@@ -10,10 +9,9 @@ import {
   listChatSessions,
   updateChatSessionTitle,
 } from "../../modules/chats/service.js";
-import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const chatRoutes = new Hono();
+export const chatRoutes = new OpenAPIHono();
 
 const createSessionSchema = z.object({
   agent_thread_id: z.string().optional(),
@@ -53,14 +51,6 @@ chatRoutes.get("/chats/:sessionId/messages", async (c) => {
 chatRoutes.delete("/chats/:sessionId", async (c) => {
   const sessionId = c.req.param("sessionId");
   const session = await getChatSession(sessionId).catch(() => null);
-  // 同步清理 Agent Memory 中的 thread：只删 feedmind.db 的会话行会让
-  // mastra.db 里的消息永久残留，长期运行无限膨胀。失败不阻塞删除主流程。
-  const memory = await feedmindAgent.getMemory();
-  if (memory) {
-    await memory
-      .deleteThread(sessionId)
-      .catch((err: unknown) => logger.error({ err }, "清理 Agent Memory thread 失败"));
-  }
   const result = await deleteChatSession(sessionId);
   void logOperation({
     action: "delete",

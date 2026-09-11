@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { scheduleUpsertSchema, triggerReportSchema } from "@feedmind/contracts";
 import { jsonError, jsonOk, parseJson } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
@@ -11,7 +11,7 @@ import {
 } from "../../modules/daily-report/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const dailyReportRoutes = new Hono();
+export const dailyReportRoutes = new OpenAPIHono();
 
 // 定时任务列表（web 日报页设置区）
 dailyReportRoutes.get("/daily-report/schedules", async (c) => jsonOk(c, await listSchedules()));

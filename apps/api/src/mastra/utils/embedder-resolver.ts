@@ -1,15 +1,14 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { MastraEmbeddingModel } from "@mastra/core/vector";
+import { resolveModelClient, type V4EmbeddingModel } from "../../modules/models/model-cache.js";
 import { getModelRuntime, getSelectedModel } from "../../modules/models/service.js";
 import { createSanitizedFetch } from "../../modules/models/sanitized-fetch.js";
 import { logger } from "../../lib/logger.js";
 import { cachedGet } from "./cached-get.js";
 
-type V4EmbeddingModel = ReturnType<ReturnType<typeof createOpenAICompatible>["textEmbeddingModel"]>;
-
 /**
  * v4 → v3 适配：Mastra 1.55 的 vector/memory 层仅支持 specificationVersion ≤ v3 的
- * embedding 模型，而 @ai-sdk/openai-compatible 只产出 v4；两代 doEmbed 的运行时
+ * embedding 模型，而 AI SDK v7 各 provider 只产出 v4；两代 doEmbed 的运行时
  * 契约一致（values → embeddings/usage.tokens），薄包装透传即可。升级 Mastra 后
  * 若原生支持 v4，此适配可删除。
  */
@@ -28,8 +27,9 @@ function toV3Embedder(model: V4EmbeddingModel): MastraEmbeddingModel<string> {
 /**
  * 解析用户配置的 embedding 模型（模型表 type="embedding" 的已选项）。
  *
- * 返回 OpenAI 兼容的 textEmbeddingModel 实例；未配置时返回 null——
- * OM 的 retrieval.vector 自动降级为纯分页 recall，不阻塞聊天主链路。
+ * 内置 provider（ChatGPT/Gemini）走官方 SDK 的嵌入模型；其余（Claude/DeepSeek
+ * 无 embedding 产品，或自定义端点如硅基流动 bge-m3）回退 OpenAI 兼容客户端。
+ * 未配置时返回 null——OM 的 retrieval.vector 自动降级为纯分页 recall，不阻塞聊天主链路。
  * 已选项与运行时配置均走 cachedGet 30s TTL，配置变更后最多 30s 生效（本地应用可接受）。
  */
 export async function resolveEmbeddingModel(): Promise<MastraEmbeddingModel<string> | null> {
@@ -40,16 +40,25 @@ export async function resolveEmbeddingModel(): Promise<MastraEmbeddingModel<stri
     // 解构后再判空：闭包内对象属性的类型收窄不保留，直接传 selected.id 会报 null 错
     const selectedId = selected.id;
     if (!selectedId) return null;
-    const config = await cachedGet(`getModelRuntime:${selectedId}`, () =>
-      getModelRuntime(selectedId),
-    );
-    const provider = createOpenAICompatible({
-      name: "feedmind-embedding",
-      apiKey: config.api_key,
-      baseURL: config.base_url ?? "",
-      fetch: createSanitizedFetch(config.base_url ?? undefined),
-    });
-    return toV3Embedder(provider.textEmbeddingModel(config.model_id?.trim() ?? ""));
+    const [resolved, runtime] = await Promise.all([
+      resolveModelClient(selectedId),
+      cachedGet(`getModelRuntime:${selectedId}`, () => getModelRuntime(selectedId)),
+    ]);
+    // 复用模型客户端缓存的实例，避免同模型两套连接；API 调用名取 runtime 的 model_id
+    const modelId = runtime.model_id ?? "";
+    let v4Model: V4EmbeddingModel;
+    if (resolved.client.textEmbeddingModel) {
+      v4Model = resolved.client.textEmbeddingModel(modelId);
+    } else {
+      const provider = createOpenAICompatible({
+        name: "feedmind-embedding",
+        apiKey: runtime.api_key,
+        baseURL: runtime.base_url ?? "",
+        fetch: createSanitizedFetch(runtime.base_url ?? undefined),
+      });
+      v4Model = provider.textEmbeddingModel(modelId);
+    }
+    return toV3Embedder(v4Model);
   } catch (err) {
     // embedding 是可选增强：解析失败降级为纯分页 recall，不能让聊天主链路崩掉
     logger.warn({ err }, "解析 embedding 模型失败，OM 语义检索降级为纯分页 recall");

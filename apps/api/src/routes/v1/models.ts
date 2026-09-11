@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import {
   modelCreateSchema,
   modelUpdateSchema,
@@ -16,7 +16,7 @@ import {
 } from "../../modules/models/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const modelRoutes = new Hono();
+export const modelRoutes = new OpenAPIHono();
 
 function parseModelId(value: string): number {
   const modelId = Number(value);

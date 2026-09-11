@@ -1,9 +1,9 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { jsonOk, jsonError } from "../../lib/http.js";
 import { listSkills, installSkill, deleteSkill } from "../../modules/skills/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const skillsRoutes = new Hono();
+export const skillsRoutes = new OpenAPIHono();
 
 skillsRoutes.get("/skills", async (c) => {
   const items = await listSkills();

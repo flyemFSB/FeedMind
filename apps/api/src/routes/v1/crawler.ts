@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { taskCreateSchema } from "@feedmind/contracts";
 import { jsonOk, parseJson } from "../../lib/http.js";
 import {
@@ -14,7 +14,7 @@ import {
 } from "../../modules/crawler/service.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const crawlerRoutes = new Hono();
+export const crawlerRoutes = new OpenAPIHono();
 
 // ─── 任务 ───────────────────────────────────────────────────────
 crawlerRoutes.post("/crawler/tasks", async (c) => {

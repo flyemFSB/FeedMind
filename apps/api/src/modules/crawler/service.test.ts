@@ -26,10 +26,8 @@ const DDL = [
     route TEXT NOT NULL,
     params TEXT NOT NULL,
     cookies TEXT,
-    proxy_url TEXT,
     max_items INTEGER NOT NULL DEFAULT 50,
     status TEXT NOT NULL DEFAULT 'queued',
-    progress INTEGER,
     error TEXT,
     rss_output TEXT,
     started_at TEXT,
@@ -42,6 +40,7 @@ const DDL = [
     cookies TEXT NOT NULL,
     valid INTEGER,
     checked_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
     PRIMARY KEY (uuid, platform)
   )`,
 ];

@@ -9,7 +9,7 @@ import { HttpError } from "../../lib/http.js";
 import { DbStore } from "./db-store.js";
 import { logger } from "../../lib/logger.js";
 import { apiEnv } from "../../env.js";
-import { joinCookies } from "../cookiecloud/service.js";
+import { joinCookies } from "../cookie-cloud/service.js";
 
 const ROUTE_TO_PLATFORM: Record<string, string> = {
   bili: "bilibili",
@@ -27,10 +27,8 @@ function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
     route: row.route,
     params: row.params,
     cookies: row.cookies,
-    proxy_url: row.proxyUrl,
     max_items: row.maxItems,
     status: row.status as TaskStatus,
-    progress: row.progress,
     error: row.error,
     rss_url: row.rssOutput ? `${baseUrl}/api/v1/crawler/tasks/${row.id}/rss` : null,
     started_at: row.startedAt,
@@ -44,7 +42,6 @@ function toTaskListItem(row: typeof crawlerTasks.$inferSelect): TaskListItem {
     id: row.id,
     route: row.route,
     status: row.status as TaskStatus,
-    progress: row.progress,
     error: row.error,
     started_at: row.startedAt,
     finished_at: row.finishedAt,
@@ -182,10 +179,8 @@ export async function createCrawlerTask(input: TaskCreate): Promise<TaskRead> {
     route: input.route,
     params: paramsStr,
     cookies,
-    proxyUrl: input.proxy_url ?? null,
     maxItems: input.max_items,
     status: "queued" as const,
-    progress: null,
     error: null,
     rssOutput: null,
     startedAt: null,
@@ -260,7 +255,7 @@ async function runCrawlerTask(
     if (controller.signal.aborted) {
       await db
         .update(crawlerTasks)
-        .set({ status: "cancelled", finishedAt: sql`(current_timestamp)` })
+        .set({ status: "cancelled", finishedAt: new Date().toISOString() })
         .where(eq(crawlerTasks.id, taskId))
         .catch(() => {});
       return;
@@ -277,7 +272,7 @@ async function runCrawlerTask(
     if (controller.signal.aborted) {
       await db
         .update(crawlerTasks)
-        .set({ status: "cancelled", finishedAt: sql`(current_timestamp)` })
+        .set({ status: "cancelled", finishedAt: new Date().toISOString() })
         .where(eq(crawlerTasks.id, taskId))
         .catch(() => {});
       return;
@@ -289,7 +284,7 @@ async function runCrawlerTask(
         .set({
           status: "failed",
           error: err instanceof Error ? err.message : String(err),
-          finishedAt: sql`(current_timestamp)`,
+          finishedAt: new Date().toISOString(),
         })
         .where(eq(crawlerTasks.id, taskId));
     } catch {
@@ -416,7 +411,7 @@ export async function cancelTask(taskId: string): Promise<TaskRead> {
 
   await db
     .update(crawlerTasks)
-    .set({ status: "cancelled", finishedAt: sql`(current_timestamp)` })
+    .set({ status: "cancelled", finishedAt: new Date().toISOString() })
     .where(eq(crawlerTasks.id, taskId));
 
   return toTaskRead({ ...row, status: "cancelled" as const });

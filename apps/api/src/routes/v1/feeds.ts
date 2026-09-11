@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { jsonOk, jsonError, parseJson } from "../../lib/http.js";
 import {
   listFeeds,
@@ -11,7 +11,7 @@ import { feedDeleteSchema } from "@feedmind/contracts";
 import { logger } from "../../lib/logger.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
-export const feedRoutes = new Hono();
+export const feedRoutes = new OpenAPIHono();
 
 feedRoutes.get("/feeds", async (c) => {
   const offset = Math.max(0, Number(c.req.query("offset")) || 0);
