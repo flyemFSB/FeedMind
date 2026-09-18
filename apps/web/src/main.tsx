@@ -6,7 +6,8 @@ import { ChatProvider } from "@/app/agent-drawer/chat-context";
 import { ErrorBoundary } from "@/app/shell/error-boundary";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/app/theme-provider";
-import { I18nProvider } from "@/lib/i18n/provider";
+import { I18nextProvider } from "react-i18next";
+import i18n from "@/lib/i18n";
 import { createQueryClient } from "@/lib/query-client";
 import { router } from "@/router";
 import { TanStackQueryDevtools } from "@/devtools";
@@ -17,20 +18,20 @@ function App() {
   const [queryClient] = useState(createQueryClient);
 
   return (
-    // LazyMotion strict：全应用只允许 m.* 组件（全量 motion.* 会把整套动画运行时打进包体）。
+    // LazyMotion strict 模式：全应用严格限制仅允许使用 m.* 轻量组件（全量 motion.* 会引入完整的动画运行时从而增大包体积）。
     // domAnimation 覆盖本项目全部用法（变换/手势/AniPresence）；strict 下漏改的 motion.* 直接抛错而非静默不动画
     <LazyMotion features={domAnimation} strict>
       <MotionConfig reducedMotion="user">
         <ErrorBoundary>
           <ThemeProvider>
-            <I18nProvider>
+            <I18nextProvider i18n={i18n}>
               <QueryClientProvider client={queryClient}>
                 <ChatProvider>
                   <RouterProvider router={router} />
                   <TanStackQueryDevtools />
                 </ChatProvider>
               </QueryClientProvider>
-            </I18nProvider>
+            </I18nextProvider>
           </ThemeProvider>
         </ErrorBoundary>
         <Toaster />

@@ -21,7 +21,7 @@ import { useChatContext } from "@/app/agent-drawer/chat-context";
 import { useChatSessions } from "@/lib/hooks/use-chats";
 import { useChatSessionDelete } from "@/lib/hooks/use-chat-session-delete";
 import { useModels, useSelectedModel, useSetSelectedModel } from "@/lib/hooks/use-models";
-import { persistSelectedFeedMindModel, setSelectedFeedMindModelId } from "@/lib/api/agent";
+import { persistSelectedFeedMindModel } from "@/lib/api/agent";
 import { ProviderIcon } from "@/components/icons/provider-icon";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -69,7 +69,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
         return Math.min(Math.max(n, 400), 800);
       }
     } catch {
-      /* ignore */
+      /* 忽略 localStorage 读取失败，回退使用默认抽屉宽度 */
     }
     return 560;
   });
@@ -278,11 +278,6 @@ function CompactModelSelector() {
     setSelectedModel(modelId);
     await setSelectedMutation.mutateAsync(modelId);
     await persistSelectedFeedMindModel(modelId);
-
-    const model = models.find((m) => m.id === modelId);
-    if (model?.modelId) {
-      setSelectedFeedMindModelId(model.modelId);
-    }
   };
 
   if (isLoading) {

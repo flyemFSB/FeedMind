@@ -9,7 +9,7 @@ export interface OpsLogFilter {
   result?: OpsResult;
 }
 
-export const opsLogOptions = {
+const opsLogOptions = {
   all: ["ops-log"] as const,
   list: (filter: OpsLogFilter) =>
     queryOptions({

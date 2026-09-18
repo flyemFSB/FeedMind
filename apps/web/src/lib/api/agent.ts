@@ -1,7 +1,6 @@
 import { setSelectedModel } from "@/lib/api/models";
 
 const selectedModelStorageKey = "feedmind:selected-model";
-const selectedModelIdStorageKey = "feedmind:selected-model-id";
 const selectedModelChangeEvent = "feedmind:selected-model-change";
 
 export function getSelectedFeedMindModel(): string {
@@ -20,16 +19,6 @@ export function setSelectedFeedMindModel(model: string): void {
       window.localStorage.removeItem(selectedModelStorageKey);
     }
     window.dispatchEvent(new CustomEvent(selectedModelChangeEvent, { detail: model }));
-  }
-}
-
-export function setSelectedFeedMindModelId(modelId: string): void {
-  if (typeof window !== "undefined") {
-    if (modelId) {
-      window.localStorage.setItem(selectedModelIdStorageKey, modelId);
-    } else {
-      window.localStorage.removeItem(selectedModelIdStorageKey);
-    }
   }
 }
 

@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { listTools } from "@/lib/api/tools";
 
-export const toolOptions = {
+const toolOptions = {
   all: ["tools"] as const,
   list: () =>
     queryOptions({

@@ -18,13 +18,7 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport } from "ai";
 import { getSelectedFeedMindModel } from "@/lib/api/agent";
-import {
-  getChatSessionMessages,
-  createChatSession,
-  renameChatSession,
-  writeActiveFeedMindThreadId,
-  clearActiveFeedMindThreadId,
-} from "@/lib/api/chats";
+import { getChatSessionMessages, createChatSession, renameChatSession } from "@/lib/api/chats";
 import { chatOptions } from "@/lib/hooks/use-chats";
 import { makeChatTitle, prependOlderPage } from "@/app/agent-drawer/chat-utils";
 
@@ -98,7 +92,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  // ── useChat ──
+  // ── useChat 聊天会话状态 Hook ──
   const {
     messages,
     setMessages: setUiMessages,
@@ -111,7 +105,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   } = useChat({
     transport,
     onError: (error) => {
-      console.error("[Chat] 流式响应异常:", error);
+      console.error("[会话] 流式响应接收异常:", error);
     },
   });
 
@@ -126,9 +120,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setHasOlder(loaded.hasMore);
         loadedPagesRef.current = 0;
       } catch (err) {
-        console.error("[Chat] 加载历史消息失败:", err);
+        console.error("[会话] 加载历史消息失败:", err);
         if ((err as Error)?.message?.includes("不存在")) {
-          clearActiveFeedMindThreadId();
           setActiveThreadId(null);
           setUiMessages([]);
         }
@@ -151,7 +144,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       setHasOlder(loaded.hasMore);
       loadedPagesRef.current = nextPage;
     } catch (err) {
-      console.error("[Chat] 加载更早消息失败:", err);
+      console.error("[会话] 加载历史滚动消息失败:", err);
     } finally {
       setIsLoadingOlder(false);
     }
@@ -165,7 +158,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     // 同步生成并设置 threadId，避免等待 createChatSession 期间首条消息丢失 threadId，
     // 否则后端 ObservationalMemory 会在调用 LLM 前硬失败
     const newId = crypto.randomUUID();
-    writeActiveFeedMindThreadId(newId);
     setActiveThreadId(newId);
     activeThreadIdRef.current = newId;
 
@@ -173,7 +165,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       await createChatSession(newId);
     } catch (err) {
       // 会话记录创建失败不阻塞消息发送，仅记录日志
-      console.error("[Chat] 创建会话记录失败（不影响本次消息发送）:", err);
+      console.error("[会话] 创建会话记录失败（不影响当前消息发送）:", err);
     }
     return newId;
   }, []);
@@ -200,7 +192,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const switchSession = useCallback(
     async (threadId: string) => {
       if (threadId === activeThreadIdRef.current) return;
-      writeActiveFeedMindThreadId(threadId);
       setActiveThreadId(threadId);
       activeThreadIdRef.current = threadId;
       await loadSessionMessages(threadId);
@@ -209,7 +200,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const createNewSessionFn = useCallback(async () => {
-    clearActiveFeedMindThreadId();
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
@@ -220,16 +210,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     clearError();
   }, [setUiMessages, clearError]);
 
+  // clearSession 语义等同开新会话：复用同一份重置逻辑，避免两处状态清理各自漂移
   const clearSession = useCallback(() => {
-    clearActiveFeedMindThreadId();
-    setActiveThreadId(null);
-    activeThreadIdRef.current = null;
-    setUiMessages([]);
-    setOlderMessages([]);
-    setHasOlder(false);
-    loadedPagesRef.current = 0;
-    clearError();
-  }, [setUiMessages, clearError]);
+    void createNewSessionFn();
+  }, [createNewSessionFn]);
 
   const value = useMemo<ChatContextValue>(
     () => ({

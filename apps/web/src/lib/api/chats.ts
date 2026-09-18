@@ -9,18 +9,6 @@ export type ChatSessionListItem = {
   updated_at: string;
 };
 
-const activeThreadStorageKey = "feedmind:active-thread";
-
-export function writeActiveFeedMindThreadId(threadId: string): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(activeThreadStorageKey, threadId);
-}
-
-export function clearActiveFeedMindThreadId(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(activeThreadStorageKey);
-}
-
 export async function listChatSessions(): Promise<ChatSessionListItem[]> {
   return apiFetch<ChatSessionListItem[]>(backendApiPath("/chats"));
 }
