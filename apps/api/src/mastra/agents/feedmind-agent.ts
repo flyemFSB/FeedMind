@@ -3,7 +3,7 @@ import type { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
 import { LibSQLVector } from "@mastra/libsql";
 import { resolve } from "node:path";
-import { buildSystemPrompt } from "../prompts/system.js";
+import { SUPERVISOR_SYSTEM_PROMPT, buildDateSystemMessage } from "../prompts/system.js";
 import { resolveModelClient } from "../../modules/models/model-cache.js";
 import { getSelectedModel } from "../../modules/models/service.js";
 import { getConfig } from "../../modules/runtime-config/config-service.js";
@@ -12,9 +12,9 @@ import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
 import { wikiReadTool } from "../tools/wiki-read.js";
 import { wikiSearchTool } from "../tools/wiki-search.js";
-import { taskTool, getSubagentDescriptions } from "../tools/task.js";
+import { taskTool } from "../tools/task.js";
 import { createFeedMindWorkspace } from "../workspace.js";
-import { cachedGet, clearCache } from "../utils/cached-get.js";
+import { cachedGet } from "../utils/cached-get.js";
 import { parseTokenCount } from "../../modules/models/parse-token-count.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
 import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
@@ -23,7 +23,7 @@ import { logger } from "../../lib/logger.js";
 
 const feedmindWorkspace = createFeedMindWorkspace();
 
-// ── Memory / Observational Memory ─────────────────────────────────────────
+// ── 记忆系统 / 观察记忆（Observational Memory） ───────────────────────
 // LibSQLVector 无会话状态，跨请求共享单例；惰性初始化确保 resolveDataDir 读取到正确的 DATA_DIR
 let _feedmindVector: LibSQLVector | null = null;
 function getFeedmindVector(): LibSQLVector {
@@ -37,8 +37,8 @@ function getFeedmindVector(): LibSQLVector {
 /**
  * memory 用函数形式（Mastra 每请求解析一次）：embedder 需异步查模型表，静态构造拿不到。
  * 解析结果经 cachedGet 30s TTL 缓存，配置变更后自动生效。
- * 未配置 embedding 模型时 vector/embedder 缺省，OM 的 retrieval.vector 自动降级
- * 为纯分页 recall（hasSemanticSearch 关闭），聊天主链路不受影响。
+ * 未配置向量嵌入模型时 vector 与 embedder 缺省，观察记忆（OM）的 retrieval.vector
+ * 自动降级为纯分页检索召回（关闭语义检索 hasSemanticSearch），聊天主链路不受影响。
  * storage 不在此传：Mastra 在 getMemory 时注入全局 LibSQLStore（同一 mastra.db）。
  */
 async function buildMemory(): Promise<Memory> {
@@ -65,32 +65,18 @@ export const feedmindAgent = new Agent({
   id: "feedmind",
   name: "FeedMind",
   description: "研究辅助 supervisor agent，负责协调搜索、wiki、浏览器等子任务。",
-  instructions:
-    buildSystemPrompt(`你是 FeedMind，面向研究任务的 AI 助手。你可以使用自身工具或通过 task 工具创建专用 subagent 来完成任务。
-
-## 自身工具
-- web_search / web_fetch — 搜索和抓取网络信息
-- wiki_search / wiki_read — 查询本地知识库
-- ask_clarification — 用户意图模糊时提问澄清
-
-## task 工具 — 动态创建 subagent
-当任务可分解为独立子任务时，使用 task 工具创建专用 subagent：
-
-${getSubagentDescriptions()}
-
-## 委托规则
-1. 简单搜索、wiki 查询 → 使用自身工具（web_search / web_fetch / wiki_search）
-2. 深度多来源研究 → 使用 task(researcher)
-3. 数据提取、页面解析 → 使用 task(extractor)
-4. 长文本总结 → 使用 task(summarizer)
-5. 浏览器交互（JS 渲染、点击、表单） → 使用 task(browser)
-6. 多个独立子任务可以在同一步骤中并行执行
-7. 委托后结合 subagent 返回的结果给出最终回答
-
-规则：
-- 不编造来源；搜索无可用结果时，说明依据不是搜索结果。
-- 回答清晰、结构化、可执行。
-- 调用工具时，数组参数必须传 JSON 数组（如 ["a","b"]），数字必须传数字不要传字符串。`),
+  // 函数形式：静态段永远字节相同（缓存断点落在它上面），日期段排在断点之后；
+  // 写死在模块顶层会让长驻进程的日期停在启动那天
+  instructions: () => [
+    {
+      role: "system",
+      content: SUPERVISOR_SYSTEM_PROMPT,
+      // Anthropic 显式断点：缓存「工具定义 + 静态提示词」这一层。
+      // 按 Anthropic 的失效层级，之后消息如何变化都不会失效该层
+      providerOptions: { anthropic: { cacheControl: { type: "ephemeral" } } },
+    },
+    buildDateSystemMessage(),
+  ],
   model: async ({ requestContext }: { requestContext?: RequestContext }) =>
     resolveChatModel(requestContext),
   defaultOptions: async () => {
@@ -108,6 +94,23 @@ ${getSubagentDescriptions()}
 
       return {
         maxSteps: 20,
+        // 提示词缓存：Anthropic 必须显式开启（顶层 cache_control = 自动缓存，断点自动落在
+        // 最后一个可缓存块并随会话前移）；其余 provider 服务端默认开启前缀缓存，忽略该 key
+        providerOptions: {
+          anthropic: { cacheControl: { type: "ephemeral" } },
+        },
+        // 缓存命中观测：cacheReadTokens 应随会话推进而增长，恒为 0 说明前缀被某处改写
+        onStepFinish: ({ usage, model }) => {
+          logger.debug(
+            {
+              modelId: model?.modelId,
+              inputTokens: usage?.inputTokens,
+              cacheReadTokens: usage?.cachedInputTokens,
+              cacheWriteTokens: usage?.cacheCreationInputTokens,
+            },
+            "模型调用 Token 用量统计",
+          );
+        },
         modelSettings: {
           temperature: cfg.temperature,
           topP: cfg.top_p,
@@ -118,7 +121,7 @@ ${getSubagentDescriptions()}
         },
       };
     } catch (err) {
-      logger.error({ err }, "获取会话配置失败，使用默认配置");
+      logger.error({ err }, "获取会话配置失败，回退为默认配置");
       return {};
     }
   },
@@ -133,7 +136,3 @@ ${getSubagentDescriptions()}
   },
   workspace: feedmindWorkspace,
 });
-
-export function clearConfigCache(): void {
-  clearCache();
-}

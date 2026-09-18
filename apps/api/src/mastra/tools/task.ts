@@ -149,13 +149,6 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
   browser: browserTemplate,
 };
 
-/** 获取所有预置 subagent 的描述列表（用于注入 system prompt） */
-export function getSubagentDescriptions(): string {
-  return Object.values(subagentRegistry)
-    .map((s) => `  - ${s.type}: ${s.description}`)
-    .join("\n");
-}
-
 /* -------------------------------------------------------------------------- */
 /*  Task 工具                                                                 */
 /* -------------------------------------------------------------------------- */
