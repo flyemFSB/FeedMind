@@ -117,7 +117,7 @@ async function extractFeedItem(
   } catch {
     logger.warn(
       { url: feed.link, title: feed.title },
-      "日报提炼回退到标题/摘要（抓正文或 LLM 提炼失败）",
+      "正文抓取或大模型提炼失败，日报内容回退使用标题与摘要",
     );
     return fallback();
   }

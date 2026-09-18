@@ -165,7 +165,7 @@ export async function searchWiki(
     return { results, mode: "keyword", totalHits: results.length };
   } catch (err) {
     // FTS5 异常时回退到内存关键词搜索，保证搜索功能可用
-    logger.error({ err }, "FTS5 查询失败，回退到关键词搜索");
+    logger.error({ err }, "FTS5 全文索引检索失败，回退至关键词匹配模式");
     return keywordSearch(spaceId, trimmed, topK);
   }
 }

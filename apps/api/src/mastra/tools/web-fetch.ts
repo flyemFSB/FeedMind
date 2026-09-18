@@ -37,7 +37,7 @@ async function fetchViaFirecrawl(
     const errBody = await response.text().catch(() => "");
     logger.warn(
       { status: response.status, body: errBody.slice(0, 200), url },
-      "Firecrawl 抓取失败",
+      "Firecrawl 网页抓取失败",
     );
     return null;
   }

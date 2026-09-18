@@ -37,7 +37,7 @@ const collectionHandler: RouteHandler = async ({ params, cookies, abortSignal, m
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    // 收藏夹 items 是公开 API，无需 x-zse-96 签名（加签名反而 404），带 Cookie + Referer 即可
+    // 收藏夹内容接口为公开 API，无需 x-zse-96 签名（添加签名反而导致接口 404），携带 Cookie 与 Referer 请求头即可正常访问
     const res = await fetch(
       `https://www.zhihu.com/api/v4/collections/${id}/items?offset=0&limit=${Math.min(maxItems, 20)}`,
       {
@@ -92,7 +92,7 @@ const collectionsHandler: RouteHandler = async ({ cookies, abortSignal }) => {
   abortSignal.addEventListener("abort", onAbort, { once: true });
 
   try {
-    // /me 与收藏夹列表均为公开接口，无需 x-zse-96 签名，带 Cookie + Referer 即可
+    // 用户信息与收藏夹列表均为公开接口，无需 x-zse-96 签名，携带 Cookie 与 Referer 请求头即可
     const headers = {
       Cookie: cookies ?? "",
       Referer: "https://www.zhihu.com/",

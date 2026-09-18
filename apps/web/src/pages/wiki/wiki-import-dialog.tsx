@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { fadeSlideVariants } from "@/lib/motion";
 
-// ─── Props ────────────────────────────────────────────────────
+// ─── 组件属性与辅助函数 ─────────────────────────────────────
 
 // 纯校验函数：模块级定义避免每次渲染重建
 function isValidUrl(u: string) {
@@ -29,7 +29,7 @@ interface WikiImportDialogProps {
 
 type ImportTab = "file" | "url";
 
-// ─── Component ─────────────────────────────────────────────────
+// ─── 导入弹窗主体组件 ───────────────────────────────────────
 
 export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImportDialogProps) {
   const { t } = useTranslation();
@@ -135,7 +135,7 @@ export function WikiImportDialog({ open, spaceId, onClose, onImported }: WikiImp
   );
 }
 
-// ─── File Upload Tab ───────────────────────────────────────────
+// ─── 本地文件上传标签页 ─────────────────────────────────────
 
 function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: () => void }) {
   const { t } = useTranslation();
@@ -302,7 +302,7 @@ function FileUploadTab({ spaceId, onImported }: { spaceId: string; onImported: (
   );
 }
 
-// ─── URL Paste Tab ─────────────────────────────────────────────
+// ─── 网络链接导入标签页 ─────────────────────────────────────
 
 function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () => void }) {
   const { t } = useTranslation();

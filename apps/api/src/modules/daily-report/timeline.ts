@@ -9,7 +9,7 @@ export const SEGMENT_GAP_SEC = 0.3; // 场景间转场呼吸间隙 300ms
 export interface TimelineSegment {
   type: "opening" | "item" | "closing";
   index?: number;
-  audioFile?: string; // e.g. "seg-0.mp3"
+  audioFile?: string; // 例如："seg-0.mp3"
   durationSec: number; // 实际音频时长（秒）
   frames: number; // 场景总帧数（含 GAP）
   fromFrame: number; // 时间轴起始帧

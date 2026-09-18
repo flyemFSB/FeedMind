@@ -51,7 +51,7 @@ export function ThemeProvider({ children, defaultTheme = "system" }: ThemeProvid
     return;
   }, [theme]);
 
-  // useMemo 稳定 context value：字面量每次渲染都新建，会击穿全部消费组件的 memo
+  // useMemo 稳定 Context Value：对象字面量每次渲染均会新建引用，会导致所有消费组件的 React.memo 缓存失效
   const value = useMemo<ThemeProviderState>(
     () => ({
       theme,

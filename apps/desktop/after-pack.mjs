@@ -7,16 +7,16 @@ import path from "node:path";
  */
 export default async function afterPack(context) {
   const { appOutDir } = context;
-  console.log(`[afterPack] 正在优化并裁剪 Chromium 冗余文件: ${appOutDir}`);
+  console.log(`[打包优化] 正在优化并裁剪 Chromium 冗余文件: ${appOutDir}`);
 
   // 1. 剔除大型无用文档（LICENSES 19.4MB）
   const licenseFile = path.join(appOutDir, "LICENSES.chromium.html");
   if (fs.existsSync(licenseFile)) {
     try {
       fs.unlinkSync(licenseFile);
-      console.log(`[afterPack] 已剔除冗余文档: LICENSES.chromium.html`);
+      console.log(`[打包优化] 已剔除冗余文档: LICENSES.chromium.html`);
     } catch {
-      // 忽略
+      // 忽略文件删除失败异常
     }
   }
 
@@ -31,9 +31,9 @@ export default async function afterPack(context) {
           fs.unlinkSync(path.join(localesDir, item));
         }
       }
-      console.log(`[afterPack] 已精简 locales 多语言包（仅保留 zh-CN / en-US）`);
+      console.log(`[打包优化] 已精简多语言资源包（仅保留 zh-CN / en-US / en-GB）`);
     } catch {
-      // 忽略
+      // 忽略文件删除失败异常
     }
   }
 

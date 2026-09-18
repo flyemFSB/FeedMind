@@ -38,12 +38,12 @@ describe("RSS Sources API 集成测试", () => {
 
     const sourceId = res.body.data.id;
 
-    // GET 单个
+    // 验证单条查询接口
     const getRes = await ctx.request<{ title: string }>(`/api/v1/rss-sources/${sourceId}`);
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.title).toBe("news.ycombinator.com");
 
-    // DELETE
+    // 验证删除接口
     const delRes = await ctx.request(`/api/v1/rss-sources/${sourceId}`, {
       method: "DELETE",
     });

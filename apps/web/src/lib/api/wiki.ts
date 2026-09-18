@@ -15,7 +15,7 @@ import type {
   WikiSpaceRead,
 } from "@feedmind/contracts";
 
-// ─── Spaces ────────────────────────────────────────────────────
+// ─── Wiki 空间接口 ──────────────────────────────────────────
 export function listWikiSpaces(): Promise<WikiSpaceListItem[]> {
   return apiFetch(backendApiPath("/wiki/spaces"));
 }
@@ -28,7 +28,7 @@ export function deleteWikiSpace(spaceId: string): Promise<{ success: boolean }> 
   return apiDelete(`/wiki/spaces/${spaceId}`);
 }
 
-// ─── Pages ─────────────────────────────────────────────────────
+// ─── Wiki 概念页面接口 ──────────────────────────────────────
 export function listWikiPages(
   spaceId: string,
   params?: { type?: string; q?: string; limit?: number; offset?: number },
@@ -60,14 +60,14 @@ export function resolveWikiLink(spaceId: string, target: string): Promise<WikiRe
   );
 }
 
-// ─── Backlinks ──────────────────────────────────────────────────
+// ─── 反向链接接口 ───────────────────────────────────────────
 export function getWikiBacklinks(spaceId: string, pageId: string): Promise<WikiBacklink[]> {
   return apiFetch(
     backendApiPath(`/wiki/spaces/${spaceId}/pages/${encodeURIComponent(pageId)}/backlinks`),
   );
 }
 
-// ─── Sources ───────────────────────────────────────────────────
+// ─── 知识来源接口 ───────────────────────────────────────────
 export function listWikiSources(
   spaceId: string,
   params?: { status?: string; limit?: number; offset?: number },
@@ -102,7 +102,7 @@ export function previewDeleteImpact(
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/sources/${sourceId}/delete-impact`));
 }
 
-// ─── File Upload ────────────────────────────────────────────────
+// ─── 文件上传接口 ───────────────────────────────────────────
 export function uploadWikiFile(
   spaceId: string,
   file: File,
@@ -115,7 +115,7 @@ export function uploadWikiFile(
   });
 }
 
-// ─── Graph ─────────────────────────────────────────────────────
+// ─── 知识图谱接口 ───────────────────────────────────────────
 export function getWikiGraph(spaceId: string): Promise<WikiGraph> {
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/graph`));
 }

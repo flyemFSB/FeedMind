@@ -12,8 +12,8 @@ export const model = sqliteTable(
     modelId: text("model_id").notNull().default(""),
     baseUrl: text("base_url").notNull().default(""),
     encryptedApiKey: text("encrypted_api_key").notNull().default(""),
-    contextWindow: integer("context_window"), // K tokens
-    maxOutput: integer("max_output"), // K tokens
+    contextWindow: integer("context_window"), // 单位：千（K）tokens
+    maxOutput: integer("max_output"), // 单位：千（K）tokens
     isSelected: integer("is_selected", { mode: "boolean" }).notNull().default(false),
     createdAt: text("created_at")
       .notNull()

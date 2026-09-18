@@ -6,11 +6,11 @@ import { resolve } from "node:path";
 const desktopDir = import.meta.dirname;
 
 // 1. 先用 tsc 生成 TypeScript 声明与类型检查
-console.log("[build] 正在生成 TypeScript 声明与类型检查...");
+console.log("[构建] 正在执行 TypeScript 类型检查与声明生成...");
 execSync("tsc -b", { cwd: desktopDir, stdio: "inherit" });
 
 // 2. 用 esbuild 进行主进程与 API 服务的高效 bundle
-console.log("[build] 正在使用 esbuild 打包桌面端主进程...");
+console.log("[构建] 正在使用 esbuild 打包桌面端主进程与 API 服务...");
 await build({
   entryPoints: [resolve(desktopDir, "src/main.ts")],
   outfile: resolve(desktopDir, "dist/main.js"),
@@ -41,4 +41,4 @@ await build({
   minify: true,
 });
 
-console.log("[build] 桌面端主进程 Bundle 完成！");
+console.log("[构建] 桌面端主进程与 API 服务打包完成！");

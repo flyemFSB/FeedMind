@@ -62,11 +62,11 @@ export async function reviewAndFix(
       const review = await evaluate(current, items);
       if (review.verdict === "pass") return { script: current, attempts: attempt + 1 };
       lastIssues = review.issues;
-      logger.warn({ attempt, issues: review.issues }, "审稿未通过，回灌问题并重写脚本");
+      logger.warn({ attempt, issues: review.issues }, "脚本审稿未通过，附带审阅意见重新生成");
     } catch (err) {
       // 评估失败（含 structuredOutput 校验不过）按未通过处理继续重试；
       // 异常文本不是审稿意见，不回灌 rewrite，沿用上一轮真实 issues 引导修正
-      logger.warn({ err, attempt }, "审稿评估失败，按未通过处理");
+      logger.warn({ err, attempt }, "脚本审稿评估异常，按未通过流程重试");
     }
   }
   throw new Error(`脚本审稿 ${MAX_ATTEMPTS} 次未通过`);

@@ -460,7 +460,7 @@ export async function syncAll(): Promise<SyncResult> {
             .catch(() => {});
         }
       }
-      logger.error({ err, sourceId: source.id }, "同步失败");
+      logger.error({ err, sourceId: source.id }, "信息源内容同步失败");
       result.failed++;
       result.errors.push(`${source.title}: ${err instanceof Error ? err.message : String(err)}`);
     }

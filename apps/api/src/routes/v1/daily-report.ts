@@ -53,7 +53,7 @@ dailyReportRoutes.get("/daily-report/videos/:id/file", async (c) => {
   } catch (err) {
     const notFound =
       err instanceof Error && "status" in err && (err as { status: number }).status === 404;
-    logger.error({ err, videoId: c.req.param("id") }, "读取日报视频失败");
+    logger.error({ err, videoId: c.req.param("id") }, "读取日报视频文件失败");
     return jsonError(
       c,
       notFound ? 404 : 500,

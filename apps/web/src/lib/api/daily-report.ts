@@ -34,7 +34,7 @@ export interface ScheduleUpsertInput {
   enabled?: boolean;
 }
 
-// ─── API ────────────────────────────────────────────────────────
+// ─── 日报定时调度接口 ──────────────────────────────────────────
 
 export async function listSchedules(): Promise<ScheduleTask[]> {
   return apiFetch<ScheduleTask[]>(backendApiPath("/daily-report/schedules"));

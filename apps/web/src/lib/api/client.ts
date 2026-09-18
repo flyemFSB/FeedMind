@@ -110,7 +110,7 @@ function httpMsg(status: number): string {
   return i18n.t(`error.http.${status}`, { defaultValue: `请求失败（${status}）` });
 }
 
-// ─── HTTP verb helpers ─────────────────────────────────────────
+// ─── HTTP 请求方法辅助函数 ───────────────────────────────────
 function jsonHeaders(): HeadersInit {
   return { "content-type": "application/json" };
 }

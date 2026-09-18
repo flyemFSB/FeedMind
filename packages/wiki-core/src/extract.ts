@@ -2,7 +2,7 @@ import fsPromises from "node:fs/promises";
 import type { VlParserConfig } from "./vl-parser.js";
 import { VlParserError, parsePdfWithVl } from "./vl-parser.js";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 单文件解析上限：10MB
 
 // ─── 类型 ─────────────────────────────────────────────────────────
 
@@ -148,8 +148,8 @@ async function extractDocumentFile(
   try {
     markdown = (await toMarkdown(filePath)).trim();
   } catch (err) {
-    // anydoc 0.2.4 起扫描型/纯图 PDF 不再静默丢页，而是抛 NeedsOcrError（含 pages/pageCount）。
-    // 内容级检测进来的错标/无扩展名 PDF 走到这里：有 VL 配置时交给视觉模型兜底
+    // anydoc 0.2.4 起扫描型或纯图 PDF 不再静默丢页，而是抛出 NeedsOcrError（包含 pages/pageCount）。
+    // 经内容嗅探检测出的扩展名错误或无扩展名 PDF 文件进入此分支：若配置了视觉语言模型（VL），则交由视觉模型兜底解析
     if ((err as { code?: string }).code === "needsOcr" && vl) {
       const pageCount = (err as { pageCount?: number }).pageCount;
       try {
@@ -243,7 +243,7 @@ export async function extractDocument(
     case "image":
       return extractImageInfo(filePath, fileName);
     default:
-      // 未知扩展名也交给 anydoc：内容级检测能识别错标/无扩展名文件，识别不了会抛 unsupported
+      // 未知扩展名统一交由 anydoc 处理：内容嗅探能够自动识别格式标注错误或缺失扩展名的文件，无法识别时会抛出 unsupported 异常
       return extractDocumentFile(filePath, fileName, vl);
   }
 }

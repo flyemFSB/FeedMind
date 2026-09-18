@@ -32,7 +32,7 @@ export async function getFishApiKey(): Promise<string | undefined> {
     return trimmed.length > 0 ? trimmed : undefined;
   } catch (err) {
     // tools 表缺失或读取失败：Fish 不可用，交给 edge-tts 兜底
-    logger.warn({ err }, "读取 Fish 配置失败，跳过 Fish TTS");
+    logger.warn({ err }, "读取 Fish 语音配置失败，跳过该渠道");
     return undefined;
   }
 }
@@ -165,9 +165,9 @@ async function synthesizeWithFallback(text: string, providers: TtsProvider[]): P
     try {
       const { audio } = await withTimeout(provider.synthesize(text), SEGMENT_TIMEOUT_MS);
       if (audio.length > 0) return audio;
-      logger.warn({ provider: provider.id }, "语音合成返回空音频，尝试降级渠道");
+      logger.warn({ provider: provider.id }, "语音合成返回数据为空，尝试备用降级渠道");
     } catch (err) {
-      logger.warn({ provider: provider.id, err }, "当前语音合成渠道失败，尝试降级渠道");
+      logger.warn({ provider: provider.id, err }, "当前语音合成渠道调用失败，尝试备用降级渠道");
     }
   }
   throw new Error("所有语音合成渠道均失败");
@@ -223,7 +223,7 @@ export async function synthesizeNarration(
       const duration = await probeAudioDurationSec(filePath, text);
       durations.push(duration);
     } catch (err) {
-      logger.warn({ err, segIndex: i }, "单段配音合成失败，写入占位音频并使用估算时长");
+      logger.warn({ err, segIndex: i }, "单段配音合成失败，使用占位静音音频与估算时长兜底");
       await writeFile(filePath, Buffer.from("FeedMind 配音占位（TTS 不可用）", "utf8"));
       durations.push(fallbackDurationSec(text));
     }

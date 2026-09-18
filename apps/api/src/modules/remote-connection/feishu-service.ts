@@ -88,7 +88,7 @@ async function sendReply(client: Client, openId: string, content: string): Promi
     params: { receive_id_type: "open_id" },
     data: { receive_id: openId, content: buildCardJson(content), msg_type: "interactive" },
   });
-  logger.info({ openId, contentLen: content.length }, "飞书回复消息");
+  logger.info({ openId, contentLen: content.length }, "向飞书发送回复消息");
 }
 
 // 飞书 WebSocket 事件负载结构（仅用到消息体与发送者）
@@ -156,10 +156,10 @@ function buildMessageHandler() {
         reply = reply.trimStart();
 
         const content = reply || "我没有生成有效的回复，请换个方式描述你的问题。";
-        if (!reply) logger.warn({ openId, threadId }, "Agent 返回空文本，发送提示");
+        if (!reply) logger.warn({ openId, threadId }, "Agent 回复内容为空，发送兜底提示消息");
         await sendReply(feishuClient, openId, content);
       } catch (err) {
-        logger.error({ err }, "Agent 回复失败");
+        logger.error({ err }, "Agent 处理回复失败");
         if (feishuClient) {
           // 通知失败（如飞书接口超时）不应影响主流程，仅吞掉
           void feishuClient.im.message
@@ -219,7 +219,7 @@ function scheduleReconnect(): void {
   if (isStopping || reconnectTimer || isReconnecting) return;
   const delay = Math.min(RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt), RECONNECT_MAX_MS);
   reconnectAttempt++;
-  logger.info({ delay, attempt: reconnectAttempt }, "准备重连飞书 WebSocket");
+  logger.info({ delay, attempt: reconnectAttempt }, "准备重新连接飞书 WebSocket");
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     void reconnect();
@@ -233,7 +233,7 @@ function startHealthCheck(): void {
     try {
       const ws = (wsClient as FeishuWsHandle)?.ws;
       if (ws?.readyState === 3) {
-        logger.warn("健康检查发现飞书 WebSocket 已关闭，准备重连");
+        logger.warn("健康检查检测到飞书 WebSocket 连接已断开，准备重连");
         scheduleReconnect();
       }
     } catch {
@@ -248,7 +248,7 @@ function attachWsEventListeners(): void {
     if (!ws) return;
     ws.on("close", () => {
       if (!isStopping) {
-        logger.warn("飞书 WebSocket 连接已关闭，准备重连");
+        logger.warn("飞书 WebSocket 连接已断开，准备重连");
         scheduleReconnect();
       }
     });
@@ -265,7 +265,7 @@ export async function startLongConnection(): Promise<void> {
   isStopping = false;
   const cfg = await getConfig();
   if (!cfg?.appId || !cfg?.appSecret) {
-    logger.info("飞书机器人未配置，跳过长连接启动");
+    logger.info("未配置飞书机器人参数，跳过长连接启动");
     return;
   }
 
@@ -297,7 +297,7 @@ export async function startLongConnection(): Promise<void> {
     startHealthCheck();
     attachWsEventListeners();
   } catch (err) {
-    logger.error({ err }, "飞书 WebSocket 长连接启动失败");
+    logger.error({ err }, "飞书 WebSocket 长连接建立失败");
     wsClient = null;
     await db
       .update(remoteConnections)
@@ -377,7 +377,7 @@ export async function sendMessage(
     params: { receive_id_type: receiveIdType },
     data: { receive_id: receiveId, msg_type: msgType, content },
   });
-  logger.info({ receiveId, msgType, contentLen: content.length }, "飞书主动发送消息");
+  logger.info({ receiveId, msgType, contentLen: content.length }, "向飞书主动推送消息");
 }
 
 export async function getFeishuConfig() {

@@ -108,7 +108,7 @@ async function getCookieData(c: Context) {
   try {
     return jsonOk(c, decrypt(uuid, row.encrypted, password, row.cryptoType));
   } catch (err) {
-    logger.error({ err }, "CookieCloud /get 解密失败");
+    logger.error({ err }, "CookieCloud 同步数据解密失败");
     return jsonError(c, 400, "DECRYPT_FAILED", "解密失败，请检查 UUID 与密码");
   }
 }
@@ -157,7 +157,7 @@ cookieCloudRoutes.post("/cookiecloud/decrypt", async (c) => {
     const data = decrypt(uuid, row.encrypted, password, crypto_type ?? row.cryptoType);
     return jsonOk(c, data);
   } catch (err) {
-    logger.error({ err, uuid }, "CookieCloud 手动解密失败");
+    logger.error({ err, uuid }, "CookieCloud 手动解密数据失败");
     return jsonError(c, 400, "DECRYPT_FAILED", "解密失败，请检查 UUID 与密码");
   }
 });

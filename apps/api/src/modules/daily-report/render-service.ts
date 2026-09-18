@@ -103,7 +103,7 @@ export async function renderReportVideo(
     entryPoint,
     publicDir: outputDir,
     enableCaching: true,
-    onProgress: (p) => logger.debug({ progress: p }, "Remotion bundle 进度"),
+    onProgress: (p) => logger.debug({ progress: p }, "Remotion 打包构建进度"),
   });
 
   const inputProps = { script, captions, timeline: effectiveTimeline };
@@ -112,9 +112,9 @@ export async function renderReportVideo(
   // 优先系统浏览器（Chrome→Edge），避免下载 headless shell；系统浏览器用 --headless=new
   const browserExecutable = resolveBrowserExecutable();
   if (browserExecutable) {
-    logger.info({ browserExecutable }, "使用系统浏览器渲染日报");
+    logger.info({ browserExecutable }, "使用系统内置浏览器渲染日报视频");
   } else {
-    logger.warn("未找到系统 Chrome/Edge，Remotion 将自动下载 headless shell");
+    logger.warn("未检测到系统 Chrome/Edge 浏览器，Remotion 将自动下载无头浏览器组件");
   }
 
   const videoPath = resolve(outputDir, "report.mp4");

@@ -10,7 +10,7 @@ export const rssSources = sqliteTable(
     route: text("route"),
     url: text("url").notNull(),
     title: text("title").notNull(),
-    params: text("params"), // JSON
+    params: text("params"), // 订阅源自定义配置参数 JSON 字符串
     lastSyncedAt: text("last_synced_at"),
     createdAt: text("created_at")
       .notNull()

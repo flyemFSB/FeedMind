@@ -5,7 +5,7 @@ import { check, index, integer, sqliteTable, text, unique } from "drizzle-orm/sq
 export const scheduleTasks = sqliteTable(
   "schedule_tasks",
   {
-    id: text("id").primaryKey(), // 'daily-video'
+    id: text("id").primaryKey(), // 任务固定标识，如 'daily-video'
     name: text("name").notNull(),
     cron: text("cron").notNull(),
     timezone: text("timezone").notNull().default("Asia/Shanghai"),
@@ -39,11 +39,11 @@ export const videos = sqliteTable(
     scheduleId: text("schedule_id")
       .notNull()
       .references(() => scheduleTasks.id, { onDelete: "cascade" }),
-    reportDate: text("report_date").notNull(), // YYYY-MM-DD
+    reportDate: text("report_date").notNull(), // 日报归属日期（格式：YYYY-MM-DD）
     status: text("status").notNull(),
     stage: text("stage"), // 粗粒度阶段或 render/bundling:42% 细进度
     filePath: text("file_path"),
-    duration: integer("duration"), // 秒
+    duration: integer("duration"), // 视频总时长（单位：秒）
     error: text("error"),
     createdAt: text("created_at")
       .notNull()

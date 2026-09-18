@@ -74,7 +74,7 @@ export async function upsertSchedule(id: string, input: ScheduleUpsert): Promise
     try {
       await syncScheduleById(mastra, id);
     } catch (err) {
-      logger.warn({ err, scheduleId: id }, "同步调度到 Mastra 失败");
+      logger.warn({ err, scheduleId: id }, "同步定时任务到调度引擎失败");
     }
   }
 
@@ -214,7 +214,7 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
     // 先抓取全部订阅源增量（syncAll 逐源容错，不会整体抛错），再以最近条目作为提炼输入
     await updateStage(videoId, "sync");
     const syncResult = await syncAll();
-    logger.info({ scheduleId, runId: videoId, syncResult }, "日报抓取完成");
+    logger.info({ scheduleId, runId: videoId, syncResult }, "日报源内容同步完成");
     const inputFeeds = await readRecentFeeds();
 
     await updateStage(videoId, "extract");
@@ -243,7 +243,7 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
           "日报配音与实测时间轴构建完成",
         );
       } catch (err) {
-        logger.warn({ err }, "日报配音异常");
+        logger.warn({ err }, "日报配音生成异常");
       }
       await updateStage(videoId, "render");
       // 渲染（Remotion）；把细粒度阶段写回 videos.stage 让前端可显示粗进度。
@@ -264,7 +264,7 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
         filePath = rendered.videoPath;
         duration = Math.round(rendered.durationSec);
       } catch (err) {
-        logger.warn({ err, runId: videoId }, "Remotion 渲染失败，将整体置为 failed");
+        logger.warn({ err, runId: videoId }, "视频渲染失败，标记任务状态为失败");
         throw err;
       }
     }
@@ -290,8 +290,8 @@ async function runPipeline(videoId: string, scheduleId: string): Promise<void> {
     .where(eq(scheduleTasks.id, scheduleId));
 
   if (status === "failed") {
-    logger.error({ scheduleId, runId: videoId, err: error }, "日报运行失败");
+    logger.error({ scheduleId, runId: videoId, err: error }, "日报任务生成失败");
   } else {
-    logger.info({ scheduleId, runId: videoId, status }, "日报运行结束");
+    logger.info({ scheduleId, runId: videoId, status }, "日报生成任务执行结束");
   }
 }

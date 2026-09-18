@@ -71,8 +71,8 @@ export function createApp(): Hono<{ Bindings: HonoBindings; Variables: HonoVaria
       status: c.res.status,
       durationMs: Math.round(performance.now() - startedAt),
     };
-    if (c.res.status >= 500) logger.error(details, "请求处理异常");
-    else if (c.res.status >= 400) logger.warn(details, "请求客户端错误");
+    if (c.res.status >= 500) logger.error(details, "请求处理失败（服务器内部错误）");
+    else if (c.res.status >= 400) logger.warn(details, "请求客户端错误（非法或未授权请求）");
     else logger.debug(details, "请求处理成功");
   });
 

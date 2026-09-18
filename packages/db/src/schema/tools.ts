@@ -7,8 +7,8 @@ export const tools = sqliteTable("tools", {
   category: text("category").notNull(),
   displayName: text("display_name").notNull(),
   description: text("description"),
-  configFields: text("config_fields").notNull(), // JSON string of ConfigField[]
-  config: text("config").notNull().default("{}"), // JSON；password 类字段应用层 Fernet 加密
+  configFields: text("config_fields").notNull(), // ConfigField[] 配置项定义的 JSON 字符串
+  config: text("config").notNull().default("{}"), // 工具具体配置 JSON；密码等敏感字段经应用层 Fernet 加密存储
   isEnabled: integer("is_enabled", { mode: "boolean" }).notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: text("created_at")

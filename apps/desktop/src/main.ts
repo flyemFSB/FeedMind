@@ -46,7 +46,7 @@ const AGENT_MARKER = "feedmind-agent";
 // Agent 页面空闲超时缩短为 2 分钟，空闲即释放 Chromium 渲染子进程
 const AGENT_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
-// 拒授媒体权限防常驻媒体进程
+// 拒绝授予音视频媒体等敏感权限，防止 Chromium 额外拉起常驻媒体服务进程
 const MEDIA_PERMISSIONS = new Set(["media", "mediaKeySystem", "geolocation", "notifications"]);
 
 interface MarkedWindowEntry {
@@ -238,7 +238,7 @@ async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
 
 async function bootstrap(): Promise<void> {
   // eslint-disable-next-line no-console
-  console.log("[boot] 开始初始化桌面端应用...");
+  console.log("[启动] 开始初始化桌面端应用...");
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(!MEDIA_PERMISSIONS.has(permission));
@@ -254,20 +254,20 @@ async function bootstrap(): Promise<void> {
       : path.resolve(app.getAppPath(), "../web/dist");
 
   // eslint-disable-next-line no-console
-  console.log("[boot] 启动内置 HTTP API 服务...", { webDist: webDist ?? "dev-server" });
+  console.log("[启动] 正在启动内置 API 服务...", { webDist: webDist ?? "dev-server" });
   await startApi(webDist ? { webDist } : {});
 
   setMarkedWindowFactory(ensureMarkedWindow);
   setMarkedWindowDestroyer(destroyMarkedWindow);
 
   // eslint-disable-next-line no-console
-  console.log("[boot] 创建主窗口并加载界面...", { targetUrl: getUiUrl() });
+  console.log("[启动] 创建主窗口并加载界面...", { targetUrl: getUiUrl() });
   mainWindow = createMainWindow();
   await loadWithRetry(mainWindow, getUiUrl());
 
   startMemoryMonitor();
   // eslint-disable-next-line no-console
-  console.log("[boot] 桌面端应用启动完成！");
+  console.log("[启动] 桌面端应用启动完成！");
 }
 
 app.on("activate", () => {

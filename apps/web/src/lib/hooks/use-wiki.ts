@@ -24,13 +24,13 @@ export const wikiOptions = {
     }),
 };
 
-// ─── Spaces ──────────────────────────────────────────────────────
+// ─── 空间管理 Hooks ─────────────────────────────────────────
 
 export function useWikiSpaces() {
   return useQuery(wikiOptions.spaces());
 }
 
-// ─── Pages ───────────────────────────────────────────────────────
+// ─── 概念页面管理 Hooks ─────────────────────────────────────
 
 export function useWikiPages(spaceId: string | undefined) {
   return useQuery({
@@ -39,7 +39,7 @@ export function useWikiPages(spaceId: string | undefined) {
   });
 }
 
-// ─── Sources ─────────────────────────────────────────────────────
+// ─── 知识来源管理 Hooks ─────────────────────────────────────
 
 export function useWikiSources(
   spaceId: string | undefined,
@@ -52,7 +52,7 @@ export function useWikiSources(
   });
 }
 
-// ─── Ingest Jobs ─────────────────────────────────────────────────
+// ─── 导入任务 Hooks ─────────────────────────────────────────
 
 // 导入任务轮询：有 pending/processing 任务时每 3s 刷新，全部结束自动停止
 // （refetchInterval 函数形式读取自身数据，官方轮询最佳实践）

@@ -10,7 +10,7 @@ export const crawlerTasks = sqliteTable(
       .primaryKey()
       .$defaultFn(() => randomUUID()),
     route: text("route").notNull(),
-    params: text("params").notNull(), // JSON
+    params: text("params").notNull(), // 路由请求参数 JSON 字符串
     cookies: text("cookies"),
     maxItems: integer("max_items").notNull().default(50),
     status: text("status").notNull().default("queued"),

@@ -63,7 +63,7 @@ export async function buildScript(
   try {
     return await (deps.generateScript ?? defaultGenerateScript)(items, options);
   } catch (err) {
-    logger.warn({ err, itemCount: items.length }, "脚本生成失败，回退到最小脚本");
+    logger.warn({ err, itemCount: items.length }, "脚本生成失败，回退使用兜底精简脚本");
     return fallbackScript(items);
   }
 }

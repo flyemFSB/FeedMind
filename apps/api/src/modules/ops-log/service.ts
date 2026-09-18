@@ -31,7 +31,7 @@ export async function logOperation(entry: OpsLogEntry): Promise<void> {
     };
     await db.insert(operationLog).values(row);
   } catch (err) {
-    logger.warn({ err, entry }, "写入操作日志失败");
+    logger.warn({ err, entry }, "写入操作审计日志失败");
   }
 }
 

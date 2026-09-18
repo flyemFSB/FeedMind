@@ -12,11 +12,11 @@ import { logger } from "./lib/logger.js";
 
 async function main(): Promise<void> {
   const server = await startApi();
-  logger.info("服务启动完成");
+  logger.info("API 服务启动完成");
 
   // 聊天路由是 SSE 长连接，server.close 会等它结束，用超时兜底避免挂死
   const shutdown = (signal: string) => {
-    logger.info({ signal }, "收到退出信号，开始优雅关闭");
+    logger.info({ signal }, "收到退出信号，开始平滑停机");
     server.close(() => {
       logger.flush();
       process.exit(0);

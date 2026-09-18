@@ -55,7 +55,7 @@ export async function parsePdfWithVl(
       filePath,
       model: Model.PaddleOCRVL16,
       options: {
-        // 图表识别 + Markdown 美化：复杂 PDF 的核心数据保全项
+        // 启用图表识别与 Markdown 格式排版美化，保全复杂 PDF 中的表格与数据信息
         useChartRecognition: true,
         prettifyMarkdown: true,
       },
@@ -72,8 +72,8 @@ export async function parsePdfWithVl(
     .filter(Boolean)
     .join("\n\n");
 
-  // 内嵌图表原图：markdownImages（文件名 → URL）逐个拉取转 base64；
-  // 拉取失败不阻塞 Markdown 主结果（降级为纯文本导入）
+  // 内嵌图表原图：将提取到的 markdownImages（文件名 → 远程 URL）转换为 Base64 编码内嵌存储；
+  // 图片获取失败时不阻塞 Markdown 文本主解析流程（降级为纯文本导入）
   const images = new Map<string, string>();
   const fetchImage = async (url: string): Promise<string | null> => {
     try {

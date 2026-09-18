@@ -56,7 +56,7 @@ feedRoutes.delete("/feeds", async (c) => {
 
 feedRoutes.post("/feeds/sync", async (c) => {
   const result = await syncAll();
-  logger.info({ result }, "同步完成");
+  logger.info({ result }, "信息源数据同步完成");
   void logOperation({
     action: "run",
     target: "feeds",

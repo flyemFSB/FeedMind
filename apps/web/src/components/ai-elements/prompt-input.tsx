@@ -69,7 +69,7 @@ export const usePromptInputAttachments = () => {
 };
 
 // ============================================================================
-// PromptInput
+// PromptInput 提示词与多模态输入组件
 // ============================================================================
 
 export interface PromptInputMessage {

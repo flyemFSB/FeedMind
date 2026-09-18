@@ -44,7 +44,7 @@ export async function syncScheduleToMastra(
   if (!schedule) {
     await target.schedules
       .delete(id)
-      .catch((err) => logger.warn({ err, scheduleId }, "删除 Mastra 调度失败"));
+      .catch((err) => logger.warn({ err, scheduleId }, "删除 Mastra 定时调度任务失败"));
     return;
   }
 
@@ -83,7 +83,7 @@ export async function syncAllSchedules(target: ScheduleSyncTarget): Promise<void
     try {
       await syncScheduleToMastra(target, row.id, row);
     } catch (err) {
-      logger.error({ err, scheduleId: row.id }, "同步调度失败");
+      logger.error({ err, scheduleId: row.id }, "同步定时调度任务失败");
     }
   }
 }
@@ -94,5 +94,5 @@ export async function startDailyReportScheduler(mastra: Mastra): Promise<void> {
   // scheduler: { enabled: true } 保证 #shouldEnableScheduler() 为真
   await mastra.startWorkers();
   await syncAllSchedules(mastra);
-  logger.info("日报调度器（Mastra schedules）已启动");
+  logger.info("日报定时调度器已启动");
 }

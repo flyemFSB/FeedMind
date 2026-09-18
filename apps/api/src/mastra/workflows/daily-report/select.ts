@@ -50,7 +50,7 @@ async function defaultEvaluate(feeds: ExtractFeed[]): Promise<SelectFeedsResult>
 /**
  * 选题筛选：少而精是深度解读的前提。
  * 输入 <= 5 条时直接放行；> 5 条时通过 LLM 筛选 5-8 条高价值资讯；
- * 筛选失败时回退截取前 8 条。
+ * 筛选失败时回退为截取前 8 条内容。
  */
 export async function selectFeeds(
   feeds: ExtractFeed[],
@@ -73,15 +73,15 @@ export async function selectFeeds(
         "日报选题筛选完成",
       );
       if (rejected?.length) {
-        logger.info({ rejected }, "日报选题淘汰明细");
+        logger.info({ rejected }, "日报未入选选题明细");
       }
       return selected;
     }
 
-    logger.warn({ count: uniqueIndices.length }, "选题筛选结果偏少，回退默认前 8 条");
+    logger.warn({ count: uniqueIndices.length }, "符合条件的选题偏少，回退为前 8 条默认内容");
     return feeds.slice(0, MAX_SELECT_COUNT);
   } catch (err) {
-    logger.warn({ err, total: feeds.length }, "选题筛选失败，回退截取前 8 条");
+    logger.warn({ err, total: feeds.length }, "选题筛选异常，回退为截取前 8 条内容");
     return feeds.slice(0, MAX_SELECT_COUNT);
   }
 }

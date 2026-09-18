@@ -25,4 +25,4 @@ try {
   closeDb();
 }
 
-dbLogger.info("数据库已重置");
+dbLogger.info("数据库重置完成");

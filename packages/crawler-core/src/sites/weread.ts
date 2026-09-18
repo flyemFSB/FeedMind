@@ -82,8 +82,8 @@ async function fetchMps(cookies: string, signal?: AbortSignal): Promise<WereadMp
     cookies,
     signal,
   );
-  // 非零 errCode 一律视为登录态异常（与 cookiecloud 校验的 mapWereadErrCode 同一语义），
-  // 显式报错而非静默空书架——否则风控时页面表现成"没有订阅公众号"的假象
+  // 非零 errCode 一律视为登录态异常（与 CookieCloud 校验的 mapWereadErrCode 语义对齐），
+  // 显式抛出异常而非静默返回空书架，避免平台风控时在前端呈现出"未订阅任何公众号"的假象
   if (shelf.errCode === -2010) throw new CrawlerAuthError("微信读书登录态已失效");
   if (shelf.errCode) {
     throw new CrawlerAuthError(
@@ -202,8 +202,8 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
       await sleep(GAP_LIST_MS);
     }
 
-    // 网页版公众号文章接口整体失效（如 cookie 被风控标记）时，results 里每个源都带 err；
-    // 显式报错让同步失败可见，而非静默返回空列表伪装成"没有新文章"。
+    // 网页版公众号文章接口整体失效（如 Cookie 被平台风控标记）时，所有订阅源均会返回错误；
+    // 显式抛出异常以保证同步失败状态对上层可见，避免静默返回空列表从而误导为"没有最新文章"
     const errs = results.filter((r) => r.err);
     if (results.length > 0 && errs.length === results.length) {
       throw new Error(
