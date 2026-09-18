@@ -5,9 +5,10 @@
  *
  * 针对 subagent 并发请求触发的 429 提供指数退避重试。
  */
-export function createSanitizedFetch(
-  _baseUrl?: string,
-): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
+export function createSanitizedFetch(): (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response> {
   return async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     let response = await globalThis.fetch(input, init);
 

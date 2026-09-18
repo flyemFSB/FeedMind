@@ -7,9 +7,9 @@ import { logger } from "../../lib/logger.js";
 import { cachedGet } from "./cached-get.js";
 
 /**
- * v4 → v3 适配：Mastra 1.55 的 vector/memory 层仅支持 specificationVersion ≤ v3 的
- * embedding 模型，而 AI SDK v7 各 provider 只产出 v4；两代 doEmbed 的运行时
- * 契约一致（values → embeddings/usage.tokens），薄包装透传即可。升级 Mastra 后
+ * v4 → v3 适配：Mastra 1.55 的 vector/memory 层仅支持 specificationVersion "v3" 的
+ * embedding 模型，而 AI SDK v7 的 provider 只产 v4；两者 doEmbed 的运行时
+ * 契约一致（values / embeddings / usage.tokens），薄包装透传即可。升级 Mastra 后
  * 若原生支持 v4，此适配可删除。
  */
 function toV3Embedder(model: V4EmbeddingModel): MastraEmbeddingModel<string> {
@@ -37,7 +37,7 @@ export async function resolveEmbeddingModel(): Promise<MastraEmbeddingModel<stri
     const selected = await cachedGet("getSelectedEmbeddingModel", () =>
       getSelectedModel("embedding"),
     );
-    // 解构后再判空：闭包内对象属性的类型收窄不保留，直接传 selected.id 会报 null 错
+    // 解构后再判空：闭包内对象属性的类型收窄不保留，直接用 selected.id 会报 null 比较
     const selectedId = selected.id;
     if (!selectedId) return null;
     const [resolved, runtime] = await Promise.all([
@@ -54,14 +54,14 @@ export async function resolveEmbeddingModel(): Promise<MastraEmbeddingModel<stri
         name: "feedmind-embedding",
         apiKey: runtime.api_key,
         baseURL: runtime.base_url ?? "",
-        fetch: createSanitizedFetch(runtime.base_url ?? undefined),
+        fetch: createSanitizedFetch(),
       });
       v4Model = provider.textEmbeddingModel(modelId);
     }
     return toV3Embedder(v4Model);
   } catch (err) {
-    // embedding 是可选增强：解析失败降级为纯分页 recall，不能让聊天主链路崩掉
-    logger.warn({ err }, "解析 embedding 模型失败，OM 语义检索降级为纯分页 recall");
+    // 向量嵌入是可选增强项：解析失败降级为纯分页检索召回，保证聊天主流程正常可用
+    logger.warn({ err }, "解析向量嵌入模型失败，观察记忆（OM）语义检索降级为分页召回");
     return null;
   }
 }

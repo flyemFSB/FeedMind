@@ -1,4 +1,4 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
+﻿import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogle } from "@ai-sdk/google";
 import { createMiniMax } from "@ai-sdk/minimax";
@@ -23,7 +23,8 @@ export interface ResolvedModelClient {
 
 export interface ResolvedModel {
   client: ResolvedModelClient;
-  modelName: string;
+  /** API 调用名：model 表的 model_id（模型调用名），为空的老数据回退 model_name */
+  modelApiId: string;
   contextWindow: number | null;
   maxOutput: number | null;
 }
@@ -85,7 +86,7 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
       name: "feedmind",
       apiKey: config.api_key,
       baseURL: config.base_url || "",
-      fetch: createSanitizedFetch(config.base_url || undefined),
+      fetch: createSanitizedFetch(),
     });
     client = {
       chatModel: (id) => compatible.chatModel(id),
@@ -95,7 +96,9 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
 
   const entry: ResolvedModel = {
     client,
-    modelName: config.model_name,
+    // model_name 是展示名（如 "GPT 5.5"），拿它做 API 调用名会被上游拒掉；
+    // 老数据 model_id 可能为空，此时才回退展示名（与 embedder-resolver 取值口径一致）
+    modelApiId: config.model_id || config.model_name,
     contextWindow: config.context_window,
     maxOutput: config.max_output,
   };

@@ -16,8 +16,8 @@ export async function resolveChatModel(requestContext?: {
   const modelId = requestContext?.get("feedmindModelId") as string | undefined;
   if (modelId) {
     try {
-      const { client, modelName } = await resolveModelClient(Number(modelId));
-      return client.chatModel(modelName);
+      const { client, modelApiId } = await resolveModelClient(Number(modelId));
+      return client.chatModel(modelApiId);
     } catch {
       // 请求级模型解析失败，回退到已选模型
     }
@@ -28,6 +28,6 @@ export async function resolveChatModel(requestContext?: {
     throw new Error("未配置模型。请在设置中添加一个 LLM 模型后再试。");
   }
 
-  const { client, modelName } = await resolveModelClient(selected.id);
-  return client.chatModel(modelName);
+  const { client, modelApiId } = await resolveModelClient(selected.id);
+  return client.chatModel(modelApiId);
 }
