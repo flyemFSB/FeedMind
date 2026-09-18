@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/icons/provider-icon";
-import { lookupModelInfo, formatKB } from "@/lib/constants/provider-models";
+import { formatKB } from "@/lib/constants/provider-models";
 import type { FreeModelPreset } from "@/lib/constants/free-models";
 import { FreeModelDialog } from "./free-model-dialog";
 import { useTranslation } from "react-i18next";
@@ -259,9 +259,7 @@ export function ModelsPanel({
                         {model.modelName}
                       </span>
                       {(() => {
-                        const info = lookupModelInfo(model.provider, model.modelName);
-                        const context = model.contextWindow ?? info?.context;
-                        const maxOutput = model.maxOutput ?? info?.maxOutput;
+                        const { contextWindow: context, maxOutput } = model;
                         if (!context && !maxOutput) return null;
                         return (
                           <span className="flex shrink-0 items-center gap-0.5">

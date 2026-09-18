@@ -14,6 +14,7 @@ import {
   setSelectedModel,
   updateModel,
 } from "../../modules/models/service.js";
+import { listCatalogModels } from "../../modules/models/catalog.js";
 import { logOperation } from "../../modules/ops-log/service.js";
 
 export const modelRoutes = new OpenAPIHono();
@@ -30,6 +31,11 @@ modelRoutes.get("/models", async (c) => {
   const type = c.req.query("type");
   return jsonOk(c, await listModels(type));
 });
+
+// models.dev 模型目录：上下文窗口 / 最大输出由上游提供，避免在前端维护模型表
+modelRoutes.get("/models/catalog", async (c) =>
+  jsonOk(c, await listCatalogModels(c.req.query("provider") ?? "")),
+);
 
 modelRoutes.post("/models", async (c) => {
   const payload = await parseJson(c, modelCreateSchema);

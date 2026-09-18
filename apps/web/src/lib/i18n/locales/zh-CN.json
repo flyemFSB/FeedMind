@@ -293,6 +293,8 @@
     "modelName": "模型名称",
     "baseUrl": "接口地址",
     "noModelsAvailable": "暂无可用模型",
+    "modelCatalogLoading": "正在获取模型列表…",
+    "modelCatalogFailed": "模型列表获取失败，请检查网络后重试",
     "endpointPlaceholderBuiltin": "留空使用官方默认端点"
   },
   "remoteConnection": {
@@ -608,6 +610,7 @@
     "internalError": "操作未完成，请重试；若问题持续，请查看应用日志后反馈",
     "validationFailed": "请求参数校验失败",
     "validationFailedField": "请求参数校验失败：{field}",
+    "modelCatalogUnavailable": "模型列表获取失败，请检查网络后重试",
     "wikiPageNotFound": "页面不存在",
     "wikiPageExists": "同名页面已存在",
     "wikiPageCreateFailed": "页面创建失败，请重试",

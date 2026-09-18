@@ -293,6 +293,8 @@
     "modelName": "Model Name",
     "baseUrl": "Base URL",
     "noModelsAvailable": "No models available",
+    "modelCatalogLoading": "Loading model list…",
+    "modelCatalogFailed": "Failed to load models. Check your network and retry.",
     "endpointPlaceholderBuiltin": "Leave empty to use the official endpoint"
   },
   "remoteConnection": {
@@ -607,6 +609,7 @@
     "internalError": "The operation failed. Please retry; if the issue persists, check the application logs and provide feedback",
     "validationFailed": "Validation failed",
     "validationFailedField": "Validation failed: {field}",
+    "modelCatalogUnavailable": "Failed to load the model list. Check your network and retry.",
     "wikiPageNotFound": "Page not found",
     "wikiPageExists": "A page with the same name already exists",
     "wikiPageCreateFailed": "Failed to create the page. Please retry",

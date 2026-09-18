@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listModels,
+  listModelCatalog,
   createModel,
   updateModel,
   deleteModel,
@@ -31,6 +32,17 @@ export function useModels(type?: string, options?: { enabled?: boolean }) {
 
 export function useSelectedModel(type?: string) {
   return useQuery(modelOptions.selected(type));
+}
+
+/** models.dev 模型目录（选中 provider 时才请求；自定义 provider 由调用方传空串跳过） */
+export function useModelCatalog(provider: string) {
+  return useQuery({
+    queryKey: [...modelOptions.all, "catalog", provider] as const,
+    queryFn: ({ signal }) => listModelCatalog(provider, signal),
+    enabled: Boolean(provider),
+    // 目录一周才更新一次，前端不必频繁回源
+    staleTime: 60 * 60 * 1000,
+  });
 }
 
 export function useCreateModel() {

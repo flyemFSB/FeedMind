@@ -2,11 +2,9 @@ import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import type { LLMModel } from "@/lib/types";
-import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
+import { useCreateModel, useModelCatalog, useUpdateModel } from "@/lib/hooks/use-models";
 import {
-  PROVIDER_MODELS,
   CUSTOM_PROVIDER,
-  lookupModelInfo,
   displayNameToModelId,
   formatModelDisplayName,
   formatKB,
@@ -97,7 +95,9 @@ export function ModelFormDialog({
   const isPending = createMutation.isPending || updateMutation.isPending;
 
   const isCustom = form.provider === CUSTOM_PROVIDER;
-  const modelList = !isCustom ? (PROVIDER_MODELS[form.provider] ?? []) : [];
+  // 内置 provider 的模型清单与上下文/输出上限全部来自 models.dev 目录（后端拉取 + 缓存）
+  const catalogQuery = useModelCatalog(isCustom ? "" : form.provider);
+  const modelList = catalogQuery.data ?? [];
   function handleProviderChange(value: string | null) {
     if (!value) return;
     const isNewCustom = value === CUSTOM_PROVIDER;
@@ -111,15 +111,16 @@ export function ModelFormDialog({
     }));
   }
 
-  function handleModelChange(value: string | null) {
-    if (!value) return;
-    const info = lookupModelInfo(form.provider, value);
+  // 选择项的值是模型调用名（model_id）；上下文/输出上限直接采用目录值
+  function handleModelChange(modelId: string | null) {
+    if (!modelId) return;
+    const entry = modelList.find((m) => m.model_id === modelId);
     setForm((current) => ({
       ...current,
-      modelName: value,
-      modelId: info?.modelId ?? displayNameToModelId(value),
-      context: info?.context ?? "256",
-      maxOutput: info?.maxOutput ?? "64",
+      modelId,
+      modelName: entry?.name ?? formatModelDisplayName(modelId),
+      context: entry?.context_window != null ? String(entry.context_window) : "",
+      maxOutput: entry?.max_output != null ? String(entry.max_output) : "",
     }));
   }
 
@@ -272,7 +273,7 @@ export function ModelFormDialog({
                 className="h-10 rounded-md border-editorial-hairline text-body"
               />
             ) : (
-              <Select value={form.modelName} onValueChange={handleModelChange}>
+              <Select value={form.modelId} onValueChange={handleModelChange}>
                 <SelectTrigger
                   id="model-name-select"
                   aria-label={t("settings.selectModel")}
@@ -282,14 +283,26 @@ export function ModelFormDialog({
                 </SelectTrigger>
                 <SelectContent className="rounded-md border-editorial-hairline">
                   <SelectGroup>
-                    {modelList.length > 0 ? (
+                    {catalogQuery.isPending ? (
+                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
+                        {t("settings.modelCatalogLoading")}
+                      </div>
+                    ) : catalogQuery.isError ? (
+                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
+                        {t("settings.modelCatalogFailed")}
+                      </div>
+                    ) : modelList.length > 0 ? (
                       modelList.map((model) => (
-                        <SelectItem key={model.name} value={model.name}>
+                        <SelectItem key={model.model_id} value={model.model_id}>
                           <span className="flex items-center gap-2">
                             <span className="text-body">{model.name}</span>
                             <span className="flex items-center gap-1">
-                              <ModelSpecBadge label={formatKB(model.context)} />
-                              <ModelSpecBadge label={formatKB(model.maxOutput)} />
+                              {model.context_window != null && (
+                                <ModelSpecBadge label={formatKB(model.context_window)} />
+                              )}
+                              {model.max_output != null && (
+                                <ModelSpecBadge label={formatKB(model.max_output)} />
+                              )}
                             </span>
                           </span>
                         </SelectItem>

@@ -13,6 +13,14 @@ export type ModelResponse = {
   max_output: number | null;
 };
 
+export type ModelCatalogEntry = {
+  model_id: string;
+  name: string;
+  /** K tokens，与 model 表单位一致；models.dev 缺 limit 时为 null */
+  context_window: number | null;
+  max_output: number | null;
+};
+
 export type ModelRuntimeResponse = {
   model_name: string;
   model_id: string | null;
@@ -119,4 +127,16 @@ export async function setSelectedModel(id: string, type?: string): Promise<strin
     body: JSON.stringify({ id: Number(id) }),
   });
   return String(data.id);
+}
+
+/** 拉取 models.dev 模型目录（上下文窗口/最大输出由上游提供，本地不维护模型表） */
+export async function listModelCatalog(
+  provider: string,
+  signal?: AbortSignal,
+): Promise<ModelCatalogEntry[]> {
+  if (!provider) return [];
+  return apiFetch<ModelCatalogEntry[]>(
+    backendApiPath(`/models/catalog?provider=${encodeURIComponent(provider)}`),
+    { signal },
+  );
 }
