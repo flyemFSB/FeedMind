@@ -53,6 +53,10 @@ export default defineConfig({
           testTimeout: 30000,
           // 内存 SQLite + server 生命周期是异步泄漏高发区：泄漏的定时器/句柄直接报失败而非挂起
           detectAsyncLeaks: true,
+          // 集成测试首用例仍可能走 ensureSchema；并行度过高时 Windows I/O  thrash 会把 hook 顶超时
+          maxWorkers: 2,
+          // maxWorkers 与其他 project 不同时必须给出独立 groupOrder（vitest 4 约束）
+          sequence: { groupOrder: 10 },
         },
       },
       {
@@ -63,6 +67,13 @@ export default defineConfig({
         },
         // 别名由 apps/web/tsconfig.json paths 原生解析，无需手动维护 alias
         resolve: { tsconfigPaths: true },
+      },
+      {
+        test: {
+          name: "desktop",
+          root: `${root}/apps/desktop`,
+          include: ["src/**/*.test.ts"],
+        },
       },
     ],
   },

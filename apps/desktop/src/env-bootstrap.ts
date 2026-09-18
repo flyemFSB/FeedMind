@@ -11,21 +11,10 @@ try {
   // 忽略低版本或不支持的环境
 }
 
+import { parseCdpPort, resolveDesktopDataDir } from "./bootstrap-utils.js";
+
 // 设置标准应用名称，规范化 Electron userData 存储路径为 %APPDATA%/FeedMind
 app.setName("FeedMind");
-
-const DEFAULT_CDP_PORT = 9333;
-
-function getCdpPort(): number {
-  const envPort = process.env["CDP_PORT"];
-  if (envPort) {
-    const parsed = Number.parseInt(envPort, 10);
-    if (!Number.isNaN(parsed) && parsed > 0 && parsed <= 65535) {
-      return parsed;
-    }
-  }
-  return DEFAULT_CDP_PORT;
-}
 
 // 生产模式加载 resources/.env；开发模式加载仓库根目录 .env
 const envPath = app.isPackaged
@@ -39,11 +28,12 @@ try {
 
 // 生产打包或未显式指定数据目录时，默认绑定系统用户数据目录（%APPDATA%\FeedMind\data）
 // 彻底解耦只读 asar 归档与可写数据库/Wiki/日志文件系统
-const dataDir =
-  process.env["DATA_DIR"] ??
-  (app.isPackaged
-    ? path.join(app.getPath("userData"), "data")
-    : path.resolve(app.getAppPath(), "../../data"));
+const dataDir = resolveDesktopDataDir({
+  isPackaged: app.isPackaged,
+  userDataPath: app.getPath("userData"),
+  appPath: app.getAppPath(),
+  envDataDir: process.env["DATA_DIR"],
+});
 process.env["DATA_DIR"] = dataDir;
 process.env["DATABASE_PATH"] = process.env["DATABASE_PATH"] ?? path.join(dataDir, "feedmind.db");
 process.env["WIKI_DIR"] = process.env["WIKI_DIR"] ?? path.join(dataDir, "wiki");
@@ -87,7 +77,7 @@ if (!app.isPackaged && !process.env["VITE_DEV_SERVER_URL"]) {
   process.env["VITE_DEV_SERVER_URL"] = "http://127.0.0.1:13790";
 }
 
-const cdpPort = getCdpPort();
+const cdpPort = parseCdpPort(process.env["CDP_PORT"]);
 app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
 app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
 
@@ -101,7 +91,7 @@ app.commandLine.appendSwitch("js-flags", "--expose-gc");
 // 默认启用 GPU 合成：禁用硬件加速后 backdrop-filter（弹窗遮罩 blur）与 sigma WebGL 图
 // 全部走 SwiftShader 软件光栅化，弹窗动画掉到 15-20 FPS（electron#29420 实证），
 // 与内存收益不成比例（业界 VS Code/Slack 均保留硬件合成）。
-// 内存收敛靠以下两项，而不是砍 GPU：
+// 内存占用控制依赖以下两项优化，而非直接禁用 GPU：
 //  1) 不启用 CanvasOopRasterization——画布/滚动光栅化留在渲染进程，避免 GPU 进程涨回 ~145MB
 //  2) 禁用 2D canvas 硬件加速——项目无重 2D canvas 负载（仅 1px 颜色解析），省 GPU 进程纹理
 // 极端环境（驱动异常/远程桌面）可用 FEEDMIND_DISABLE_GPU=1 回退到纯软件渲染。

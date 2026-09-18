@@ -10,7 +10,7 @@
     "lint": "pnpm -r lint",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "test": "pnpm -r test",
+    "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck",

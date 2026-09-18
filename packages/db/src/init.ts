@@ -80,11 +80,8 @@ const SEED_TOOLS = [
   },
 ];
 
-export async function initDatabase(): Promise<void> {
-  await initDbPragmas();
-  // 幂等建表（开发期改结构请 db:reset / 删库，不跑迁移）
-  await ensureSchema(client);
-
+/** 幂等种子数据（tools / runtime_config）；可与 ensureSchema 拆开调用 */
+export async function seedDatabase(): Promise<void> {
   for (const tool of SEED_TOOLS) {
     await client.execute({
       sql: `insert or ignore into tools (name, category, display_name, description, config_fields, is_enabled, sort_order) values (?, ?, ?, ?, ?, ?, ?)`,
@@ -112,7 +109,14 @@ export async function initDatabase(): Promise<void> {
     });
   }
 
-  dbLogger.info("数据库种子数据初始化完成");
+  dbLogger.info("数据库初始种子数据写入完成");
+}
+
+export async function initDatabase(): Promise<void> {
+  await initDbPragmas();
+  // 幂等建表（开发期改结构请 db:reset / 删库，不跑迁移）
+  await ensureSchema(client);
+  await seedDatabase();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

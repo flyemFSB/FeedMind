@@ -1,15 +1,21 @@
-﻿import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiTestContext, type ApiTestContext } from "../../test-utils.js";
-import { resolveModelClient, clearModelClientCache } from "../../modules/models/model-cache.js";
+import type {
+  resolveModelClient as ResolveModelClientType,
+  clearModelClientCache as ClearModelClientCacheType,
+} from "../../modules/models/model-cache.js";
 
 describe("Models API 集成测试", () => {
   let ctx: ApiTestContext;
+  let resolveModelClient: typeof ResolveModelClientType;
+  let clearModelClientCache: typeof ClearModelClientCacheType;
 
   beforeEach(async () => {
     vi.resetModules();
     ctx = await createApiTestContext();
-    // 缓存 key 是模型数字 id，而每个用例的新内存库 id 都从 1 重来——
-    // resetModules 不重建测试文件静态 import 的实例，需显式清缓存防串味
+    const modelCache = await import("../../modules/models/model-cache.js");
+    resolveModelClient = modelCache.resolveModelClient;
+    clearModelClientCache = modelCache.clearModelClientCache;
     clearModelClientCache();
   });
 
@@ -50,7 +56,7 @@ describe("Models API 集成测试", () => {
   it("POST /api/v1/models 缺少必填字段返回 422 VALIDATION_ERROR", async () => {
     const invalidPayload = {
       type: "chat",
-      // missing provider and model_name
+      // 故意缺失必填字段 provider 与 model_name
     };
 
     const res = await ctx.request("/api/v1/models", {

@@ -9,7 +9,7 @@ import { findRepoRoot } from "./repo-root.ts";
 
 function resolveDbPath(): string {
   const envPath = process.env["DATABASE_PATH"];
-  if (envPath && isAbsolute(envPath)) return envPath;
+  if (envPath && (envPath === ":memory:" || isAbsolute(envPath))) return envPath;
   // 未显式指定时锚定仓库根而非 process.cwd()（cwd 不同会读错库）
   const dataDir = process.env["DATA_DIR"] ?? join(findRepoRoot(import.meta.dirname), "data");
   return resolve(dataDir, "feedmind.db");
@@ -25,14 +25,20 @@ export function getRawClient(): Client {
     if (_rawClient && !_rawClient.closed) {
       _rawClient.close();
     }
-    try {
-      mkdirSync(dirname(currentPath), { recursive: true });
-    } catch {
-      // 目录存在或只读按需忽略
+    if (currentPath === ":memory:") {
+      _rawClient = createClient({
+        url: "file::memory:?cache=shared",
+      });
+    } else {
+      try {
+        mkdirSync(dirname(currentPath), { recursive: true });
+      } catch {
+        // 目录存在或只读按需忽略
+      }
+      _rawClient = createClient({
+        url: `file:${currentPath.replace(/\\/g, "/")}`,
+      });
     }
-    _rawClient = createClient({
-      url: `file:${currentPath.replace(/\\/g, "/")}`,
-    });
     _activeDbPath = currentPath;
     _rawDb = drizzle(_rawClient, { schema });
   }
@@ -67,7 +73,7 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
 // SQLite 运行参数（连接级，进程内生效）：
 // - journal_mode=WAL：读写并发不互斥（FTS 批量重建与业务读请求并行），写入更快
 // - synchronous=NORMAL：WAL 模式下崩溃安全（最多丢最近事务），日常写入大幅减 fsync
-// - cache_size=-8000：页缓存上限 8MB，防大查询（FTS 重建/图遍历）撑爆内存
+// - cache_size=-8000：页缓存上限设为 8MB，防止大查询（FTS 全文索引重建或知识图谱遍历）导致内存激增
 // - foreign_keys=ON：SQLite 默认关闭外键；不打开则 REFERENCES 只是注释
 // 幂等，可在任意时机重复调用。
 export async function initDbPragmas(): Promise<void> {
@@ -84,7 +90,7 @@ export async function checkDbConnection(): Promise<boolean> {
     await c.execute("select 1");
     return true;
   } catch (error) {
-    dbLogger.error({ err: error }, "数据库连接检查失败");
+    dbLogger.error({ err: error }, "数据库连接健康检查失败");
     return false;
   }
 }
