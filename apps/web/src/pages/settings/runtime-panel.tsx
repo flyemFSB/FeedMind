@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
@@ -84,16 +84,15 @@ export function RuntimePanel() {
     }
   }, [wikiConfig]);
 
-  function persistField(key: "temperature" | "top_p" | "system_prompt", value: number | string) {
-    const payload: RuntimeConfigUpdate = { [key]: value };
-    updateConfig.mutate({ runtime: innerTab, ...payload });
-  }
-
-  const debouncedPersistField = useDebounce(
-    (key: "temperature" | "top_p" | "system_prompt", value: number | string) =>
-      persistField(key, value),
-    600,
+  const persistField = useCallback(
+    (key: "temperature" | "top_p" | "system_prompt", value: number | string) => {
+      const payload: RuntimeConfigUpdate = { [key]: value };
+      updateConfig.mutate({ runtime: innerTab, ...payload });
+    },
+    [innerTab, updateConfig],
   );
+
+  const debouncedPersistField = useDebounce(persistField, 600);
 
   function handleSessionFieldChange<K extends keyof ConfigFormFields>(
     key: K,
@@ -280,7 +279,7 @@ export function RuntimePanel() {
   );
 }
 
-// ─── Session Model Selector ─────────────────────────────────────────
+// ─── 对话模型选择器 ─────────────────────────────────────────
 
 function SessionModelSelectorSection() {
   const { t } = useTranslation();
@@ -295,7 +294,7 @@ function SessionModelSelectorSection() {
   );
 }
 
-// ─── Wiki Model Selector ────────────────────────────────────────────
+// ─── Wiki 知识库模型选择器 ────────────────────────────────────
 
 function WikiModelSelectorSection({
   models,
