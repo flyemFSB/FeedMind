@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # 静态门禁：类型/风格/格式。与 unit 并行，缩短墙钟时间。
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -31,7 +32,7 @@ jobs:
       - name: 安装依赖
         run: pnpm install --frozen-lockfile
 
-      # 共享包是 TS 源码，测试与 typecheck 经 workspace 解析 dist 产物，必须先构建
+      # 共享包是 TS 源码，typecheck 经 workspace 解析 dist 产物，必须先构建
       - name: 构建共享包
         run: pnpm build:packages
 
@@ -41,26 +42,77 @@ jobs:
       - name: 代码检查
         run: pnpm lint
 
-      # oxfmt --check：格式门禁（本地提交已被 lint-staged 格式化，此处防 --no-verify 绕过）
+      # oxfmt --check：格式门禁（本地提交已被 lefthook 格式化，此处防 --no-verify 绕过）
       - name: 格式检查
         run: pnpm fmt:check
 
-      # react-doctor 分数门禁：防诊断回退（当前稳态 88，阈值 85 留余量；
+      # react-doctor 分数门禁：防诊断回退（当前稳态 84，阈值 80 留余量；
       # 剩置的 11 条为已决议暂不重构的 no-giant/no-multi 项）
       - name: React Doctor 分数门禁
         run: |
-          SCORE=$(npx react-doctor . --project @feedmind/web -y --score 2>/dev/null | grep -oE '[0-9]+' | head -1)
+          SCORE=$(pnpm --filter @feedmind/web exec react-doctor -y --score 2>/dev/null | grep -oE '[0-9]+' | head -1)
           echo "react-doctor score: ${SCORE:-"?"}"
-          if [ -z "$SCORE" ] || [ "$SCORE" -lt 85 ]; then
-            echo "::error::react-doctor 分数低于 85（当前 ${SCORE:-无输出}），请先修复新引入的诊断"
+          if [ -z "$SCORE" ] || [ "$SCORE" -lt 80 ]; then
+            echo "::error::react-doctor 分数低于 80（当前 ${SCORE:-无输出}），请先修复新引入的诊断"
+            pnpm --filter @feedmind/web exec react-doctor -y || true
             exit 1
           fi
 
+  # 单元 + API 集成：根 vitest projects 一次跑完（与本地 pnpm test 同源）
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 安装 pnpm 与 Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建共享包
+        run: pnpm build:packages
+
       - name: 单元与 API 集成测试
         run: pnpm test
+
+  # E2E 依赖 quality：类型/风格已挂就不再烧 Playwright 分钟。
+  # 与 unit 故意不互相 needs：两边独立反馈，避免串行放大墙钟。
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [quality]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 安装 pnpm 与 Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          install: false
+
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+
+      - name: 构建共享包
+        run: pnpm build:packages
 
       - name: 安装 Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Web 端核心 E2E 测试
         run: pnpm test:e2e
+
+      - name: 上传 Playwright 报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

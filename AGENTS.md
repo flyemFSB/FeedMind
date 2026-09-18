@@ -18,7 +18,8 @@ pnpm run typecheck             # 全仓库 TypeScript 类型检查
 pnpm run lint                  # 全仓库 oxlint 检查
 pnpm run fmt                   # 全仓库 oxfmt 格式化（写入）
 pnpm run fmt:check             # oxfmt 格式校验（不写入，CI/门禁用）
-pnpm run test                  # 运行所有测试（vitest）
+pnpm run test                  # 全仓库 vitest projects 一次跑完
+pnpm run test:coverage         # 同上并输出 coverage（本地用；CI 不设全局阈值）
 pnpm run db:push               # drizzle-kit push 同步 schema（改 schema 后执行）
 pnpm run db:init               # 写入种子数据（工具配置、默认运行配置）
 pnpm run db:reset              # 重置数据库
@@ -61,7 +62,7 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 - 约定式提交（`feat`/`fix`/`chore`/`docs`/`refactor`/`test`/`style`/`perf`，格式 `type(scope): 中文描述`）。
 - lefthook pre-commit 串行跑 `oxlint --fix`（自动修复 JS/TS）+ `oxfmt`（格式化所有暂存文件），`stage_fixed` 把修复写回暂存区；commit-msg 跑 `commitlint`。钩子装到 .git/hooks，pnpm install 自动生效。
 - 推送前运行 `pnpm run typecheck && pnpm run lint`。
-- **CI 门禁**：push/PR 到 `master` 时 GitHub Actions 自动执行 install → build:packages → typecheck → lint → fmt:check → test；CI 失败即阻塞合并，推送前本地先跑相同序列。
+- **CI 门禁**：push/PR 到 `master` 时 GitHub Actions 并行跑 quality（typecheck/lint/fmt/react-doctor）与 unit（`pnpm test`）；e2e 依赖 quality 通过后再跑。CI 失败即阻塞合并，推送前本地先跑相同命令。
 
 ### 分支与版本
 
@@ -97,9 +98,11 @@ pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790
 
 ### 测试
 
-- 集成测试使用内存 SQLite，避免外部依赖。
+- 集成测试使用内存/临时 SQLite，避免外部依赖；API 集成经 `createApiTestContext`（首用例 ensureSchema，之后进程内回放 DDL）。
+- 根入口 `pnpm test` = `vitest run`（root projects）；包级 `pnpm --filter <pkg> test` 仅用于局部调试。
 - 时间/随机相关用 `vi.setSystemTime` 等冻结；每个测试独立，杜绝 flaky。
 - 修复必带回归测试；涉及前置状态转换的测试先断言该状态，防止假阳性。
+- Coverage 本地 `pnpm test:coverage` 可用；不设全局阈值（虚荣指标），若加门禁只覆盖纯逻辑目录。
 
 ### 实施流程
 
