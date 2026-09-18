@@ -3,6 +3,8 @@ export * from "./frontmatter.js";
 export * from "./links.js";
 export * from "./ingest-queue.js";
 export * from "./ingest-cache.js";
+export * from "./ingest-retract.js";
+export * from "./dedup.js";
 export * from "./graph.js";
 export * from "./graph-insights.js";
 export * from "./search.js";

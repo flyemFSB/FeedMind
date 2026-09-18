@@ -1,5 +1,6 @@
 /** OKF 生成提示词。存储层只接受标准 Concept 文档，不接受自定义文件块协议。 */
 
+import type { ConceptHandle } from "@feedmind/wiki-core";
 import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
 
 export function buildSystemPrompt(purpose: string, schema: string): string {
@@ -47,16 +48,33 @@ ${sourceContent}
 Focus on durable, source-backed knowledge. Do not create trivial or speculative concepts.`;
 }
 
-export function buildGenerationPrompt(
-  analysis: string,
-  existingConceptIds: string[],
-  sourceIdentity: string,
-): string {
-  const concepts = existingConceptIds.length > 0 ? existingConceptIds.join(", ") : "(empty bundle)";
+export function buildGenerationPrompt(options: {
+  analysis: string;
+  sourceIdentity: string;
+  handleTable: ConceptHandle[];
+  mergeHints: string[];
+}): string {
+  const { analysis, sourceIdentity, handleTable, mergeHints } = options;
+  // 句柄表：模型只操作 ref-N，系统在落盘前翻译回真实路径——防止长路径/中文 ID 被抄错
+  const handles =
+    handleTable.length > 0
+      ? handleTable
+          .map(
+            (h) =>
+              `${h.ref} = ${h.id} — ${h.title} — ${h.type} — ${h.description || "(no description)"}`,
+          )
+          .join("\n")
+      : "(empty bundle)";
+  const hints =
+    mergeHints.length > 0 ? mergeHints.join("\n") : "(no analysis items; create as needed)";
   return `Generate OKF v0.2 Concept documents from the analysis below.
 
-## Existing concept IDs
-${concepts}
+## Existing concepts (handles)
+Each line maps a short handle to a real concept. Use the handle in "path" and in content links — the system translates handles to real paths.
+${handles}
+
+## Dedup guidance (from analysis)
+${hints}
 
 ## Source identity
 ${sourceIdentity}
@@ -78,19 +96,20 @@ ${analysis}
           { "id": "src", "resource": "${sourceIdentity}", "title": "导入的源文档" }
         ]
       },
-      "content": "Markdown body with standard links such as [Concept](/concepts/concept.md) and per-claim footnotes such as [^src]."
+      "content": "Markdown body with standard links such as [Concept](ref-1) and per-claim footnotes such as [^src]."
     }
   ]
 }
 
 Rules:
-1. Paths are relative to the OKF bundle root and must end in .md.
-2. Do not generate index.md or log.md; the application maintains them.
-3. Every frontmatter object must contain a non-empty type.
-4. Create a reference document for the source and only substantive entity/concept documents.
-5. Link to existing concepts by their exact concept ID with normal Markdown links.
-6. List derivation sources in the frontmatter sources field and cite per-claim with markdown footnotes keyed to a sources[].id (for example [^policy]); do not emit a # Citations section.
-7. Do not wrap the JSON in a Markdown code fence.
-8. Titles and body content must be written in Chinese except for proper nouns or English-first terms; when English is used, add a parenthetical Chinese translation.
-9. Every frontmatter type must be one of: ${WIKI_CONCEPT_TYPES.join(", ")}. Choose the knowledge form that best matches the concept; fall back to Concept when unsure.`;
+1. To UPDATE an existing concept, set "path" to its handle (e.g. "ref-1"). Do not invent a new path for it.
+2. To CREATE a new concept, set "path" to a new relative path like "concepts/foo.md" (must end in .md).
+3. In content, link to existing concepts as [标题](ref-1). Do not write full concept IDs in links.
+4. Do not generate index.md or log.md; the application maintains them.
+5. Every frontmatter object must contain a non-empty type.
+6. Create a reference document for the source and only substantive entity/concept documents.
+7. List derivation sources in the frontmatter sources field and cite per-claim with markdown footnotes keyed to a sources[].id (for example [^policy]); do not emit a # Citations section.
+8. Do not wrap the JSON in a Markdown code fence.
+9. Titles and body content must be written in Chinese except for proper nouns or English-first terms; when English is used, add a parenthetical Chinese translation.
+10. Every frontmatter type must be one of: ${WIKI_CONCEPT_TYPES.join(", ")}. Choose the knowledge form that best matches the concept; fall back to Concept when unsure.`;
 }

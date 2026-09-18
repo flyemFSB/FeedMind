@@ -2,20 +2,32 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   buildConceptContent,
+  buildHandleTable,
   checkCache,
+  computeRetractAction,
   conceptIdFromPath,
+  decodeHandleLinks,
   dumpCache,
   extractSources,
   extractString,
   formatConceptLink,
+  formatFrontmatter,
+  isSystemWikiPath,
   loadCache,
   mergeConceptContent,
   normalizeConceptPath,
   parseFrontmatter,
   removeFromCache,
+  resolveDedupTargets,
+  resolveHandlePath,
   saveCache,
 } from "@feedmind/wiki-core";
-import type { IngestCacheEntry } from "@feedmind/wiki-core";
+import type {
+  ConceptHandle,
+  DedupTarget,
+  ExistingPageMeta,
+  IngestCacheEntry,
+} from "@feedmind/wiki-core";
 import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
 import { buildAnalysisPrompt, buildGenerationPrompt, buildSystemPrompt } from "./ingest-prompts.js";
 import {
@@ -26,6 +38,7 @@ import {
   nowISO,
   readDirRecursive,
   sha256,
+  safeUnlink,
   safeWriteFile,
   isSystemFile,
 } from "../space-fs/index.js";
@@ -46,7 +59,7 @@ interface SpaceContext {
   purpose: string;
   schema: string;
   index: string;
-  existingConceptIds: string[];
+  existingPages: ExistingPageMeta[];
 }
 
 interface AnalysisResult {
@@ -223,7 +236,7 @@ function ensureNotCancelled(shouldCancel?: () => boolean): void {
 function readSpaceContext(spaceId: string): SpaceContext {
   const spaceDir = getSpaceDir(spaceId);
   const wikiDir = getWikiDir(spaceId);
-  const pages: Array<{ id: string; title: string; description: string }> = [];
+  const pages: ExistingPageMeta[] = [];
   const files = readDirRecursive(
     wikiDir,
     (_filePath, name) => name.toLowerCase().endsWith(".md") && !isSystemFile(name),
@@ -237,6 +250,7 @@ function readSpaceContext(spaceId: string): SpaceContext {
       id: conceptId,
       title: extractString(frontmatter, "title") ?? conceptId,
       description: extractString(frontmatter, "description") ?? "",
+      type: extractString(frontmatter, "type") ?? "Reference",
     });
   }
 
@@ -259,7 +273,7 @@ function readSpaceContext(spaceId: string): SpaceContext {
     purpose: typeof metadata["purpose"] === "string" ? metadata["purpose"] : "",
     schema: typeof metadata["schema"] === "string" ? metadata["schema"] : "",
     index,
-    existingConceptIds: pages.map((page) => page.id),
+    existingPages: pages,
   };
 }
 
@@ -341,20 +355,27 @@ async function stage2Generation(
   context: SpaceContext,
   sourceIdentity: string,
   llmClient: LlmClient,
+  handleTable: ConceptHandle[],
+  mergeHints: string[],
 ): Promise<string> {
   return llmClient.chat(
     [
       { role: "system", content: buildSystemPrompt(context.purpose, context.schema) },
       {
         role: "user",
-        content: buildGenerationPrompt(analysis, context.existingConceptIds, sourceIdentity),
+        content: buildGenerationPrompt({
+          analysis,
+          sourceIdentity,
+          handleTable,
+          mergeHints,
+        }),
       },
     ],
     { responseFormat: "json", maxTokens: 8192 },
   );
 }
 
-function parseGeneratedDocuments(raw: string): GeneratedDocument[] {
+function parseGeneratedDocuments(raw: string, handleTable: ConceptHandle[]): GeneratedDocument[] {
   const parsed = parseJsonSafe<{ documents?: unknown }>(raw);
   if (!Array.isArray(parsed.documents)) throw new Error("LLM 未返回 documents 数组");
 
@@ -364,7 +385,9 @@ function parseGeneratedDocuments(raw: string): GeneratedDocument[] {
     // 单个文档损坏即整体失败：静默跳过会让知识包缺页而导入仍报成功
     if (!item || typeof item !== "object") throw new Error(`第 ${index + 1} 个 Concept 不是对象`);
     const document = item as Record<string, unknown>;
-    const documentPath = normalizeConceptPath(String(document["path"] ?? ""));
+    // 先解句柄再校验路径：模型可输出 "ref-1" 或 "ref-1.md"，normalizeConceptPath 只接受真实 .md 路径
+    const rawPath = String(document["path"] ?? "");
+    const documentPath = normalizeConceptPath(resolveHandlePath(rawPath, handleTable));
     const frontmatter = document["frontmatter"];
     if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
       throw new Error(`Concept ${documentPath} 缺少 frontmatter 对象`);
@@ -374,7 +397,7 @@ function parseGeneratedDocuments(raw: string): GeneratedDocument[] {
     results.push({
       path: documentPath,
       frontmatter: frontmatter as Record<string, unknown>,
-      content,
+      content: decodeHandleLinks(content, handleTable),
     });
   }
   return results;
@@ -450,6 +473,61 @@ function ensureParent(filePath: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 }
 
+/** 把 resolveDedupTargets 结果渲染成 generation prompt 的指导行。 */
+function renderMergeHints(targets: DedupTarget[], handleTable: ConceptHandle[]): string[] {
+  const handleOf = (id: string) => handleTable.find((h) => h.id === id)?.ref ?? id;
+  return targets.map((t) => {
+    if (t.boundId) {
+      return `- "${t.name}" → update existing ${handleOf(t.boundId)} (${t.boundId}). Do NOT create a new concept for it.`;
+    }
+    if (t.candidates.length > 0) {
+      const list = t.candidates.map((c) => `${handleOf(c.id)} (${c.id})`).join(", ");
+      return `- "${t.name}" → possible match: ${list}. Update the best match if same thing; otherwise create new.`;
+    }
+    return `- "${t.name}" → no close match. Create a new concept.`;
+  });
+}
+
+/**
+ * 源内容变更时先撤回上次导入产物：仅本 source 贡献的文件删除（留 history），
+ * 多源页只剥 source。系统文件不碰。
+ */
+function retractPreviousIngest(
+  spaceId: string,
+  sourceIdentity: string,
+  previousFiles: string[],
+): { removed: number; updated: number } {
+  const wikiDir = getWikiDir(spaceId);
+  let removed = 0;
+  let updated = 0;
+
+  for (const rel of previousFiles) {
+    if (isSystemWikiPath(rel)) continue;
+    const filePath = path.join(wikiDir, rel);
+    if (!fs.existsSync(filePath)) continue;
+
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const { frontmatter, body } = parseFrontmatter(content);
+      const action = computeRetractAction(extractSources(frontmatter), sourceIdentity);
+
+      if (action.kind === "skip") continue;
+      if (action.kind === "delete") {
+        writePageHistory(spaceId, rel, content);
+        safeUnlink(filePath);
+        removed++;
+        continue;
+      }
+      frontmatter["sources"] = action.sources;
+      safeWriteFile(filePath, formatFrontmatter(frontmatter) + "\n" + body);
+      updated++;
+    } catch {
+      // 单文件失败不阻塞整次 retract
+    }
+  }
+  return { removed, updated };
+}
+
 export function extractIdentity(sourcePath: string): string {
   const normalized = sourcePath.replace(/\\/g, "/");
   return normalized.split("/").at(-1) ?? normalized;
@@ -497,18 +575,34 @@ export async function runIngest(
       return { pagesCreated: 0, pagesUpdated: 0, warnings: [], log, writtenFiles: cachedFiles };
     }
 
+    // 源内容变更：先撤回上次导入产物，避免孤儿残留与 body 膨胀（replace-not-append）
+    const previous = cache.get(sourceIdentity);
+    if (previous && previous.sourceHash !== source.hash) {
+      report("源文件已变更，正在撤回上次导入产物...", 1);
+      const { removed, updated } = retractPreviousIngest(
+        spaceId,
+        sourceIdentity,
+        previous.filesWritten,
+      );
+      logger.info({ spaceId, sourceIdentity, removed, updated }, "撤回上次导入产物完成");
+      log.push(`已撤回上次导入：删除 ${removed} 个概念，更新 ${updated} 个概念。`);
+      removeFromCache(cache, sourceIdentity);
+      writeIngestCache(spaceId, cache);
+    }
+
     const runtime = await getRuntimeConfig("wiki");
     // 与 chat 共用模型解析与 max_tokens 语义
     const resolved = await resolveModelClient(Number(runtime.llm_id));
     const llmClient: LlmClient = new AiSdkLlmClient(
       resolved.client,
-      resolved.modelName,
+      resolved.modelApiId,
       parseTokenCount(resolved.maxOutput),
     );
-    logger.info({ model: runtime.model_id || runtime.model_name }, "OKF 导入开始");
+    logger.info({ model: runtime.model_id || runtime.model_name }, "开始执行 OKF 知识库导入");
 
+    // 注意：retract 后 context 必须重读，existingPages 不能含已删除文件
     const context = readSpaceContext(spaceId);
-    log.push(`OKF bundle 当前包含 ${context.existingConceptIds.length} 个 Concept`);
+    log.push(`OKF bundle 当前包含 ${context.existingPages.length} 个 Concept`);
 
     const analysis = await analyzeSource(
       source.content,
@@ -523,16 +617,27 @@ export async function runIngest(
 
     ensureNotCancelled(shouldCancel);
     report("正在生成 OKF Concept...", 3);
+    const handleTable = buildHandleTable(context.existingPages);
+    const dedupTargets = resolveDedupTargets(
+      [
+        ...analysis.keyEntities.map((e) => ({ name: e.name })),
+        ...analysis.keyConcepts.map((c) => ({ name: c.name })),
+      ],
+      context.existingPages,
+    );
+    const mergeHints = renderMergeHints(dedupTargets, handleTable);
     const generated = await stage2Generation(
       JSON.stringify(analysis, null, 2),
       context,
       sourceIdentity,
       llmClient,
+      handleTable,
+      mergeHints,
     );
 
     let documents: GeneratedDocument[];
     try {
-      documents = parseGeneratedDocuments(generated);
+      documents = parseGeneratedDocuments(generated, handleTable);
     } catch (err) {
       throw new Error(
         `OKF Concept JSON 解析失败: ${err instanceof Error ? err.message : String(err)}`,
@@ -543,7 +648,7 @@ export async function runIngest(
     }
     if (documents.length === 0) {
       // 区分“源内容为空”与“LLM 生成失败”，记录告警避免静默吞掉异常结果
-      logger.warn({ spaceId, sourceIdentity }, "大模型未生成有效的 OKF 概念页面，导入结果为空");
+      logger.warn({ spaceId, sourceIdentity }, "大模型未提取出有效概念页面，导入结果为空");
       warnings.push("大模型未生成有效的 OKF 概念页面");
       return { pagesCreated: 0, pagesUpdated: 0, warnings, log, writtenFiles: [] };
     }
@@ -569,7 +674,7 @@ export async function runIngest(
     report("OKF 导入完成", 5);
     logger.info(
       { spaceId, pagesCreated: created.length, pagesUpdated: updated.length },
-      "OKF 导入完成",
+      "OKF 概念页面导入完成",
     );
     return {
       pagesCreated: created.length,
