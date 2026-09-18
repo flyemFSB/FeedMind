@@ -68,13 +68,6 @@ export async function listToolsRuntime(): Promise<ToolRead[]> {
   return rows.map(decryptRow);
 }
 
-export async function getTool(name: string): Promise<ToolRead> {
-  const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-  if (!row)
-    throw new HttpError(404, "HTTP_ERROR", "工具不存在", {}, { i18nKey: "apiError.toolNotFound" });
-  return maskSensitiveFields(row);
-}
-
 export async function getToolRuntime(name: string): Promise<{ config: Record<string, unknown> }> {
   const [row] = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
   if (!row)

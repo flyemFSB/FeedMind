@@ -10,7 +10,7 @@ import { serve } from "@hono/node-server";
 import { MastraServer } from "@mastra/hono";
 import { initDatabase, initDbPragmas } from "@feedmind/db";
 import { createApp } from "./app.js";
-import { apiEnv, validateApiRuntime } from "./env.js";
+import { apiEnv } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest/ingest-worker.js";
 import { startDailyReportScheduler } from "./modules/daily-report/schedule-sync.js";
 import { setMastra } from "./mastra/holder.js";
@@ -27,9 +27,7 @@ export interface StartApiOptions {
  * 同时供 CLI 入口（apps/api/src/server.ts）与 Electron 主进程复用。
  */
 export async function startApi(options: StartApiOptions = {}): Promise<ServerType> {
-  validateApiRuntime();
-
-  // 先切 WAL/同步级别再建表写种子
+  // createApp 内已做 validateApiRuntime；此处仅保证 DB 初始化前 env 已解析
   await initDbPragmas();
   await initDatabase();
 

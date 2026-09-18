@@ -9,8 +9,4 @@ export const skillReadSchema = z.object({
   size: z.number().int(),
 });
 
-export const skillListSchema = z.object({
-  items: z.array(skillReadSchema),
-});
-
 export type SkillRead = z.infer<typeof skillReadSchema>;

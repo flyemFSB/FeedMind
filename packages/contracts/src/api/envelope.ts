@@ -20,10 +20,3 @@ export type ApiEnvelope<T> = {
   data: T | null;
   error?: ApiError | null;
 };
-
-export function apiEnvelopeSchema<T extends z.ZodType>(dataSchema: T) {
-  return z.object({
-    data: dataSchema.nullable(),
-    error: apiErrorSchema.nullable().optional(),
-  });
-}

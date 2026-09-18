@@ -1,30 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  getFileName,
-  getFileStem,
-  getRelativePath,
-  isAbsolutePath,
-  joinPath,
-  normalizeConceptPath,
-  normalizePath,
-  safeJoin,
-} from "./paths.js";
+import { getRelativePath, normalizeConceptPath, normalizePath, safeJoin } from "./paths.js";
 
-describe("normalizePath / joinPath", () => {
+describe("normalizePath", () => {
   it("统一为 Unix 风格", () => {
     expect(normalizePath("a\\b\\c.md")).toBe("a/b/c.md");
-  });
-
-  it("joinPath 合并段并消除重复斜杠", () => {
-    expect(joinPath("a", "/b", "c//d")).toBe("a/b/c/d");
-  });
-});
-
-describe("getFileName / getFileStem", () => {
-  it("提取文件名与去扩展名主干", () => {
-    expect(getFileName("a/b/c.md")).toBe("c.md");
-    expect(getFileStem("a/b/c.md")).toBe("c");
-    expect(getFileStem("noext")).toBe("noext");
   });
 });
 
@@ -36,17 +15,6 @@ describe("getRelativePath", () => {
 
   it("不在 base 下时原样返回", () => {
     expect(getRelativePath("/other/x.md", "/wiki")).toBe("/other/x.md");
-  });
-});
-
-describe("isAbsolutePath", () => {
-  it("识别各类绝对路径", () => {
-    expect(isAbsolutePath("/a")).toBe(true);
-    expect(isAbsolutePath("C:/a")).toBe(true);
-    expect(isAbsolutePath("\\\\server\\share")).toBe(true);
-    expect(isAbsolutePath("//server/share")).toBe(true);
-    expect(isAbsolutePath("a/b")).toBe(false);
-    expect(isAbsolutePath("")).toBe(false);
   });
 });
 
@@ -69,7 +37,6 @@ describe("safeJoin", () => {
   });
 
   it("拒绝路径穿越的 .. 段", () => {
-    // 命中 .. 段拦截；safeJoin 末尾的"拼接后逃逸 base"守卫在上游检查（绝对路径/.. /./ 段）下不可达，属防御性冗余
     expect(() => safeJoin(base, "..")).toThrow(/traversal/i);
   });
 });

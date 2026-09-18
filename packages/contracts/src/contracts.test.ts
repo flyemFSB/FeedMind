@@ -1,27 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { apiEnvelopeSchema } from "./api/envelope.js";
 import { taskCreateSchema, taskListItemSchema, taskReadSchema } from "./crawler/index.js";
-import { feedBatchSchema } from "./feeds/index.js";
 import { modelCreateSchema, modelReadSchema, modelUpdateSchema } from "./models/index.js";
-
-describe("apiEnvelopeSchema", () => {
-  const schema = apiEnvelopeSchema(taskCreateSchema);
-
-  it("data 可为 null，error 可缺省", () => {
-    expect(schema.safeParse({ data: null }).success).toBe(true);
-    expect(schema.safeParse({ data: { route: "x", params: {} }, error: null }).success).toBe(true);
-  });
-
-  it("data 不匹配 schema 时拒绝", () => {
-    expect(schema.safeParse({ data: { params: {} } }).success).toBe(false);
-  });
-
-  it("error.details 缺省为空对象", () => {
-    const result = schema.safeParse({ data: null, error: { code: "E1", message: "m" } });
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.error?.details).toEqual({});
-  });
-});
 
 describe("taskCreateSchema", () => {
   it("max_items 缺省为 50，接受正整数值", () => {
@@ -117,17 +96,5 @@ describe("modelCreateSchema / modelUpdateSchema / modelReadSchema", () => {
       expect("api_key" in result.data).toBe(false);
       expect(result.data.is_selected).toBe(false);
     }
-  });
-});
-
-describe("feedBatchSchema", () => {
-  it("条目字段均可选，guid 必填", () => {
-    const ok = feedBatchSchema.safeParse({
-      source_id: "s1",
-      items: [{ guid: "g1", title: "标题" }],
-    });
-    expect(ok.success).toBe(true);
-    const missingGuid = feedBatchSchema.safeParse({ source_id: "s1", items: [{ title: "t" }] });
-    expect(missingGuid.success).toBe(false);
   });
 });

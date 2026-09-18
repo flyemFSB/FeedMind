@@ -15,7 +15,7 @@ import {
   createWikiSpace,
   updateWikiSpace,
   deleteWikiSpace,
-} from "../../modules/wiki/index.js";
+} from "../../modules/wiki/space-registry.js";
 import {
   listWikiPages,
   getWikiPage,
@@ -37,14 +37,7 @@ import {
 } from "../../modules/wiki/store/source-store.js";
 import { getWikiGraph, getWikiGraphInsights } from "../../modules/wiki/search/graph-service.js";
 import { searchWiki } from "../../modules/wiki/search/search-service.js";
-import {
-  listIngestJobs,
-  enqueueIngest,
-  markIngestJobProcessing,
-  cancelIngestJob,
-  completeIngestJob,
-  failIngestJob,
-} from "../../modules/wiki/ingest/job-service.js";
+import { getQueueStore } from "../../modules/wiki/ingest/queue-store.js";
 import { runIngest } from "../../modules/wiki/ingest/ingest-pipeline.js";
 import { wakeIngestWorker } from "../../modules/wiki/ingest/ingest-worker.js";
 import { readSourceTitle, validateSpaceId } from "../../modules/wiki/space-fs/index.js";
@@ -70,13 +63,12 @@ const ingestJobBodySchema = ingestBodySchema.extend({
 
 /** 上传成功后自动入队导入任务并唤醒 worker，无需等 30s 轮询。入队失败不阻塞上传。 */
 function autoIngestUpload(spaceId: string, sourcePath: string, sourceTitle: string): void {
-  void enqueueIngest(spaceId, sourcePath, undefined, sourceTitle)
-    .then(() => {
-      wakeIngestWorker();
-    })
-    .catch(() => {
-      // 入队失败仅提示，不阻塞上传
-    });
+  try {
+    getQueueStore().enqueue(spaceId, sourcePath, undefined, sourceTitle);
+    wakeIngestWorker();
+  } catch {
+    // 入队失败仅提示，不阻塞上传
+  }
 }
 
 const searchBodySchema = z.object({
@@ -217,13 +209,12 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   if (source.status === "queued") {
     // 二进制文档：占位源已落盘，转换任务入队（worker 提取后自动再入队导入），
     // 上传请求立即返回，弹窗即时关闭，来源列表展示解析进度
-    void enqueueIngest(spaceId, source.identity, source.original_name ?? "", source.title)
-      .then(() => {
-        wakeIngestWorker();
-      })
-      .catch(() => {
-        // 入队失败仅提示，不阻塞上传
-      });
+    try {
+      getQueueStore().enqueue(spaceId, source.identity, source.original_name ?? "", source.title);
+      wakeIngestWorker();
+    } catch {
+      // 入队失败仅提示，不阻塞上传
+    }
   } else {
     autoIngestUpload(spaceId, source.identity, source.title);
   }
@@ -267,22 +258,22 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   }
 
   // 记录任务以展示导入历史
-  const job = await enqueueIngest(spaceId, sourcePath, undefined, sourceTitle);
+  const job = getQueueStore().enqueue(spaceId, sourcePath, undefined, sourceTitle);
   // 立即标记处理中，避免 worker 在 30s 轮询里抢占同一任务并发执行
-  await markIngestJobProcessing(spaceId, job.id);
+  getQueueStore().updateStatus(spaceId, job.id, "processing");
 
   try {
     const result = await runIngest(spaceId, sourcePath, (message, step, totalSteps) => {
-      void markIngestJobProcessing(spaceId, job.id, { message, step, totalSteps });
+      getQueueStore().updateStatus(spaceId, job.id, "processing", {
+        progress: { message, step, totalSteps },
+      });
     });
     markSourceIngested(spaceId, sourcePath);
-    await completeIngestJob(
-      spaceId,
-      job.id,
-      result.writtenFiles,
-      result.pagesCreated,
-      result.pagesUpdated,
-    );
+    getQueueStore().updateStatus(spaceId, job.id, "done", {
+      written_files: result.writtenFiles,
+      pages_created: result.pagesCreated,
+      pages_updated: result.pagesUpdated,
+    });
     void logOperation({
       action: "import",
       target: "wiki_source",
@@ -292,7 +283,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
     return jsonOk(c, result);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await failIngestJob(spaceId, job.id, msg);
+    getQueueStore().updateStatus(spaceId, job.id, "failed", { error: msg });
     markSourceImportFailed(spaceId, sourcePath.replace(/\.md$/i, ""), msg);
     void logOperation({
       action: "import",
@@ -324,7 +315,7 @@ wikiRoutes.get("/wiki/spaces/:spaceId/graph/insights", async (c) =>
 
 // ─── 导入任务 ───────────────────────────────────────────────────
 wikiRoutes.get("/wiki/spaces/:spaceId/jobs/ingest", async (c) =>
-  jsonOk(c, await listIngestJobs(c.req.param("spaceId"))),
+  jsonOk(c, getQueueStore().list(c.req.param("spaceId"))),
 );
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const spaceId = c.req.param("spaceId");
@@ -332,16 +323,18 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/ingest", async (c) => {
   const body = await parseJson(c, ingestJobBodySchema);
   const sourceTitle = readSourceTitle(spaceId, body.sourcePath);
 
-  const job = await enqueueIngest(spaceId, body.sourcePath, body.folderContext, sourceTitle);
+  const job = getQueueStore().enqueue(spaceId, body.sourcePath, body.folderContext, sourceTitle);
   wakeIngestWorker();
   return jsonOk(c, job);
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
   const spaceId = c.req.param("spaceId");
   const jobId = c.req.param("jobId");
-  await cancelIngestJob(spaceId, jobId);
+  getQueueStore().updateStatus(spaceId, jobId, "cancelled");
   // 日志取任务名：取消/重试前从队列快照里找，拿不到就用 jobId
-  const job = (await listIngestJobs(spaceId)).find((j) => j.id === jobId);
+  const job = getQueueStore()
+    .list(spaceId)
+    .find((j) => j.id === jobId);
   void logOperation({
     action: "run",
     target: "wiki_source",

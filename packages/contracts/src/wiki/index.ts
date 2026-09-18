@@ -78,7 +78,7 @@ export const WIKI_CONCEPT_TYPES = [
 ] as const;
 export type WikiConceptType = (typeof WIKI_CONCEPT_TYPES)[number];
 
-/** type → 中文标签（知识形态维度）；未知 type 由消费方回退到原始值或"概念"。 */
+/** Concept 概念类型到中文展示标签的映射（知识形态维度）；未识别类型由消费端回退为原始英文或"概念"。 */
 export const WIKI_CONCEPT_TYPE_LABELS: Record<string, string> = {
   Concept: "概念",
   Principle: "原理",
@@ -219,10 +219,7 @@ export const wikiBacklinkSchema = z.object({
 export type WikiBacklink = z.infer<typeof wikiBacklinkSchema>;
 
 // ─── Wiki 解析 ─────────────────────────────────────────────────
-export const wikiResolveQuerySchema = z.object({
-  target: z.string().min(1),
-});
-export type WikiResolveQuery = z.infer<typeof wikiResolveQuerySchema>;
+export type WikiResolveQuery = { target: string };
 
 export const wikiResolveResultSchema = z.object({
   resolved: z.boolean(),
@@ -244,54 +241,48 @@ export const wikiResolveResultSchema = z.object({
 export type WikiResolveResult = z.infer<typeof wikiResolveResultSchema>;
 
 // ─── 图谱类型 ──────────────────────────────────────────────────
-export const graphNodeSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  type: z.string(),
-  path: z.string(),
-  linkCount: z.number().int().default(0),
-  community: z.number().int().default(0).optional(),
-});
-export type GraphNode = z.infer<typeof graphNodeSchema>;
+export type GraphNode = {
+  id: string;
+  label: string;
+  type: string;
+  path: string;
+  linkCount: number;
+  community?: number;
+};
 
-export const graphEdgeSchema = z.object({
-  source: z.string(),
-  target: z.string(),
-  weight: z.number().default(1),
-});
-export type GraphEdge = z.infer<typeof graphEdgeSchema>;
+export type GraphEdge = {
+  source: string;
+  target: string;
+  weight: number;
+};
 
-export const communityInfoSchema = z.object({
-  id: z.number().int(),
-  nodeCount: z.number().int(),
-  cohesion: z.number(),
-  topNodes: z.array(z.string()),
-});
-export type CommunityInfo = z.infer<typeof communityInfoSchema>;
+export type CommunityInfo = {
+  id: number;
+  nodeCount: number;
+  cohesion: number;
+  topNodes: string[];
+};
 
-export const wikiGraphSchema = z.object({
-  nodes: z.array(graphNodeSchema),
-  edges: z.array(graphEdgeSchema),
-  communities: z.array(communityInfoSchema),
-});
-export type WikiGraph = z.infer<typeof wikiGraphSchema>;
+export type WikiGraph = {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  communities: CommunityInfo[];
+};
 
 // ─── 搜索类型 ──────────────────────────────────────────────────
-export const wikiSearchResultSchema = z.object({
-  path: z.string(),
-  title: z.string(),
-  snippet: z.string(),
-  titleMatch: z.boolean(),
-  score: z.number(),
-});
-export type WikiSearchResult = z.infer<typeof wikiSearchResultSchema>;
+export type WikiSearchResult = {
+  path: string;
+  title: string;
+  snippet: string;
+  titleMatch: boolean;
+  score: number;
+};
 
-export const wikiSearchResponseSchema = z.object({
-  mode: z.enum(["keyword", "hybrid"]),
-  results: z.array(wikiSearchResultSchema),
-  totalHits: z.number().int(),
-});
-export type WikiSearchResponse = z.infer<typeof wikiSearchResponseSchema>;
+export type WikiSearchResponse = {
+  mode: "keyword" | "hybrid";
+  results: WikiSearchResult[];
+  totalHits: number;
+};
 
 // ─── 导入队列类型 ──────────────────────────────────────────────
 export const ingestJobStatusSchema = z.enum([

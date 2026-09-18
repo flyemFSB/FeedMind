@@ -1,15 +1,16 @@
 import { z } from "zod";
 
-export const chatSessionReadSchema = z.object({
+export const chatSessionListItemSchema = z.object({
   id: z.string(),
   agent_thread_id: z.string(),
   title: z.string(),
-});
-
-export const chatSessionListItemSchema = chatSessionReadSchema.extend({
   pinned: z.boolean(),
   updated_at: z.string(),
 });
 
-export type ChatSessionRead = z.infer<typeof chatSessionReadSchema>;
+export type ChatSessionRead = {
+  id: string;
+  agent_thread_id: string;
+  title: string;
+};
 export type ChatSessionListItem = z.infer<typeof chatSessionListItemSchema>;

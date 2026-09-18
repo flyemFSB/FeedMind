@@ -1,5 +1,5 @@
 import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
-import { getHealth } from "../../modules/health/service.js";
+import { checkDbConnection } from "@feedmind/db";
 import { successEnvelope } from "../../lib/openapi-schemas.js";
 
 export const healthRoutes = new OpenAPIHono();
@@ -33,7 +33,14 @@ const healthRoute = createRoute({
 
 healthRoutes.openapi(healthRoute, async (c) => {
   try {
-    return c.json({ data: await getHealth(), error: null }, 200);
+    const database = await checkDbConnection();
+    return c.json(
+      {
+        data: { status: database ? ("ok" as const) : ("degraded" as const), database },
+        error: null,
+      },
+      200,
+    );
   } catch {
     return c.json({ data: null, error: { code: "INTERNAL_ERROR", message: "健康检查失败" } }, 500);
   }

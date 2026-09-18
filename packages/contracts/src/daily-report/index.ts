@@ -1,32 +1,30 @@
 import { z } from "zod";
 
 // 定时日报任务记账行（与 db schema 对齐，camelCase；API 直接返回 drizzle 行）
-export const scheduleTaskSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  cron: z.string(),
-  timezone: z.string(),
-  enabled: z.boolean(),
-  lastRunAt: z.string().nullable(),
-  lastRunStatus: z.enum(["running", "success", "failed"]).nullable(),
-  lastError: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export type ScheduleTask = z.infer<typeof scheduleTaskSchema>;
+export type ScheduleTask = {
+  id: string;
+  name: string;
+  cron: string;
+  timezone: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  lastRunStatus: "running" | "success" | "failed" | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
-export const videoSchema = z.object({
-  id: z.string(),
-  scheduleId: z.string(),
-  reportDate: z.string(),
-  status: z.enum(["running", "success", "failed"]),
-  filePath: z.string().nullable(),
-  duration: z.number().nullable(),
-  error: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-export type Video = z.infer<typeof videoSchema>;
+export type Video = {
+  id: string;
+  scheduleId: string;
+  reportDate: string;
+  status: "running" | "success" | "failed";
+  filePath: string | null;
+  duration: number | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 // 定时任务创建/更新入参（PUT /daily-report/schedules/:id）
 export const scheduleUpsertSchema = z.object({

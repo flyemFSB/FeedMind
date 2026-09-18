@@ -24,19 +24,3 @@ export const feedDeleteSchema = z.object({
   ids: z.array(z.string().min(1)).min(1),
 });
 export type FeedDelete = z.infer<typeof feedDeleteSchema>;
-
-export const feedBatchSchema = z.object({
-  source_id: z.string(),
-  items: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string().optional(),
-      link: z.string().optional(),
-      guid: z.string(),
-      author: z.string().optional(),
-      category: z.array(z.string()).optional(),
-      image: z.string().optional(),
-      pub_date: z.string().optional(),
-    }),
-  ),
-});
