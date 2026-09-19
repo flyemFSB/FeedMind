@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiTestContext, type ApiTestContext } from "../../test-utils.js";
 
-// 回归：wiki 搜索从 POST 迁移到 QUERY 方法（RFC 10008，hono 4.13 一等支持）。
-// POST 须被 methodNotAllowed 中间件拦为 405 并提示 Allow: QUERY；
-// QUERY 走统一 parseJson 管线，不存在的 space 容错为空结果信封。
+// 校验 Wiki 搜索遵循 RFC 10008 QUERY 方法规范及 405 拦截逻辑
 describe("Wiki 搜索路由 QUERY 方法", () => {
   let ctx: ApiTestContext;
 

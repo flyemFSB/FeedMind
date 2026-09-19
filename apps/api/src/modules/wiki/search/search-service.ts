@@ -1,7 +1,7 @@
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
-import { extractString, parseFrontmatter, searchPages } from "@feedmind/wiki-core";
+import { extractString, parseFrontmatter, searchPages, segmentChinese } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
 import { client, ensureWikiFtsTables } from "@feedmind/db";
 import { logger } from "../../../lib/logger.js";
@@ -13,24 +13,19 @@ interface SearchablePage {
   content: string;
 }
 
-// 目录指纹计算（全目录 stat）开销随文件数增长，且每次搜索都跑。
-// 节流：5 秒内复用上次指纹；指纹变化才触发页面重读 / FTS 重建。
-// 单机单进程缓存，多进程同时改 wiki 时最多延迟 5 秒感知。
+// 空间文件指纹缓存节流时长（毫秒），避免频繁扫描磁盘
 const FP_TTL_MS = 5000;
 const fpCache = new Map<string, { fingerprint: string; checkedAt: number }>();
 
-// 页面内容缓存：按指纹失效（取代固定 TTL，文件没动就不重复读盘）
+// 页面内容内存缓存：按空间文件指纹失效
 const pageCache = new Map<string, { pages: SearchablePage[]; fingerprint: string }>();
 
-// ─── SQLite FTS5 索引 ────────────────────────────────────────────
-// 使用 trigram 分词器：支持 CJK 子串匹配（无需分词，3 字符滑动窗口）
+// 确保初始化 Wiki 全文检索虚表与元数据表
 async function ensureFtsTables(): Promise<void> {
   await ensureWikiFtsTables(client);
 }
 
-// 目录指纹：.md 文件数 + 最大 mtime。本地文件型 wiki 无法自动感知改动，
-// 用指纹对比判断索引是否需要重建（直接编辑文件或 API 操作都会改变 mtime）。
-// stat 异步化 + 节流缓存：避免每次搜索同步阻塞事件循环扫全目录。
+/** 计算 Wiki 目录指纹（文件数与最新修改时间戳），用于检测内容变更 */
 async function computeFingerprint(spaceId: string): Promise<string> {
   const now = Date.now();
   const cached = fpCache.get(spaceId);
@@ -68,8 +63,8 @@ async function rebuildSpaceIndex(spaceId: string): Promise<void> {
   const statements = [
     { sql: "DELETE FROM wiki_fts WHERE space_id = ?", args: [spaceId] },
     ...pages.map((p) => ({
-      sql: "INSERT INTO wiki_fts (space_id, path, title, content) VALUES (?, ?, ?, ?)",
-      args: [spaceId, p.path, p.title, p.content],
+      sql: "INSERT INTO wiki_fts (space_id, path, raw_title, title, content) VALUES (?, ?, ?, ?, ?)",
+      args: [spaceId, p.path, p.title, segmentChinese(p.title), segmentChinese(p.content)],
     })),
   ];
   await client.batch(statements);
@@ -131,8 +126,13 @@ export async function searchWiki(
   const trimmed = query.trim();
   if (!trimmed) return { results: [], mode: "keyword", totalHits: 0 };
 
-  // trigram 分词器要求查询至少 3 个字符（2 字符 CJK 词无法建索引匹配），过短回退内存搜索
-  if ([...trimmed].length < 3) {
+  const segQuery = segmentChinese(trimmed);
+  const tokens = segQuery
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+
+  if (tokens.length === 0) {
     return keywordSearch(spaceId, trimmed, topK);
   }
 
@@ -140,10 +140,10 @@ export async function searchWiki(
     await ensureFtsTables();
     await rebuildSpaceIndex(spaceId);
 
-    // 引号包住查询短语做精确子串匹配（trigram 天然支持 CJK 连续片段）
-    const match = `"${trimmed.replace(/"/g, '""')}"`;
+    // 各分词单元以双引号包住，进行精确短语/词匹配
+    const match = tokens.map((t) => `"${t.replace(/"/g, '""')}"`).join(" ");
     const { rows } = await client.execute({
-      sql: `SELECT path, title, snippet(wiki_fts, 3, '[', ']', '…', 20) AS snip
+      sql: `SELECT path, raw_title AS title, snippet(wiki_fts, 4, '[', ']', '…', 20) AS snip
             FROM wiki_fts
             WHERE wiki_fts MATCH ? AND space_id = ?
             ORDER BY bm25(wiki_fts, 1.0, 1.0, 8.0, 1.0) LIMIT ?`,
@@ -152,12 +152,15 @@ export async function searchWiki(
 
     // bm25 为负值且量级小，转换为可读的正分：标题命中加权、按相关度排序
     const results: WikiSearchResult[] = rows.map((r, i) => {
-      const title = String(r["title"]);
+      const title = String(r["title"] ?? "");
       const titleMatch = title.toLowerCase().includes(trimmed.toLowerCase());
+      const rawSnippet = String(r["snip"] ?? "");
+      // 闭合 CJK 字符间由分词器注入的额外空白，保持展示视觉自然流畅
+      const snippet = rawSnippet.replace(/([\u4e00-\u9fa5\]])\s+([\u4e00-\u9fa5[])/g, "$1$2");
       return {
         path: String(r["path"]),
         title,
-        snippet: String(r["snip"] ?? ""),
+        snippet,
         titleMatch,
         score: (rows.length - i) * 10 + (titleMatch ? 50 : 0),
       };

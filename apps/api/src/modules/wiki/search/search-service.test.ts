@@ -45,17 +45,20 @@ afterEach(() => {
 });
 
 describe("searchWiki", () => {
-  it("短查询（<3 字符）直接走内存关键词搜索", async () => {
+  it("短查询（2 字符）检索并精准命中页面", async () => {
     const { results, mode } = await search("sp-1", "基础", 10);
     expect(mode).toBe("keyword");
     expect(results.map((r) => r.path)).toContain("ai-intro.md");
+    expect(results[0]?.title).toBe("人工智能入门");
   });
 
-  it("长查询走 FTS5 索引并命中页面", async () => {
+  it("长查询走 FTS5 索引并命中页面，返回高亮片段与原始标题", async () => {
     const { results, mode, totalHits } = await search("sp-1", "机器学习", 10);
     expect(mode).toBe("keyword");
     expect(totalHits).toBeGreaterThan(0);
     expect(results[0]?.path).toBe("ai-intro.md");
+    expect(results[0]?.title).toBe("人工智能入门");
+    expect(results[0]?.snippet).toContain("[机器]");
   });
 
   it("FTS5 损坏时回退内存搜索，不抛错", async () => {

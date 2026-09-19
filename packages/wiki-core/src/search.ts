@@ -47,6 +47,17 @@ const STOP_WORDS = new Set([
   "those",
 ]);
 
+// 进程级复用 CJK 中文分词器
+const cjkSegmenter = new Intl.Segmenter("zh-CN", { granularity: "word" });
+
+/** 将文本分词为空格分隔的词元序列，供全文检索索引与查询使用 */
+export function segmentChinese(text: string): string {
+  if (!text) return "";
+  return Array.from(cjkSegmenter.segment(text), (s) => s.segment.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
 /** 查询分词，CJK 字符额外生成相邻二元组 */
 export function tokenizeQuery(query: string): string[] {
   const tokens = new Set<string>();
