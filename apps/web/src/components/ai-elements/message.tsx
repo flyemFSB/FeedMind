@@ -17,7 +17,7 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full max-w-[95%] flex-col gap-2",
+      "group relative flex w-full max-w-[95%] flex-col gap-1.5",
       from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
       className,
     )}
@@ -30,9 +30,9 @@ export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
 export const MessageContent = ({ children, className, ...props }: MessageContentProps) => (
   <div
     className={cn(
-      "is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm",
-      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground",
-      "group-[.is-assistant]:text-foreground",
+      "flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-body leading-relaxed",
+      "group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:rounded-tr-xs group-[.is-user]:border group-[.is-user]:border-editorial-hairline group-[.is-user]:bg-editorial-surface-soft dark:group-[.is-user]:bg-editorial-surface-card group-[.is-user]:px-3.5 group-[.is-user]:py-2.5 group-[.is-user]:text-editorial-ink group-[.is-user]:shadow-2xs",
+      "group-[.is-assistant]:w-full group-[.is-assistant]:text-editorial-ink",
       className,
     )}
     {...props}
@@ -41,10 +41,26 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
   </div>
 );
 
-export type MessageActionsProps = ComponentProps<"div">;
+export type MessageActionsProps = ComponentProps<"div"> & {
+  floating?: boolean;
+};
 
-export const MessageActions = ({ className, children, ...props }: MessageActionsProps) => (
-  <div className={cn("flex items-center gap-1", className)} {...props}>
+export const MessageActions = ({
+  className,
+  floating = false,
+  children,
+  ...props
+}: MessageActionsProps) => (
+  <div
+    className={cn(
+      "flex items-center gap-0.5",
+      floating
+        ? "opacity-0 group-hover:opacity-100 transition-opacity rounded-md border border-editorial-hairline bg-editorial-surface-card p-0.5 shadow-2xs"
+        : "text-editorial-ink-muted",
+      className,
+    )}
+    {...props}
+  >
     {children}
   </div>
 );
@@ -57,10 +73,20 @@ export const MessageAction = ({
   children,
   label,
   variant = "ghost",
-  size = "icon-sm",
+  size = "icon-xs",
+  className,
   ...props
 }: MessageActionProps) => (
-  <Button size={size} type="button" variant={variant} {...props}>
+  <Button
+    size={size}
+    type="button"
+    variant={variant}
+    className={cn(
+      "text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-strong transition-colors",
+      className,
+    )}
+    {...props}
+  >
     {children}
     <span className="sr-only">{label}</span>
   </Button>

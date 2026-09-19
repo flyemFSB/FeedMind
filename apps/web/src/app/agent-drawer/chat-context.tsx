@@ -16,11 +16,13 @@ import {
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type FileUIPart } from "ai";
 import { getSelectedFeedMindModel } from "@/lib/api/agent";
 import { getChatSessionMessages, createChatSession, renameChatSession } from "@/lib/api/chats";
 import { chatOptions } from "@/lib/hooks/use-chats";
 import { makeChatTitle, prependOlderPage } from "@/app/agent-drawer/chat-utils";
+
+import { getCurrentWorkspaceContext } from "@/app/shell/app-shell-context";
 
 /** Mastra Chat 路由地址（通过 SSR proxy 转发到 API 服务） */
 const CHAT_API = "/api/chat/feedmind";
@@ -33,7 +35,7 @@ export interface ChatContextValue {
   hasOlder: boolean;
   isLoadingOlder: boolean;
   loadOlderMessages: () => Promise<void>;
-  sendMessage: (data: { text: string }) => Promise<void>;
+  sendMessage: (data: { text: string; files?: FileUIPart[] }) => Promise<void>;
   status: ReturnType<typeof useChat>["status"];
   stop: () => Promise<void>;
   regenerate: () => Promise<void>;
@@ -77,15 +79,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         prepareSendMessagesRequest({ messages }) {
           const threadId = activeThreadIdRef.current;
           const feedmindModelId = getSelectedFeedMindModel();
+          const wsContext = getCurrentWorkspaceContext();
           return {
             body: {
               messages,
               ...(threadId ? { memory: { thread: threadId, resource: threadId } } : {}),
             },
-            headers: (feedmindModelId ? { "x-feedmind-model-id": feedmindModelId } : {}) as Record<
-              string,
-              string
-            >,
+            headers: {
+              ...(feedmindModelId ? { "x-feedmind-model-id": feedmindModelId } : {}),
+              ...(wsContext
+                ? { "x-feedmind-context": encodeURIComponent(JSON.stringify(wsContext)) }
+                : {}),
+            } as Record<string, string>,
           };
         },
       }),
@@ -171,12 +176,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sendMessage = useCallback(
-    async (data: { text: string }) => {
+    async (data: { text: string; files?: FileUIPart[] }) => {
       // 新会话（无 threadId）时按首条消息自动命名，异步不阻塞消息发送
       const isFirstMessage = !activeThreadIdRef.current;
       const threadId = await ensureSession();
       if (isFirstMessage) {
-        void renameChatSession(threadId, makeChatTitle(data.text))
+        const titleSource = data.text || data.files?.[0]?.filename || "新对话";
+        void renameChatSession(threadId, makeChatTitle(titleSource))
           .then(() => queryClient.invalidateQueries({ queryKey: chatOptions.list().queryKey }))
           .catch(() => {
             // 命名失败不影响消息发送，忽略

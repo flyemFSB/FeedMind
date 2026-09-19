@@ -7,7 +7,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { ChatStatus, FileUIPart } from "ai";
-import { CornerDownLeftIcon, SquareIcon, XIcon } from "lucide-react";
+import { CornerDownLeftIcon, PaperclipIcon, SquareIcon, XIcon } from "lucide-react";
+import { Attachments, Attachment } from "./attachments";
 import type {
   ChangeEventHandler,
   ClipboardEventHandler,
@@ -58,19 +59,20 @@ export interface AttachmentsContext {
   fileInputRef: RefObject<HTMLInputElement | null>;
 }
 
-const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
-
-export const usePromptInputAttachments = () => {
-  const context = useContext(LocalAttachmentsContext);
-  if (!context) {
-    throw new Error("usePromptInputAttachments must be used within a PromptInput");
-  }
-  return context;
+// 缺 Provider 时降级为空附件而不抛错：本仓 prompt-input 按 ai-elements 通用件维护，
+// 允许在 <PromptInput> 之外被引用。改回抛错前先确认没有这类引用。
+const defaultAttachmentsContext: AttachmentsContext = {
+  add: () => {},
+  clear: () => {},
+  fileInputRef: { current: null },
+  files: [],
+  openFileDialog: () => {},
+  remove: () => {},
 };
 
-// ============================================================================
-// PromptInput 提示词与多模态输入组件
-// ============================================================================
+const LocalAttachmentsContext = createContext<AttachmentsContext>(defaultAttachmentsContext);
+
+export const usePromptInputAttachments = () => useContext(LocalAttachmentsContext);
 
 export interface PromptInputMessage {
   text: string;
@@ -373,7 +375,9 @@ export const PromptInput = ({
           ref={inputRef}
           type="file"
         />
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        <InputGroup className="overflow-hidden border-0 bg-transparent shadow-none">
+          {children}
+        </InputGroup>
       </form>
     </LocalAttachmentsContext.Provider>
   );
@@ -495,7 +499,7 @@ export type PromptInputFooterProps = Omit<ComponentProps<typeof InputGroupAddon>
 export const PromptInputFooter = ({ className, ...props }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1", className)}
+    className={cn("justify-between gap-1.5 px-2 pb-2 pt-0.5", className)}
     {...props}
   />
 );
@@ -551,6 +555,57 @@ export const PromptInputSubmit = ({
       {...props}
     >
       {children ?? Icon}
+    </InputGroupButton>
+  );
+};
+
+export type PromptInputAttachmentsProps = ComponentProps<"div">;
+
+export const PromptInputAttachments = ({ className, ...props }: PromptInputAttachmentsProps) => {
+  const { files, remove } = usePromptInputAttachments();
+
+  if (files.length === 0) return null;
+
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-1.5 border-b border-editorial-hairline/60 px-3 pt-2 pb-1.5",
+        className,
+      )}
+      {...props}
+    >
+      <Attachments>
+        {files.map((file) => (
+          <Attachment key={file.id} data={file} onRemove={() => remove(file.id)} />
+        ))}
+      </Attachments>
+    </div>
+  );
+};
+
+export type PromptInputAttachmentButtonProps = ComponentProps<typeof InputGroupButton>;
+
+export const PromptInputAttachmentButton = ({
+  className,
+  children,
+  ...props
+}: PromptInputAttachmentButtonProps) => {
+  const { openFileDialog } = usePromptInputAttachments();
+
+  return (
+    <InputGroupButton
+      aria-label="上传附件"
+      className={cn(
+        "text-editorial-ink-muted hover:text-editorial-ink hover:bg-editorial-surface-strong transition-colors cursor-pointer",
+        className,
+      )}
+      onClick={openFileDialog}
+      size="icon-sm"
+      type="button"
+      title="上传附件（文件/图片）"
+      {...props}
+    >
+      {children ?? <PaperclipIcon className="size-4" />}
     </InputGroupButton>
   );
 };

@@ -22,7 +22,7 @@ export function setSelectedFeedMindModel(model: string): void {
   }
 }
 
-/** 后端持久化选中模型，先同步前端再回滚到旧值 */
+/** 乐观持久化当前选中模型，请求失败时自动回滚 */
 export async function persistSelectedFeedMindModel(model: string): Promise<void> {
   const previousModel = getSelectedFeedMindModel();
   setSelectedFeedMindModel(model);

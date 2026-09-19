@@ -20,6 +20,15 @@ import {
   MessageActions,
   MessageAction,
 } from "@/components/ai-elements/message";
+import { Reasoning, ReasoningTrigger, ReasoningContent } from "@/components/ai-elements/reasoning";
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+  type ToolState,
+} from "@/components/ai-elements/tool";
 import {
   ChainOfThought,
   ChainOfThoughtHeader,
@@ -27,24 +36,13 @@ import {
   ChainOfThoughtSearchResults,
   ChainOfThoughtSearchResult,
 } from "@/components/ai-elements/chain-of-thought";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/sources";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { useChatContext } from "@/app/agent-drawer/chat-context";
 import { cn } from "@/lib/utils";
-import {
-  Bot,
-  Brain,
-  CheckCircle,
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Loader2,
-  RotateCcw,
-  Wrench,
-  XCircle,
-} from "lucide-react";
-import type { UIMessage } from "ai";
+import { Bot, Copy, ExternalLink, FileText, Loader2, RotateCcw, Wrench } from "lucide-react";
+import type { UIMessage, FileUIPart } from "ai";
 import { useTranslation } from "react-i18next";
 import {
   useSubagentInspector,
@@ -220,7 +218,7 @@ function StreamingText({ text, streaming }: { text: string; streaming: boolean }
 
 export function MessageParts({ message, isLastMessage, isStreaming }: MessagePartsProps) {
   const { t } = useTranslation();
-  const { regenerate } = useChatContext();
+  const { regenerate, sendMessage } = useChatContext();
   const chainSteps = useChainSteps(message, isLastMessage, isStreaming);
   const stepCount = message.parts.filter((p) => p.type === "step-start").length;
 
@@ -231,7 +229,12 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   const [prevStreaming, setPrevStreaming] = useState(isStreaming);
   if (isStreaming !== prevStreaming) {
     setPrevStreaming(isStreaming);
-    if (isStreaming) setChainOpen(true);
+    if (isStreaming) {
+      setChainOpen(true);
+    } else {
+      // 回答完成时自动收起思考过程，聚焦正文内容
+      setChainOpen(false);
+    }
   }
 
   const sourceParts: Array<{ url?: string | undefined; title?: string | undefined }> = [];
@@ -252,27 +255,72 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
 
   /* ---- 用户消息 ---- */
   if (message.role === "user") {
+    const fileParts = message.parts.filter(
+      (p): p is FileUIPart & { id?: string } => p.type === "file",
+    );
+    const text = userText(message);
+
     return (
       <Message from="user">
-        <MessageContent>{userText(message)}</MessageContent>
+        <MessageContent>
+          {fileParts.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {fileParts.map((file) => {
+                const isImg =
+                  file.mediaType?.startsWith("image/") ||
+                  /\.(png|jpe?g|gif|webp|svg|bmp|avif|ico)$/i.test(file.filename ?? "");
+                const name = file.filename || "图片";
+                const fileKey = file.id || file.url || `${name}:${file.mediaType ?? ""}`;
+
+                if (isImg && file.url) {
+                  return (
+                    <div
+                      key={fileKey}
+                      className="size-20 overflow-hidden rounded-lg border border-editorial-hairline shadow-2xs"
+                    >
+                      <img src={file.url} alt={name} className="size-full object-cover" />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={fileKey}
+                    className="flex items-center gap-1.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft px-2 py-1 text-xs text-editorial-ink"
+                  >
+                    <FileText size={13} className="text-editorial-primary shrink-0" />
+                    <span className="max-w-[140px] truncate font-medium">{name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {text}
+        </MessageContent>
       </Message>
     );
   }
 
+  /* ---- 推荐后续追问建议 ---- */
+  const followUpSuggestions = [
+    t("chat.followUpSummary", "总结核心要点"),
+    t("chat.followUpConcept", "提炼知识概念"),
+  ];
+
   /* ---- 助手消息 ---- */
   return (
-    <>
+    <div className="group relative flex w-full flex-col">
       <Message from="assistant">
         <MessageContent>
-          {/* ---- 思考链：reasoning + tool 按执行顺序交织（可折叠，自定义部分为例外） ---- */}
+          {/* ---- 思考链：reasoning + tool 按执行顺序交织 ---- */}
           {chainSteps.length > 0 && (
-            <div className="mb-3">
+            <div className="mb-2.5">
               <ChainOfThought open={chainOpen} onOpenChange={setChainOpen} defaultOpen={false}>
                 <ChainOfThoughtHeader>
                   {t("chat.thinkProcess")}
                   {stepCount > 0 ? ` · ${stepCount + 1} 步` : ""}
                 </ChainOfThoughtHeader>
-                <ChainOfThoughtContent>
+                <ChainOfThoughtContent className="space-y-2">
                   {chainSteps.map((step) =>
                     step.kind === "reasoning" ? (
                       <ReasoningChainStep
@@ -326,26 +374,52 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
         </MessageContent>
       </Message>
 
-      {/* Actions bar — 官方示例中 MessageActions 与 Message 同级 */}
-      {isLastMessage && (
-        <MessageActions>
-          <MessageAction
-            onClick={() => {
-              const text = message.parts
-                .flatMap((p) => (p.type === "text" ? [(p as { text: string }).text] : []))
-                .join("");
-              void navigator.clipboard.writeText(text);
-            }}
-            label={t("common.copy")}
-          >
-            <Copy size={14} />
-          </MessageAction>
-          <MessageAction onClick={() => void regenerate()} label={t("common.regenerate")}>
-            <RotateCcw size={14} />
-          </MessageAction>
-        </MessageActions>
+      {/* 回答完毕的操作栏：位于回答内容的正下方 */}
+      {!isStreaming && (
+        <div className="mt-1.5 flex items-center gap-1">
+          <MessageActions>
+            <MessageAction
+              onClick={() => {
+                const text = message.parts
+                  .flatMap((p) => (p.type === "text" ? [(p as { text: string }).text] : []))
+                  .join("");
+                void navigator.clipboard.writeText(text);
+              }}
+              label={t("common.copy")}
+              title={t("common.copy")}
+            >
+              <Copy size={13} />
+            </MessageAction>
+            {isLastMessage && (
+              <MessageAction
+                onClick={() => void regenerate()}
+                label={t("common.regenerate")}
+                title={t("common.regenerate")}
+              >
+                <RotateCcw size={13} />
+              </MessageAction>
+            )}
+          </MessageActions>
+        </div>
       )}
-    </>
+
+      {/* 后续追问建议：排布在操作栏下方 */}
+      {isLastMessage && !isStreaming && (
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <Suggestions layout="scroll">
+            {followUpSuggestions.map((suggestion) => (
+              <Suggestion
+                key={suggestion}
+                onClick={() => void sendMessage({ text: suggestion })}
+                className="text-[11px] py-0.5 px-2.5"
+              >
+                {suggestion}
+              </Suggestion>
+            ))}
+          </Suggestions>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -361,33 +435,26 @@ interface ToolChainStepProps {
 
 /**
  * 思考链中的 reasoning 步骤：
- * - 无"思考"标签，直接展示思考内容（流式时 shimmer 标记当前思考步骤）
+ * 采用官方标准 Reasoning 规范，包含思考中动效与完成耗时展示
  */
 function ReasoningChainStep({ text, isActive }: { text: string; isActive: boolean }) {
   return (
-    <div className="flex items-start gap-2 text-sm leading-5">
-      {/* 时间线图标列 */}
-      <div className="relative flex h-5 shrink-0 items-center">
-        <Brain className={cn("size-4", isActive ? "text-foreground" : "text-muted-foreground")} />
-        <div className="absolute top-5 bottom-0 left-1/2 w-px -translate-x-1/2 bg-border" />
-      </div>
-      {/* 思考内容直接展示；流式中用 Shimmer 高亮 */}
-      <div className="min-w-0 flex-1">
+    <Reasoning isStreaming={isActive} defaultOpen={isActive} className="w-full">
+      <ReasoningTrigger />
+      <ReasoningContent>
         {isActive ? (
           <Shimmer duration={1}>{text}</Shimmer>
         ) : (
           <MessageResponse>{text}</MessageResponse>
         )}
-      </div>
-    </div>
+      </ReasoningContent>
+    </Reasoning>
   );
 }
 
 /**
  * 思考链中的工具调用步骤：
- * - 独立可展开/收起（base-ui Collapsible），默认收起
- * - 状态用图标而非文字标记：流式转圈 / 成功绿勾 / 失败红叉
- * - 展开后高交互展示输入输出（支持一键唤起独立 Subagent 观测抽屉）
+ * 采用官方标准 Tool 规范，微边框紧凑胶囊卡片，节省横向空间
  */
 function ToolChainStep({
   toolName,
@@ -398,11 +465,8 @@ function ToolChainStep({
   output,
   isActive,
 }: ToolChainStepProps) {
-  // 无内容时（流式尚未产出）不渲染折叠触发器
-  const hasContent = Boolean(input !== undefined || output !== undefined);
   const isTaskTool = toolName === "task";
 
-  // 提取 Subagent 类型用于标签展示
   const subagentType =
     isTaskTool && typeof input === "object" && input !== null
       ? (input as Record<string, unknown>)["type"]
@@ -414,131 +478,50 @@ function ToolChainStep({
       : "Subagent 任务"
     : toolName;
 
+  const state: ToolState = isActive ? "running" : isError ? "output-error" : "output-available";
+
   return (
-    <Collapsible className="flex items-start gap-2 text-sm">
-      {/* 时间线图标列：h-5 与 text-sm 行高一致，保证图标垂直居中于首行；线从图标正下方开始 */}
-      <div className="relative flex h-5 shrink-0 items-center">
-        {isTaskTool ? (
-          <Bot
-            className={cn("size-4", isActive ? "text-editorial-accent" : "text-muted-foreground")}
-          />
-        ) : (
-          <Wrench
-            className={cn("size-4", isActive ? "text-foreground" : "text-muted-foreground")}
-          />
-        )}
-        <div className="absolute top-5 bottom-0 left-1/2 w-px -translate-x-1/2 bg-border" />
-      </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        <CollapsibleTrigger className="flex w-full items-center gap-2 text-left leading-5 hover:text-foreground">
-          <span className={cn("font-medium", isTaskTool && "text-editorial-ink font-semibold")}>
-            {displayTitle}
-          </span>
-          {isActive ? (
-            <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-          ) : isError ? (
-            <XCircle size={14} className="text-red-500" />
+    <Tool toolName={toolName} state={state} className="w-full">
+      <ToolHeader
+        title={displayTitle}
+        icon={
+          isTaskTool ? (
+            <Bot
+              className={cn(
+                "size-3.5",
+                isActive ? "text-editorial-accent" : "text-editorial-ink-muted",
+              )}
+            />
           ) : (
-            <CheckCircle size={14} className="text-green-600" />
-          )}
-          {hasContent && (
-            <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform data-[panel-open]:rotate-180" />
-          )}
-        </CollapsibleTrigger>
-        {hasContent && (
-          <CollapsibleContent>
-            <ToolDetail
+            <Wrench
+              className={cn(
+                "size-3.5",
+                isActive ? "text-editorial-accent" : "text-editorial-ink-muted",
+              )}
+            />
+          )
+        }
+      />
+      <ToolContent>
+        {input !== undefined && input !== null && <ToolInput input={input} />}
+        <ToolOutput isError={isError} errorText={errorText}>
+          {isActive && output === undefined ? (
+            <div className="flex items-center gap-1.5 rounded border border-editorial-hairline bg-editorial-surface-card/60 p-2 text-editorial-ink-muted italic font-mono text-[11px]">
+              <Loader2 size={12} className="animate-spin text-editorial-accent" />
+              <span>正在执行中，等待结果返回...</span>
+            </div>
+          ) : (
+            <OutputVisual
               toolName={toolName}
               input={input}
               output={output}
               outputText={outputText}
-              errorText={errorText}
-              isError={isError}
-              isActive={isActive}
             />
-          </CollapsibleContent>
-        )}
-      </div>
-    </Collapsible>
+          )}
+        </ToolOutput>
+      </ToolContent>
+    </Tool>
   );
-}
-
-/** 展开后的工具详情：仅"输入 + 输出"两区，可视化呈现（无复制） */
-function ToolDetail({
-  toolName,
-  input,
-  output,
-  outputText,
-  errorText,
-  isError,
-  isActive,
-}: {
-  toolName: string;
-  input: unknown;
-  output: unknown;
-  outputText: string;
-  errorText: string;
-  isError: boolean;
-  isActive: boolean;
-}) {
-  return (
-    <div className="space-y-2 text-xs leading-5">
-      {/* 输入 */}
-      <div>
-        <div className="mb-1 font-medium text-muted-foreground">输入</div>
-        <InputVisual input={input} />
-      </div>
-
-      {/* 输出 / 错误 */}
-      <div>
-        <div className={cn("mb-1 font-medium", isError ? "text-red-600" : "text-muted-foreground")}>
-          {isError ? "错误" : "输出"}
-        </div>
-        {isError ? (
-          <div className="rounded-md border border-red-600/20 bg-red-600/5 px-2.5 py-2 text-red-600">
-            {errorText || outputText || "工具调用失败"}
-          </div>
-        ) : isActive && output === undefined ? (
-          <div className="flex items-center gap-1.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft/30 px-2.5 py-2 text-editorial-ink-muted italic">
-            <Loader2 size={13} className="animate-spin text-editorial-accent" />
-            <span>正在执行中，等待结果返回...</span>
-          </div>
-        ) : (
-          <OutputVisual toolName={toolName} input={input} output={output} outputText={outputText} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** 输入参数：结构化展示（长文本带高度限制与滚动） */
-function InputVisual({ input }: { input: unknown }) {
-  if (input === undefined || input === null) return null;
-  if (typeof input === "object" && !Array.isArray(input)) {
-    const entries = Object.entries(input);
-    if (entries.length === 0) return null;
-    return (
-      <div className="space-y-1.5 rounded-md border border-editorial-hairline bg-editorial-surface-soft/40 p-2.5">
-        {entries.map(([k, v]) => {
-          const isLongText = typeof v === "string" && v.length > 80;
-          return (
-            <div key={k} className="flex flex-col gap-0.5 text-xs">
-              <span className="font-medium text-muted-foreground">{k}:</span>
-              <div
-                className={cn(
-                  "min-w-0 text-foreground break-words rounded bg-editorial-surface-card/70 p-1.5 border border-editorial-hairline/40 text-[11px] font-mono",
-                  isLongText && "max-h-24 overflow-y-auto",
-                )}
-              >
-                {typeof v === "object" && v !== null ? JSON.stringify(v, null, 2) : String(v)}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  return <div className="text-foreground text-xs">{String(input)}</div>;
 }
 
 /** 工具输出可视化：Subagent 轨迹、搜索结果徽章、长文本片段及摘要 */

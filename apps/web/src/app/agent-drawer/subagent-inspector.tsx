@@ -34,7 +34,7 @@ function getSubagentMeta(type: string) {
         icon: Search,
         desc: "专注于多角度信息收集、网页检索与综合研究报告撰写",
         color:
-          "text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800",
+          "text-editorial-semantic-info bg-editorial-semantic-info/10 border-editorial-semantic-info/20",
       };
     case "extractor":
       return {
@@ -42,7 +42,7 @@ function getSubagentMeta(type: string) {
         icon: FileSpreadsheet,
         desc: "专注于从杂乱页面或文本中抽取结构化字段与关键数据",
         color:
-          "text-amber-600 bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
+          "text-editorial-semantic-warning bg-editorial-semantic-warning/10 border-editorial-semantic-warning/20",
       };
     case "summarizer":
       return {
@@ -50,15 +50,14 @@ function getSubagentMeta(type: string) {
         icon: FileText,
         desc: "专注于长篇内容的高密度压缩、提炼关键论点与核心观点",
         color:
-          "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
+          "text-editorial-semantic-success bg-editorial-semantic-success/10 border-editorial-semantic-success/20",
       };
     case "browser":
       return {
         name: "浏览器自动化 (Browser)",
         icon: Globe,
         desc: "运行于沙盒环境，执行 DOM 快照、网页点击、表单填写与截图",
-        color:
-          "text-purple-600 bg-purple-50 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800",
+        color: "text-editorial-accent bg-editorial-surface-strong border-editorial-hairline-strong",
       };
     default:
       return {
@@ -156,13 +155,13 @@ function SubagentInspectorContent({
             <div className="flex items-center gap-2">
               <span className="font-semibold text-editorial-ink text-sm">{meta.name}</span>
               {isCompleted && (
-                <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 font-medium text-[11px] text-green-600 dark:text-green-400">
+                <span className="flex items-center gap-1 rounded-full bg-editorial-semantic-success/15 px-2 py-0.5 font-medium text-[11px] text-editorial-semantic-success">
                   <CheckCircle2 size={12} />
                   已完成
                 </span>
               )}
               {isError && (
-                <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 font-medium text-[11px] text-red-600 dark:text-red-400">
+                <span className="flex items-center gap-1 rounded-full bg-editorial-semantic-error/15 px-2 py-0.5 font-medium text-[11px] text-editorial-semantic-error">
                   <AlertCircle size={12} />
                   异常
                 </span>
@@ -254,15 +253,19 @@ function SubagentInspectorContent({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 font-medium text-editorial-ink text-xs">
-                <CheckCircle2 size={14} className="text-green-600 dark:text-green-400" />
-                <span>任务交付产出 (Execution Result)</span>
+                <CheckCircle2 size={14} className="text-editorial-semantic-success" />
+                <span>任务交付产出</span>
               </div>
               <button
                 type="button"
                 onClick={handleCopyResult}
                 className="flex items-center gap-1 rounded-md border border-editorial-hairline bg-editorial-surface-card px-2 py-1 text-[11px] text-editorial-ink-soft transition-colors hover:bg-editorial-surface-soft hover:text-editorial-ink"
               >
-                {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                {copied ? (
+                  <Check size={12} className="text-editorial-semantic-success" />
+                ) : (
+                  <Copy size={12} />
+                )}
                 <span>{copied ? "已复制" : t("common.copy")}</span>
               </button>
             </div>
@@ -274,12 +277,12 @@ function SubagentInspectorContent({
 
         {/* 4. 错误信息展示 */}
         {task.errorText && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300">
+          <div className="rounded-lg border border-editorial-semantic-error/30 bg-editorial-semantic-error/10 p-4 text-editorial-semantic-error">
             <div className="flex items-center gap-2 font-medium">
               <AlertCircle size={15} />
               <span>执行失败</span>
             </div>
-            <p className="mt-1 text-xs">{task.errorText}</p>
+            <p className="mt-1 text-xs opacity-90">{task.errorText}</p>
           </div>
         )}
       </div>
@@ -307,11 +310,11 @@ function ChildToolCard({
           <span className="font-mono text-[11px] text-editorial-ink-muted">#{index + 1}</span>
           <span className="font-semibold text-editorial-ink">{tool.toolName}</span>
           {tool.isError ? (
-            <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] text-red-600 dark:bg-red-950/50 dark:text-red-400">
+            <span className="rounded bg-editorial-semantic-error/15 px-1.5 py-0.5 font-medium text-[10px] text-editorial-semantic-error">
               失败
             </span>
           ) : (
-            <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] text-green-600 dark:bg-green-950/50 dark:text-green-400">
+            <span className="rounded bg-editorial-semantic-success/15 px-1.5 py-0.5 font-medium text-[10px] text-editorial-semantic-success">
               成功
             </span>
           )}

@@ -45,15 +45,23 @@
 .compact-chat .prose :where(th):not(:where([class~="not-prose"], [class~="not-prose"] *)),
 .compact-chat .prose :where(td):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   padding: 0.35em 0.5em;
+  border: 1px solid var(--editorial-hairline);
   white-space: nowrap;
 }
 
-/* 消息间距 */
-.compact-chat > div > div {
-  gap: 1rem;
+/* 引用块：发丝左线与纸墨软底 */
+.compact-chat .prose :where(blockquote):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+  border-left: 2px solid var(--editorial-hairline-strong);
+  padding-left: 0.75em;
+  color: var(--editorial-ink-soft);
+  font-style: normal;
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
 }
+
 /* 水平分割线：减小上下间距 */
 .compact-chat .prose :where(hr):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
   margin-top: 0.5em;
   margin-bottom: 0.5em;
+  border-color: var(--editorial-hairline);
 }
