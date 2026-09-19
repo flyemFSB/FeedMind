@@ -793,7 +793,8 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               {insights.surprising?.length > 0 && (
                 <div className="mb-4">
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                    <Link2 size={14} className="text-blue-500" /> {t("wiki.unexpectedLinks")}
+                    <Link2 size={14} className="text-editorial-semantic-info" />{" "}
+                    {t("wiki.unexpectedLinks")}
                   </div>
                   {insights.surprising.map((conn) => (
                     <div
@@ -823,7 +824,8 @@ export function WikiGraphView({ spaceId, onPageSelect, onNavigate }: WikiGraphVi
               {insights.gaps?.length > 0 && (
                 <div>
                   <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold">
-                    <AlertTriangle size={14} className="text-amber-500" /> {t("wiki.knowledgeGaps")}
+                    <AlertTriangle size={14} className="text-editorial-semantic-warning" />{" "}
+                    {t("wiki.knowledgeGaps")}
                   </div>
                   {insights.gaps.map((gap) => (
                     <div key={gap.title} className="rounded-lg border p-3 mb-2">

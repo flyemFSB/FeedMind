@@ -120,6 +120,7 @@ export function ToolsPanel() {
       <div className="flex gap-1 border-b border-editorial-hairline px-5">
         {initialTools.map((tool) => (
           <button
+            type="button"
             key={tool.name}
             onClick={() => handleToolSwitch(tool.name)}
             className={`px-4 py-2 text-body font-medium border-b-2 ${

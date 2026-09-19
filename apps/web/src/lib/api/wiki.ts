@@ -3,6 +3,7 @@ import type { IngestJob } from "@feedmind/contracts";
 import type {
   WikiBacklink,
   WikiGraph,
+  WikiPageCreate,
   WikiPageListItem,
   WikiPageRead,
   WikiPageUpdate,
@@ -40,6 +41,10 @@ export function listWikiPages(
   if (params?.offset) searchParams.set("offset", String(params.offset));
   const qs = searchParams.toString();
   return apiFetch(backendApiPath(`/wiki/spaces/${spaceId}/pages${qs ? `?${qs}` : ""}`));
+}
+
+export function createWikiPage(spaceId: string, payload: WikiPageCreate): Promise<WikiPageRead> {
+  return apiPost(`/wiki/spaces/${spaceId}/pages`, payload);
 }
 
 export function getWikiPage(spaceId: string, pageId: string): Promise<WikiPageRead> {

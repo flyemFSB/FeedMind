@@ -346,7 +346,7 @@ export function SourcesPage() {
                 : t("feeds.cookieUnknown"),
           type: next === "expired" ? "error" : next === "valid" ? "success" : "info",
         });
-        // 下拉列表曾因登录失效加载失败：校验通过后重取当前平台列表，让错误 banner 消失
+        // 校验通过后刷新平台可选项，消除凭据失效错误状态
         if (next === "valid" && activeOption?.select) {
           void crawlerQuery.refetch();
         }
@@ -356,10 +356,7 @@ export function SourcesPage() {
     }
   };
 
-  // 应用内浏览器登录已移除：Cookie 由 CookieCloud 扩展 / 手动粘贴维护，平台行按钮改为单平台校验（handleCheckCookie）
-
-  // 批量校验所有平台 Cookie 有效性（账号 Cookie 标题右侧通用按钮）；
-  // 进行中反馈由 pendingCheckPlatforms 派生，结果后端落库后统一拉取刷新
+  // 批量校验所有平台 Cookie 有效性并刷新状态
   const handleCheckAllCookies = async () => {
     if (checkingAll) return;
     const platforms = Object.keys(DEFAULT_COOKIE_STATUS);
@@ -430,7 +427,7 @@ export function SourcesPage() {
                     onClick={() => void handleAddRss()}
                     disabled={!rssUrl.trim()}
                     size="sm"
-                    className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-xs"
+                    className="h-8 gap-1.5 shrink-0 rounded-md px-3 text-xs"
                   >
                     <Plus size={14} />
                     {t("feeds.add")}
@@ -498,7 +495,7 @@ export function SourcesPage() {
                               onClick={() => void handleAddSocial()}
                               disabled={!opt.hasAll && !selectedOption.trim()}
                               size="sm"
-                              className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                              className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                             >
                               <Plus size={14} />
                               {t("feeds.add")}
@@ -554,7 +551,7 @@ export function SourcesPage() {
                           onClick={() => void handleAddSocial()}
                           disabled={!socialId.trim()}
                           size="sm"
-                          className="h-8 gap-1.5 shrink-0 rounded-lg px-3 text-xs"
+                          className="h-8 gap-1.5 shrink-0 rounded-md px-3 text-xs"
                         >
                           <Plus size={14} />
                           {t("feeds.add")}
@@ -700,7 +697,7 @@ export function SourcesPage() {
                   onClick={() => void handleSaveCookieCloud()}
                   disabled={!cookiecloudUuid.trim() || !cookiecloudPassword.trim() || savingCloud}
                   size="sm"
-                  className="h-8 gap-1.5 rounded-lg px-3 text-xs"
+                  className="h-8 gap-1.5 rounded-md px-3 text-xs"
                 >
                   {savingCloud ? <MotionSpinner size={14} /> : <Cookie size={14} />}
                   {t("feeds.cookieSaveConfig")}
@@ -722,7 +719,7 @@ export function SourcesPage() {
                   onClick={() => void handleCheckAllCookies()}
                   disabled={checkingAll}
                   size="sm"
-                  className="h-8 gap-1.5 rounded-lg px-3 text-xs"
+                  className="h-8 gap-1.5 rounded-md px-3 text-xs"
                 >
                   {checkingAll ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
                   {t("feeds.cookieRefresh")}

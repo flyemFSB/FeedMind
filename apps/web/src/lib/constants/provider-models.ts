@@ -132,14 +132,13 @@ export function displayNameToModelId(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** 格式化 KB 数值为可读字符串：< 1000 加 "K"，≥ 1000 转 "M" */
-export function formatKB(value: string | number | null | undefined): string {
+/** 格式化 Token 数量（按 1000 进制换算为 K / M） */
+export function formatTokenLimit(value: string | number | null | undefined): string {
   if (value == null || value === "") return "";
-  const num = typeof value === "number" ? value : parseFloat(value);
-  if (Number.isNaN(num)) return String(value);
-  if (num >= 1000) {
-    const m = num / 1000;
-    return m % 1 === 0 ? `${m}M` : `${m.toFixed(2).replace(/\.?0+$/, "")}M`;
-  }
-  return `${num}K`;
+  let n = typeof value === "number" ? value : parseFloat(value);
+  if (Number.isNaN(n) || n <= 0) return String(value);
+  if (n >= 100_000) n = Math.round(n / 1000);
+  return n >= 1000 ? `${parseFloat((n / 1000).toFixed(1))}M` : `${Math.round(n)}K`;
 }
+
+export const formatKB = formatTokenLimit;

@@ -1,9 +1,20 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type Ref,
+} from "react";
 import type { WikiPageRead, WikiPageUpdate } from "@feedmind/contracts";
 import { getWikiPage, updateWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DiscardChangesDialog } from "./discard-changes-dialog";
 import type { MilkdownEditorHandle } from "./milkdown-editor";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -13,6 +24,11 @@ const MilkdownEditor = lazy(() =>
   import("./milkdown-editor").then((m) => ({ default: m.MilkdownEditor })),
 );
 
+export interface WikiEditorHandle {
+  /** 是否有未保存修改。同步判定：编辑器 onChange 带 300ms 防抖，用上报的脏状态拦截切换会漏 */
+  isDirty: () => boolean;
+}
+
 interface WikiEditorProps {
   spaceId: string;
   pageId: string;
@@ -20,7 +36,10 @@ interface WikiEditorProps {
   onCancel: () => void;
 }
 
-export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProps) {
+function WikiEditorInner(
+  { spaceId, pageId, onSave, onCancel }: WikiEditorProps,
+  ref: Ref<WikiEditorHandle>,
+) {
   const { t, i18n } = useTranslation();
   const [page, setPage] = useState<WikiPageRead | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,8 +47,28 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
   const [content, setContent] = useState("");
   const [path, setPath] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const loadIdRef = useRef(0);
   const editorRef = useRef<MilkdownEditorHandle>(null);
+
+  const checkDirty = useCallback(() => {
+    if (!page) return false;
+    // getMarkdown() 取编辑器实时值（同步），不依赖防抖后的 content state
+    const latestContent = editorRef.current?.getMarkdown() ?? content;
+    return title !== page.title || path !== page.path || latestContent !== page.content;
+  }, [page, title, path, content]);
+
+  useImperativeHandle(ref, () => ({ isDirty: checkDirty }), [checkDirty]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (checkDirty()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  });
 
   const loadPage = useCallback(async () => {
     const loadId = ++loadIdRef.current;
@@ -51,6 +90,14 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
   useEffect(() => {
     void loadPage();
   }, [loadPage]);
+
+  const handleCancelClick = () => {
+    if (checkDirty()) {
+      setShowDiscardConfirm(true);
+    } else {
+      onCancel();
+    }
+  };
 
   const handleSave = async () => {
     if (!page) return;
@@ -117,7 +164,7 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
           <Button
             variant="ghost"
             size="sm"
-            onClick={onCancel}
+            onClick={handleCancelClick}
             className="h-8 rounded-lg px-3 text-xs text-editorial-ink-muted hover:bg-editorial-surface-soft"
           >
             <X size={14} className="mr-1" />
@@ -152,6 +199,14 @@ export function WikiEditor({ spaceId, pageId, onSave, onCancel }: WikiEditorProp
           />
         </Suspense>
       </div>
+
+      <DiscardChangesDialog
+        open={showDiscardConfirm}
+        onOpenChange={setShowDiscardConfirm}
+        onDiscard={onCancel}
+      />
     </div>
   );
 }
+
+export const WikiEditor = forwardRef(WikiEditorInner);

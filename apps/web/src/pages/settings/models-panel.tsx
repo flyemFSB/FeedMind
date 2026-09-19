@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ProviderIcon } from "@/components/icons/provider-icon";
-import { formatKB } from "@/lib/constants/provider-models";
+import { formatTokenLimit } from "@/lib/constants/provider-models";
 import type { FreeModelPreset } from "@/lib/constants/free-models";
 import { FreeModelDialog } from "./free-model-dialog";
 import { useTranslation } from "react-i18next";
@@ -262,15 +262,21 @@ export function ModelsPanel({
                         const { contextWindow: context, maxOutput } = model;
                         if (!context && !maxOutput) return null;
                         return (
-                          <span className="flex shrink-0 items-center gap-0.5">
+                          <span className="flex shrink-0 items-center gap-1 font-mono">
                             {context ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-tiny font-medium text-editorial-ink-muted leading-none">
-                                {formatKB(context)}
+                              <span
+                                title={`上下文窗口: ${formatTokenLimit(context)} tokens`}
+                                className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-tiny font-medium text-editorial-ink leading-none"
+                              >
+                                {formatTokenLimit(context)}
                               </span>
                             ) : null}
                             {maxOutput ? (
-                              <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1 py-0.5 text-tiny font-medium text-editorial-ink-muted leading-none">
-                                {formatKB(maxOutput)}
+                              <span
+                                title={`最大单次输出: ${formatTokenLimit(maxOutput)} tokens`}
+                                className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-tiny font-medium text-editorial-ink leading-none"
+                              >
+                                {formatTokenLimit(maxOutput)}
                               </span>
                             ) : null}
                           </span>

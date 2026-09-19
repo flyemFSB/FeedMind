@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { useRuntimeConfigs, useUpdateRuntimeConfig } from "@/lib/hooks/use-runtime-config";
 import type { RuntimeConfigUpdate } from "@/lib/api/runtime-config";
-import { useModels } from "@/lib/hooks/use-models";
+import { useModels, useSelectedModel } from "@/lib/hooks/use-models";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -55,6 +55,7 @@ export function RuntimePanel() {
   const { data: configs = [], isLoading } = useRuntimeConfigs({ enabled: true });
   const updateConfig = useUpdateRuntimeConfig();
   const { data: models = [] } = useModels("chat");
+  const { data: selectedModelId = "" } = useSelectedModel("chat");
 
   const sessionConfig = configs.find((c) => c.runtime === "session");
   const wikiConfig = configs.find((c) => c.runtime === "wiki");
@@ -79,10 +80,10 @@ export function RuntimePanel() {
         temperature: wikiConfig.temperature,
         top_p: wikiConfig.top_p,
         system_prompt: wikiConfig.system_prompt,
-        llm_id: wikiConfig.llm_id ? String(wikiConfig.llm_id) : "",
+        llm_id: wikiConfig.llm_id ? String(wikiConfig.llm_id) : selectedModelId,
       });
     }
-  }, [wikiConfig]);
+  }, [wikiConfig, selectedModelId]);
 
   const persistField = useCallback(
     (key: "temperature" | "top_p" | "system_prompt", value: number | string) => {

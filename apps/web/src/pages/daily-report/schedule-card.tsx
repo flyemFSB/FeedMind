@@ -104,7 +104,7 @@ export function ScheduleCard({
               }
               className={
                 schedule.lastRunStatus === "success"
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  ? "border-editorial-semantic-success/30 bg-editorial-semantic-success/10 text-editorial-semantic-success"
                   : ""
               }
             >
@@ -115,7 +115,7 @@ export function ScheduleCard({
             variant={enabled ? "outline" : "secondary"}
             className={
               enabled
-                ? "border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                ? "border-editorial-semantic-success/20 text-editorial-semantic-success"
                 : "text-editorial-ink-muted"
             }
           >

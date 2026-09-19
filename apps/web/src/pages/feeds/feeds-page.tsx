@@ -40,6 +40,7 @@ import {
   usePendingMutationVariables,
 } from "@/lib/hooks/use-feeds";
 import type { FeedItem, RssSource } from "@/lib/api/feeds";
+import { FeedReaderDialog } from "./feed-reader-dialog";
 
 // Intl.DateTimeFormat 构造开销大：按 语言+变体 模块级缓存，避免每次渲染重建
 const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>();
@@ -86,7 +87,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   weread: "feeds.platformWeread",
 };
 
-// 卡片流网格参数：与旧版 grid auto-fill minmax(280px,1fr) 等价，虚拟化按此计算列数
+// 响应式网格列宽基准参数，用于动态计算虚拟化列表列数
 const MIN_CARD_WIDTH = 280;
 const CARD_GAP = 12;
 
@@ -116,6 +117,7 @@ export function FeedsIndexPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [readingItem, setReadingItem] = useState<FeedItem | null>(null);
   // 顶部来源筛选与关键词查询存于 URL search params（可分享/刷新保留）
   const { filter = "all", keyword = "" } = routeApi.useSearch();
   const navigate = routeApi.useNavigate();
@@ -216,9 +218,10 @@ export function FeedsIndexPage() {
     }
     // 固定顺序展示 social 平台，rss 源按来源名排序
     const socialOrder = ["xiaohongshu", "weread", "bilibili", "zhihu", "douyin"];
-    const socialItems = socialOrder
-      .filter((k) => counts.has(k))
-      .map((k) => ({ key: k, ...counts.get(k)! }));
+    const socialItems = socialOrder.flatMap((k) => {
+      const item = counts.get(k);
+      return item ? [{ key: k, ...item }] : [];
+    });
     const rssItems = [...counts.entries()]
       .flatMap(([key, v]) => (key.startsWith("src:") ? [{ key, ...v }] : []))
       .sort((a, b) => a.label.localeCompare(b.label, "zh"));
@@ -248,11 +251,9 @@ export function FeedsIndexPage() {
   }, [filteredFeeds, keyword]);
 
   // ─── 虚拟化（行级：多列卡片流按行分组虚拟，行高由 measureElement 动态测量） ───
-  // 滚动容器：最外层 div 即滚动元素，用 state 管理（挂载时触发重渲染，修复首次挂载空白，同 wiki-page-list 先例）
+  // 滚动容器元素引用，用于虚拟滚动定位
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
-  // 列数随容器宽度响应：与旧版 grid auto-fill minmax(280px,1fr) 等价。
-  // 容器元素用 state 管理：内容分支在数据加载后才挂载，若用 useEffect([])+ref，
-  // 首次挂载时拿到的是 null，RO 永不注册 → 宽度恒 0 → 列数恒 1（一条占一宽行）
+  // 网格容器引用与宽度监听，用于动态计算网格列数
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
   useEffect(() => {
@@ -369,7 +370,7 @@ export function FeedsIndexPage() {
                           onClick={exitSelectMode}
                           size="sm"
                           variant="ghost"
-                          className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                          className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                         >
                           <X size={14} />
                           {t("feeds.exitSelect")}
@@ -379,7 +380,7 @@ export function FeedsIndexPage() {
                           onClick={() => setDeleteOpen(true)}
                           disabled={selected.size === 0}
                           size="sm"
-                          className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                          className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                         >
                           <Trash2 size={14} />
                           {t("feeds.deleteSelected")}
@@ -407,9 +408,9 @@ export function FeedsIndexPage() {
                               onClick={() => setFilter(key)}
                               aria-pressed={active}
                               className={cn(
-                                "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
+                                "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all active:scale-[0.97]",
                                 active
-                                  ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent"
+                                  ? "border-editorial-accent bg-editorial-accent/10 font-semibold text-editorial-accent shadow-2xs"
                                   : "border-editorial-hairline-strong font-medium text-editorial-ink-muted hover:border-editorial-hairline hover:text-editorial-ink",
                               )}
                             >
@@ -434,7 +435,7 @@ export function FeedsIndexPage() {
                         disabled={feeds.length === 0}
                         size="sm"
                         variant="ghost"
-                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                        className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                       >
                         <SquareCheckBig size={14} />
                         {t("feeds.select")}
@@ -443,7 +444,7 @@ export function FeedsIndexPage() {
                         onClick={() => void handleSync()}
                         disabled={isSyncing}
                         size="sm"
-                        className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-xs"
+                        className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                       >
                         {isSyncing ? <MotionSpinner size={14} /> : <RefreshCw size={14} />}
                         {isSyncing ? t("feeds.syncing") : t("feeds.sync")}
@@ -462,7 +463,7 @@ export function FeedsIndexPage() {
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   placeholder={t("feeds.searchPlaceholder")}
-                  className="w-full rounded-lg border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
+                  className="w-full rounded-md border border-editorial-hairline-strong bg-editorial-surface-card py-2 pl-8 pr-8 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft placeholder:text-editorial-ink-muted"
                 />
                 {keyword && (
                   <button
@@ -572,6 +573,7 @@ export function FeedsIndexPage() {
                               selected={selected.has(item.id)}
                               onToggleSelect={toggleSelect}
                               onMarkRead={handleMarkRead}
+                              onOpenReader={setReadingItem}
                               formatTime={formatTime}
                               lang={i18n.language}
                             />
@@ -594,6 +596,15 @@ export function FeedsIndexPage() {
         description={t("feeds.deleteSelectedConfirm", { count: selected.size })}
         confirming={deleteMutation.isPending}
       />
+
+      <FeedReaderDialog
+        item={readingItem}
+        source={readingItem ? sourceFor(readingItem) : undefined}
+        open={!!readingItem}
+        onOpenChange={(open) => {
+          if (!open) setReadingItem(null);
+        }}
+      />
     </div>
   );
 }
@@ -608,6 +619,7 @@ function FeedCard({
   selected,
   onToggleSelect,
   onMarkRead,
+  onOpenReader,
   formatTime,
   lang,
 }: {
@@ -618,39 +630,47 @@ function FeedCard({
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onMarkRead: (id: string) => void;
+  onOpenReader: (item: FeedItem) => void;
   formatTime: (dateStr: string) => string;
   lang: string;
 }) {
   const { t } = useTranslation();
   const BadgeIcon = iconFor(src);
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectMode) {
+      e.preventDefault();
+      onToggleSelect(item.id);
+      return;
+    }
+    if (!item.isRead) void onMarkRead(item.id);
+    onOpenReader(item);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (selectMode && e.key === " ") {
+      e.preventDefault();
+      onToggleSelect(item.id);
+    } else if (!selectMode && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      if (!item.isRead) void onMarkRead(item.id);
+      onOpenReader(item);
+    }
+  };
+
   return (
-    <m.a
+    <m.div
       whileTap={{ scale: 0.99 }}
-      href={item.link ?? undefined}
-      target={item.link ? "_blank" : undefined}
-      rel={item.link ? "noopener noreferrer" : undefined}
-      onClick={(e: React.MouseEvent<HTMLAnchorElement>) => {
-        if (selectMode) {
-          e.preventDefault();
-          onToggleSelect(item.id);
-          return;
-        }
-        if (!item.isRead) void onMarkRead(item.id);
-      }}
-      // 空格在 <a> 上默认滚动而不触发点击，选择模式下手动拦截；回车走 onClick 已能切换
-      onKeyDown={(e: React.KeyboardEvent<HTMLAnchorElement>) => {
-        if (selectMode && e.key === " ") {
-          e.preventDefault();
-          onToggleSelect(item.id);
-        }
-      }}
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-lg border bg-editorial-surface-card",
+        "group relative flex h-full flex-col overflow-hidden rounded-lg border bg-editorial-surface-card cursor-pointer",
         selectMode
           ? selected
-            ? "cursor-pointer border-editorial-accent bg-editorial-accent/[0.04] ring-1 ring-editorial-accent"
-            : "cursor-pointer border-editorial-hairline"
+            ? "border-editorial-accent bg-editorial-accent/[0.04] ring-1 ring-editorial-accent"
+            : "border-editorial-hairline"
           : "border-editorial-hairline",
         "hover:border-editorial-hairline-strong hover:bg-editorial-surface-soft",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent focus-visible:ring-offset-1",
@@ -760,12 +780,20 @@ function FeedCard({
           {item.author ? (
             <span className="truncate text-tiny text-editorial-ink-muted">{item.author}</span>
           ) : null}
-          <ExternalLink
-            size={12}
-            className="ml-auto shrink-0 text-editorial-ink-muted transition-colors group-hover:text-editorial-primary"
-          />
+          {item.link ? (
+            <a
+              href={item.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={t("feeds.openExternal", "打开原文")}
+              className="ml-auto shrink-0 p-1 -mr-1 rounded text-editorial-ink-muted transition-colors hover:text-editorial-primary hover:bg-editorial-surface-strong"
+            >
+              <ExternalLink size={12} />
+            </a>
+          ) : null}
         </div>
       </div>
-    </m.a>
+    </m.div>
   );
 }

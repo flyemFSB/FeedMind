@@ -30,6 +30,7 @@ import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
+import { useAppShell } from "@/app/shell/app-shell-context";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { wikiTypeLabel } from "./constants";
 import "streamdown/styles.css";
@@ -44,6 +45,7 @@ interface WikiReaderProps {
 
 export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderProps) {
   const { t } = useTranslation();
+  const { setWorkspaceContext } = useAppShell();
   // 引用必须稳定，否则重渲染会击穿 Streamdown 的 memo 导致全量重解析
   const sdTranslations = useMemo(() => streamdownTranslations(t), [t]);
   const [page, setPage] = useState<WikiPageRead | null>(null);
@@ -74,12 +76,19 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
       if (loadId !== loadIdRef.current) return;
       setPage(result);
       setBacklinks(links);
+      setWorkspaceContext({
+        type: "wiki",
+        spaceId,
+        pageId,
+        pageTitle: result.title,
+        snippet: result.description ?? undefined,
+      });
     } catch {
       // 错误由 apiFetch toast 统一处理
     } finally {
       if (loadId === loadIdRef.current) setLoading(false);
     }
-  }, [spaceId, pageId]);
+  }, [spaceId, pageId, setWorkspaceContext]);
 
   useEffect(() => {
     void loadPage();
@@ -133,8 +142,14 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
 
   if (!page) {
     return (
-      <div className="flex h-full items-center justify-center bg-editorial-canvas">
-        <p className="text-body text-editorial-ink-muted">{t("wiki.noPage")}</p>
+      <div className="flex h-full flex-col items-center justify-center bg-editorial-canvas p-6 text-center">
+        <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-editorial-surface-soft text-editorial-ink-muted">
+          <BookOpen size={22} strokeWidth={1.75} />
+        </div>
+        <h3 className="text-sm font-semibold text-editorial-ink">{t("wiki.selectPage")}</h3>
+        <p className="mt-1 max-w-sm text-xs text-editorial-ink-muted leading-relaxed">
+          {t("wiki.selectPageDesc")}
+        </p>
       </div>
     );
   }
@@ -423,23 +438,36 @@ function WikiReaderSkeleton() {
   );
 }
 
+const updatedAtFormatters = new Map<string, Intl.DateTimeFormat>();
+const dateOnlyFormatters = new Map<string, Intl.DateTimeFormat>();
+
 function formatUpdatedAt(value: string, locale = "zh-CN") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  let fmt = updatedAtFormatters.get(locale);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    updatedAtFormatters.set(locale, fmt);
+  }
+  return fmt.format(date);
 }
 
 function formatDateOnly(value: string, locale = "zh-CN") {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  }).format(date);
+  let fmt = dateOnlyFormatters.get(locale);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat(locale, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+    dateOnlyFormatters.set(locale, fmt);
+  }
+  return fmt.format(date);
 }

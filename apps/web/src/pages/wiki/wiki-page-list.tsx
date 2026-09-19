@@ -1,12 +1,14 @@
 import { useMemo, useRef, useState } from "react";
 import { m } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { FileText, Search } from "lucide-react";
+import { FileText, Plus, Search } from "lucide-react";
 import type { WikiPageListItem } from "@feedmind/contracts";
 import { useWikiPages } from "@/lib/hooks/use-wiki";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sortWikiTypes, wikiTypeColor, wikiTypeLabel } from "./constants";
+import { CreateConceptDialog } from "./wiki-create-concept-dialog";
 import { useTranslation } from "react-i18next";
 
 interface WikiPageListProps {
@@ -19,6 +21,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
   const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   // 滚动容器元素用 state 管理：容器挂载/卸载时触发重渲染，让 virtualizer 的
   // _willUpdate 重新观测 scrollElement（修复首次挂载时容器未就绪导致空白）
@@ -45,8 +48,17 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 py-3">
+      <div className="flex items-center justify-between px-4 py-2.5">
         <span className="text-body font-semibold text-editorial-ink">{t("wiki.page")}</span>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setShowCreate(true)}
+          className="h-7 gap-1 px-2 text-xs rounded-md border-editorial-hairline hover:border-editorial-hairline-strong hover:bg-editorial-surface-soft"
+        >
+          <Plus size={12} />
+          <span>{t("common.create", "新建")}</span>
+        </Button>
       </div>
 
       <div className="px-3 pb-2">
@@ -116,6 +128,15 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           />
         )}
       </div>
+
+      <CreateConceptDialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        spaceId={spaceId}
+        onCreated={(conceptId) => {
+          onPageSelect(conceptId);
+        }}
+      />
     </div>
   );
 }

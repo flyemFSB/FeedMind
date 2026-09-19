@@ -35,14 +35,14 @@ export const WIKI_TYPE_LABELS: Record<string, string> = {
 /** 类型标签（跟随配置中心语言：zh 显示中文，其余显示英文 type）。 */
 export function wikiTypeLabel(type: string, lang?: string): string {
   if (lang?.toLowerCase().startsWith("zh")) {
-    // 优先小写键（历史值如 concept/reference），回退大写知识形态键（Method/Technology 等）
+    // 优先匹配全小写键名，回退原始形态键名
     return WIKI_TYPE_LABELS[type.toLowerCase()] ?? WIKI_TYPE_LABELS[type] ?? type;
   }
   return type;
 }
 
 export function wikiTypeColor(type: string): string {
-  // 优先小写键（历史值如 concept/reference），回退大写知识形态键（Method/Technology 等）
+  // 优先匹配全小写键名，回退原始形态键名
   return (
     WIKI_TYPE_COLORS[type.toLowerCase()] ??
     WIKI_TYPE_COLORS[type] ??

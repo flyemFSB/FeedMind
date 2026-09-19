@@ -43,9 +43,9 @@ export function VideoPlayerDialog({ video, onClose }: VideoPlayerDialogProps) {
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                className="gap-1 border-editorial-semantic-success/30 bg-editorial-semantic-success/10 text-editorial-semantic-success"
               >
-                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="size-1.5 rounded-full bg-editorial-semantic-success" />
                 <span>{t(`dailyReport.status.${video.status}`)}</span>
               </Badge>
               {video.duration != null && video.duration > 0 && (

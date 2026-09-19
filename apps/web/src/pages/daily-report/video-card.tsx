@@ -109,7 +109,7 @@ export function VideoCard({ video, onPlay, onRegenerate, isTriggering }: VideoCa
               }
               className={
                 video.status === "success"
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                  ? "border-editorial-semantic-success/30 bg-editorial-semantic-success/10 text-editorial-semantic-success"
                   : ""
               }
             >

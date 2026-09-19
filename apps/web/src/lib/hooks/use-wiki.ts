@@ -1,5 +1,12 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
-import { listWikiSpaces, listWikiPages, listWikiSources, listIngestJobs } from "@/lib/api/wiki";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  listWikiSpaces,
+  listWikiPages,
+  listWikiSources,
+  listIngestJobs,
+  createWikiPage,
+} from "@/lib/api/wiki";
+import type { WikiPageCreate } from "@feedmind/contracts";
 
 export const wikiOptions = {
   all: ["wiki"] as const,
@@ -36,6 +43,21 @@ export function useWikiPages(spaceId: string | undefined) {
   return useQuery({
     ...wikiOptions.pages(spaceId!),
     enabled: !!spaceId,
+  });
+}
+
+export function useCreateWikiPage(spaceId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: WikiPageCreate) => {
+      if (!spaceId) throw new Error("spaceId is required");
+      return createWikiPage(spaceId, payload);
+    },
+    onSuccess: () => {
+      if (spaceId) {
+        void queryClient.invalidateQueries({ queryKey: wikiOptions.pages(spaceId).queryKey });
+      }
+    },
   });
 }
 

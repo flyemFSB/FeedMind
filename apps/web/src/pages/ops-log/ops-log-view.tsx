@@ -111,23 +111,26 @@ const ACTION_STYLE: Record<
 > = {
   create: {
     variant: "outline",
-    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    className:
+      "border-editorial-semantic-success/30 bg-editorial-semantic-success/10 text-editorial-semantic-success",
     Icon: Plus,
   },
   update: {
     variant: "outline",
-    className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    className:
+      "border-editorial-semantic-info/30 bg-editorial-semantic-info/10 text-editorial-semantic-info",
     Icon: Pencil,
   },
   delete: { variant: "destructive", className: "border border-destructive/20", Icon: Trash2 },
   import: {
     variant: "outline",
-    className: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+    className: "border-editorial-hairline-strong bg-editorial-surface-strong text-editorial-ink",
     Icon: Download,
   },
   run: {
     variant: "outline",
-    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    className:
+      "border-editorial-semantic-warning/30 bg-editorial-semantic-warning/10 text-editorial-semantic-warning",
     Icon: Play,
   },
 };
@@ -151,9 +154,9 @@ function ResultBadge({ result, label }: { result: OpsResult; label: string }) {
     return (
       <Badge
         variant="outline"
-        className="gap-1.5 border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+        className="gap-1.5 border-editorial-semantic-success/30 bg-editorial-semantic-success/10 text-editorial-semantic-success"
       >
-        <span className="size-1.5 rounded-full bg-emerald-500" />
+        <span className="size-1.5 rounded-full bg-editorial-semantic-success" />
         <span>{label}</span>
       </Badge>
     );

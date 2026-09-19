@@ -103,7 +103,7 @@ export function SettingsView({ activeTab, onTabChange }: SettingsViewProps) {
                 type="button"
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "group relative flex items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                  "group relative flex items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-all active:scale-[0.985]",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent",
                   isActive
                     ? "bg-editorial-surface-strong text-editorial-ink shadow-2xs"

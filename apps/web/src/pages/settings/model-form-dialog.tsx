@@ -7,7 +7,7 @@ import {
   CUSTOM_PROVIDER,
   displayNameToModelId,
   formatModelDisplayName,
-  formatKB,
+  formatTokenLimit,
 } from "@/lib/constants/provider-models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,13 +43,13 @@ const PROVIDERS = [
 ] as const;
 
 const EMPTY_FORM = {
-  provider: "ChatGPT",
+  provider: "DeepSeek",
   modelName: "",
   modelId: "",
   baseUrl: "",
   apiKey: "",
-  context: "256",
-  maxOutput: "64",
+  context: "",
+  maxOutput: "",
 };
 
 interface ModelFormDialogProps {
@@ -59,9 +59,12 @@ interface ModelFormDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function ModelSpecBadge({ label }: { label: string }) {
+function ModelSpecBadge({ label, title }: { label: string; title?: string }) {
   return (
-    <span className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-xs font-medium text-editorial-ink-muted leading-none">
+    <span
+      title={title}
+      className="inline-flex items-center rounded bg-editorial-surface-soft px-1.5 py-0.5 text-[11px] font-mono font-medium text-editorial-ink leading-none"
+    >
       {label}
     </span>
   );
@@ -132,7 +135,7 @@ export function ModelFormDialog({
     const payload = {
       provider: form.provider,
       modelName: form.modelName,
-      modelId: form.modelId,
+      modelId: form.modelId || form.modelName,
       baseUrl: form.baseUrl,
       apiKey: form.apiKey,
       contextWindow: toInt(form.context),
@@ -218,58 +221,27 @@ export function ModelFormDialog({
               </Select>
             </div>
           </div>
-          {/* 模型调用名称 */}
+          {/* 模型名称 */}
           <div className="col-span-2">
             <label
-              htmlFor="model-api-id-input"
+              htmlFor={isCustom ? "model-name-input" : "model-name-select"}
               className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
             >
-              模型调用名称
-            </label>
-            {isCustom ? (
-              <Input
-                id="model-api-id-input"
-                value={form.modelId}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  const autoDisplayName = formatModelDisplayName(val);
-                  setForm((current) => ({
-                    ...current,
-                    modelId: val,
-                    modelName: autoDisplayName,
-                  }));
-                }}
-                placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-md border-editorial-hairline text-body"
-              />
-            ) : (
-              <Input
-                id="model-api-id-input"
-                value={form.modelId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, modelId: event.target.value }))
-                }
-                placeholder="例如 deepseek-v4-flash"
-                className="h-10 rounded-md border-editorial-hairline text-body"
-              />
-            )}
-          </div>
-          {/* 模型显示名称 */}
-          <div className="col-span-2">
-            <label
-              htmlFor="model-name-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              模型显示名称
+              {t("settings.modelName", "模型名称")}
             </label>
             {isCustom ? (
               <Input
                 id="model-name-input"
                 value={form.modelName}
                 onChange={(event) => {
-                  setForm((current) => ({ ...current, modelName: event.target.value }));
+                  const val = event.target.value;
+                  setForm((current) => ({
+                    ...current,
+                    modelName: val,
+                    modelId: val,
+                  }));
                 }}
-                placeholder="根据调用名称自动生成"
+                placeholder={t("settings.modelNamePlaceholder", "例如 deepseek-chat 或 gpt-4o")}
                 className="h-10 rounded-md border-editorial-hairline text-body"
               />
             ) : (
@@ -279,7 +251,37 @@ export function ModelFormDialog({
                   aria-label={t("settings.selectModel")}
                   className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
                 >
-                  <SelectValue placeholder={t("settings.selectModel")} />
+                  <SelectValue placeholder={t("settings.selectModel")}>
+                    {(value: string | null) => {
+                      if (!value && !form.modelName) return null;
+                      const model = modelList.find((m) => m.model_id === value);
+                      const displayName = model?.name ?? form.modelName;
+                      if (!displayName) return null;
+                      const context =
+                        model?.context_window ?? (form.context ? Number(form.context) : null);
+                      const maxOutput =
+                        model?.max_output ?? (form.maxOutput ? Number(form.maxOutput) : null);
+                      return (
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-body">{displayName}</span>
+                          <span className="flex shrink-0 items-center gap-1">
+                            {context != null && (
+                              <ModelSpecBadge
+                                label={formatTokenLimit(context)}
+                                title={`上下文窗口: ${formatTokenLimit(context)} tokens`}
+                              />
+                            )}
+                            {maxOutput != null && (
+                              <ModelSpecBadge
+                                label={formatTokenLimit(maxOutput)}
+                                title={`最大单次输出: ${formatTokenLimit(maxOutput)} tokens`}
+                              />
+                            )}
+                          </span>
+                        </span>
+                      );
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-md border-editorial-hairline">
                   <SelectGroup>
@@ -298,10 +300,16 @@ export function ModelFormDialog({
                             <span className="text-body">{model.name}</span>
                             <span className="flex items-center gap-1">
                               {model.context_window != null && (
-                                <ModelSpecBadge label={formatKB(model.context_window)} />
+                                <ModelSpecBadge
+                                  label={formatTokenLimit(model.context_window)}
+                                  title={`上下文窗口: ${formatTokenLimit(model.context_window)} tokens`}
+                                />
                               )}
                               {model.max_output != null && (
-                                <ModelSpecBadge label={formatKB(model.max_output)} />
+                                <ModelSpecBadge
+                                  label={formatTokenLimit(model.max_output)}
+                                  title={`最大单次输出: ${formatTokenLimit(model.max_output)} tokens`}
+                                />
                               )}
                             </span>
                           </span>
@@ -377,12 +385,19 @@ export function ModelFormDialog({
           </div>
           <div className="col-span-2 grid grid-cols-[3fr_2fr] gap-3">
             <div>
-              <label
-                htmlFor="model-context-input"
-                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-              >
-                {t("settings.contextWindow")}
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label
+                  htmlFor="model-context-input"
+                  className="block text-xs font-medium text-editorial-ink-soft"
+                >
+                  {t("settings.contextWindow")}
+                </label>
+                {form.context && (
+                  <span className="font-mono text-tiny font-medium text-editorial-accent">
+                    = {formatTokenLimit(form.context)}
+                  </span>
+                )}
+              </div>
               <Input
                 id="model-context-input"
                 type="number"
@@ -395,12 +410,19 @@ export function ModelFormDialog({
               />
             </div>
             <div>
-              <label
-                htmlFor="model-max-output-input"
-                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-              >
-                {t("settings.maxOutput")}
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label
+                  htmlFor="model-max-output-input"
+                  className="block text-xs font-medium text-editorial-ink-soft"
+                >
+                  {t("settings.maxOutput")}
+                </label>
+                {form.maxOutput && (
+                  <span className="font-mono text-tiny font-medium text-editorial-accent">
+                    = {formatTokenLimit(form.maxOutput)}
+                  </span>
+                )}
+              </div>
               <Input
                 id="model-max-output-input"
                 type="number"

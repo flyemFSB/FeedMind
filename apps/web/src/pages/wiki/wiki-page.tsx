@@ -1,22 +1,24 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState, lazy, Suspense } from "react";
+import { useCallback, useEffect, useRef, useState, lazy, Suspense, type RefObject } from "react";
 import { AnimatePresence, m } from "motion/react";
 import {
   ArrowLeft,
   BookOpen,
   ChevronDown,
   Import,
-  MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Trash2,
 } from "lucide-react";
 import { LayoutWrapper } from "@/app/shell/layout-wrapper";
+import { AgentToggleButton } from "@/app/shell/topbar";
 import { useAppShell } from "@/app/shell/app-shell-context";
 import { WikiPageList } from "@/pages/wiki/wiki-page-list";
 import { WikiImportDialog } from "@/pages/wiki/wiki-import-dialog";
 import type { WikiSpaceListItem } from "@feedmind/contracts";
 import { WikiReader } from "@/pages/wiki/wiki-reader";
-import { WikiEditor } from "@/pages/wiki/wiki-editor";
+import { WikiEditor, type WikiEditorHandle } from "@/pages/wiki/wiki-editor";
 import { WikiSourcesView } from "@/pages/wiki/wiki-sources-view";
 // 图谱视图（sigma WebGL 渲染，含 graphology/cytoscape 等重依赖 ~1.5MB）仅在用户切到
 // graph 视图时渲染，lazy 化避免进首屏加载链（wiki 路由 chunk 从 1.9MB 降到 ~400KB）
@@ -25,6 +27,8 @@ const WikiGraphView = lazy(() =>
 );
 import { CreateWikiSpaceDialog } from "@/pages/wiki/wiki-create-space";
 import { useWikiSpaces, wikiOptions } from "@/lib/hooks/use-wiki";
+import { useDragWidth } from "@/lib/hooks/use-drag-width";
+import { DiscardChangesDialog } from "@/pages/wiki/discard-changes-dialog";
 import { deleteWikiSpace, resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -47,12 +51,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { fadeSlideVariants } from "@/lib/motion";
 import { type WikiView } from "@/lib/wiki-search";
+import { cn } from "@/lib/utils";
 
 const routeApi = getRouteApi("/wiki");
 
 export function MyWikiPage() {
   const { t } = useTranslation();
-  const { openAgentDrawer } = useAppShell();
+  const { toggleAgentDrawer, agentDrawerOpen } = useAppShell();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
@@ -60,6 +65,10 @@ export function MyWikiPage() {
   const [deletingSpace, setDeletingSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const pendingPageSelectRef = useRef<string | null>(null);
+  // 编辑器句柄：切概念前同步问它「有没有未保存修改」
+  const editorRef = useRef<WikiEditorHandle>(null);
   const prevIsEditing = useRef(isEditing);
 
   const { view, space, page } = routeApi.useSearch();
@@ -92,10 +101,16 @@ export function MyWikiPage() {
 
   const handlePageSelect = useCallback(
     (pageId: string) => {
+      // 当场问编辑器而不是读上报的 state：编辑器 onChange 防抖 300ms，读 state 会在窗口内漏判
+      if (isEditing && editorRef.current?.isDirty()) {
+        pendingPageSelectRef.current = pageId;
+        setShowDiscardDialog(true);
+        return;
+      }
       void navigate({ search: (prev) => ({ ...prev, page: pageId }) });
       setIsEditing(false);
     },
-    [navigate],
+    [isEditing, navigate],
   );
 
   const spaceIdRef = useRef(spaceId);
@@ -259,22 +274,14 @@ export function MyWikiPage() {
     <>
       <Button
         variant="outline"
-        size="default"
-        className="gap-2 rounded-lg text-body h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
+        size="sm"
+        className="gap-1.5 rounded-md h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
         onClick={() => setShowImport(true)}
       >
-        <Import size={16} />
+        <Import size={15} />
         {t("wiki.importTitle")}
       </Button>
-      <Button
-        variant="outline"
-        size="default"
-        className="gap-2 rounded-lg text-body h-9 border-editorial-hairline-strong bg-editorial-surface-card text-editorial-ink hover:bg-editorial-surface-soft"
-        onClick={openAgentDrawer}
-      >
-        <MessageCircle size={16} />
-        {t("common.askAI")}
-      </Button>
+      <AgentToggleButton active={agentDrawerOpen} onClick={toggleAgentDrawer} />
     </>
   ) : undefined;
 
@@ -313,6 +320,7 @@ export function MyWikiPage() {
                     }}
                     onEdit={() => setIsEditing(true)}
                     onCancelEdit={() => setIsEditing(false)}
+                    editorRef={editorRef}
                     onConceptLinkClick={(target) => void handleConceptLinkClick(target)}
                   />
                 )}
@@ -390,6 +398,20 @@ export function MyWikiPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 放弃未保存内容二次确认 */}
+      <DiscardChangesDialog
+        open={showDiscardDialog}
+        onOpenChange={setShowDiscardDialog}
+        onDiscard={() => {
+          setIsEditing(false);
+          const target = pendingPageSelectRef.current;
+          if (target) {
+            void navigate({ search: (prev) => ({ ...prev, page: target }) });
+            pendingPageSelectRef.current = null;
+          }
+        }}
+      />
     </LayoutWrapper>
   );
 }
@@ -403,6 +425,7 @@ function DualPaneLayout({
   onEdit,
   onCancelEdit,
   onConceptLinkClick,
+  editorRef,
 }: {
   spaceId: string;
   activePageId: string | null;
@@ -412,34 +435,92 @@ function DualPaneLayout({
   onEdit: () => void;
   onCancelEdit: () => void;
   onConceptLinkClick: (target: string) => void;
+  editorRef: RefObject<WikiEditorHandle | null>;
 }) {
+  const {
+    width: sidebarWidth,
+    isResizing,
+    handleResizePointerDown,
+  } = useDragWidth({
+    storageKey: "feedmind:wiki-sidebar-width",
+    defaultWidth: 260,
+    min: 200,
+    max: 420,
+    handleSide: "right",
+  });
+
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("feedmind:wiki-sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("feedmind:wiki-sidebar-collapsed", String(isCollapsed));
+  }, [isCollapsed]);
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <aside
-        className={`h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-editorial-hairline bg-editorial-surface-soft/60 shadow-[1px_0_2px_rgba(0,0,0,0.03)] ${
-          activePageId ? "flex max-md:hidden" : "flex max-md:w-full"
-        }`}
+        style={!isCollapsed ? { width: `${sidebarWidth}px` } : undefined}
+        className={cn(
+          "h-full min-h-0 shrink-0 flex-col border-r border-editorial-hairline bg-editorial-surface-soft/60 shadow-[1px_0_2px_rgba(0,0,0,0.03)] transition-[width] duration-150",
+          isCollapsed ? "hidden" : activePageId ? "flex max-md:hidden" : "flex max-md:w-full",
+        )}
       >
         <WikiPageList spaceId={spaceId} activePageId={activePageId} onPageSelect={onPageSelect} />
       </aside>
 
+      {!isCollapsed && (
+        <div
+          role="separator"
+          tabIndex={-1}
+          aria-orientation="vertical"
+          aria-label="调整列表栏宽度"
+          onPointerDown={handleResizePointerDown}
+          className={cn(
+            "group relative hidden md:flex w-1 shrink-0 cursor-col-resize items-center justify-center -ml-0.5 z-10 select-none hover:bg-editorial-accent/30 transition-colors",
+            isResizing && "bg-editorial-accent/40",
+          )}
+        >
+          <div className="h-6 w-0.5 rounded-full bg-editorial-hairline group-hover:bg-editorial-accent" />
+        </div>
+      )}
+
       <div
-        className={`min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card ${
-          activePageId ? "flex" : "flex max-md:hidden"
-        }`}
+        className={cn(
+          "min-h-0 min-w-0 flex-1 flex-col bg-editorial-surface-card",
+          activePageId ? "flex" : "flex max-md:hidden",
+        )}
       >
-        {activePageId && (
-          <div className="hidden h-10 shrink-0 items-center border-b border-editorial-hairline px-2 max-md:flex">
+        {/* 顶部控制栏：移动端返回按钮 + 桌面端专注折叠按钮 */}
+        <div className="flex h-8 shrink-0 items-center justify-between border-b border-editorial-hairline-soft bg-editorial-surface-soft/40 px-3">
+          <div className="flex items-center gap-1.5">
+            {activePageId && (
+              <button
+                type="button"
+                onClick={onClearPage}
+                className="flex md:hidden h-6 items-center gap-1 rounded px-1.5 text-tiny text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink"
+              >
+                <ArrowLeft size={12} />
+                <span>页面</span>
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={onClearPage}
-              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+              onClick={() => setIsCollapsed((prev) => !prev)}
+              title={isCollapsed ? "展开概念列表" : "折叠列表 (专注模式)"}
+              className="hidden md:flex h-6 items-center gap-1 rounded px-1.5 text-tiny text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink transition-colors"
             >
-              <ArrowLeft size={14} />
-              页面
+              {isCollapsed ? <PanelLeftOpen size={12} /> : <PanelLeftClose size={12} />}
+              <span>{isCollapsed ? "展开概念列表" : "专注模式"}</span>
             </button>
           </div>
-        )}
+        </div>
+
         <AnimatePresence mode="wait" initial={false}>
           <m.div
             key={activePageId ? `${activePageId}-${isEditing ? "edit" : "read"}` : "empty"}
@@ -452,6 +533,7 @@ function DualPaneLayout({
             {activePageId ? (
               isEditing ? (
                 <WikiEditor
+                  ref={editorRef}
                   spaceId={spaceId}
                   pageId={activePageId}
                   onSave={() => {
