@@ -1,5 +1,4 @@
-import { randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { enableCompileCache } from "node:module";
 import * as path from "node:path";
 import { app } from "electron";
@@ -40,29 +39,24 @@ process.env["WIKI_DIR"] = process.env["WIKI_DIR"] ?? path.join(dataDir, "wiki");
 
 // 打包后 stdout 无消费者（GUI 无控制台），API 侧 pino 日志默认全丢；
 // 落盘 userData/logs/app.log（logger.ts 依据 LOG_FILE 路由，文件为原生 JSON 行）
-if (app.isPackaged && !process.env["LOG_FILE"]) {
-  process.env["LOG_FILE"] = path.join(app.getPath("userData"), "logs", "app.log");
+if (app.isPackaged) {
+  const logFile = process.env["LOG_FILE"] ?? path.join(app.getPath("userData"), "logs", "app.log");
+  process.env["LOG_FILE"] = logFile;
+  try {
+    const logDir = path.dirname(logFile);
+    mkdirSync(logDir, { recursive: true });
+    // 日志轮转：若单个日志文件超过 20MB，归档为 .old 并清空当前日志，防止长跑占用过多磁盘
+    if (existsSync(logFile) && statSync(logFile).size >= 20 * 1024 * 1024) {
+      renameSync(logFile, `${logFile}.old`);
+    }
+  } catch {
+    // 忽略轮转异常，不阻塞启动
+  }
 }
 try {
   mkdirSync(dataDir, { recursive: true });
 } catch {
   // 目录已存在按需忽略
-}
-
-// 敏感信息加解密密钥：若环境未配置，在数据目录安全持久化随机密钥（实现桌面端零配置开箱即用）
-if (!process.env["ENCRYPTION_KEY"]) {
-  const keyFile = path.join(dataDir, ".secret_key");
-  try {
-    process.env["ENCRYPTION_KEY"] = readFileSync(keyFile, "utf-8").trim();
-  } catch {
-    const key = randomBytes(32).toString("hex");
-    try {
-      writeFileSync(keyFile, key, "utf-8");
-    } catch {
-      // 忽略写入失败
-    }
-    process.env["ENCRYPTION_KEY"] = key;
-  }
 }
 
 // 生产打包下显式声明生产环境并关闭非原生 pretty logger
@@ -103,10 +97,6 @@ if (process.env["FEEDMIND_DISABLE_GPU"] === "1") {
 
 // 2D canvas 光栅化走 CPU：WebGL（sigma 图）不受影响，弹窗动画由 GPU 合成器驱动
 app.commandLine.appendSwitch("disable-accelerated-2d-canvas");
-
-// 精简 GPU 显存与后台开销：禁用非必要视频叠加与背景检测轮询，降低 GPU 进程 Working Set
-app.commandLine.appendSwitch("disable-gpu-memory-buffer-video-frames");
-app.commandLine.appendSwitch("disable-direct-composition-video-overlays");
 
 // 精简 GPU 显存与后台开销：禁用非必要视频叠加与背景检测轮询，降低 GPU 进程 Working Set
 // （禁用 GPU 后无 GPU 进程，这些开关仅在有 GPU 时生效）

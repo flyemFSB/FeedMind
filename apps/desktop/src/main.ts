@@ -2,11 +2,14 @@ import "./env-bootstrap.js";
 import { mkdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+import { initDesktopEncryptionKey } from "./safe-storage.js";
+import type { ServerType } from "@feedmind/api/server-core";
 import {
   startApi,
   setMarkedWindowFactory,
   setMarkedWindowDestroyer,
   waitForMemorySettled,
+  shutdownDatabase,
 } from "@feedmind/api/server-core";
 
 // 顶层全局未捕获异常处理，落盘 logs/crash.log 并弹窗告警，避免静默退出
@@ -21,7 +24,7 @@ process.on("uncaughtException", (error) => {
       { flag: "a" },
     );
   } catch {
-    // 忽略写入失败
+    // 写入崩溃日志失败时忽略
   }
   dialog.showErrorBox("FeedMind 运行时异常", message);
 });
@@ -37,13 +40,13 @@ process.on("unhandledRejection", (reason) => {
       { flag: "a" },
     );
   } catch {
-    // 忽略写入失败
+    // 写入崩溃日志失败时忽略
   }
 });
 
 const DEFAULT_UI_PORT = 18790;
 const AGENT_MARKER = "feedmind-agent";
-// Agent 页面空闲超时缩短为 2 分钟，空闲即释放 Chromium 渲染子进程
+// Agent 页面空闲超时时间，超时释放渲染子进程
 const AGENT_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 // 拒绝授予音视频媒体等敏感权限，防止 Chromium 额外拉起常驻媒体服务进程
@@ -55,6 +58,7 @@ interface MarkedWindowEntry {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let apiServer: ServerType | null = null;
 const markedWindows = new Map<string, MarkedWindowEntry>();
 
 function getUiUrl(): string {
@@ -92,12 +96,12 @@ function showOnReady(win: BrowserWindow): void {
     }
   };
   win.once("ready-to-show", doShow);
-  // 5 秒超时兜底：防止因特定渲染/GPU卡顿错过 ready-to-show 事件导致窗口永久隐藏
+  // 超时兜底显示窗口，防止特定渲染异常导致窗口未展示
   setTimeout(doShow, 5000);
 }
 
 function refreshIdleTimer(marker: string): void {
-  // 仅对 agent 窗口应用空闲超时：crawler 窗口由任务生命周期显式销毁
+  // 仅对 agent 标记窗口应用空闲超时
   if (marker !== AGENT_MARKER) return;
   const entry = markedWindows.get(marker);
   if (!entry) return;
@@ -107,11 +111,11 @@ function refreshIdleTimer(marker: string): void {
   }, AGENT_IDLE_TIMEOUT_MS);
 }
 
-// 补建后必须等加载完成再返回：crawler-core 按窗口 URL 标记选页
+// 确保标记窗口创建且页面加载完成
 async function ensureMarkedWindow(marker: string): Promise<void> {
   const existing = markedWindows.get(marker);
   if (existing && !existing.win.isDestroyed()) {
-    // 活跃窗口直接复用并刷新空闲定时器，切勿因已导航到目标 URL 而强制重载空白页
+    // 活跃窗口直接复用并刷新空闲定时器
     refreshIdleTimer(marker);
     return;
   }
@@ -123,7 +127,7 @@ async function ensureMarkedWindow(marker: string): Promise<void> {
   refreshIdleTimer(marker);
 }
 
-// 窗口关闭后清理纯内存会话存储与缓存
+// 窗口关闭后清理会话存储与缓存
 async function destroyMarkedWindow(marker: string): Promise<void> {
   const entry = markedWindows.get(marker);
   if (!entry) return;
@@ -139,7 +143,7 @@ async function destroyMarkedWindow(marker: string): Promise<void> {
   await memSession.clearCache().catch(() => {});
 }
 
-// 长跑内存监控：每 5 分钟采样主进程堆占用
+// 定时监控主进程堆内存占用
 const MEMORY_SAMPLE_MS = 5 * 60 * 1000;
 const MEMORY_RISING_WARN_STREAK = 3;
 const MARKED_WINDOW_MEMORY_LIMIT_MB = 1536;
@@ -189,6 +193,7 @@ const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
 function createMainWindow(): BrowserWindow {
+  const isProd = app.isPackaged;
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -197,10 +202,48 @@ function createMainWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: "#0f172a",
-    webPreferences: { sandbox: true, spellcheck: false },
+    webPreferences: {
+      sandbox: true,
+      spellcheck: false,
+      devTools: !isProd,
+    },
   });
   win.removeMenu();
   win.webContents.setUserAgent(CHROME_UA);
+
+  // 生产环境屏蔽开发者工具与刷新快捷键，避免中断对话
+  if (isProd) {
+    win.webContents.on("before-input-event", (event, input) => {
+      if (
+        input.key === "F12" ||
+        (input.control && input.shift && input.key.toLowerCase() === "i") ||
+        input.key === "F5" ||
+        (input.control && input.key.toLowerCase() === "r")
+      ) {
+        event.preventDefault();
+      }
+    });
+  }
+
+  // 导航守卫：拦截非本地 UI 地址并使用系统默认浏览器打开
+  const handleExternalNavigation = (event: Electron.Event, targetUrl: string) => {
+    try {
+      const parsed = new URL(targetUrl);
+      const allowed = new URL(getUiUrl());
+      if (parsed.origin !== allowed.origin) {
+        event.preventDefault();
+        if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+          void shell.openExternal(targetUrl);
+        }
+      }
+    } catch {
+      event.preventDefault();
+    }
+  };
+
+  win.webContents.on("will-navigate", handleExternalNavigation);
+  win.webContents.on("will-redirect", handleExternalNavigation);
+
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
       void shell.openExternal(url);
@@ -247,6 +290,10 @@ async function bootstrap(): Promise<void> {
     (_wc, permission) => !MEDIA_PERMISSIONS.has(permission),
   );
 
+  // 初始化操作系统安全存储主密钥
+  const dataDir = process.env["DATA_DIR"] ?? path.join(app.getPath("userData"), "data");
+  initDesktopEncryptionKey(dataDir);
+
   const webDist = process.env["VITE_DEV_SERVER_URL"]
     ? undefined
     : app.isPackaged
@@ -255,7 +302,21 @@ async function bootstrap(): Promise<void> {
 
   // eslint-disable-next-line no-console
   console.log("[启动] 正在启动内置 API 服务...", { webDist: webDist ?? "dev-server" });
-  await startApi(webDist ? { webDist } : {});
+  try {
+    apiServer = await startApi(webDist ? { webDist } : {});
+  } catch (err: unknown) {
+    const error = err as NodeJS.ErrnoException;
+    if (error && error.code === "EADDRINUSE") {
+      const port = process.env["API_PORT"] ?? DEFAULT_UI_PORT;
+      dialog.showErrorBox(
+        "FeedMind 端口冲突",
+        `本地端口 ${port} 已被占用，导致内置服务无法启动。\n\n请检查是否有已在运行的 FeedMind 进程或其他本地服务占用了该端口，关闭后重试。`,
+      );
+      app.quit();
+      return;
+    }
+    throw err;
+  }
 
   setMarkedWindowFactory(ensureMarkedWindow);
   setMarkedWindowDestroyer(destroyMarkedWindow);
@@ -277,20 +338,33 @@ app.on("activate", () => {
   }
 });
 
-// 退出前等待 Observational Memory 后台观察/反射周期写完 mastra.db，防止后台写被进程退出截断。
-let memoryFlushed = false;
+// 退出前按逆序优雅关闭：等待记忆持久化、关闭 HTTP 服务并释放数据库
+let isShuttingDown = false;
 app.on("before-quit", (event) => {
-  if (memoryFlushed) return;
+  if (isShuttingDown) return;
   event.preventDefault();
-  void waitForMemorySettled()
-    .catch(() => {})
-    .finally(() => {
-      memoryFlushed = true;
+  isShuttingDown = true;
+
+  void (async () => {
+    try {
+      await waitForMemorySettled().catch(() => {});
+
+      if (apiServer) {
+        await new Promise<void>((resolve) => {
+          apiServer?.close(() => resolve());
+          setTimeout(resolve, 2000); // 2 秒超时兜底，防止挂起连接阻碍退出
+        });
+        apiServer = null;
+      }
+
+      await shutdownDatabase().catch(() => {});
+    } finally {
       app.quit();
-    });
+    }
+  })();
 });
 
-// 单例锁：防止多开导致 API 端口 (18790) / CDP 端口 (9333) 与 SQLite 冲突
+// 单例进程锁：防止多实例并发导致端口与数据库冲突
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
