@@ -30,6 +30,7 @@ import type {
 } from "@feedmind/wiki-core";
 import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
 import { buildAnalysisPrompt, buildGenerationPrompt, buildSystemPrompt } from "./ingest-prompts.js";
+import { sourceChunkChars, splitSourceContent } from "./source-chunking.js";
 import {
   getWikiDir,
   getSpaceDir,
@@ -49,7 +50,6 @@ import { resolveModelClient } from "../../models/model-cache.js";
 import { parseTokenCount } from "../../models/parse-token-count.js";
 import { getRuntimeConfig } from "../../runtime-config/config-service.js";
 
-const MAX_SOURCE_CHARS = 80_000;
 // 每空间串行链：同一空间的导入排队执行，并发时后到的等待前一个完成后才开始，而不是直接报错
 const spaceQueues = new Map<string, Promise<void>>();
 // OKF v0.2 生成者标识（actor 约定：agent/tool），写入每个概念的 generated.by
@@ -109,23 +109,6 @@ function readSourceDocument(
   return { content: formatted, hash: sha256(formatted) };
 }
 
-function splitSourceContent(content: string): string[] {
-  if (content.length <= MAX_SOURCE_CHARS) return [content];
-
-  const chunks: string[] = [];
-  let start = 0;
-  while (start < content.length) {
-    let end = Math.min(start + MAX_SOURCE_CHARS, content.length);
-    if (end < content.length) {
-      const boundary = content.lastIndexOf("\n\n", end);
-      if (boundary > start + 1_000) end = boundary;
-    }
-    chunks.push(content.slice(start, end).trim());
-    start = end;
-  }
-  return chunks.filter(Boolean);
-}
-
 function checkpointPath(spaceId: string, sourceIdentity: string): string {
   return path.join(
     getSpaceDir(spaceId),
@@ -159,9 +142,10 @@ async function analyzeSource(
   context: SpaceContext,
   llmClient: LlmClient,
   report: (message: string, step: number) => void,
+  budget: { systemPrompt: string; maxSourceChars: number },
   shouldCancel?: () => boolean,
 ): Promise<AnalysisResult> {
-  const chunks = splitSourceContent(sourceContent);
+  const chunks = splitSourceContent(sourceContent, budget.maxSourceChars);
   const pathName = checkpointPath(spaceId, sourceIdentity);
   let analyses: AnalysisResult[] = [];
 
@@ -181,7 +165,7 @@ async function analyzeSource(
 
   for (let index = analyses.length; index < chunks.length; index++) {
     if (shouldCancel?.()) throw new IngestCancelledError();
-    analyses[index] = await stage1Analysis(chunks[index]!, context, llmClient);
+    analyses[index] = await stage1Analysis(chunks[index]!, context, llmClient, budget.systemPrompt);
     ensureDir(path.dirname(pathName));
     safeWriteFile(pathName, JSON.stringify({ sourceHash, analyses }, null, 2));
     report(`正在分析源内容（${index + 1}/${chunks.length}）...`, 2);
@@ -318,10 +302,11 @@ async function stage1Analysis(
   sourceContent: string,
   context: SpaceContext,
   llmClient: LlmClient,
+  systemPrompt: string,
 ): Promise<AnalysisResult> {
   const raw = await llmClient.chat(
     [
-      { role: "system", content: buildSystemPrompt(context.purpose, context.schema) },
+      { role: "system", content: systemPrompt },
       { role: "user", content: buildAnalysisPrompt(sourceContent, context.index) },
     ],
     { responseFormat: "json" },
@@ -352,15 +337,16 @@ async function stage1Analysis(
 
 async function stage2Generation(
   analysis: string,
-  context: SpaceContext,
+  _context: SpaceContext,
   sourceIdentity: string,
   llmClient: LlmClient,
   handleTable: ConceptHandle[],
   mergeHints: string[],
+  systemPrompt: string,
 ): Promise<string> {
   return llmClient.chat(
     [
-      { role: "system", content: buildSystemPrompt(context.purpose, context.schema) },
+      { role: "system", content: systemPrompt },
       {
         role: "user",
         content: buildGenerationPrompt({
@@ -371,7 +357,7 @@ async function stage2Generation(
         }),
       },
     ],
-    { responseFormat: "json", maxTokens: 8192 },
+    { responseFormat: "json" },
   );
 }
 
@@ -591,18 +577,34 @@ export async function runIngest(
     }
 
     const runtime = await getRuntimeConfig("wiki");
-    // 与 chat 共用模型解析与 max_tokens 语义
     const resolved = await resolveModelClient(Number(runtime.llm_id));
-    const llmClient: LlmClient = new AiSdkLlmClient(
-      resolved.client,
-      resolved.modelApiId,
-      parseTokenCount(resolved.maxOutput),
+    // 与 chat 共用模型解析与 max_tokens 语义：输出上限取模型配置的真实 max_output（与 chat 同源），
+    // 未配置时不传 max_tokens 交端点默认。不可写死小值：思考模型（DeepSeek V4）推理与正文共享该预算，
+    // 推理吃满后正文为空，上层报“LLM 未返回内容”
+    const maxTokens = parseTokenCount(resolved.maxOutput);
+    const llmClient: LlmClient = new AiSdkLlmClient(resolved.client, resolved.modelApiId, {
+      ...(maxTokens !== undefined ? { maxTokens } : {}),
+      thinkingByDefault: resolved.thinkingByDefault,
+      // 采样参数取 runtime 配置（与 chat 同源），不再在代码里写死
+      temperature: runtime.temperature,
+      topP: runtime.top_p,
+    });
+    logger.info(
+      { model: runtime.model_id || runtime.model_name, maxTokens: maxTokens ?? null },
+      "开始执行 OKF 知识库导入",
     );
-    logger.info({ model: runtime.model_id || runtime.model_name }, "开始执行 OKF 知识库导入");
 
     // 注意：retract 后 context 必须重读，existingPages 不能含已删除文件
     const context = readSpaceContext(spaceId);
     log.push(`OKF bundle 当前包含 ${context.existingPages.length} 个 Concept`);
+
+    // 系统提示词与本轮分块预算都只算一次：提示词层级 = 空间 purpose/schema → runtime 补充 → OKF 硬规则
+    const systemPrompt = buildSystemPrompt(context.purpose, context.schema, runtime.system_prompt);
+    const maxSourceChars = sourceChunkChars({
+      contextTokens: parseTokenCount(resolved.contextWindow) ?? null,
+      outputTokens: maxTokens ?? null,
+      promptChars: systemPrompt.length + context.index.length,
+    });
 
     const analysis = await analyzeSource(
       source.content,
@@ -612,6 +614,7 @@ export async function runIngest(
       context,
       llmClient,
       report,
+      { systemPrompt, maxSourceChars },
       shouldCancel,
     );
 
@@ -633,6 +636,7 @@ export async function runIngest(
       llmClient,
       handleTable,
       mergeHints,
+      systemPrompt,
     );
 
     let documents: GeneratedDocument[];

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { AiSdkLlmClient } from "./llm-client.js";
+import { AiSdkLlmClient, type LlmClientOptions } from "./llm-client.js";
 
 // AI SDK 非流式调用走全局 fetch POST /chat/completions；mock 标准 OpenAI 响应。
 // AI SDK 会话校验：响应 header 的 x-request-id 必须与请求一致，否则忽略响应体。
@@ -38,13 +39,13 @@ function mockOkChat(content: string) {
   });
 }
 
-function makeClient(maxTokens?: number) {
+function makeClient(opts?: LlmClientOptions) {
   const provider = createOpenAICompatible({
     name: "test",
     apiKey: "k",
     baseURL: "https://example.com/v1",
   });
-  return new AiSdkLlmClient(provider, "test-model", maxTokens);
+  return new AiSdkLlmClient(provider, "test-model", opts);
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -66,6 +67,9 @@ describe("AiSdkLlmClient", () => {
     expect(res).toBe('{"status":"ok"}');
     // 非流式调用（generateText 默认），命中 openai chat completions 端点
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/chat/completions");
+    // responseFormat 真正落到线上字段（原先是死参数，只传不进请求体）
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.response_format).toEqual({ type: "json_object" });
   });
 
   it("LLM 返回带 fence 围栏的文本时正常返回（由上层 parseJsonSafe 解析）", async () => {
@@ -78,7 +82,7 @@ describe("AiSdkLlmClient", () => {
   it("模型配置 maxTokens 透传为 max_tokens；调用级优先", async () => {
     const fetchMock = mockOkChat("{}");
     vi.stubGlobal("fetch", fetchMock);
-    const client = makeClient(8192);
+    const client = makeClient({ maxTokens: 8192 });
 
     await client.chat([{ role: "user", content: "hi" }]);
     let body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
@@ -87,6 +91,36 @@ describe("AiSdkLlmClient", () => {
     await client.chat([{ role: "user", content: "hi" }], { maxTokens: 16000 });
     body = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body));
     expect(body.max_tokens).toBe(16000);
+  });
+
+  it("采样参数取自 runtime 配置（不再写死）", async () => {
+    const fetchMock = mockOkChat("{}");
+    vi.stubGlobal("fetch", fetchMock);
+    await makeClient({ temperature: 0.2, topP: 1 }).chat([{ role: "user", content: "hi" }]);
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.temperature).toBe(0.2);
+    expect(body.top_p).toBe(1);
+  });
+
+  it("默认开启思考的 DeepSeek：保持思考、不下发采样参数、max_tokens 用真实上限", async () => {
+    const fetchMock = mockOkChat('{"documents":[]}');
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AiSdkLlmClient(
+      { chatModel: (id) => createDeepSeek({ apiKey: "k" }).languageModel(id) },
+      "deepseek-v4-flash",
+      { maxTokens: 384_000, thinkingByDefault: true, temperature: 0.2, topP: 1 },
+    );
+
+    await client.chat([{ role: "user", content: "hi" }], { responseFormat: "json" });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    // 不主动关思考：body 无 thinking 即 V4 默认开启；推理与正文共享这 384K，不能再写死小值
+    expect(body.thinking).toBeUndefined();
+    expect(body.temperature).toBeUndefined();
+    expect(body.top_p).toBeUndefined();
+    expect(body.max_tokens).toBe(384_000);
+    expect(body.response_format).toEqual({ type: "json_object" });
   });
 
   it("模型返回空文本时抛错（避免把空结果当成功）", async () => {

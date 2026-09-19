@@ -178,7 +178,7 @@ export function readSource(uploadPath: string, spaceId: string): Record<string, 
       space_id: spaceId,
       identity: `${slug}.md`,
       title: extractString(meta, "title") ?? fileName,
-      // kind 缺省按文件名推断：旧版本来源可能无 kind 字段（默认 text 会显示 T 字图标）
+      // 元数据缺失 kind 字段时按文件扩展名推断类型
       kind:
         extractString(meta, "kind") ??
         (fileName.toLowerCase().includes(".pdf")
@@ -192,7 +192,7 @@ export function readSource(uploadPath: string, spaceId: string): Record<string, 
       mime_type: extractString(meta, "mime_type") ?? "application/octet-stream",
       size_bytes: stat.size,
       content_hash: sha256(raw.trim()),
-      // 状态存于关联 md frontmatter（转换/导入回写），缺省待导入
+      // 状态存于关联 md 的 frontmatter（由转换/导入流程回写），缺省为待导入
       status: (extractString(meta, "status") ?? "ready") as string,
       metadata: (meta["metadata"] as Record<string, unknown>) ?? {},
       created_at: extractString(meta, "timestamp") ?? stat.birthtime.toISOString(),

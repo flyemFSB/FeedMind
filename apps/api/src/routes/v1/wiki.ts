@@ -248,7 +248,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
   const body = await parseJson(c, ingestBodySchema);
   const sourcePath = body.sourcePath;
 
-  // 获取源标题用于导入历史展示
+  // 读取源标题以记录导入历史
   const sourceTitle = readSourceTitle(spaceId, sourcePath);
 
   // 占位源（二进制文档解析中）正文为空：禁止手动导入，避免 LLM 基于空正文生成垃圾概念

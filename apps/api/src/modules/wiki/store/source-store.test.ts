@@ -25,7 +25,6 @@ afterEach(() => {
 
 describe("saveUploadedSource", () => {
   it("二进制 PDF 上传返回 queued：上传路由据此走转换任务，而非直接导入", async () => {
-    // 回归：readUploadedSource 曾硬编码 ready，导致 PDF 绕过转换、LLM 基于空正文脑补概念
     const { saveUploadedSource } = await loadSourceStore();
     const src = await saveUploadedSource(
       "sp-1",

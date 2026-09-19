@@ -282,8 +282,7 @@ export async function saveUploadedSource(
   throw new HttpError(400, "HTTP_ERROR", `不支持的文件类型: .${ext}`);
 }
 
-// 读取刚落盘的源文件并组装响应结构（与列表/详情读取保持一致）
-// kind 沿用历史 "file"/"image" 标记（image 为图片引用源，已入 contracts 枚举）
+// 读取已落盘的源文件并组装响应结构
 function readUploadedSource(
   spaceId: string,
   sourceFileName: string,

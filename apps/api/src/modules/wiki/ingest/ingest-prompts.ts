@@ -3,7 +3,14 @@
 import type { ConceptHandle } from "@feedmind/wiki-core";
 import { WIKI_CONCEPT_TYPES } from "@feedmind/contracts";
 
-export function buildSystemPrompt(purpose: string, schema: string): string {
+/**
+ * 系统提示词分层（顺序即优先级：越靠后越硬）：
+ * Purpose / Local guidance 来自空间（用户层，描述这个知识空间要什么），
+ * Additional instructions 来自 runtime_config.wiki.system_prompt（用户层，全局补充），
+ * OKF rules 是格式硬约束，必须压在最后。
+ */
+export function buildSystemPrompt(purpose: string, schema: string, extra = ""): string {
+  const extraSection = extra.trim() ? `\n## Additional instructions\n${extra.trim()}\n` : "";
   return `You are an Open Knowledge Format (OKF) v0.2 curator.
 
 ## Purpose
@@ -11,7 +18,7 @@ ${purpose || "No additional purpose was provided."}
 
 ## Local guidance
 ${schema || "Use descriptive, self-explanatory type values."}
-
+${extraSection}
 ## OKF rules
 - Every generated document is a UTF-8 Markdown Concept document.
 - Every document must have YAML frontmatter with a non-empty type.
