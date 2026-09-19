@@ -1,4 +1,4 @@
-﻿import { createAnthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createGoogle } from "@ai-sdk/google";
 import { createMiniMax } from "@ai-sdk/minimax";
@@ -27,6 +27,8 @@ export interface ResolvedModel {
   modelApiId: string;
   contextWindow: number | null;
   maxOutput: number | null;
+  /** 默认开启思考：temperature/topP 不生效，且推理与正文共享 max_tokens 预算 */
+  thinkingByDefault: boolean;
 }
 
 /**
@@ -94,13 +96,17 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
     };
   }
 
+  // model_name 是展示名（如 "GPT 5.5"），拿它做 API 调用名会被上游拒掉；
+  // 老数据 model_id 可能为空，此时才回退展示名（与 embedder-resolver 取值口径一致）
+  const modelApiId = config.model_id || config.model_name;
   const entry: ResolvedModel = {
     client,
-    // model_name 是展示名（如 "GPT 5.5"），拿它做 API 调用名会被上游拒掉；
-    // 老数据 model_id 可能为空，此时才回退展示名（与 embedder-resolver 取值口径一致）
-    modelApiId: config.model_id || config.model_name,
+    modelApiId,
     contextWindow: config.context_window,
     maxOutput: config.max_output,
+    // 与 @ai-sdk/deepseek 的默认判定保持一致（modelId 含 deepseek-v4 或为 deepseek-reasoner）
+    thinkingByDefault:
+      config.provider === "DeepSeek" && /deepseek-v4|deepseek-reasoner/.test(modelApiId),
   };
   modelClientCache.set(modelId, entry);
   return entry;

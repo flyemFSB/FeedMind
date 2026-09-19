@@ -54,17 +54,20 @@ interface CachedCatalog {
   providers: Record<string, CatalogModel[]>;
 }
 
+/** 最小最大输出（单位：K tokens），小于 32K 的老模型或受限模型不纳入目录 */
+export const MIN_MAX_OUTPUT_K = 32;
+
 /** token 绝对值 → K tokens（DB 与 UI 均以 K 为单位，64 → 64000） */
 export function toKTokens(tokens: number | undefined): number | null {
   if (typeof tokens !== "number" || !Number.isFinite(tokens) || tokens <= 0) return null;
   return Math.max(1, Math.round(tokens / 1000));
 }
 
-/** 只留可对话模型：输出含文本且非嵌入模型，否则选择器会混入 TTS / 绘图 / embedding */
-function isChatModel(id: string, raw: RawModel): boolean {
+/** 只留纯文本对话模型：排除嵌入模型，以及输出含图像/音频/视频等非纯文本模型 */
+export function isChatModel(id: string, raw: RawModel): boolean {
   if (/embedding/i.test(id)) return false;
   const output = raw.modalities?.output;
-  return !Array.isArray(output) || output.includes("text");
+  return !Array.isArray(output) || (output.length > 0 && output.every((m) => m === "text"));
 }
 
 /** 抽取本项目需要的字段，按发布时间倒序（新的在前） */
@@ -81,7 +84,8 @@ export function mapCatalog(raw: RawCatalog): Record<string, CatalogModel[]> {
         name: model.name?.trim() || id,
         context_window: toKTokens(model.limit?.context),
         max_output: toKTokens(model.limit?.output),
-      }));
+      }))
+      .filter((model) => model.max_output !== null && model.max_output >= MIN_MAX_OUTPUT_K);
   }
 
   return providers;

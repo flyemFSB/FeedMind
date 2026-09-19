@@ -25,6 +25,45 @@ describe("Runtime Config API 集成测试", () => {
     expect(runtimes).toContain("wiki");
   });
 
+  it("模型解析：session 与未独立指定模型的 wiki 都回退全局选中模型", async () => {
+    const inserted = await ctx.dbMod.db
+      .insert(ctx.dbMod.model)
+      .values([
+        { provider: "openai", modelName: "全局选中", modelId: "global-selected", isSelected: true },
+        { provider: "anthropic", modelName: "wiki 专用", modelId: "wiki-only" },
+      ])
+      .returning();
+
+    const readConfigs = async () => {
+      const res =
+        await ctx.request<Array<{ runtime: string; llm_id: number | null; model_name?: string }>>(
+          "/api/v1/runtime-configs",
+        );
+      return {
+        session: res.body.data.find((c) => c.runtime === "session"),
+        wiki: res.body.data.find((c) => c.runtime === "wiki"),
+      };
+    };
+
+    // wiki 未指定自己的模型：与 session 一样指向全局选中模型
+    const before = await readConfigs();
+    expect(before.session?.model_name).toBe("全局选中");
+    expect(before.wiki?.llm_id).toBe(before.session?.llm_id);
+
+    // wiki 独立指定后用自己的，session 不受影响
+    const wikiModel = inserted.find((m) => m.modelName === "wiki 专用");
+    const putRes = await ctx.request("/api/v1/runtime-configs/wiki", {
+      method: "PUT",
+      body: { llm_id: wikiModel?.id },
+    });
+    expect(putRes.status).toBe(200);
+
+    const after = await readConfigs();
+    expect(after.wiki?.model_name).toBe("wiki 专用");
+    expect(after.wiki?.llm_id).toBe(wikiModel?.id);
+    expect(after.session?.model_name).toBe("全局选中");
+  });
+
   it("PUT /api/v1/runtime-configs/session 成功更新温度与提示词", async () => {
     const updatePayload = {
       temperature: 0.7,

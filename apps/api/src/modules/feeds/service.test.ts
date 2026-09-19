@@ -61,8 +61,8 @@ describe("pickFreshItems 按库内最新时间戳增量", () => {
     expect(fresh.map((i) => i.guid)).toEqual(["a"]);
   });
 
-  // 核心回归：源返回的前 10 条都是已入库的旧条目时，不得继续灌第 11 条起的更旧历史
-  it("没有比库内最新更新的条目时返回空，不反复灌历史", () => {
+  // 候选条目均早于或等于阈值时间时返回空数组
+  it("无更新条目时返回空数组，不重复抓取已有内容", () => {
     const fresh = pickFreshItems(items, "2026-08-01T00:00:00Z", 10);
     expect(fresh).toEqual([]);
   });
@@ -84,7 +84,7 @@ describe("stripWww / shouldBackfillTitle", () => {
     expect(stripWww("docs.langchain.com")).toBe("docs.langchain.com");
   });
 
-  it("域名兜底形态（含旧数据带 www）可回填，手动改名不可回填", () => {
+  it("域名兜底形态可回填，用户自定义标题不可回填", () => {
     expect(shouldBackfillTitle("www.langchain.com", "https://www.langchain.com/blog/rss.xml")).toBe(
       true,
     );

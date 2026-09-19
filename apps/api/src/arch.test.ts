@@ -106,8 +106,7 @@ describe("路由表面", () => {
     expect(total).toBeGreaterThan(40);
   });
 
-  // 历史 bug 的证伪条件：lib/openapi.ts 与 routes/v1/health.ts 各自声明了一份 /health，
-  // 实际生效的只可能是先注册的那个，另一份静默沦为死代码。
+  // 校验不存在重复声明的路由，防止后者被静默遮蔽
   it("无重复声明的 (method, path)", () => {
     const seen = new Map<string, string[]>();
     for (const file of ROUTE_MODULES) {
@@ -141,8 +140,7 @@ describe("依赖方向", () => {
     expect(edges.length).toBeGreaterThan(200);
   });
 
-  // 这条正是历史 bug 的另一面：routes/v1/health.ts 曾导出 healthRoutes 却从未被 index.ts 导入，
-  // 导致 /health 只由另一处定义提供、本文件静默沦为死代码。
+  // 校验所有路由模块均在 index.ts 中显式挂载，防止路由遗漏
   it("routes/v1 下每个路由模块都在 index.ts 里挂载", () => {
     const dir = posix.join(SRC, "routes/v1");
     const modules = ROUTE_MODULES.map((f) => posix.basename(f, ".ts"));

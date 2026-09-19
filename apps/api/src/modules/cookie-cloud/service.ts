@@ -125,14 +125,10 @@ export async function getConfig(uuid: string): Promise<CookieCloudRow | null> {
   return row ?? null;
 }
 
-/** 同平台多来源 Cookie 拼接优先级：CookieCloud（浏览器实时同步，最新）> 手动。
- * 拼接串中同名 Cookie 后者覆盖前者，故按此排序保证取最新来源的值。 */
+/** 同平台多来源 Cookie 拼接优先级：CookieCloud 实时同步覆盖手动配置 */
 const SOURCE_RANK: Record<string, number> = { manual: 1 };
 
-/**
- * 读路径解密 cookie：Fernet 密文解密失败则按历史明文原样返回，
- * 兼容迁移前落库的旧数据与加密新数据混存。
- */
+/** 解密 Cookie 密文，解密失败时按原值回退 */
 export function decryptCookiesField(value: string): string {
   try {
     return decryptValue(value);
@@ -320,9 +316,7 @@ export async function syncCookies(uuid: string, data: unknown): Promise<void> {
   const cookieData = parsed.success ? parsed.data.cookie_data : undefined;
   if (!cookieData) return;
 
-  // 逐平台 upsert 只覆盖 cookies，保留既有 valid/checked_at：推送代表 cookie 值更新而非
-  // 登录态变化，删表重建会把校验记录清零，面板状态在"有效/失效/未检测"间反复横跳。
-  // 推送中消失的平台仍要删除，否则拼接 cookie 会继续带上浏览器里已不存在的旧值
+  // 同步更新各平台凭据并清理已失效平台，保留已有登录态检测结果
   await db.transaction(async (tx) => {
     const pushedPlatforms = new Set<string>();
     for (const [domain, cookies] of Object.entries(cookieData)) {

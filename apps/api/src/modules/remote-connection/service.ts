@@ -19,7 +19,7 @@ function safeParseJson(s: string): Record<string, unknown> | null {
   }
 }
 
-/** config 整段 Fernet 加密落库；解密失败按历史明文 JSON 回退 */
+/** 解密配置密文字符串，解密失败按原明文解析回退 */
 function decryptConfigField(value: string | null): Record<string, unknown> | null {
   if (!value) return null;
   try {

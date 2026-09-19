@@ -305,15 +305,10 @@ async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<nu
   return inserted;
 }
 
-// 每次同步只处理订阅源的最新 maxItems 条，且仅接受比该源库内最新 feed 更新的条目。
-// 不做全量抓取（避免一次灌入 RSS 全部历史），也不删除本地已有记录。
+// 每次同步单源最大拉取条数，仅增量处理最新条目
 const MAX_ITEMS_PER_SOURCE = 10;
 
-// 排序 → 只保留比阈值（库内最新 pubDate）严格更新的条目 → 按上限截断。
-// 增量判据用时间阈值而非 guid 去重：源若在旧文章上改 guid / 补发，guid 判据
-// 会把历史条目一批批重新灌入（每次同步推进 10 条直到灌满全部历史）；
-// 时间阈值对这类漂移天然免疫——比库内最新还旧的条目一律不进。
-// threshold 为 null（首次同步，或库内无任何带 pubDate 的条目）时全量接受前 maxItems 条。
+/** 按发布时间倒序过滤出比已有最新条目更新的内容，并截取指定上限 */
 export function pickFreshItems(
   items: ParsedRssItem[],
   threshold: string | null,
@@ -331,8 +326,7 @@ async function upsertFeedsLimited(
   items: ParsedRssItem[],
   maxItems: number,
 ): Promise<number> {
-  // 增量阈值 = 该来源已入库 feed 的最新 pubDate（ISO 字符串字典序即时间序；无 pubDate 的行不参与比较）。
-  // 若源全部条目都无时间戳，这里恒为 null，退化为按排序截断 + upsertFeeds 内 guid 去重，行为同旧。
+  // 查询当前来源最新发布时间作为增量比对基准
   const [latest] = await db
     .select({ pubDate: feeds.pubDate })
     .from(feeds)

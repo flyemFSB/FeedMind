@@ -3,9 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// 回归：CookieCloud 推送是"保活"性质的 cookie 值更新，不代表登录态变化。
-// 旧的删表重建会把 valid/checked_at 一并清零——用户刚校验出的"已生效/已失效"
-// 在浏览器下次推送后凭空消失，面板状态永远无法稳定收敛
+// 校验 Cookie 同步仅更新凭据密文，保留已校验的登录态与检查时间戳
 async function loadDb() {
   return import("@feedmind/db");
 }
@@ -81,7 +79,7 @@ describe("syncCookies 推送保留校验状态", () => {
     expect(weread?.["checked_at"]).toBe("2026-08-01T00:00:00Z");
   });
 
-  it("推送中消失的平台行被删除，拼接 cookie 不再带上浏览器已移除的旧值", async () => {
+  it("推送中未包含的平台被删除，拼接 Cookie 不再包含已移除项", async () => {
     await db.db.insert(db.cookieStore).values([
       { uuid: "ext", platform: "weread", cookies: "wr_skey=old" },
       { uuid: "ext", platform: "douyin", cookies: "stale=1" },

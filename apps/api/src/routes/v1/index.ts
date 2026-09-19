@@ -15,11 +15,7 @@ import { dailyReportRoutes } from "./daily-report.js";
 import { opsLogRoutes } from "./ops-log.js";
 import { healthRoutes } from "./health.js";
 
-/**
- * /api/v1 命名空间的唯一所有者：子路由全部挂在这里。
- * 曾经另有一个挂同一前缀的 openapiApp，导致同名路径被静默遮蔽（后注册者永不生效），
- * 且 /openapi 只描述得到它自己那几条——故合并为一棵树。
- */
+/** v1 统一路由树：统一定义并挂载全部子路由模块与文档 */
 export const v1Router = new OpenAPIHono();
 
 v1Router.route("/", modelRoutes);
