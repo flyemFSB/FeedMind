@@ -1,15 +1,16 @@
 <div align="center">
-  <img src="apps/web/public/favicon.ico" width="72" height="72" alt="FeedMind Logo" />
+  <img src="apps/web/public/FeedMind-logo.svg" width="88" height="88" alt="FeedMind Logo" />
   <h1>FeedMind</h1>
-  <p><b>本地优先（Local-first）的趋势研究 AI 智能体与 OKF 知识沉淀系统</b></p>
-  <p>打通「多平台情报采集 → 动态 Agent 深度研读 → Google OKF 知识图谱与视频简报沉淀」的生产级全流程闭环。</p>
+  <p><b>本地优先（Local-First）的个人研究智能体与 OKF 知识工作台</b></p>
+  <p>打通「多源情报采集 → 智能体深度研读 → OKF 知识图谱沉淀 → 自动化视频日报」的生产级全流程闭环。</p>
 
   <p>
     <a href="https://github.com/flyemFSB/FeedMind/releases"><img src="https://img.shields.io/github/v/release/flyemFSB/FeedMind?color=blue&label=Windows%20Release" alt="Release" /></a>
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License" />
-    <img src="https://img.shields.io/badge/Protocol-Google%20OKF%20v0.2-orange" alt="OKF Protocol" />
-    <img src="https://img.shields.io/badge/Storage-Local--First%20(SQLite%20%2B%20Markdown)-blueviolet" alt="Local First" />
-    <img src="https://img.shields.io/badge/Engine-Mastra%20AI%20%2B%20CDP%20Chromium-red" alt="Engine" />
+    <img src="https://img.shields.io/badge/Node.js-%3E%3D24.0.0-339933?logo=node.js" alt="Node Version" />
+    <img src="https://img.shields.io/badge/pnpm-12.0.0-orange?logo=pnpm" alt="pnpm Version" />
+    <img src="https://img.shields.io/badge/Protocol-Google%20OKF%20v0.2-FF6F00" alt="OKF Protocol" />
+    <img src="https://img.shields.io/badge/Storage-libSQL%20%2B%20Markdown-5856D6" alt="Local First" />
   </p>
 </div>
 
@@ -17,502 +18,299 @@
 
 > [!IMPORTANT]
 >
-> ### 🛡️ 真正的本地优先（Local-First）与数据主权
+> ### 真正的本地优先（Local-First）与数据自主权
 >
-> 与依赖云端黑盒存储的传统 AI 工具不同，FeedMind 从底层架构保证用户的数据主权与隐私安全：
+> 区别于依赖远端黑盒存储的常见 AI 工具，FeedMind 从第一性原理出发构建本地自主的数据与计算底座：
 >
-> 1. **纯文本知识集**：页面为标准 Markdown + YAML Frontmatter（遵循 Google OKF v0.2 规范），天然支持 Git 版本管理与第三方编辑器（Obsidian、VS Code）。
-> 2. **派生投影设计**：SQLite FTS5 全文索引与关系图谱纯属派生缓存，可随时从纯文本概念文件毫秒级重建，**无任何专有数据库格式绑定**。
-> 3. **零云端凭证泄露**：libSQL 嵌入式本地数据库，API Key 与 Cookie 均通过 **AES-128-CBC + HMAC-SHA256** 本地加密存储。
+> 1. **纯文本知识资产**：知识库严格遵循 **Google OKF（Open Knowledge Format）v0.2** 规范，每个概念均为包含 YAML Frontmatter 的标准 Markdown 文件，天然适配 Git 版本控制与 Obsidian、VS Code 等第三方编辑器。
+> 2. **派生数据解耦**：SQLite FTS5 全文索引（CJK 双字符分词）与关系图谱拓扑纯属派生缓存，随时可从纯文本概念文件毫秒级幂等重建，**彻底摆脱私有数据库绑定**。
+> 3. **零云端凭据外泄**：基于本地 libSQL 嵌入式 SQLite 运行，API Key 等敏感凭证在入库前均经过 **AES 加密**，桌面端无缝接入操作系统级密钥保管库（Electron `safeStorage`），日志全局自动脱敏。
 
 ---
 
-## 🏛️ 系统核心架构拓扑
+## 系统核心架构
 
-FeedMind 采用全栈 Monorepo 架构，将 Web UI、Node.js API、Mastra AI Agent、内置 Chromium 与 Electron 桌面端融为一体：
+FeedMind 采用强类型全栈 Monorepo 架构，将桌面壳、API 服务、智能体协作网络、浏览器自动化与现代化前端紧密集成：
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer["🖥️ 客户端交互层 (Client & Desktop)"]
-        UI["React 19 + TanStack Router + Tailwind 4 (编辑式 UI)"]
-        ElectronMain["Electron 主进程 (内嵌 API / 窗口沙箱管控)"]
+    subgraph ClientLayer["客户端交互层 (Client & Desktop)"]
+        WebUI["React 19 + TanStack Router + Tailwind 4 (编辑式工作台)"]
+        ElectronMain["Electron 主进程 (内嵌 API / 专用标签页管控 / safeStorage)"]
     end
 
-    subgraph CoreService["⚙️ 核心服务与智能体引擎 (Apps/API)"]
-        Hono["Hono REST & OpenAPI 路由网关"]
-        Mastra["Mastra AI Agent 引擎 (@mastra/core)"]
-        Subagents["动态 Subagent 调度池 (Researcher / Extractor / Summarizer)"]
+    subgraph CoreService["服务端核心与智能体引擎 (apps/api)"]
+        Hono["Hono REST & OpenAPI 路由网关 (@hono/node-server)"]
+        Mastra["Mastra 智能体运行时 (Supervisor 协作网络)"]
+        Subagents["专业子任务调度池 (researcher / extractor / summarizer / browser)"]
         IngestPipe["两阶段 OKF 知识导入流水线"]
-        VideoPipe["Remotion 视频日报渲染管线 + 多级 TTS"]
+        DailyReport["自动化视频日报流水线 (Edge TTS + Remotion 渲染)"]
     end
 
-    subgraph BrowserEngine["🌐 内置 Chromium 自动化 (CDP 桥接)"]
-        MarkedWin["Electron 标记无头窗口 (feedmind-crawler / agent)"]
-        Playwright["Playwright (connectOverCDP 协议接管)"]
+    subgraph BrowserEngine["桌面 Chromium 原生自动化 (CDP 桥接)"]
+        MarkedTabs["Electron 标记专用标签页 (feedmind-crawler / feedmind-agent)"]
+        PlaywrightCDP["Playwright (connectOverCDP 协议接管)"]
     end
 
-    subgraph StorageLayer["💾 本地持久化与文件集 (Local Storage)"]
-        SQLite[("libSQL 嵌入式 SQLite<br/>(会话、任务、FTS5 CJK 索引、AES 凭证)")]
-        OKFBundle[("OKF v0.2 知识库<br/>(wiki/*.md + sources/ + index.md)")]
+    subgraph StorageLayer["本地存储基础设施 (packages/db & 文件系统)"]
+        SQLite[("libSQL 嵌入式 SQLite<br/>(会话、任务、FTS5 CJK 索引、AES 加密凭据)")]
+        OKFBundle[("OKF v0.2 知识库<br/>(wiki/*.md + raw/ 附件 + Frontmatter)")]
     end
 
-    UI -->|HTTP / SSE 长连接| Hono
+    WebUI -->|HTTP / SSE 长连接| Hono
     ElectronMain -->|同进程嵌入拉起| Hono
-    ElectronMain -->|CDP 端口 9333 暴露| MarkedWin
+    ElectronMain -->|CDP 端口 9333 暴露| MarkedTabs
     Hono --> Mastra
     Mastra --> Subagents
-    Subagents --> Playwright
-    Playwright -->|CDP 驱动| MarkedWin
+    Subagents --> PlaywrightCDP
+    PlaywrightCDP -->|CDP 驱动| MarkedTabs
     Hono --> IngestPipe --> OKFBundle
-    Hono --> VideoPipe
+    Hono --> DailyReport
     Hono --> SQLite
-    OKFBundle -.->|派生 FTS5 索引| SQLite
+    OKFBundle -.->|派生 FTS5 全文索引| SQLite
 ```
 
 ---
 
-## 🔬 深入：生产级架构与关键工程决策
+## 核心设计与关键工程实践
 
-<details open>
-<summary><b>1. 📚 OKF v0.2 标准文件型知识引擎与两阶段导入流水线</b></summary>
+### 1. OKF v0.2 标准文件型知识引擎与两阶段提炼流水线
 
-- **解构传统 RAG 痛点**：传统向量切片存储是黑盒，缺乏上下文且无法人工校验；直接生成 Markdown 则容易破坏全局概念图谱。
-- **两阶段 LLM 生成管线（`ingest-pipeline.ts`）**：
-  1. **阶段 1（语义结构化）**：多格式文档（PDF / Word / Excel / PPT / 图片，支持 PaddleOCR-VL 视觉模型 API 与本地解析自适应降级）由大模型解构为结构化实体、关键事实与引用片段。
-  2. **阶段 2（OKF 概念提炼）**：结合全局上下文一次性输出符合 Google OKF v0.2 规范的概念页面（包含前置概念、双向链接、`sources` 证据链、`generated` 生成信号、`verified` 校验状态）。
-- **派生索引与社区发现**：SQLite FTS5 全文索引（支持 CJK 中文分词）和基于 Graphology + Louvain 社区聚类算法的关系图谱均从纯文本概念文件派生，毫秒级检索且支持随时无损重建。
+- **两阶段大模型提炼（`ingest-pipeline.ts`）**：
+  - **阶段一（结构化解构）**：针对多格式输入（PDF、文档、网页与图片，支持 PaddleOCR 视觉提取与本地降级），抽取核心实体、关系脉络、摘要与证据链。
+  - **阶段二（OKF 概念生成）**：结合全局上下文，输出符合 OKF 规范的概念定义，包含前置依赖、双向链接（`[[Concept]]`）、引用来源（`sources`）与校验状态（`verified`），规范化持久化至文件系统。
+- **派生全文索引与图谱分析**：采用 CJK bigram 双字符切分算法维护 SQLite FTS5 全文虚表；利用 Graphology 与 Louvain 社区聚类算法，对双向链接网络进行交互式拓扑呈现与聚类洞察。
 
-</details>
+### 2. Electron 内嵌 API 与 Chromium CDP 原生沙箱隔离
 
-<details open>
-<summary><b>2. 🚀 Electron 内嵌 API + CDP 驱动内置 Chromium（零额外进程）</b></summary>
+- **单进程内嵌与资源复用**：Electron 主进程直接托管 API 服务并在生产环境同源提供 Web 静态资源；开启专属 CDP 端口（默认 9333），调度带有特定标记的专属自动化窗口（`feedmind-crawler` 与 `feedmind-agent`）。
+- **零外部浏览器进程弹出**：基于 Playwright 的 `connectOverCDP` 直连内置 Chromium，内存消耗远低于重复拉起独立浏览器实例的方案；空闲标签页超时自动回收。
+- **安全防线断言**：建立 CDP 自动化连接前强制断言客户端 User-Agent 必须包含 `Electron`，物理杜绝接管或干扰用户操作系统的个人浏览器。
 
-- **解构传统抓取痛点**：常规方案通过子进程频繁启动独立 Chrome 实例，内存暴涨（2~4GB+）、冷启动缓慢且易被反爬指纹识别。
-- **端口复用与双标记沙箱（`main.ts`）**：
-  - Electron 主进程内嵌 Node.js API，启动时开启 `--remote-debugging-port`。
-  - 创建专用的隐藏标记窗口（`feedmind-crawler` 与 `feedmind-agent`），注入真实 Chrome 用户指纹（UA、WebRTC、Canvas）。
-  - 爬虫核心与 Mastra Agent 通过 `connectOverCDP` 直接连接内置 Chromium，**内存占用降低 60% 以上，无任何外部浏览器进程弹出**。
-- **主动内存熔断与安全边界**：
-  - 内置内存采样监控，当标记窗口 WorkingSet 超过 1024MB 时主动销毁并重建，根治 Chromium 长期运行的内存泄漏。
-  - 连接时严格校验 Client UA 包含 Electron，**物理拒绝连接驱动用户的操作系统默认浏览器**。
+### 3. Mastra 智能体协作运行时（Supervisor 架构）
 
-</details>
+- **多子智能体协作网络**：主智能体 `feedmind-agent` 动态协调 `researcher`（深度研究）、`extractor`（网页提炼）、`summarizer`（结构化总结）与 `browser`（网页交互）完成复合任务。
+- **动态模型热解析**：通过请求头 `x-feedmind-model-id` 实现会话级模型无缝切换；运行时自动识别思考模型并过滤不支持的 `temperature` 与 `topP` 参数；静态提示词分段置顶以命中 API 提供商的 Prompt 缓存断点。
+- **统一长短期记忆系统**：结合 Mastra `Memory` 与 `LibSQLVector` 提供向量语义检索与会话上下文管理。
 
-<details>
-<summary><b>3. 🕷️ 模块化多平台自适应抓取与 Cookie 自动保活</b></summary>
+### 4. 基于 Remotion 的代码化自动化视频日报流水线
 
-- **双模式自适应降级**：
-  - ⚡ **Fast Path**：存在有效 Cookie 时优先走逆向 HTTP API 直连，毫秒级响应、高并发。
-  - 🛡️ **Fallback Path**：遇到验证码、风控或无 Cookie 时，自动无缝降级至应用内置 Chromium 浏览器自动化抓取。
-- **Cookie 智能同步与保活**：支持 CookieCloud 协议一键注入浏览器登录态；针对微信读书（WeRead）等平台，内置后台保活协程（每 30 分钟自动刷新 `skey` 鉴权票据）。
-- **统一 RSS 2.0 规范投影**：多源提取封面图（Media RSS 命名空间 → enclosure 附件 → iTunes 播客封面 → 顶层 image 字段），统一输出标准 RSS 2.0 XML。
+- **端到端全自动闭环**：RSS / 资讯聚类筛选 → 网页深度抓取与正文提炼 → LLM 生成分镜脚本 → 自动化多轮审稿把关 → Edge TTS 语音合成并对齐时间轴 → Remotion 代码化渲染 1080P 视频。
+- **确定性声明式渲染**：分镜与字幕完全基于 React 组件渲染，具备像素级还原与稳定的离线导出能力。
 
-</details>
+### 5. 零信任输入校验与安全防御规范
 
-<details>
-<summary><b>4. 🔐 企业级安全边界与主动防御体系</b></summary>
-
-- **全链路 SSRF 防御（`checkSSRF`）**：所有外部 URL 在抓取或解析前，强制执行 DNS 解析并校验 IP 白名单，严格拦截私有网段（`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`）、环回（`127.0.0.1`）、链路本地与云元数据地址（`169.254.169.254`）。
-- **分层加密与日志自动脱敏**：
-  - 敏感凭证采用 AES-128-CBC + HMAC-SHA256 本地加密落库。
-  - Pino 结构化日志全局自动过滤 `apiKey`、`password`、`cookies`、`authorization` 等敏感字段。
-- **内存溢出与 Payload 防御**：Hono 全局 25MB BodyLimit，拦截超大请求导致的事件循环阻塞与 OOM。
-
-</details>
-
-<details>
-<summary><b>5. 🎬 基于 Remotion 的代码化视频日报流水线</b></summary>
-
-- **确定性声明式渲染**：从 RSS 趋势聚类 → LLM 提炼分镜脚本 → Remotion React 组件代码化逐帧渲染 1080P 60FPS 视频。
-- **多级 TTS 自动降级与时间轴对齐**：Fish Audio 在线合成 → 自动降级 Edge-TTS → 自动降级占位音频与估算时长，精准对齐 `narration.srt` 字幕时间轴，确保视频生成管线永不中断。
-
-</details>
+- **全量输入严格校验**：所有网络输入、模型输出与外部采集结果，必须通过强类型 Zod Schema 过滤和解析。
+- **全链路 SSRF 深度防御（`checkSSRF`）**：爬虫工具与外部抓取在发起网络请求前，强制执行 DNS 解析与 IP 白名单拦截，坚决阻断对私有局域网（RFC 1918）、环回地址与云元数据地址（`169.254.169.254`）的非法访问。
+- **敏感凭据加密与日志脱敏**：API Key 等凭据入库前使用 AES 加密；系统统一使用 Pino 记录结构化日志，自动脱敏敏感字段。
 
 ---
 
-## ⚡ 核心功能特性矩阵
+## 核心功能特性矩阵
 
-| 特性模块                 | 核心能力                                                              | 技术支撑                                       |
-| :----------------------- | :-------------------------------------------------------------------- | :--------------------------------------------- |
-| **🤖 AI Agent 研究对话** | 多模型运行时热切换、流式思考与工具调用轨迹、动态 Subagent 派发        | Mastra AI, Vercel AI SDK, AnySearch, Firecrawl |
-| **📚 OKF Wiki 知识库**   | 纯文本 Markdown 概念、双向反向链接、Graphology 关系图谱、CJK 全文检索 | OKF v0.2, SQLite FTS5, Graphology Louvain      |
-| **🕷️ 多平台情报抓取**    | 小红书、Bilibili、知乎、微信读书自适应抓取、CookieCloud 同步、RSS 2.0 | CDP 协议, Playwright, CookieCloud, RSSHub 机制 |
-| **🎬 自动化视频日报**    | 趋势热点聚类、AI 分镜脚本编写、多渠道 TTS 旁白合成、代码驱动渲染      | Remotion, React 19, Fish Audio, Edge-TTS       |
-| **🔒 本地优先与安全**    | 本地嵌入式存储、AES 加密凭据落库、全链路 SSRF 防御、Pino 日志脱敏     | libSQL, AES-128-CBC, HMAC-SHA256, Pino Logger  |
+| 特性模块               | 核心能力                                                                 | 技术支撑                                    |
+| :--------------------- | :----------------------------------------------------------------------- | :------------------------------------------ |
+| **AI 对话与深度研究**  | 流式会话、工具调用追踪、子智能体协作、模型即时热切换                     | Mastra AI, Vercel AI SDK, AnySearch         |
+| **OKF 知识库**         | Markdown 概念阅读与编辑、双向链接网络、Sigma.js 图谱可视化、CJK 全文检索 | OKF v0.2, Milkdown, SQLite FTS5, Graphology |
+| **情报采集与订阅**     | 小红书/微信读书会话保活与自适应抓取、CookieCloud 同步、RSS 2.0 聚合      | CDP 协议, Playwright, CookieCloud           |
+| **自动化多模态日报**   | 热点聚合、AI 分镜与自动审稿、Edge TTS 语音合成、代码化视频渲染           | Remotion, React 19, msedge-tts              |
+| **本地优先与安全底座** | 本地嵌入式 SQLite、系统安全凭据保险箱、全链路 SSRF 防御、操作审计日志    | libSQL, Electron safeStorage, AES, Pino     |
 
 ---
 
-## 🚀 快速上手
+## 快速上手
 
-### 方式 1：下载桌面端应用（推荐日常使用）
+### 方式 1：下载桌面端安装包（推荐日常使用）
 
-前往 [GitHub Releases](../../releases) 下载最新的 Windows 安装包（`FeedMind-Setup.exe`），一键安装运行，内置 API 与 Chromium 自动化环境自动就绪。
+前往 [GitHub Releases](https://github.com/flyemFSB/FeedMind/releases) 下载最新 Windows 安装程序（`FeedMind-Setup-*.exe`），运行安装即可使用，内置 API 服务与自动化环境即开即用。
 
 ### 方式 2：源码本地开发
 
+#### 前置要求
+
+- **Node.js**：`>= 24.0.0`
+- **pnpm**：`12.0.0`
+
+#### 安装与启动
+
 ```bash
-# 1. 克隆仓库并安装依赖 (pnpm workspace)
+# 1. 克隆代码仓库
 git clone https://github.com/flyemFSB/FeedMind.git
 cd FeedMind
 
 # 2. 配置环境变量
 cp .env.example .env
-# 编辑 .env，生成 ENCRYPTION_KEY：
-# openssl rand -hex 32
+# 可编辑 .env 配置自定义 ENCRYPTION_KEY（如 openssl rand -hex 32）
 
 # 3. 安装依赖
 pnpm install
 
-# 4. 构建共享包（必须）
+# 4. 构建共享包（首次启动必须）
 pnpm run build:packages
 
-# 5. 初始化数据库
+# 5. 初始化本地数据库（写入初始种子数据）
 pnpm run db:init
-```
 
-### 启动开发服务
-
-```bash
-# 同时启动 API 后端和 Web 前端
+# 6. 启动全栈开发服务（API + Web 并行热重载）
 pnpm run dev
 ```
 
-访问地址：
+#### 本地服务访问入口
 
-| 服务             | 地址                                  | 说明                 |
-| ---------------- | ------------------------------------- | -------------------- |
-| **Web 应用**     | http://localhost:13790                | Vite + React 前端    |
-| **REST API**     | http://localhost:18790                | Hono 后端            |
-| **API 文档**     | http://localhost:18790/api/v1/docs    | Scalar UI 交互式文档 |
-| **OpenAPI JSON** | http://localhost:18790/api/v1/openapi | 机器可读规范         |
+| 服务                | 地址                                  | 说明                          |
+| :------------------ | :------------------------------------ | :---------------------------- |
+| **Web 前端界面**    | http://localhost:13790                | React 19 单页工作台           |
+| **REST API 服务**   | http://localhost:18790                | Hono 后端与 Mastra 智能体服务 |
+| **交互式 API 文档** | http://localhost:18790/api/v1/docs    | Scalar UI 交互式接口文档      |
+| **OpenAPI 规范**    | http://localhost:18790/api/v1/openapi | OpenAPI 3.1 机器可读描述      |
 
-### 桌面应用（Electron）
-
-FeedMind 提供 Windows 桌面端支持：主进程内嵌 API 服务，爬虫与智能体通过 Chrome DevTools Protocol（CDP）连接应用内置 Chromium 实例，无需额外启动独立浏览器。
+#### 桌面端开发与构建（Electron）
 
 ```bash
-# 开发模式：Vite（热更新） + Electron，爬虫经 CDP 连接内置 Chromium
+# 启动桌面开发环境（Vite 前端热重载 + Electron 窗口 + CDP 调试）
 pnpm run desktop:dev
 
-# 生产模式：构建全部产物并直接运行桌面应用（内置 HTTP 服务同源提供 UI 与 API）
+# 生产模式构建并直接启动桌面应用
 pnpm run desktop
 
-# 打包 Windows 安装程序（NSIS）
-pnpm --filter @feedmind/desktop dist
-```
-
-### 常用命令
-
-```bash
-# 单服务开发
-pnpm run web:dev   # 仅前端
-pnpm run api:dev   # 仅后端
-
-# 构建与测试
-pnpm run build          # 构建全部
-pnpm run build:packages # 仅构建共享包
-pnpm run typecheck      # TypeScript 类型检查
-pnpm run lint           # oxlint 代码检查
-pnpm run fmt            # oxfmt 代码格式化
-pnpm run fmt:check      # oxfmt 格式校验（不写入）
-pnpm run test           # Vitest 单元测试
-
-# 数据库管理
-pnpm run db:generate    # 生成迁移文件
-pnpm run db:migrate     # 运行迁移
-pnpm run db:reset       # 重置数据库
+# 打包生成 Windows 生产安装程序（NSIS 安装包）
+pnpm run desktop:dist
 ```
 
 ---
 
-## 📁 项目结构
+## 常用开发命令
+
+```bash
+# 运行与调试
+pnpm run dev             # 并行启动 API 和 Web 开发服务
+pnpm run web:dev         # 仅启动前端服务
+pnpm run api:dev         # 仅启动 API 服务
+pnpm run desktop:dev     # 启动桌面端完整开发环境
+
+# 构建与打包
+pnpm run build           # 全仓库全量构建
+pnpm run build:packages  # 仅构建 packages/ 下共享包
+pnpm run desktop:dist    # 打包 Windows 安装包
+
+# 代码质量门禁（提交前必须全部通过）
+pnpm run fmt:check       # oxfmt 代码格式校验
+pnpm run fmt             # oxfmt 自动格式化写入
+pnpm run typecheck       # TypeScript 严格类型检查（0 错误）
+pnpm run lint            # oxlint 代码规范检查（0 error 0 warning）
+pnpm run test            # Vitest 全仓库单元与集成测试（100% PASS）
+pnpm run test:coverage   # 输出测试覆盖率报告
+
+# 数据库管理
+pnpm run db:init         # 写入默认模型、工具配置等初始种子数据
+pnpm run db:push         # 通过 drizzle-kit 同步 schema 修改
+pnpm run db:reset        # 清空并重置本地 SQLite 数据库
+```
+
+---
+
+## 项目全景目录结构
 
 ```
 feedmind/
-├── apps/                          # 应用程序根目录
-│   ├── api/                       # REST API + Mastra Agent
-│   │   ├── src/
-│   │   │   ├── lib/              # 通用工具（logger、openapi、http）
-│   │   │   ├── routes/v1/        # OpenAPI v1 路由组
-│   │   │   │   ├── health.ts     # 健康检查
-│   │   │   │   ├── chats.ts      # 会话管理
-│   │   │   │   ├── llms.ts       # 模型配置
-│   │   │   │   ├── wiki.ts       # Wiki 知识库 API
-│   │   │   │   ├── crawler.ts    # 爬虫任务
-│   │   │   │   ├── tools.ts      # 工具配置
-│   │   │   │   ├── skills.ts     # 技能包
-│   │   │   │   ├── runtime-config.ts # 运行时配置
-│   │   │   │   └── ...
-│   │   │   ├── modules/          # 业务模块
-│   │   │   │   ├── wiki/         # Wiki 核心逻辑（空间、页面、导入、图谱）
-│   │   │   │   ├── crawler/      # 爬虫任务队列
-│   │   │   │   ├── chat/         # 聊天逻辑
-│   │   │   │   └── remote-connection/ # Cookie 管理
-│   │   │   └── mastra/           # AI Agent 定义
-│   │   │       ├── agents/       # feedmind-agent 主 agent
-│   │   │       ├── tools/        # 工具实现
-│   │   │       └── subagents/    # 子 agent 模板
-│   │   ├── server.ts             # 入口文件
-│   │   └── package.json
-│   │
-│   └── web/                       # React 19 前端（Vite SPA）
-│       ├── src/
-│       │   ├── routes/           # TanStack Router 文件路由
-│       │   │   ├── wiki.tsx      # Wiki 阅读器
-│       │   │   ├── feeds.index.tsx # 资讯首页
-│       │   │   └── ...
-│       │   ├── router.tsx        # 路由实例
-│       │   └── main.tsx          # 入口文件
-│       ├── components/            # React 组件
-│       │   ├── ai-elements/      # AI 对话组件
-│       │   ├── chat/             # 聊天界面
-│       │   ├── wiki/             # Wiki 编辑器、图谱、导入
-│       │   ├── settings/         # 设置面板
-│       │   └── ui/               # shadcn/ui 基础组件
-│       ├── lib/                   # 工具库
-│       │   ├── api/              # API 客户端
-│       │   ├── i18n/             # 国际化
-│       │   └── hooks/            # 自定义 hooks
-│       └── package.json
-│
-├── packages/                      # 共享包
-│   ├── contracts/                # Zod schema（前后端共享契约）
-│   ├── db/                       # Drizzle ORM + SQLite
-│   ├── shared/                   # 加密、日期工具
-│   ├── env/                      # 环境变量加载
-│   ├── crawler-core/             # 爬虫引擎核心
-│   │   ├── src/
-│   │   │   ├── core/            # 浏览器管理、RSS 构建
-│   │   │   └── routes/          # 平台实现（xhs、bili、zhihu...）
-│   │   └── package.json
-│   └── wiki-core/                # Wiki 文件系统操作
-│       ├── src/
-│       │   ├── page-store.ts    # 页面 CRUD
-│       │   ├── graph.ts         # 图谱构建
-│       │   ├── search.ts        # 全文检索
-│       │   └── links.ts         # 双向链接解析
-│       └── package.json
-│
-├── data/                          # 数据目录（Git 忽略）
-│   ├── feedmind.db               # SQLite 数据库
-│   └── wiki/                     # Wiki Markdown 文件
-│
-├── CLAUDE.md                      # AI 开发规范
-├── DESIGN.md                      # 设计系统（色板 / 字体 / 组件 token）
-│
-├── .gitattributes                 # 行尾策略（强制 LF）
-├── lefthook.yml                   # Git hooks 配置（pre-commit + commit-msg）
-├── .oxlintrc.json                 # oxlint 配置
-├── .oxfmtrc.json                  # oxfmt 配置
-├── commitlint.config.mjs          # Commit 规范
-├── tsconfig.base.json             # TypeScript 基础配置
-├── vitest.config.ts               # 测试配置
-└── pnpm-workspace.yaml            # Monorepo 配置
+├── apps/                          # 应用程序
+│   ├── api/                       # 服务端核心与 Mastra 智能体运行时
+│   │   ├── remotion/              # Remotion 视频组件与分镜渲染
+│   │   └── src/
+│   │       ├── lib/               # 工具集（日志、HTTP 助手、SSRF 防御、加密等）
+│   │       ├── mastra/            # 智能体网络（主 Agent、子 Agent、工具链、工作流）
+│   │       ├── modules/           # 业务领域模块（wiki、models、daily-report 等）
+│   │       ├── routes/v1/         # OpenAPI v1 路由树
+│   │       ├── app.ts             # Hono 应用实例与中间件装配
+│   │       ├── server.ts          # API 服务启动入口
+│   │       └── server-core.ts     # 核心启动编排（支持桌面端同源内嵌）
+│   ├── desktop/                   # Electron 桌面端外壳
+│   │   └── src/
+│   │       ├── main.ts            # 主进程生命周期、CDP 端口与标记窗口管控
+│   │       ├── safe-storage.ts    # 系统级凭据安全加解密
+│   │       └── env-bootstrap.ts   # 桌面环境变量加载
+│   └── web/                       # React 19 现代化前端工作台
+│       └── src/
+│           ├── app/               # 顶层布局 Shell 与抽屉式 AI 聊天工作区
+│           ├── components/        # UI 基础组件（Base UI）与 AI Elements
+│           ├── lib/               # 契约客户端、模型换算、hooks、i18n 国际化
+│           ├── pages/             # 核心业务页面（wiki、daily-report、feeds、settings）
+│           └── routes/            # TanStack Router 文件系统路由
+├── packages/                      # 领域共享包
+│   ├── contracts/                 # 跨端强类型契约与 Zod 校验 Schema
+│   ├── crawler-core/              # 基于 CDP 与 Playwright 的自动化抓取引擎
+│   ├── db/                        # 本地 libSQL SQLite 基础设施与预编译 DDL
+│   ├── env/                       # 基于 @t3-oss/env-core 的强类型环境变量解析
+│   └── wiki-core/                 # OKF 规范 Bundle 解析、文档提取与图算法引擎
+├── data/                          # 本地数据资产（默认在 .gitignore 中忽略）
+│   ├── feedmind.db                # 本地 SQLite 数据库
+│   └── wiki/                      # OKF 知识库 Bundle 根目录
+├── AGENTS.md                      # 项目第一性原理与架构开发规范
+├── DESIGN.md                      # 视觉设计系统与主题设计规范
+├── package.json                   # 根工作区配置与开发脚本
+└── pnpm-workspace.yaml            # pnpm Monorepo 依赖拓扑定义
 ```
 
 ---
 
-## 🧰 技术栈
+## 全栈技术选型
 
-### 前端
-
-| 技术                | 版本   | 用途                    |
-| ------------------- | ------ | ----------------------- |
-| **React**           | 19     | UI 库                   |
-| **Vite**            | 8      | 构建工具 + 开发服务器   |
-| **TanStack Router** | latest | 文件路由 + 自动代码分割 |
-| **Tailwind CSS**    | 4      | 原子化 CSS              |
-| **shadcn/ui**       | latest | 组件库                  |
-| **Milkdown Crepe**  | 7.x    | Markdown 所见即得编辑器 |
-| **motion**          | latest | 动画                    |
-| **Zod**             | 4      | 运行时验证              |
-| **i18next**         | latest | 国际化                  |
-| **Vercel AI SDK**   | 7.x    | AI 流式对话集成         |
-
-### 后端
-
-| 技术            | 版本   | 用途             |
-| --------------- | ------ | ---------------- |
-| **Hono**        | 4.x    | 轻量 Web 框架    |
-| **Mastra**      | latest | AI Agent 框架    |
-| **Drizzle ORM** | latest | TypeScript ORM   |
-| **libSQL**      | latest | 嵌入式 SQLite    |
-| **Pino**        | 10.x   | 结构化日志       |
-| **zod-openapi** | latest | OpenAPI 3.1 规范 |
-
-### 中间件与服务
-
-| 技术           | 用途                     |
-| -------------- | ------------------------ |
-| **Playwright** | 浏览器自动化（爬虫兜底） |
-| **Graphology** | 图数据结构与算法         |
-| **Firecrawl**  | 网页内容提取             |
-| **Tavily/Exa** | 网络搜索 API             |
+| 维度           | 关键技术                                | 选型用途                                               |
+| :------------- | :-------------------------------------- | :----------------------------------------------------- |
+| **前端交互**   | React 19 + TanStack Router              | 现代化单页架构、深层类型安全文件路由与自动代码分割     |
+| **样式与动效** | Tailwind CSS 4 + Base UI + Motion       | 高质感编辑式视觉、无障碍原子组件体系与平滑微动效       |
+| **富文本编辑** | Milkdown Crepe                          | 所见即所得 Markdown 编辑器，深度融合 OKF 双向链接      |
+| **知识图谱**   | Sigma.js + Graphology                   | 基于 WebGL 的高性能知识拓扑渲染与 Louvain 社区聚类     |
+| **服务端网关** | Hono + `@hono/zod-openapi`              | 轻量高效 Web 网关、严格契约校验与 Scalar 交互式文档    |
+| **AI 智能体**  | Mastra AI + Vercel AI SDK               | 智能体协作运行时、流式多轮对话与向量长期记忆           |
+| **本地数据库** | libSQL (`@libsql/client`) + Drizzle ORM | 嵌入式 SQLite 引擎、WAL 并发模式与预编译静态 DDL       |
+| **桌面运行时** | Electron 44 + safeStorage               | 单体桌面交付、内置 Chromium CDP 调度与系统级密钥保险箱 |
+| **媒体合成**   | Remotion + msedge-tts                   | 代码驱动 1080P 视频逐帧渲染与多模态语音合成            |
+| **工程工具链** | pnpm 12 + oxlint + oxfmt + Vitest       | 极速依赖拓扑、Rust 级静态分析、全仓库统一格式化与测试  |
 
 ---
 
-## 🛠️ 开发指南
+## 核心 API 路由概览
 
-### 代码规范
+所有业务接口均挂载于 `/api/v1` 前缀下：
 
-#### 提交规范
-
-遵循 [Conventional Commits](https://www.conventionalcommits.org/)：
-
-```bash
-feat(wiki): 添加知识图谱可视化组件
-fix(api): 修复爬虫任务状态同步 bug
-chore(deps): 升级 Mastra 到最新版本
-docs(readme): 更新快速开始步骤
-refactor(search): 优化中文分词算法
-test(crawler): 补充小红书路由测试
-style(eslint): 启用 no-floating-promises 规则
-perf(ingest): 引入缓存减少 IO 开销
-```
-
-#### 命名约定
-
-- 文件名：`kebab-case`（如 `wiki-page-list.tsx`）
-- 变量/函数：`camelCase`
-- 类型/接口：`PascalCase`
-- 未用参数：`_prefix`（如 `_signal`, `_options`）
-
-#### 代码质量
-
-提交前自动运行：
-
-```bash
-lefthook pre-commit  # oxlint 自动修复 + oxfmt 格式化
-commitlint           # Commit 消息校验（lefthook commit-msg 触发）
-```
-
-推送前需通过：
-
-```bash
-pnpm run typecheck && pnpm run lint
-```
-
-### 数据库迁移
-
-```bash
-# 修改 schema 后生成迁移
-pnpm --filter @feedmind/db db:generate
-
-# 应用迁移到本地数据库
-pnpm --filter @feedmind/db db:migrate
-
-# 重置数据库（开发时调试用）
-pnpm --filter @feedmind/db db:reset
-```
-
-### 调试技巧
-
-1. **日志输出**： Pino 自动脱敏，无需担心泄露密钥
-2. **API 调试**：使用 Scalar UI 或 Postman 测试
-3. **前端调试**：React DevTools + TanStack DevTools
-4. **代理拦截**：Chrome Network 面板监听 `/api/v1/*` 请求
+| 模块               | 方法与路由                                                                                                | 功能说明                                             |
+| :----------------- | :-------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
+| **模型管理**       | `GET /api/v1/models`<br>`POST /api/v1/models`<br>`GET /api/v1/models/catalog`                             | 管理模型配置、API 密钥与拉取 models.dev 在线目录     |
+| **会话研究**       | `GET /api/v1/chats`<br>`POST /api/v1/chats`<br>`POST /api/v1/chats/:id/messages`                          | 管理研究会话、上下文追踪与流式对话交互               |
+| **OKF 知识库**     | `GET /api/v1/wiki/spaces`<br>`GET /api/v1/wiki/spaces/:id/pages`<br>`POST /api/v1/wiki/spaces/:id/ingest` | 知识空间管理、OKF 概念读取与两阶段提炼导入           |
+| **知识图谱与检索** | `GET /api/v1/wiki/spaces/:id/graph`<br>`POST /api/v1/wiki/spaces/:id/search`                              | 获取关系图谱拓扑、社区洞察与 CJK FTS5 混合检索       |
+| **资讯与采集**     | `GET /api/v1/feeds`<br>`GET /api/v1/rss-sources`<br>`POST /api/v1/crawler/tasks`                          | 阅读聚合资讯流、管理 RSS 订阅源与触发自动化抓取      |
+| **视频日报**       | `GET /api/v1/daily-reports`<br>`POST /api/v1/daily-reports/generate`                                      | 查看日报列表、触发选题提取与 Remotion 视频渲染       |
+| **系统与安全**     | `GET /api/v1/ops-log`<br>`GET /api/v1/health`<br>`GET /api/v1/docs`                                       | 查看系统操作审计日志、服务健康检查与 Scalar API 文档 |
 
 ---
 
-## 🔌 API 参考
+## 环境变量说明
 
-### 认证与安全
+FeedMind 通过 `@feedmind/env` 对环境变量进行严格的类型断言与默认值装配：
 
-除公开接口外，大部分 API 在本地运行模式下无需显式认证。敏感数据通过 `.env` 中的 `ENCRYPTION_KEY` 进行 AES 加密保护。
-
-### 主要端点
-
-#### AI 对话
-
-```http
-POST /api/agent/chat/:agentId
-Content-Type: application/json
-
-{
-  "message": "分析一下最新的大模型趋势",
-  "context": ["previous-chat-id"]
-}
-```
-
-#### Wiki 知识库
-
-```http
-GET  /wiki/spaces                    # 列出所有空间
-POST /wiki/spaces                    # 创建空间
-GET  /wiki/spaces/:id/pages          # 列出页面
-POST /wiki/spaces/:id/pages          # 创建页面
-PUT  /wiki/spaces/:id/pages/:pageId  # 更新页面
-DELETE /wiki/spaces/:id/pages/:pageId # 删除页面
-GET  /wiki/spaces/:id/graph          # 获取知识图谱
-POST /wiki/spaces/:id/search         # 搜索页面
-POST /wiki/spaces/:id/ingest         # 导入外部内容
-```
-
-#### 爬虫任务
-
-```http
-GET  /crawler/tasks                  # 任务列表
-POST /crawler/tasks                  # 创建任务
-DELETE /crawler/tasks/:id            # 取消任务
-GET  /crawler/tasks/:id/rss          # RSS 订阅输出
-```
-
-#### 模型管理
-
-```http
-GET  /llms                           # 列出模型
-POST /llms                           # 添加模型
-PATCH  /llms/:id                     # 更新模型
-DELETE /llms/:id                     # 删除模型
-POST /llms/selected                  # 选中默认模型
-```
-
-完整文档：http://localhost:18790/api/v1/docs
+| 环境变量                | 是否必需         | 默认值                        | 详细说明                                                        |
+| :---------------------- | :--------------- | :---------------------------- | :-------------------------------------------------------------- |
+| `ENCRYPTION_KEY`        | 否（有安全降级） | `feedmind`                    | 用于加密落库敏感凭证的 AES 密钥（生产环境建议设为 64 字符 Hex） |
+| `DATABASE_PATH`         | 否               | `./data/feedmind.db`          | 本地 SQLite 数据库文件落盘路径                                  |
+| `WIKI_DIR`              | 否               | `data/wiki`                   | OKF 知识库 Bundle 本地存储目录                                  |
+| `API_HOST`              | 否               | `127.0.0.1`                   | API 服务监听地址（容器化部署时可配置为 `0.0.0.0`）              |
+| `API_PORT`              | 否               | `18790`                       | API 服务监听端口                                                |
+| `CDP_PORT`              | 否               | `9333`                        | 桌面端 Chromium CDP 远程调试端口                                |
+| `LOG_LEVEL`             | 否               | `debug` (dev) / `info` (prod) | Pino 结构化日志最低输出等级                                     |
+| `DISABLE_INGEST_WORKER` | 否               | —                             | 设为 `1` 时禁用后台 Wiki 异步导入处理 Worker                    |
 
 ---
 
-## 🔑 环境变量
+## 开源许可证
 
-| 变量                    | 必需   | 默认值               | 说明                                                                             |
-| ----------------------- | ------ | -------------------- | -------------------------------------------------------------------------------- |
-| `ENCRYPTION_KEY`        | **是** | —                    | AES 加密密钥，用于加密存储的 API Key 等敏感凭证。<br>`openssl rand -hex 32` 生成 |
-| `DATABASE_PATH`         | 否     | `./data/feedmind.db` | SQLite 数据库文件路径                                                            |
-| `WIKI_DIR`              | 否     | `data/wiki`          | Wiki Markdown 文件存储目录                                                       |
-| `API_PORT`              | 否     | `18790`              | API 服务监听端口                                                                 |
-| `DISABLE_INGEST_WORKER` | 否     | —                    | 是否禁用后台导入 Worker（设为 `1` 禁用）                                         |
-
-完整示例见 `.env.example`。
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 仓库
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 提交更改 (`git commit -m 'feat: add amazing feature'`)
-4. 推送到分支 (`git push origin feature/amazing-feature`)
-5. 打开 Pull Request
-
-### 开发前提
-
-- 已运行 `pnpm install` 和 `pnpm run build:packages`
-- 代码符合 oxlint + oxfmt 规范
-- 新增功能需包含单元测试（Vitest）
-
----
-
-## 📄 许可证
-
-[MIT License](./LICENSE)
-
----
+本项目采用 [MIT License](./LICENSE) 开源协议。
 
 <div align="center">
 
 **Built with ❤️ using React 19, Hono, Mastra & TanStack Router**
 
-本地 · 安静 · 你的知识引擎
+本地优先 · 数据自主 · 你的智能知识引擎
 
 </div>

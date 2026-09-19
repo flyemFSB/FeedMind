@@ -77,7 +77,7 @@ export const extractOutputSchema = z.object({
 });
 export type ExtractOutput = z.infer<typeof extractOutputSchema>;
 
-// 分镜脚本 JSON（g1 敲定的类型化交接契约）
+// 分镜脚本 JSON（工作流与渲染服务间的类型化契约）
 export const dailyReportScriptSchema = z.object({
   date: z.string(),
   opening: z.object({ hook: z.string() }),

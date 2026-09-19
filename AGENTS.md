@@ -2,112 +2,129 @@
 
 ## 项目概述
 
-FeedMind — 知识管理、AI 对话、内容爬取服务平台。pnpm monorepo：api（Hono + Mastra AI Agent + OpenAPI）、web（React 19 + TanStack Router + Tailwind 4 + Base UI）、desktop（Electron 壳，内嵌 API 与 Chromium）；共享包 contracts / db / env / shared / wiki-core / crawler-core。所有用户界面文本与 Wiki 内容使用中文（react-i18next 支持英文）。
+FeedMind 是一个集知识管理、AI 深度研究辅助、内容抓取聚合与多模态自动化于一体的个人工作台。项目采用基于 pnpm 的 Monorepo 架构，全栈由 TypeScript 构建，所有用户交互界面文本与知识库内容默认使用中文（支持 react-i18next 国际化）。
 
-## 命令
+### 架构布局与各模块分工
+
+#### 应用程序（Apps）
+
+- **`apps/desktop`（Electron 桌面壳）**
+  - 内嵌 API 服务进程与 Web 静态资源，支持开发期热重载与生产单体打包；
+  - 启动 Chromium 专属 CDP 调试端口（默认 `--remote-debugging-port=9333`）；
+  - 调度无头/专用标记窗口（`feedmind-crawler` 与 `feedmind-agent`），限制仅在专用标签页内进行自动化，超时自动回收空闲标签页；
+  - 集成 Electron `safeStorage` 实现系统级安全凭据加解密，无原生保险箱时降级本地密钥存储；
+  - 捕获顶层未捕获异常（`uncaughtException`、`unhandledRejection`）并持久化到本地 `logs/crash.log`。
+
+- **`apps/api`（服务端核心与 Mastra 智能体运行时）**
+  - 基于 Hono 框架构建，路由通过 `@hono/node-server` 托管，核心接口支持 `@hono/zod-openapi` 规范与 Scalar 文档；
+  - 托管 Mastra AI 运行时环境，通过 `@mastra/ai-sdk` 的 `chatRoute()` 端点对接前端流式对话；
+  - 实现 Supervisor 协作网络（`feedmind-agent` 调度 `researcher` / `extractor` / `summarizer` / `browser` 子任务）；
+  - 统一记忆系统（Mastra `Memory` + `LibSQLVector`），支持向量语义召回与纯分页降级；
+  - 两阶段 OKF 知识库导入流水线（结构化提炼与 Frontmatter/Markdown 正文生成）；
+  - 本地 FTS5 全文索引构建与混合相关度评分；
+  - 自动化日报系统（选题筛选、网页抓取与提炼、脚本生成、自动化多轮审稿、Edge TTS 语音合成与 Remotion 视频渲染流水线）；
+  - 业务模块包含：`chats`、`cookie-cloud`、`crawler`、`daily-report`、`feeds`、`models`、`ops-log`、`remote-connection`、`rss-sources`、`runtime-config`、`skills`、`tools`、`wiki`。
+
+- **`apps/web`（现代化前端交互界面）**
+  - 基于 React 19 + TanStack Router + Tailwind 4 + Base UI 构建的现代单页应用；
+  - 抽屉式 AI 聊天工作区：支持流式输出、子智能体调用链路展示、上下文动态注入、模型与参数即时切换；
+  - OKF 知识库套件：包含 Concept 概念阅读器、Milkdown 所见即所得 Markdown 编辑器、基于 Sigma.js + Graphology 的知识图谱关系网络及社区分析；
+  - Feeds / RSS 订阅源中心与内嵌阅读器；
+  - 自动化日报卡片与 Remotion 播放器；
+  - 模型管理中心、运行参数配置与系统操作审计日志（Ops Log）。
+
+#### 共享包（Packages）
+
+- **`packages/db`**：基于 `@libsql/client` 与 Drizzle ORM 构建的本地 SQLite 数据库基础设施。采用预编译静态 DDL（`schema/ddl.generated.ts`）幂等初始化数据库表结构；启用 WAL 并发日志、NORMAL 同步级别、MMAP 内存映射（64MB）与页缓存限制；维护 Wiki FTS5 虚表及元数据；提供预置种子数据管理。
+- **`packages/crawler-core`**：基于 Playwright 的 CDP 自动化采集层。直连桌面内置 Chromium，连接建立前强制断言 Electron User-Agent（杜绝驱动主机外部浏览器）；按标记窗口调度任务；提供微信读书会话保活、小红书等站点的内容采集与 RSS XML 生成。
+- **`packages/wiki-core`**：OKF v0.2 标准 Bundle 解析与知识图谱计算引擎。支持 Markdown Frontmatter 解析、多模态文档提取（PDF、OCR 等）、双向链接与反向链接分析、图算法洞察（Louvain 社区发现），以及基于 CJK bigram 的双字符分词与评分算法。
+- **`packages/contracts`**：跨端共享的 TypeScript 强类型协议、业务实体与 Zod 校验契约。
+- **`packages/env`**：基于 `@t3-oss/env-core` 与 Zod 的强类型环境变量解析与校验层。
+
+---
+
+## 常用开发命令
 
 ```bash
-pnpm install                   # 安装所有依赖
-pnpm run dev                   # 构建共享包后并行启动 api + web
-pnpm run desktop:dev           # 构建后启动 desktop（Vite + Electron）
+pnpm install                   # 安装全仓库依赖（受 catalog 与 allowBuilds 约束）
+pnpm run dev                   # 编译共享包并并行启动 API 与 Web 服务
+pnpm run desktop:dev           # 构建并启动桌面端开发环境（Vite + Electron）
 pnpm run desktop               # 生产构建并启动桌面应用
-pnpm run desktop:dist          # 生产打包生成 Windows 安装包（NSIS）
-pnpm run build                 # 构建所有包和应用
+pnpm run desktop:dist          # 打包生成 Windows 生产安装包（NSIS）
+pnpm run build                 # 构建所有共享包与应用
 pnpm run build:packages        # 仅构建共享包
-pnpm run typecheck             # 全仓库 TypeScript 类型检查
-pnpm run lint                  # 全仓库 oxlint 检查
-pnpm run fmt                   # 全仓库 oxfmt 格式化（写入）
-pnpm run fmt:check             # oxfmt 格式校验（不写入，CI/门禁用）
-pnpm run test                  # 全仓库 vitest projects 一次跑完
-pnpm run test:coverage         # 同上并输出 coverage（本地用；CI 不设全局阈值）
-pnpm run db:push               # drizzle-kit push 同步 schema（改 schema 后执行）
-pnpm run db:init               # 写入种子数据（工具配置、默认运行配置）
-pnpm run db:reset              # 重置数据库
-pnpm run web:dev               # 仅前端（http://localhost:13790）
-pnpm run api:dev               # 仅 API + Mastra Agent（http://localhost:18790）
+pnpm run typecheck             # 全仓库 TypeScript 严格类型检查
+pnpm run lint                  # 全仓库 oxlint 代码规范检查
+pnpm run fmt                   # 全仓库 oxfmt 代码格式化（直接写入）
+pnpm run fmt:check             # 全仓库 oxfmt 格式校验（不写入，门禁检查）
+pnpm run test                  # 执行全仓库 Vitest 测试套件（全项目一次性运行）
+pnpm run test:coverage         # 执行测试并输出覆盖率报告（本地分析使用）
+pnpm run db:init               # 写入数据库默认种子数据（模型列表、工具配置等）
+pnpm run db:reset              # 重置本地 SQLite 数据库
+pnpm run db:push               # 通过 drizzle-kit 同步修改到数据库 schema
+pnpm run web:dev               # 独立启动前端服务（http://localhost:13790）
+pnpm run api:dev               # 独立启动 API 与 Mastra 进程（http://localhost:18790）
 ```
+
+---
 
 ## 关键架构决策
 
-- **OKF 文件型 Wiki**：`wiki/` 是 OKF v0.2 bundle，Concept 为 Markdown + YAML frontmatter，Concept ID 是相对路径去掉 `.md`；`raw/`、`.feedmind/` 为运行时目录，不属于 bundle。v0.2 信号：`generated: { by, at }`（取代 v0.1 `timestamp`）、`sources`（取代 v0.1 `provenance`）、`verified`/`status`/`stale_after` 可选。FTS5 全文索引派生自文件，可随时重建。
-- **Mastra Agent**：内嵌于 API 进程（`apps/api/src/mastra/`），经 `@mastra/ai-sdk` 的 `chatRoute()` 暴露 AI SDK v6 流式聊天。Agent 从 `model` 表运行时解析 LLM 模型（`x-feedmind-model-id` 请求头）。聊天接口前端路径 `/api/chat/:agentId` 经 Vite proxy 重写为 `/v1/agent/chat/:agentId`。
-- **桌面端 Electron + CDP**：主进程内嵌 API，创建 UI 窗口与两个隐藏标记窗口（`feedmind-crawler`、`feedmind-agent`），经 `--remote-debugging-port`（默认 9333）暴露 CDP；crawler-core 与 Agent 用 Playwright `connectOverCDP` 按标记选页驱动内置 Chromium，连接后校验 UA 含 Electron，拒绝驱动用户主机浏览器。
-- **爬虫与 Cookie 认证**：Playwright 驱动，Cookie 存 `cookie_store`，来源为应用内浏览器登录（Electron 打开登录窗口捕获）与微信读书保活（每 30 分钟刷新 skey）。结果入 SQLite，输出 RSS。
-- **Wiki 导入管道**（`ingest-pipeline.ts`）：两阶段 LLM——先分析源内容为结构化数据，再生成 OKF Concept 写入 Markdown。
-- **消息持久化**：由 Agent Memory（Mastra `mastra.db`）自动处理，web 端不自行存消息。
-- **Monorepo 包边界**：apps 依赖 packages，反向禁止；跨包一律走 `@feedmind/*` 说明符，禁止相对路径穿透。是否抽包的判据是「**是否保护了一条真实边界**」（运行时 / 安全 / 领域 / 跨应用契约），**不是消费者数量**——6 个包里 4 个只有单一消费者属预期，因为它们换的是"可脱离 DB/HTTP/Electron 单测"而非复用。反判据：单消费者且无上述边界、总量小且以 re-export 为主、或名字是 `shared`/`utils`/`common` 却说不清保护什么。
+- **OKF 文件型知识库（v0.2 规范）**：`wiki/` 为标准的 OKF bundle 目录，每个 Concept 均为包含 Markdown 正文与 YAML Frontmatter 的独立文件，Concept ID 是其相对于 bundle 根目录去除 `.md` 后的路径；`raw/` 与 `.feedmind/` 为本地运行时目录，不纳入 bundle 管理。FTS5 全文索引作为派生数据维护在 SQLite 中，支持随时幂等重建。
+- **Mastra 智能体运行时**：Agent 运行时内嵌于 API 服务进程，通过 `@mastra/ai-sdk` 的 `chatRoute()` 对接前端。模型在运行时由 `x-feedmind-model-id` 请求头动态解析；提示词结构保证静态段在前以命中 Anthropic 缓存断点，思考模型（如 DeepSeek V4/Reasoner）自动过滤不支持的 temperature 与 topP 参数。
+- **桌面端 Chromium 隔离与安全断言**：主进程内嵌 API 服务并开启专属 CDP 端口（默认 9333），管理带标记的专属页面（`feedmind-crawler` 与 `feedmind-agent`）。自动化逻辑建立连接后必须校验 UA 包含 Electron，禁止接管或操作用户操作系统中的个人浏览器。
+- **两阶段知识导入流水线**：文档与网页导入采用两阶段大模型处理机制：阶段一进行结构化提炼（抽取概念、实体关系、核心摘要与分类），阶段二转换为符合 OKF 规范的 Markdown 正文与 Frontmatter 元数据并写入文件系统。
+- **单体 SQLite 性能与事务优化**：本地 `feedmind.db` 统一启用 WAL 并发模式、NORMAL 同步级别与 64MB 内存映射；应用退出前统一触发 `PRAGMA wal_checkpoint(TRUNCATE)` 截断日志；表结构采用预编译静态 DDL 初始化，彻底消除运行时迁移解析耗时。
+- **Monorepo 依赖与边界隔离**：`apps` 可以依赖 `packages`，`packages` 严禁反向依赖 `apps`；跨包引用一律使用 `@feedmind/*` 组织命名，严禁任何相对路径穿透。抽包决策必须基于“保护真实的运行时、安全、领域或跨端契约边界”，而非单纯为了代码复用。
 
-## 开发规范
+---
 
-### 中文约定
+## 注释与日志规范（第一性原理核心准则）
 
-- 代码注释、日志消息、与用户交流均使用中文；日志结构化字段名用英文。
-- 注释遵循"说 WHY 不说 WHAT"：只解释设计决策、边界条件、workaround、坑；纯复述代码的注释删除。判断标准：删掉后读者是否仍懂且不丢关键信息。
-- 注释中不写 `ponytail:` 前缀，简化的意图直接写进正文。
+### 1. 注释原则
 
-### 联网调研
+- **纯粹基于项目现状描述**：注释必须基于当前代码的真实逻辑与设计现状进行描述，严禁提及或记录无意义的过程决策（如“历史原因”、“曾有 Bug”、“原本打算”、“取代/废弃了旧版”、“兼容迁移前旧数据”等）。任何过时或在当前实际情况下无意义的决策说明必须坚决删除。
+- **言简意赅，每处单行**：代码注释做到言简意赅，原则上每处注释提纯为单行（1 行即可），杜绝冗长铺垫与大段叙事。
+- **说 WHY 不说 WHAT**：注释仅解释设计意图、特殊边界条件、平台兼容 workaround 与关键坑点，严禁机械翻译或单纯复述代码做了什么。若删去该注释后读者依然能轻易读懂且不丢失关键边界信息，该注释即为多余，必须删除。
+- **中文表述习惯**：所有代码注释、日志提示文案、用户界面文本与交流均使用自然规范的中文；严禁在注释中添加 `ponytail:` 等任何前缀标签。
+- **特定语法合规单行注释**：在因平台或运行环境预期可以安全忽略异常的空 `catch` 块中，必须保留简洁有意义的单行中文说明（例如 `// 忽略检查点异常`），以满足代码规范检查（避免 `eslint(no-empty)` 报错）。
 
-实现涉及已有技术栈的功能前，先取最新官方文档（避免内置 `WebSearch`/`WebFetch`，对文档类查询精度不足）：
+### 2. 日志与异常处理
 
-- 查库/框架技术文档 → **context7**（MCP `query-docs`）
-- 网络/网页搜索 → **exa**（`exa:search` / `exa:web_search_exa`）
-- 抓取网页内容 → **Firecrawl**（`firecrawl:firecrawl-scrape`）
+- **统一结构化日志**：使用 pino 记录结构化日志（API 层使用 `logger`，数据库层使用 `dbLogger`）。日志提示文案使用中文，结构化字段名保持英文。
+- **安全脱敏**：严禁在日志中输出敏感信息，系统自动脱敏 `apiKey`、`password`、`cookies`、`authorization` 等字段。
+- **标准异常封装**：API 业务错误统一采用 `HttpError`；捕获未知底层错误并重新抛出时，必须传递 `{ cause: err }` 保留调用栈；记录错误日志时统一使用结构化传参：`logger.error({ err, ...extra }, "中文业务描述")`。
+- **异步 Promise 处理**：主动忽略或不等待返回结果的 Promise 必须显式标记 `void`。
 
-### Ponytail 原则
+---
 
-用最懒但能用的方案：YAGNI、优先标准库/原生 API、一行能搞定不用五十行、不引入新依赖、不写死路径灵活、不做未来假设。
+## 工程规范与安全守则
 
-### 提交规范
+### 1. 安全防御规范
 
-- 约定式提交（`feat`/`fix`/`chore`/`docs`/`refactor`/`test`/`style`/`perf`，格式 `type(scope): 中文描述`）。
-- lefthook pre-commit 串行跑 `oxlint --fix`（自动修复 JS/TS）+ `oxfmt`（格式化所有暂存文件），`stage_fixed` 把修复写回暂存区；commit-msg 跑 `commitlint`。钩子装到 .git/hooks，pnpm install 自动生效。
-- 推送前运行 `pnpm run typecheck && pnpm run lint`。
-- **CI 门禁**：push/PR 到 `master` 时 GitHub Actions 并行跑 quality（typecheck/lint/fmt/react-doctor）与 unit（`pnpm test`）；e2e 依赖 quality 通过后再跑。CI 失败即阻塞合并，推送前本地先跑相同命令。
+- **零信任输入校验**：所有外部输入（HTTP 请求参数、爬虫抓取内容、LLM 输出的 JSON、RSS XML）均按不可信数据处理，必须通过 Zod Schema 进行严格的结构与类型校验。
+- **SSRF 深度防御**：抓取工具与外部请求在发起前必须严格执行 SSRF 拦截（如 `checkSSRF` 校验），坚决拒绝访问私有局域网、链路本地地址与回环 IP。
+- **敏感数据加密落库**：API Key 等敏感凭据在入库前必须经过 AES 加密处理；桌面端通过 Electron SafeStorage 保护主密钥；严禁在代码中硬编码秘钥，严禁提交任何 `.env` 文件。
 
-### 分支与版本
+### 2. 代码编写规范
 
-- Trunk-based：单人直接提交 `master`；多人协作用短命功能分支（< 2 天）+ PR 合并，不引入 Git Flow 长期分支。
-- 分支命名 `type/scope` 前缀（`feat/`、`fix/`、`refactor/` 等），与 commit 类型对齐。
-- 共享包与应用遵循 SemVer；版本号写入各 `package.json`，禁止无意义 bump。
+- **文件命名**：一律采用 kebab-case 格式（如 `source-store.ts`、`ingest-pipeline.ts`）。
+- **模块导入与类型隔离**：遵循 `verbatimModuleSyntax: true` 规范，纯类型导入强制使用 `import type`。
+- **未使用参数占位**：未使用但因接口签名必须保留的参数统一添加 `_` 前缀（如 `_signal`、`_context`），对齐 oxlint 规则。
+- **极简实现（Ponytail 原则）**：追求最短有效 diff；严禁引入未经明确请求的抽象层与脚手架；优先利用语言原生特性、标准库及项目中现有的成熟工具与依赖。
 
-### 命名规范
+### 3. API 路由规范
 
-- 文件命名 kebab-case（`page-store.ts`、`ingest-worker.ts`）。
-- 未使用参数 `_` 前缀（`_signal`、`_category`）。
+- **内部路由**：采用标准 `Hono` 结合 `jsonOk` / `jsonError` 响应助手。
+- **核心开放接口**：涉及跨应用契约或导出 API 规范的路由，采用 `OpenAPIHono` + `createRoute` 模式。
 
-### 日志与错误处理
+### 4. 测试与验证要求
 
-- pino 结构化日志，`import { logger } from "../../lib/logger.js"`；数据库包用 `dbLogger`。敏感字段自动脱敏（apiKey、password、cookies、authorization）。主动丢弃 Promise 用 `void`。
-- API 业务错误用 `HttpError`（`lib/http.ts`）；重新抛出时传递 `{ cause: err }`；错误日志用结构化字段 `logger.error({ err, taskId }, "描述")`。
-
-### 安全规范
-
-- 信任边界：对外部输入（用户请求、爬虫响应、LLM 输出、RSS/网页）按不可信处理，先做类型/长度校验。
-- SSRF 防护：抓取类工具必须校验 URL，拒绝内网/私有 IP 段（参照 `web-fetch.ts` 的 `checkSSRF`）。
-- 密钥管理：API Key 等敏感数据 AES 加密落库（`apps/api/src/lib/crypto`），禁止硬编码、禁止提交 `.env`。
-
-### API 路由规范
-
-- 内部业务路由采用标准 `Hono` + `jsonOk`/`jsonError`（`lib/http.ts`）模式；
-- 对外开放或需要导出 API Spec 的核心路由推荐使用 `OpenAPIHono` + `createRoute` 模式。
-
-### 依赖管理
-
-- pnpm@11 + workspace 协议（`workspace:*`）；跨包共享版本经 `pnpm-workspace.yaml` 的 `catalog` 管理。
-- 原生依赖经 `allowBuilds` 放行（electron、esbuild 等）；`drizzle-orm`/`@libsql/client` 走 `publicHoistPattern` 供 drizzle-kit 解析。
-
-### 测试
-
-- 集成测试使用内存/临时 SQLite，避免外部依赖；API 集成经 `createApiTestContext`（首用例 ensureSchema，之后进程内回放 DDL）。
-- 根入口 `pnpm test` = `vitest run`（root projects）；包级 `pnpm --filter <pkg> test` 仅用于局部调试。
-- 时间/随机相关用 `vi.setSystemTime` 等冻结；每个测试独立，杜绝 flaky。
-- 修复必带回归测试；涉及前置状态转换的测试先断言该状态，防止假阳性。
-- Coverage 本地 `pnpm test:coverage` 可用；不设全局阈值（虚荣指标），若加门禁只覆盖纯逻辑目录。
-
-### 实施流程
-
-新功能前：先联网调研涉及技术栈的官方最新文档 → 实现（kebab-case 文件、`import type`、中文 why 注释、捕获异常带 `{ cause }`、遵循 API 路由规范）→ 收尾运行 `pnpm run fmt && pnpm run typecheck && pnpm run lint`（oxfmt 格式化无差异才算干净）。
-
-改动架构（包边界、分层、依赖方向、跨应用契约）前先明确决策依据并写进 PR / 提交说明；新决策不覆盖旧结论，必要时另开条目。
-
-两处**有意偏离**通用风格指南，不要"修"回去：`import type` 是 `verbatimModuleSyntax: true` 的硬性要求（ts.dev/style 里禁止它的条款早于该编译选项普及，对本项目不适用）；未使用参数用 `_` 前缀，对齐 oxlint 的 `argsIgnorePattern`。
+- **环境解耦与防 Flaky**：单元测试与集成测试统一运行于内存或临时 SQLite 数据库，测试用例之间完全独立隔离；时间或随机数相关逻辑必须通过 `vi.setSystemTime` 等进行冻结。
+- **回归覆盖**：所有缺陷修复均须附带针对性的回归测试，并断言具体的前置状态与修复效果。
+- **提交流水线与门禁检查**：
+  - 推送代码前必须在本地确保以下四项全部通过：
+    1. `pnpm run fmt:check`（oxfmt 格式化无差异）
+    2. `pnpm run typecheck`（TypeScript 严格编译检查 0 错误）
+    3. `pnpm run lint`（oxlint 代码检查 0 error 0 warning）
+    4. `pnpm test`（Vitest 全仓库单元与集成测试 100% 通过）

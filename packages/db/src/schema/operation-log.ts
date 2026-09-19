@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// 操作日志：用户级增删改查审计（非 HTTP 访问日志）。
+// 操作审计日志表：记录关键业务操作行为与执行结果
 export const operationLog = sqliteTable(
   "operation_log",
   {

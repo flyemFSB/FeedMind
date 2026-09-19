@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// 会话表：消息本体在 Mastra Memory，本表只做列表元数据。
-// 早期设计中的 message_count 与 last_message_at 从未实际回写（属于无用冗余字段），已清理移除。
+// 会话表：存储会话列表元数据，消息本体由智能体记忆模块管理
 export const chatSessions = sqliteTable(
   "chat_sessions",
   {

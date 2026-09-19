@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
-// 上下文窗口 / 最大输出：单位为 K tokens（64 → 64000 tokens），与前端 formatKB 一致。
+// 大语言模型配置表：上下文窗口与最大输出单位均为千（K）tokens
 export const model = sqliteTable(
   "model",
   {
@@ -23,7 +23,7 @@ export const model = sqliteTable(
       .default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },
   (table) => ({
-    // 身份键不含密钥：轮换 API Key 不应产生「另一条模型」
+    // 唯一键基于类型、服务商、模型标识与地址，更换密钥不改变模型实体
     modelUniq: uniqueIndex("uq_model_type_provider_endpoint").on(
       table.type,
       table.provider,

@@ -73,7 +73,7 @@ describe("handle table", () => {
 
   it("稳定编号", () => {
     expect(table.map((h) => h.ref)).toEqual(["ref-1", "ref-2", "ref-3"]);
-    expect(table[0]?.id).toBe("concepts/acme"); // localeCompare: acme < rag < transformer
+    expect(table[0]?.id).toBe("concepts/acme"); // 按 localeCompare 升序排列：acme < rag < transformer
   });
 
   it("resolveHandlePath 映射 ref，非 ref 原样", () => {

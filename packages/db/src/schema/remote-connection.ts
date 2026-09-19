@@ -1,8 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// 远程连接配置：OAuth token / cookie / webhook 等；config 为 JSON，敏感段应用层加密。
-// 业务为「每平台至多一条」，platform 唯一。
+// 远程平台连接配置表：各平台保持唯一记录，敏感配置由应用层加密存储
 export const remoteConnections = sqliteTable(
   "remote_connections",
   {
@@ -10,8 +9,8 @@ export const remoteConnections = sqliteTable(
     platform: text("platform").notNull().unique(),
     label: text("label").notNull(),
     status: text("status").notNull().default("disconnected"),
-    config: text("config"), // JSON 字符串；应用层 Fernet 加密后写入
-    extra: text("extra"), // JSON 元数据（明文）
+    config: text("config"), // 配置详情 JSON 字符串，敏感字段经应用层加密
+    extra: text("extra"), // 平台非敏感公开元数据 JSON 字符串
     error: text("error"),
     createdAt: text("created_at")
       .notNull()

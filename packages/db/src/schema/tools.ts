@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// 工具配置：icon 曾长期 NULL 且 UI 不用，已删除；图标由前端按 name 映射。
+// 工具配置表：存储扩展工具元数据与配置，图标由前端按工具名称映射
 export const tools = sqliteTable("tools", {
   name: text("name").primaryKey(),
   category: text("category").notNull(),

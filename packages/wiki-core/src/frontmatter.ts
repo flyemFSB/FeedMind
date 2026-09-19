@@ -1,4 +1,3 @@
-// js-yaml 5 无 default export（官方设计决定），改具名导入；v5 自带 TS 类型，@types/js-yaml 已移除
 import { dump, load, JSON_SCHEMA } from "js-yaml";
 
 export interface FrontmatterParseResult {
@@ -206,7 +205,7 @@ export function mergeConceptContent(existing: string, incoming: string): string 
   if (tags) frontmatter["tags"] = tags;
   if (sources.length > 0) frontmatter["sources"] = sources;
   if (related) frontmatter["related"] = related;
-  // v0.1 遗留字段已并入 sources，落盘时清除，避免新旧两种表述混存
+  // 移除旧格式来源字段，统一由 sources 托管
   delete frontmatter["provenance"];
   delete frontmatter["timestamp"];
 

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { model } from "./models.ts";
 
-// runtime 本身是业务主键（session | wiki，固定两行），不再保留无用自增 id。
+// 运行时模型推理参数表：以场景标识作为主键配置提示词与采样参数
 export const runtimeConfig = sqliteTable("runtime_config", {
   runtime: text("runtime").primaryKey(),
   llmId: integer("llm_id").references(() => model.id, { onDelete: "set null" }),

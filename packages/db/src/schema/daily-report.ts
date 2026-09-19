@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
-// 定时日报任务记账：触发由调度器读 enabled 行驱动，状态回写本表
+// 定时任务配置表：记录定时执行规则与最新运行状态
 export const scheduleTasks = sqliteTable(
   "schedule_tasks",
   {
@@ -31,7 +31,7 @@ export const scheduleTasks = sqliteTable(
 export type ScheduleTaskRow = typeof scheduleTasks.$inferSelect;
 export type ScheduleTaskInsert = typeof scheduleTasks.$inferInsert;
 
-// 日报视频产物：一次运行一行
+// 视频产物记录表：记录每次日报生成的视频元数据与阶段状态
 export const videos = sqliteTable(
   "videos",
   {

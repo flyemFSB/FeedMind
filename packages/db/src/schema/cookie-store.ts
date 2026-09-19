@@ -1,8 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// cookie_store: 各平台 cookie 存储。
-// cookies 应用层 Fernet 加密落库；读路径解密后使用。
+// 各平台 Cookie 存储表：敏感凭据在应用层加密落库
 export const cookieStore = sqliteTable(
   "cookie_store",
   {

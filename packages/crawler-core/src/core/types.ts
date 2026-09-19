@@ -1,9 +1,4 @@
-/**
- * 路由处理器参数与结果类型定义。
- *
- * 替代旧的 ContentModel/CreatorModel/CrawlerStore 模式，
- * 每个路由处理器是具有一致签名的独立异步函数。
- */
+/** 爬虫路由处理器参数与结果类型定义 */
 
 export interface RouteHandlerParams {
   /** 路由特定参数（如 { user_id: "..." }） */

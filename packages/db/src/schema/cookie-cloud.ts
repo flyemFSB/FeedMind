@@ -1,8 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-// cookie_cloud: CookieCloud 扩展配置（UUID + Fernet 密码 + 加密 blob）。
-// 扩展推送时用密码解密后写入 cookie_store；密码本身 Fernet 落库。
+// CookieCloud 扩展配置表：存储同步凭据与密文
 export const cookieCloud = sqliteTable(
   "cookie_cloud",
   {
