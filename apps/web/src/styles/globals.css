@@ -36,6 +36,8 @@
   --color-editorial-semantic-error: var(--editorial-semantic-error);
   --color-editorial-semantic-warning: var(--editorial-semantic-warning);
   --color-editorial-semantic-info: var(--editorial-semantic-info);
+  --shadow-island: var(--editorial-shadow-island);
+  --shadow-drawer: var(--editorial-shadow-drawer);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -116,6 +118,8 @@
   --editorial-semantic-error: oklch(0.55 0.23 25);
   --editorial-semantic-warning: oklch(0.52 0.18 75);
   --editorial-semantic-info: oklch(0.55 0.16 250);
+  --editorial-shadow-island: 0 1px 3px rgba(55, 53, 45, 0.06);
+  --editorial-shadow-drawer: -8px 0 18px -14px rgba(55, 53, 45, 0.18);
   /* Wiki 知识形态 type 专属颜色：8 种色相可区分，页面列表/图谱/分组共用，明暗自适应 */
   --wiki-type-concept: oklch(0.62 0.17 280);
   --wiki-type-principle: oklch(0.62 0.16 235);
@@ -209,6 +213,8 @@
   --editorial-semantic-error: oklch(0.65 0.22 25);
   --editorial-semantic-warning: oklch(0.7 0.16 85);
   --editorial-semantic-info: oklch(0.65 0.16 250);
+  --editorial-shadow-island: 0 1px 4px rgba(0, 0, 0, 0.45);
+  --editorial-shadow-drawer: -8px 0 20px -10px rgba(0, 0, 0, 0.55);
   /* Wiki 知识形态 type 专属颜色（暗色：提高亮度保证可读） */
   --wiki-type-concept: oklch(0.74 0.17 280);
   --wiki-type-principle: oklch(0.74 0.16 235);

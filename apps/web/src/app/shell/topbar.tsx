@@ -37,7 +37,7 @@ export function Topbar({ title, subtitle, showModelSelector = false, rightConten
   );
 }
 
-function AgentToggleButton({ active, onClick }: { active: boolean; onClick: () => void }) {
+export function AgentToggleButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   const { t } = useTranslation();
   return (
     <m.button

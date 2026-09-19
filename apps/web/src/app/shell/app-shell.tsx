@@ -4,6 +4,7 @@ import { AppShellProvider, useAppShell } from "./app-shell-context";
 import { WikiSidebar } from "./wiki-sidebar";
 import { AgentDrawer } from "../agent-drawer/agent-drawer";
 import { RemoteConnectionModal } from "@/app/remote-connection/remote-connection-modal";
+import { CommandPalette } from "@/components/command-palette";
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -37,7 +38,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
       <WikiSidebar onRemoteClick={openRemote} />
       <div
         data-island="workspace"
-        className="relative my-2 ml-0 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-soft shadow-[0_1px_3px_rgba(55,53,45,0.06)]"
+        className="relative my-2 ml-0 mr-2 flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-soft shadow-island"
       >
         {children}
       </div>
@@ -48,6 +49,7 @@ function ShellLayout({ children }: { children: ReactNode }) {
         }}
       />
       <RemoteConnectionModal open={remoteOpen} onClose={closeRemote} />
+      <CommandPalette />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 import { m } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { SimpleTooltip } from "@/components/ui/tooltip";
 
 interface WikiSidebarProps {
   onRemoteClick: () => void;
@@ -44,25 +45,26 @@ export function WikiSidebar({ onRemoteClick }: WikiSidebarProps) {
       className="relative z-20 flex h-full w-[48px] shrink-0 flex-col items-center overflow-hidden bg-editorial-canvas-soft max-sm:w-[44px]"
     >
       <div className="flex w-full flex-col items-center pt-1.5">
-        <m.button
-          type="button"
-          onClick={() => goToView("pages")}
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.92 }}
-          className="flex h-10 w-10 items-center justify-center rounded-md text-editorial-ink hover:bg-editorial-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
-          aria-label="FeedMind"
-          title="FeedMind"
-        >
-          <img
-            src="/FeedMind-logo.svg"
-            alt="FeedMind"
-            width={24}
-            height={24}
-            className="h-6 w-6"
-            loading="eager"
-            decoding="async"
-          />
-        </m.button>
+        <SimpleTooltip content="FeedMind" side="right" sideOffset={8}>
+          <m.button
+            type="button"
+            onClick={() => goToView("pages")}
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.92 }}
+            className="flex h-10 w-10 items-center justify-center rounded-md text-editorial-ink hover:bg-editorial-surface-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent"
+            aria-label="FeedMind"
+          >
+            <img
+              src="/FeedMind-logo.svg"
+              alt="FeedMind"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+              loading="eager"
+              decoding="async"
+            />
+          </m.button>
+        </SimpleTooltip>
       </div>
 
       <div className="my-1.5 h-[2px] w-7 rounded-sm bg-editorial-hairline" />
@@ -144,25 +146,33 @@ function NavIconButton({ icon: Icon, label, active, onClick }: NavIconButtonProp
   const { t } = useTranslation();
   const labelText = t(label);
   return (
-    <m.button
-      type="button"
-      onClick={onClick}
-      animate={{ scale: active ? 1.04 : 1 }}
-      whileHover={{ scale: active ? 1.07 : 1.04 }}
-      whileTap={{ scale: 0.92 }}
-      className={cn(
-        "relative flex h-10 w-10 items-center justify-center rounded-md",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent",
-        active
-          ? "bg-editorial-surface-strong text-editorial-ink"
-          : "text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink",
-      )}
-      aria-label={labelText}
-      title={labelText}
-      aria-pressed={active}
-      aria-current={active ? "page" : undefined}
-    >
-      <Icon size={18} strokeWidth={active ? 2 : 1.6} />
-    </m.button>
+    <SimpleTooltip content={labelText} side="right" sideOffset={8}>
+      <m.button
+        type="button"
+        onClick={onClick}
+        animate={{ scale: active ? 1.02 : 1 }}
+        whileHover={{ scale: active ? 1.05 : 1.04 }}
+        whileTap={{ scale: 0.94 }}
+        className={cn(
+          "group relative flex h-10 w-10 items-center justify-center rounded-md transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent",
+          active
+            ? "bg-editorial-surface-strong text-editorial-ink font-medium shadow-2xs"
+            : "text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink",
+        )}
+        aria-label={labelText}
+        aria-pressed={active}
+        aria-current={active ? "page" : undefined}
+      >
+        {active && (
+          <m.div
+            layoutId="active-sidebar-indicator"
+            className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r-full bg-editorial-accent"
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          />
+        )}
+        <Icon size={18} strokeWidth={active ? 2 : 1.6} />
+      </m.button>
+    </SimpleTooltip>
   );
 }
