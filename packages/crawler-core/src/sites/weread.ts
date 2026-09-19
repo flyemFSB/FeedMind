@@ -13,7 +13,7 @@
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
-import * as cheerio from "cheerio";
+import { parse } from "node-html-parser";
 import { CrawlerAuthError } from "../core/errors.js";
 
 const UA =
@@ -23,13 +23,11 @@ const UA =
 const GAP_LIST_MS = 1000;
 const GAP_CONTENT_MS = 1500;
 
-/** 书架中的公众号条目 */
 interface WereadMp {
   name: string;
   bookId: string;
 }
 
-/** 单篇公众号文章 */
 interface WereadArticle {
   reviewId: string;
   title: string;
@@ -38,7 +36,6 @@ interface WereadArticle {
   originalId?: string;
 }
 
-/** 单个公众号的抓取结果 */
 interface WereadSourceResult {
   name: string;
   bookId: string;
@@ -136,8 +133,8 @@ async function fetchContent(
   );
   if (!res.ok) return "";
   const html = await res.text();
-  const $ = cheerio.load(html);
-  return ($("#js_content").text() ?? "").trim().slice(0, 20000);
+  const root = parse(html);
+  return (root.querySelector("#js_content")?.text ?? "").trim().slice(0, 20000);
 }
 
 // ─── Shelf（书架公众号文章） ───────────────────────────────────────
@@ -185,7 +182,7 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
           continue;
         }
 
-        // 只对新增文章抓正文（增量去重，与历史 CDP 脚本一致）
+        // 仅对未抓取过的新增文章抓取正文
         const fresh: WereadArticle[] = [];
         for (const a of list) {
           const guid = `weread:${mp.bookId}:${a.reviewId}`;
@@ -202,8 +199,7 @@ const shelfHandler: RouteHandler = async ({ params, cookies, abortSignal, maxIte
       await sleep(GAP_LIST_MS);
     }
 
-    // 网页版公众号文章接口整体失效（如 Cookie 被平台风控标记）时，所有订阅源均会返回错误；
-    // 显式抛出异常以保证同步失败状态对上层可见，避免静默返回空列表从而误导为"没有最新文章"
+    // 全部订阅源请求均失败时抛出异常，避免静默返回空列表掩盖凭据失效
     const errs = results.filter((r) => r.err);
     if (results.length > 0 && errs.length === results.length) {
       throw new Error(

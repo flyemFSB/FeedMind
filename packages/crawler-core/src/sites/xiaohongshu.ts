@@ -5,7 +5,7 @@
  * - 无 cookie 时：AgentBrowser → page.evaluate() 提取数据
  * - 收藏 tab：waitForResponse 拦截 API
  */
-import { load } from "cheerio";
+import { parse } from "node-html-parser";
 import type { RouteHandler } from "../core/types.js";
 import { registerRoute } from "../core/route-registry.js";
 import { buildRssXml, buildGuid, fromUnixTimestamp } from "../core/rss-builder.js";
@@ -37,12 +37,10 @@ interface XhsNote {
   };
 }
 
-/** 小红书标签 */
 interface XhsTag {
   name?: string;
 }
 
-/** 小红书图片 */
 interface XhsImage {
   urlDefault?: string;
   url?: string;
@@ -50,7 +48,6 @@ interface XhsImage {
   stream?: Record<string, XhsStream[]>;
 }
 
-/** 小红书视频流 */
 interface XhsStream {
   masterUrl?: string;
   backupUrls?: string[];
@@ -71,14 +68,12 @@ interface XhsInitialState {
 // ─── 辅助函数 ────────────────────────────────────────────────────
 
 function extractInitialState(html: string): XhsInitialState | null {
-  const $ = load(html);
-  const scriptText = $("script")
-    .filter((_i, el) => {
-      const text = (el as { children?: { data?: string }[] })?.children?.[0]?.data ?? "";
-      return text.startsWith("window.__INITIAL_STATE__=");
-    })
-    .text();
+  const root = parse(html);
+  const scriptEl = root
+    .querySelectorAll("script")
+    .find((el) => el.text.startsWith("window.__INITIAL_STATE__="));
 
+  const scriptText = scriptEl?.text;
   if (!scriptText) return null;
 
   const json = scriptText.slice("window.__INITIAL_STATE__=".length).replaceAll("undefined", "null");

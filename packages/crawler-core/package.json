@@ -16,7 +16,7 @@
     "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {
-    "cheerio": "catalog:",
+    "node-html-parser": "catalog:",
     "playwright-core": "^1.62.1"
   },
   "devDependencies": {
