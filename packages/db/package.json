@@ -10,22 +10,23 @@
     }
   },
   "scripts": {
-    "build": "tsc -b --builders 4",
+    "build": "pnpm run db:generate && tsc -b --builders 4",
     "lint": "oxlint .",
     "test": "vitest run --project db",
     "typecheck": "tsc -b --builders 4 --pretty false",
+    "db:generate": "node scripts/generate-ddl.mjs",
     "db:push": "drizzle-kit push",
     "db:init": "node src/init.ts",
     "db:reset": "node src/reset.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",
-    "drizzle-kit": "^0.31.10",
     "drizzle-orm": "catalog:",
     "pino": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "drizzle-kit": "^0.31.10",
     "oxlint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

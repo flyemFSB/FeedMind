@@ -114,7 +114,6 @@ export async function seedDatabase(): Promise<void> {
 
 export async function initDatabase(): Promise<void> {
   await initDbPragmas();
-  // 幂等建表（开发期改结构请 db:reset / 删库，不跑迁移）
   await ensureSchema(client);
   await seedDatabase();
 }

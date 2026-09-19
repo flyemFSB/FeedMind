@@ -102,4 +102,8 @@ describe("schema 与 SQLite 兼容", () => {
     expect(rows[0]?.enabled).toBe(false);
     expect(rows[0]?.timezone).toBe("Asia/Shanghai");
   });
+
+  it("DDL 幂等：已有库上重复执行不报错（应用每次启动都会跑一遍）", async () => {
+    await expect(ensureSchema(client)).resolves.toBeUndefined();
+  });
 });

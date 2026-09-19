@@ -15,7 +15,7 @@ catalog:
   oxfmt: ^0.66.0
   "@types/node": ^26.4.0
   "@t3-oss/env-core": ^0.13.11
-  cheerio: ^1.2.0
+  node-html-parser: ^7.0.1
   pino: ^10.3.1
   hono: ^4.13.5
   feedsmith: ^2.9.6

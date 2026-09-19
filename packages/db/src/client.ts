@@ -10,7 +10,7 @@ import { findRepoRoot } from "./repo-root.ts";
 function resolveDbPath(): string {
   const envPath = process.env["DATABASE_PATH"];
   if (envPath && (envPath === ":memory:" || isAbsolute(envPath))) return envPath;
-  // 未显式指定时锚定仓库根而非 process.cwd()（cwd 不同会读错库）
+  // 未指定路径时使用项目根目录下的数据目录
   const dataDir = process.env["DATA_DIR"] ?? join(findRepoRoot(import.meta.dirname), "data");
   return resolve(dataDir, "feedmind.db");
 }
@@ -33,7 +33,7 @@ export function getRawClient(): Client {
       try {
         mkdirSync(dirname(currentPath), { recursive: true });
       } catch {
-        // 目录存在或只读按需忽略
+        // 目录已存在或只读时忽略创建异常
       }
       _rawClient = createClient({
         url: `file:${currentPath.replace(/\\/g, "/")}`,
@@ -50,7 +50,7 @@ export function getRawDb(): ReturnType<typeof drizzle<typeof schema>> {
   return _rawDb!;
 }
 
-// 惰性透明代理：使外部 import { client, db } 无缝透传到活跃实例，彻底解耦环境变量注入时序
+// 惰性透明代理：外部解耦环境变量注入时序
 export const client: Client = new Proxy({} as Client, {
   get(_target, prop, receiver) {
     const raw = getRawClient();
@@ -70,18 +70,14 @@ export const db: ReturnType<typeof drizzle<typeof schema>> = new Proxy(
   },
 );
 
-// SQLite 运行参数（连接级，进程内生效）：
-// - journal_mode=WAL：读写并发不互斥（FTS 批量重建与业务读请求并行），写入更快
-// - synchronous=NORMAL：WAL 模式下崩溃安全（最多丢最近事务），日常写入大幅减 fsync
-// - cache_size=-8000：页缓存上限设为 8MB，防止大查询（FTS 全文索引重建或知识图谱遍历）导致内存激增
-// - foreign_keys=ON：SQLite 默认关闭外键；不打开则 REFERENCES 只是注释
-// 幂等，可在任意时机重复调用。
+/** 配置 SQLite 连接参数：开启外键约束、WAL 并发模式、内存映射与缓存上限 */
 export async function initDbPragmas(): Promise<void> {
   const c = getRawClient();
   await c.execute("PRAGMA foreign_keys = ON");
   await c.execute("PRAGMA journal_mode = WAL");
   await c.execute("PRAGMA synchronous = NORMAL");
   await c.execute("PRAGMA cache_size = -8000");
+  await c.execute("PRAGMA mmap_size = 67108864");
 }
 
 export async function checkDbConnection(): Promise<boolean> {
@@ -92,6 +88,17 @@ export async function checkDbConnection(): Promise<boolean> {
   } catch (error) {
     dbLogger.error({ err: error }, "数据库连接健康检查失败");
     return false;
+  }
+}
+
+export async function shutdownDatabase(): Promise<void> {
+  if (_rawClient && !_rawClient.closed) {
+    try {
+      await _rawClient.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+    } catch {
+      // 忽略检查点异常
+    }
+    closeDb();
   }
 }
 
