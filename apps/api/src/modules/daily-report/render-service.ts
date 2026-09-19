@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { DailyReportScript } from "@feedmind/contracts";
+import type { bundle } from "@remotion/bundler";
 import { logger } from "../../lib/logger.js";
 import { createFallbackTimeline, type VideoTimeline } from "./timeline.js";
 
@@ -11,11 +12,10 @@ export interface CaptionCue {
   text: string;
 }
 
-// Remotion 4 实测单次长视频渲染远超 30s 默认 timeout；按日报 5-10 分钟上限预留 30 分钟
+// 视频渲染单次超时时间（毫秒），预留最长 30 分钟
 const RENDER_TIMEOUT_MS = 30 * 60 * 1000;
 
-// 让上层（service.ts）订阅细粒度阶段，把 stitchStage 透到 videos.stage 子阶段
-// 命名对齐 Remotion RenderMediaProgress.stitchStage
+// 视频渲染细粒度进度阶段枚举
 export type RenderStage = "bundling" | "rendering" | "encoding" | "muxing" | "done" | "failed";
 
 export interface RenderDeps {
@@ -72,12 +72,29 @@ export function resolveBrowserExecutable(
   return undefined;
 }
 
-/**
- * 用 Remotion 渲染日报视频：bundle 组合 → 选 composition → renderMedia 产出 mp4。
- * 分段音频 seg-*.mp3 / timeline 由配音步写入 outputDir，作为 bundle publicDir 供 staticFile 引用。
- * 优先系统 Chrome/Edge（无则 Remotion 自动下载 headless shell），字体用系统内置不额外下载；
- * 渲染失败抛错由调用方统一置 failed，不产出占位文件。
- */
+let _bundlePromise: Promise<string> | null = null;
+
+async function getOrBuildBundle(
+  bundleFn: typeof bundle,
+  entryPoint: string,
+  onProgress?: (p: number) => void,
+): Promise<string> {
+  if (!_bundlePromise) {
+    _bundlePromise = bundleFn(
+      entryPoint,
+      (p) => {
+        onProgress?.(p);
+      },
+      { enableCaching: true },
+    ).catch((err) => {
+      _bundlePromise = null;
+      throw err;
+    });
+  }
+  return _bundlePromise;
+}
+
+/** 使用 Remotion 将日报脚本与音频渲染导出为 MP4 视频 */
 export async function renderReportVideo(
   script: DailyReportScript,
   outputDir: string,
@@ -85,7 +102,7 @@ export async function renderReportVideo(
   options: RenderOptions = {},
   deps: RenderDeps = {},
 ): Promise<{ videoPath: string; durationSec: number }> {
-  // 动态加载：仅渲染时引入 Remotion 重依赖，避免拖慢服务启动与无关测试
+  // 仅在视频渲染时动态按需加载 Remotion 打包与渲染引擎
   const [{ bundle }, { renderMedia, selectComposition }] = await Promise.all([
     import("@remotion/bundler"),
     import("@remotion/renderer"),
@@ -98,13 +115,24 @@ export async function renderReportVideo(
 
   const effectiveTimeline = timeline ?? createFallbackTimeline(script);
 
+  // 全部音频均包含内存 Data URL 时复用单例模板，跳过每次 2~3 秒编译开销与内存峰值；否则降级传递 publicDir
+  const hasDataUrls = [
+    effectiveTimeline.opening,
+    ...effectiveTimeline.items,
+    effectiveTimeline.closing,
+  ].every((s) => s.audioDataUrl || s.audioFile?.startsWith("data:"));
+
   deps.onStage?.("bundling");
-  const serveUrl = await bundle({
-    entryPoint,
-    publicDir: outputDir,
-    enableCaching: true,
-    onProgress: (p) => logger.debug({ progress: p }, "Remotion 打包构建进度"),
-  });
+  const serveUrl = hasDataUrls
+    ? await getOrBuildBundle(bundle, entryPoint, (p) =>
+        logger.debug({ progress: p }, "Remotion 单例模板打包构建进度"),
+      )
+    : await bundle({
+        entryPoint,
+        publicDir: outputDir,
+        enableCaching: true,
+        onProgress: (p) => logger.debug({ progress: p }, "Remotion 打包构建进度"),
+      });
 
   const inputProps = { script, captions, timeline: effectiveTimeline };
   const composition = await selectComposition({ serveUrl, id: "DailyBrief", inputProps });

@@ -4,7 +4,7 @@ import { dailyReportWorkflow } from "./daily-report/index.js";
 const RUN_INIT = { runId: "test-run", scheduleId: "daily-video", feeds: [] };
 
 describe("dailyReportWorkflow 编排", () => {
-  it("按序执行七步并产出占位视频路径", async () => {
+  it("按序执行五步", async () => {
     const run = await dailyReportWorkflow.createRun();
     const result = await run.start({ inputData: RUN_INIT });
 
@@ -17,11 +17,9 @@ describe("dailyReportWorkflow 编排", () => {
       "extract",
       "script",
       "review",
-      "tts",
-      "render",
     ]);
-    expect(result.result.videoPath).toContain("test-run");
-    expect(result.result.duration).toBe(0);
+    // 配音与渲染是服务层的本地副作用，不属 workflow 产物
+    expect(result.result.script).toBeTruthy();
   });
 
   it("脚本输出为合法契约（含开场钩子与收尾）", async () => {

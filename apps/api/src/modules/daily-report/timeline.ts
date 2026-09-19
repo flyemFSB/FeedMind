@@ -8,8 +8,9 @@ export const SEGMENT_GAP_SEC = 0.3; // 场景间转场呼吸间隙 300ms
 
 export interface TimelineSegment {
   type: "opening" | "item" | "closing";
-  index?: number;
-  audioFile?: string; // 例如："seg-0.mp3"
+  index?: number | undefined;
+  audioFile?: string | undefined; // 例如："seg-0.mp3"
+  audioDataUrl?: string | undefined; // 例如："data:audio/mp3;base64,..."
   durationSec: number; // 实际音频时长（秒）
   frames: number; // 场景总帧数（含 GAP）
   fromFrame: number; // 时间轴起始帧
@@ -32,7 +33,11 @@ export function fallbackDurationSec(text: string): number {
  * 根据实测的音频时长列表构建精确时间轴（单一事实源）
  * @param durations 长度为 1 (opening) + items.length + 1 (closing) 的秒数数组
  */
-export function buildTimeline(durations: number[]): VideoTimeline {
+export function buildTimeline(
+  durations: number[],
+  audioFiles?: string[],
+  audioDataUrls?: (string | undefined)[],
+): VideoTimeline {
   let cursor = 0;
 
   // 1. 开场
@@ -40,7 +45,8 @@ export function buildTimeline(durations: number[]): VideoTimeline {
   const openingFrames = Math.round(Math.max(openingSec + SEGMENT_GAP_SEC, MIN_OPENING_SEC) * FPS);
   const opening: TimelineSegment = {
     type: "opening",
-    audioFile: "seg-0.mp3",
+    audioFile: audioFiles?.[0] ?? "seg-0.mp3",
+    audioDataUrl: audioDataUrls?.[0],
     durationSec: openingSec,
     frames: openingFrames,
     fromFrame: 0,
@@ -56,7 +62,8 @@ export function buildTimeline(durations: number[]): VideoTimeline {
     items.push({
       type: "item",
       index: i,
-      audioFile: `seg-${i + 1}.mp3`,
+      audioFile: audioFiles?.[i + 1] ?? `seg-${i + 1}.mp3`,
+      audioDataUrl: audioDataUrls?.[i + 1],
       durationSec: itemSec,
       frames,
       fromFrame: cursor,
@@ -69,7 +76,8 @@ export function buildTimeline(durations: number[]): VideoTimeline {
   const closingFrames = Math.round(Math.max(closingSec + SEGMENT_GAP_SEC, MIN_CLOSING_SEC) * FPS);
   const closing: TimelineSegment = {
     type: "closing",
-    audioFile: `seg-${durations.length - 1}.mp3`,
+    audioFile: audioFiles?.[durations.length - 1] ?? `seg-${itemCount + 1}.mp3`,
+    audioDataUrl: audioDataUrls?.[durations.length - 1],
     durationSec: closingSec,
     frames: closingFrames,
     fromFrame: cursor,

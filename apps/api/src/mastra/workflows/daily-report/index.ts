@@ -12,10 +12,9 @@ import { buildScript } from "./script.js";
 import { reviewAndFix } from "./review.js";
 
 /**
- * 日报管线 workflow：fetch → select-feeds → extract → script → review → tts → render。
- * 抓取(syncAll)在服务层完成，feed 元数据经 input 传入，workflow 只做数据转换与内容深度加工。
- * select/extract/script/review 步已接真实逻辑（LLM + 兜底），tts/render 步为透传占位
- * （真实合成/渲染由服务层在管线结束后执行）。
+ * 日报内容加工 workflow：fetch-sources → select-feeds → extract → script → review。
+ * 抓取(syncAll)、配音、渲染都在服务层：抓取是数据入口，配音/渲染是本地副作用（ffmpeg/Remotion），
+ * workflow 只负责把题材变成合格脚本这一串数据转换。
  */
 const runInitSchema = z.object({
   runId: z.string(),
@@ -77,55 +76,16 @@ const reviewStep = createStep({
   },
 });
 
-const ttsStep = createStep({
-  id: "tts",
-  inputSchema: z.object({ script: dailyReportScriptSchema }),
-  outputSchema: z.object({
-    script: dailyReportScriptSchema,
-  }),
-  execute: async ({ inputData }) => {
-    // 替身：真实 TTS（Fish/edge-tts）由服务层在管线结束后合成；此处只透传最终脚本
-    return { script: inputData.script };
-  },
-});
-
-const renderStep = createStep({
-  id: "render",
-  inputSchema: z.object({
-    script: dailyReportScriptSchema,
-  }),
-  outputSchema: z.object({
-    videoPath: z.string(),
-    duration: z.number(),
-    script: dailyReportScriptSchema,
-  }),
-  execute: async ({ inputData, getInitData }) => {
-    // 占位：真实 Remotion 渲染由服务层在管线结束后执行；此处透传最终脚本
-    const { runId } = getInitData<{ runId: string }>();
-    return {
-      videoPath: `videos/${runId}/report.mp4`,
-      duration: 0,
-      script: inputData.script,
-    };
-  },
-});
-
 export const dailyReportWorkflow = createWorkflow({
   id: "daily-report",
   inputSchema: runInitSchema,
-  outputSchema: z.object({
-    videoPath: z.string(),
-    duration: z.number(),
-    script: dailyReportScriptSchema,
-  }),
+  outputSchema: z.object({ script: dailyReportScriptSchema }),
 })
   .then(fetchStep)
   .then(selectStep)
   .then(extractStep)
   .then(scriptStep)
   .then(reviewStep)
-  .then(ttsStep)
-  .then(renderStep)
   .commit();
 
 export type DailyReportRunInit = z.infer<typeof runInitSchema>;

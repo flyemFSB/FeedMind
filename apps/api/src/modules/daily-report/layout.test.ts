@@ -19,7 +19,7 @@ describe("Remotion layout timeline", () => {
   });
 
   it("buildTimeline 正确计算开场、正文各场景和收尾的时间轴与帧数", () => {
-    // opening=1.0s, item0=4.0s, item1=8.0s, closing=2.0s
+    // 各场景预估时长：开场 1.0s、要点0 4.0s、要点1 8.0s、收尾 2.0s
     const durations = [1.0, 4.0, 8.0, 2.0];
     const timeline = buildTimeline(durations);
 

@@ -206,6 +206,8 @@ export async function synthesizeNarration(
   ];
 
   const durations: number[] = [];
+  const audioFiles: string[] = [];
+  const audioDataUrls: (string | undefined)[] = [];
 
   for (let i = 0; i < rawTexts.length; i++) {
     const text = rawTexts[i] ?? "";
@@ -214,22 +216,29 @@ export async function synthesizeNarration(
 
     if (text.trim().length === 0) {
       durations.push(0);
+      audioFiles.push(fileName);
+      audioDataUrls.push(undefined);
       continue;
     }
 
     try {
       const audio = await synthesizeWithFallback(text, providers);
       await writeFile(filePath, audio);
+      audioFiles.push(fileName);
+      // 同时写入 Base64 Data URL，使 Remotion 渲染直接内存消费，解耦对静态目录的强绑定
+      audioDataUrls.push(`data:audio/mp3;base64,${audio.toString("base64")}`);
       const duration = await probeAudioDurationSec(filePath, text);
       durations.push(duration);
     } catch (err) {
       logger.warn({ err, segIndex: i }, "单段配音合成失败，使用占位静音音频与估算时长兜底");
       await writeFile(filePath, Buffer.from("FeedMind 配音占位（TTS 不可用）", "utf8"));
+      audioFiles.push(fileName);
+      audioDataUrls.push(undefined);
       durations.push(fallbackDurationSec(text));
     }
   }
 
-  const timeline = buildTimeline(durations);
+  const timeline = buildTimeline(durations, audioFiles, audioDataUrls);
   const cues = buildCuesFromTimeline(segments, timeline);
 
   return { timeline, cues };

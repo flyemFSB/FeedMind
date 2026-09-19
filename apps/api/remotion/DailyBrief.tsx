@@ -18,29 +18,40 @@ export interface DailyBriefProps {
   timeline?: VideoTimeline;
 }
 
+const resolveSegmentAudioSrc = (seg: { audioDataUrl?: string; audioFile?: string }) => {
+  const src = seg.audioDataUrl || seg.audioFile;
+  return !src || src.startsWith("data:") || src.startsWith("http") ? src : staticFile(src);
+};
+
 export function DailyBrief({ script, captions, timeline: propTimeline }: DailyBriefProps) {
   const timeline = propTimeline ?? createFallbackTimeline(script);
+
+  const openingAudio = resolveSegmentAudioSrc(timeline.opening);
+  const closingAudio = resolveSegmentAudioSrc(timeline.closing);
 
   return (
     <AbsoluteFill style={{ backgroundColor: theme.bg, overflow: "hidden" }}>
       {/* 1. 开场场景与音频 */}
       <Sequence from={timeline.opening.fromFrame} durationInFrames={timeline.opening.frames}>
         <Cover date={script.date} hook={script.opening.hook} />
-        {timeline.opening.audioFile && <Audio src={staticFile(timeline.opening.audioFile)} />}
+        {openingAudio && <Audio src={openingAudio} />}
       </Sequence>
 
       {/* 2. 正文各场景与对应音频（帧级对齐起播） */}
-      {timeline.items.map((t, i) => (
-        <Sequence key={i} from={t.fromFrame} durationInFrames={t.frames}>
-          {script.items[i] && <ItemScene item={script.items[i]!} />}
-          {t.audioFile && <Audio src={staticFile(t.audioFile)} />}
-        </Sequence>
-      ))}
+      {timeline.items.map((t, i) => {
+        const itemAudio = resolveSegmentAudioSrc(t);
+        return (
+          <Sequence key={i} from={t.fromFrame} durationInFrames={t.frames}>
+            {script.items[i] && <ItemScene item={script.items[i]!} />}
+            {itemAudio && <Audio src={itemAudio} />}
+          </Sequence>
+        );
+      })}
 
       {/* 3. 收尾场景与音频 */}
       <Sequence from={timeline.closing.fromFrame} durationInFrames={timeline.closing.frames}>
         <Closing summary={script.closing.summary} />
-        {timeline.closing.audioFile && <Audio src={staticFile(timeline.closing.audioFile)} />}
+        {closingAudio && <Audio src={closingAudio} />}
       </Sequence>
 
       {/* 4. 精准烧录字幕 */}
