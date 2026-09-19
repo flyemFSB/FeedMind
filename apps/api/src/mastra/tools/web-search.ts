@@ -1,5 +1,6 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { logger } from "../../lib/logger.js";
 import { ToolConfigClient } from "./search/config.js";
 import { anysearchSearch } from "./search/anysearch.js";
 import { tavilySearch } from "./search/tavily.js";
@@ -33,7 +34,7 @@ export async function runWebSearch(
     };
   }
 
-  const limit = Number(maxResults);
+  const limit = maxResults;
 
   // 按优先级顺序尝试：Tavily → Exa → AnySearch（兜底）
   const engines: Array<{
@@ -71,8 +72,10 @@ export async function runWebSearch(
     try {
       const results = await engine.search(AbortSignal.timeout(8_000));
       return { query, engine: engine.name, total_results: results.length, results };
-    } catch {
-      // 试下一个引擎，不提前中断
+    } catch (err) {
+      // 单个引擎失败不中断多源尝试，但必须留痕：全挂时只看得到 WEB_SEARCH_FAILED
+      // 会丢掉真正的病因（401 / 限流 / 超时）
+      logger.warn({ err, engine: engine.name, query }, "搜索源失败，尝试下一个");
     }
   }
 
@@ -100,6 +103,14 @@ export const webSearchTool = createTool({
         "BCP-47 language hint to bias results (e.g. zh-Hans, en). Omit for mixed-language queries.",
       ),
   }),
-  execute: async ({ query, max_results, language }) =>
-    JSON.stringify(await runWebSearch(query, max_results ?? 5, language), null, 2),
+  outputSchema: z.union([
+    z.object({ error: z.string(), query: z.string(), message: z.string() }),
+    z.object({
+      query: z.string(),
+      engine: z.string(),
+      total_results: z.number(),
+      results: z.array(z.object({ title: z.string(), url: z.string(), content: z.string() })),
+    }),
+  ]),
+  execute: async ({ query, max_results, language }) => runWebSearch(query, max_results, language),
 });

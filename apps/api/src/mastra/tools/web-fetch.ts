@@ -1,14 +1,13 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { ToolConfigClient } from "./search/config.js";
+import { truncateForModel } from "./tool-output.js";
 import { logger } from "../../lib/logger.js";
-
-const MAX_OUTPUT_CHARS = 4096; // 按字符截断（非 UTF-16 code unit），避免切开多字节字符
 
 import { checkSSRF } from "../../lib/ssrf.js";
 export { checkSSRF };
 
-// 只取 Firecrawl v2 响应里的 markdown 字段；模块级构造一次，避免每次抓取重建 schema
+// 提取 Firecrawl v2 响应中的 markdown 字段
 const firecrawlResponseSchema = z.object({
   data: z
     .object({
@@ -48,34 +47,30 @@ async function fetchViaFirecrawl(
   return markdown?.trim() ? markdown : null;
 }
 
-/** 按字符边界截断字符串，避免切开 surrogate pair */
-function truncateByChars(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return Array.from(text).slice(0, maxChars).join("");
-}
-
-/**
- * 抓取网页正文（SSRF 防护 + Firecrawl + 截断）。供 web_fetch 工具与日报提炼步共用，
- * 保证所有外部 URL 抓取走同一套防护。maxChars 控制返回长度上限：
- * web_fetch 工具为聊天上下文节约，默认 4096；日报提炼步传入更大上限以覆盖正文主体。
- */
+/** 抓取网页正文：执行 SSRF 校验、Firecrawl 抓取与内容截断 */
 export async function fetchArticleText(
   url: string,
   signal?: AbortSignal,
-  maxChars: number = MAX_OUTPUT_CHARS,
+  maxChars?: number,
 ): Promise<string> {
   await checkSSRF(url);
 
   // 从数据库加载工具配置（含 Firecrawl API Key，可选）
-  await ToolConfigClient.getInstance().load(signal ?? AbortSignal.timeout(5_000));
+  await ToolConfigClient.getInstance().load();
   const toolConfig = ToolConfigClient.getInstance().getTool("web_fetch");
   const firecrawlApiKey = toolConfig?.config?.["firecrawlApiKey"] as string | undefined;
 
-  // 通过 Firecrawl v2 抓取（无 API Key 时自动使用匿名模式，有免费额度）
-  const markdown = await fetchViaFirecrawl(url, AbortSignal.timeout(15_000), firecrawlApiKey);
+  // 抓取走 Firecrawl v2（无 API Key 时自动使用匿名模式，有免费额度）。
+  // 15s 是兑底上限，与调用方的中止信号取并集：用户点“停止”要能真的打断抓取
+  const timeout = AbortSignal.timeout(15_000);
+  const markdown = await fetchViaFirecrawl(
+    url,
+    signal ? AbortSignal.any([signal, timeout]) : timeout,
+    firecrawlApiKey,
+  );
 
   if (markdown) {
-    return truncateByChars(markdown, maxChars);
+    return truncateForModel(markdown, maxChars);
   }
 
   throw new Error(`无法抓取页面内容: ${url}，请检查 URL 是否正确或稍后重试。`);
@@ -86,10 +81,12 @@ export const webFetchTool = createTool({
   description: `Fetch the contents of a web page at a given URL.
 Use this tool when you need the full text content of a page — articles, blog posts, documentation, etc.
 Only fetch EXACT URLs that have been provided directly by the user or returned by web_search.
-URLs must include the schema (https://example.com, not example.com).`,
+URLs must include the schema (https://example.com, not example.com).
+Very long pages are truncated with a “[... 已省略 N 字符 ...]” marker, keeping both head and tail.`,
   inputSchema: z.object({
     url: z.url().describe("The exact URL to fetch. Must include http:// or https://."),
   }),
+  outputSchema: z.string().describe("Page content as Markdown (possibly truncated)."),
   execute: async ({ url }, { abortSignal }) => {
     return fetchArticleText(url, abortSignal);
   },

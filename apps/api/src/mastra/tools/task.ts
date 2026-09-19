@@ -190,6 +190,32 @@ export const taskTool = createTool({
     prompt: z.string().min(1).describe("要执行的子任务的详细描述"),
     context: z.string().optional().describe("可选的额外背景信息，帮助 subagent 理解上下文"),
   }),
+  outputSchema: z.object({
+    taskId: z.string(),
+    type: z.enum(["researcher", "extractor", "summarizer", "browser"]),
+    prompt: z.string(),
+    context: z.string().optional(),
+    result: z.string(),
+    duration: z.number(),
+    childTools: z
+      .array(
+        z.object({
+          toolName: z.string(),
+          toolCallId: z.string().optional(),
+          args: z.unknown().optional(),
+          result: z.unknown().optional(),
+          isError: z.boolean().optional(),
+        }),
+      )
+      .optional(),
+    usage: z
+      .object({
+        inputTokens: z.number(),
+        outputTokens: z.number(),
+        totalTokens: z.number(),
+      })
+      .optional(),
+  }),
   execute: async (inputData, ctx): Promise<TaskToolResult> => {
     const { type, prompt, context } = inputData as {
       type: SubagentType;
@@ -200,10 +226,6 @@ export const taskTool = createTool({
     const startTime = performance.now();
 
     const template = subagentRegistry[type];
-    if (!template) {
-      throw new Error(`未知的 subagent 类型: ${type}`);
-    }
-
     const fullPrompt = context ? `[上下文]\n${context}\n\n[任务]\n${prompt}` : prompt;
 
     // 模型由 resolveChatModel 统一解析
@@ -233,36 +255,15 @@ export const taskTool = createTool({
         }
       : undefined;
 
-    // 提取 subagent 内部产生的子工具调用结果
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rawToolResults = (result as any).toolResults as
-      | Array<{
-          payload?: {
-            toolName: string;
-            toolCallId?: string;
-            args?: unknown;
-            result?: unknown;
-            isError?: boolean;
-          };
-          toolName?: string;
-          toolCallId?: string;
-          args?: unknown;
-          result?: unknown;
-          isError?: boolean;
-        }>
-      | undefined;
-
-    const childTools: SubagentChildToolCall[] | undefined = rawToolResults?.length
-      ? rawToolResults.map((tr) => {
-          const p = tr.payload ?? tr;
-          return {
-            toolName: String(p.toolName ?? "unknown"),
-            toolCallId: p.toolCallId,
-            args: p.args,
-            result: p.result,
-            isError: p.isError,
-          };
-        })
+    // 提取子工具调用记录与执行状态
+    const childTools: SubagentChildToolCall[] | undefined = result.toolResults?.length
+      ? result.toolResults.map(({ payload }) => ({
+          toolName: payload.toolName,
+          toolCallId: payload.toolCallId,
+          args: payload.args,
+          result: payload.result,
+          isError: payload.isError,
+        }))
       : undefined;
 
     return {

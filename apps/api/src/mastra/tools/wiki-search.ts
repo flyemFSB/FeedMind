@@ -18,35 +18,26 @@ Use this when you need to find information across the wiki.`,
       .optional()
       .describe("Number of results to return (default 10)."),
   }),
+  outputSchema: z.string().describe("Human-readable result list, or a no-results notice."),
   execute: async ({ spaceId, query, topK }) => {
-    try {
-      const data = await searchWiki(spaceId, query, topK ?? 10);
-      const results = data.results ?? [];
+    // 检索异常直接上抛，避免静默掩盖底层故障
+    const data = await searchWiki(spaceId, query, topK ?? 10);
+    const results = data.results;
 
-      if (results.length === 0) {
-        return `No results found for "${query}".`;
-      }
-
-      const lines = [
-        `Search results for "${query}" (${data.totalHits ?? results.length} hits):`,
-        "",
-      ];
-
-      for (const r of results.slice(0, topK ?? 10)) {
-        lines.push(`- ${r.title}${r.titleMatch ? " [TITLE MATCH]" : ""}`);
-        lines.push(`  Path: ${r.path}`);
-        lines.push(`  ${r.snippet}`);
-        lines.push(`  Score: ${r.score.toFixed(1)}`);
-        lines.push("");
-      }
-
-      return lines.join("\n");
-    } catch {
-      return JSON.stringify({
-        error: "WIKI_SEARCH_FAILED",
-        spaceId,
-        query,
-      });
+    if (results.length === 0) {
+      return `No results found for "${query}".`;
     }
+
+    const lines = [`Search results for "${query}" (${data.totalHits} hits):`, ""];
+
+    for (const r of results) {
+      lines.push(`- ${r.title}${r.titleMatch ? " [TITLE MATCH]" : ""}`);
+      lines.push(`  Path: ${r.path}`);
+      lines.push(`  ${r.snippet}`);
+      lines.push(`  Score: ${r.score.toFixed(1)}`);
+      lines.push("");
+    }
+
+    return lines.join("\n");
   },
 });

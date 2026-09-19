@@ -1,8 +1,8 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { HttpError } from "../../lib/http.js";
 import { getWikiPage } from "../../modules/wiki/store/page-store.js";
-
-const MAX_PAGE_CHARS = 4096;
+import { truncateForModel } from "./tool-output.js";
 
 export const wikiReadTool = createTool({
   id: "wiki_read",
@@ -13,31 +13,28 @@ The pageId is the bundle-relative path without the .md extension, such as "table
     spaceId: z.string().describe("The wiki space ID (e.g., 'my-research')."),
     pageId: z.string().describe("The OKF Concept ID, a bundle-relative path without .md."),
   }),
+  outputSchema: z.string().describe("Concept metadata header plus Markdown body."),
   execute: async ({ spaceId, pageId }) => {
+    let data;
     try {
-      const data = await getWikiPage(spaceId, pageId);
-      const content = data.content ?? "";
-      const truncated =
-        content.length > MAX_PAGE_CHARS
-          ? content.slice(0, MAX_PAGE_CHARS) + "\n\n[... content truncated ...]"
-          : content;
-
-      return [
-        `Title: ${data.title}`,
-        `Type: ${data.type}`,
-        `Path: ${data.path}`,
-        ...(data.description ? [`Description: ${data.description}`] : []),
-        ...(data.resource ? [`Resource: ${data.resource}`] : []),
-        ...(data.tags && data.tags.length > 0 ? [`Tags: ${data.tags.join(", ")}`] : []),
-        "",
-        truncated,
-      ].join("\n");
-    } catch {
-      return JSON.stringify({
-        error: "WIKI_PAGE_NOT_FOUND",
-        spaceId,
-        pageId,
-      });
+      data = await getWikiPage(spaceId, pageId);
+    } catch (err) {
+      // 仅 404 页面不存在作为预期输出返回，底层异常直接上抛
+      if (!(err instanceof HttpError) || err.status !== 404) throw err;
+      return JSON.stringify({ error: "WIKI_PAGE_NOT_FOUND", spaceId, pageId });
     }
+
+    const content = truncateForModel(data.content);
+
+    return [
+      `Title: ${data.title}`,
+      `Type: ${data.type}`,
+      `Path: ${data.path}`,
+      ...(data.description ? [`Description: ${data.description}`] : []),
+      ...(data.resource ? [`Resource: ${data.resource}`] : []),
+      ...(data.tags.length > 0 ? [`Tags: ${data.tags.join(", ")}`] : []),
+      "",
+      content,
+    ].join("\n");
   },
 });

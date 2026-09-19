@@ -19,21 +19,15 @@ export class ToolConfigClient {
   private lastLoaded: number = 0;
   private loadedVersion: number = -1;
   private readonly ttl: number = 60_000; // 缓存有效期 60 秒
-  static instance: ToolConfigClient;
-
-  constructor() {
-    ToolConfigClient.instance = this;
-  }
+  private static instance: ToolConfigClient | undefined;
 
   /** 获取或懒初始化单例 */
   static getInstance(): ToolConfigClient {
-    if (!ToolConfigClient.instance) {
-      new ToolConfigClient();
-    }
+    ToolConfigClient.instance ??= new ToolConfigClient();
     return ToolConfigClient.instance;
   }
 
-  async load(_signal?: AbortSignal): Promise<ToolEntry[]> {
+  async load(): Promise<ToolEntry[]> {
     const version = getToolConfigVersion();
     // 版本号变化立即失效，不等 TTL：写入方在 modules/tools/service 自增，读取侧无需被通知
     if (this.tools && this.loadedVersion === version && Date.now() - this.lastLoaded < this.ttl) {

@@ -15,6 +15,7 @@ export const askClarificationTool = createTool({
       .optional()
       .describe("Optional list of possible directions or choices for the user to pick from."),
   }),
+  outputSchema: z.string().describe("Markdown clarification prompt shown to the user."),
   execute: async ({ question, options }) => {
     const lines: string[] = [`## 需要澄清`, ``, `${question}`];
 
