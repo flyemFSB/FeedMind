@@ -5,12 +5,7 @@ import { resolve } from "node:path";
 import { feedmindAgent } from "./agents/feedmind-agent.js";
 import { dailyReportWorkflow } from "./workflows/daily-report/index.js";
 import { dailyReportRunWorkflow } from "./workflows/run-workflow.js";
-import { ToolConfigClient } from "./tools/search/config.js";
 import { resolveDataDir } from "../lib/data-dir.js";
-
-export function initToolConfig(): void {
-  new ToolConfigClient();
-}
 
 export function createMastra(): Mastra {
   const mastraDbPath = resolve(resolveDataDir(), "mastra.db");

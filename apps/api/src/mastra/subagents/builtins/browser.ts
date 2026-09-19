@@ -3,11 +3,7 @@ import { assertElectronCdp, ensureMarkedWindow } from "@feedmind/crawler-core";
 import { buildSystemPrompt } from "../../prompts/system.js";
 import type { SubagentTemplate } from "../../tools/task.js";
 
-/**
- * AgentBrowser 实例（通过 CDP 连接桌面应用内置 Chromium）
- * 懒初始化：直到第一次 getTools() 调用时才建立连接，
- * 避免应用启动时即初始化浏览器（造成不必要的资源占用）。
- */
+/** 惰性初始化的 AgentBrowser 实例（通过 CDP 连接桌面内置 Chromium） */
 let _browserInstance: AgentBrowser | null = null;
 
 /** CDP 端点：桌面应用 --remote-debugging-port 默认 9333，可用 CDP_ENDPOINT 覆盖 */
@@ -18,17 +14,13 @@ const AGENT_MARKER = "feedmind-agent";
 
 let _hasLocatedAgentWindow = false;
 
-/**
- * 定位并激活 Agent 浏览器窗口。
- * 仅在首次启动或 tab 丢失时按 marker 初始化定位；一旦定位成功并导航到目标 URL，
- * 后续操作直接在该 tab 执行，避免因目标 URL 不含 marker 而误判。
- */
+/** 定位并激活 Agent 专用浏览器窗口 */
 async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
   const manager = await instance.getManagerForThread();
   await ensureMarkedWindow(AGENT_MARKER);
 
   if (_hasLocatedAgentWindow) {
-    // 已经锁定 agent 窗口，只需维持心跳
+    // 已锁定 agent 窗口，维持心跳后返回
     return;
   }
 
@@ -48,43 +40,33 @@ async function activateAgentWindow(instance: AgentBrowser): Promise<void> {
     }
   }
 
-  // 兜底：若所有 tab 都未带 marker，且当前活跃 tab 不是 UI 主窗口（index > 0），则复用当前
-  const tabs = await manager.listTabs();
-  if (tabs.length > 1) {
-    _hasLocatedAgentWindow = true;
-    return;
-  }
-
+  // 未找到标记窗口时报错，禁止驱动非专属页面
   throw new Error(
     `CDP 未发现 Agent 浏览器窗口（标记 ${AGENT_MARKER}），请确认 FeedMind 桌面应用已启动`,
   );
 }
 
-function getBrowserInstance(): AgentBrowser {
-  _browserInstance ??= (() => {
-    const instance = new AgentBrowser({
-      cdpUrl: CDP_ENDPOINT,
-      scope: "shared",
-      viewport: { width: 1280, height: 720 },
-      timeout: 30_000,
-      excludeTools: [],
-    });
+/** 扩展 AgentBrowser：覆盖 ensureReady 注入 CDP 环境校验与专用窗口激活 */
+class FeedMindAgentBrowser extends AgentBrowser {
+  override async ensureReady(): Promise<void> {
+    await assertElectronCdp();
+    await super.ensureReady();
+    await activateAgentWindow(this);
+  }
+}
 
-    const originalEnsureReady = instance.ensureReady.bind(instance);
-    instance.ensureReady = async () => {
-      await assertElectronCdp();
-      await originalEnsureReady();
-      await activateAgentWindow(instance);
-    };
-    return instance;
-  })();
+function getBrowserInstance(): AgentBrowser {
+  _browserInstance ??= new FeedMindAgentBrowser({
+    cdpUrl: CDP_ENDPOINT,
+    scope: "shared",
+    viewport: { width: 1280, height: 720 },
+    timeout: 30_000,
+    excludeTools: [],
+  });
   return _browserInstance;
 }
 
-/**
- * 浏览器自动化 subagent 模板。
- * 提供 16 个基于 Playwright + 无障碍树 refs 的浏览器工具。
- */
+/** 浏览器自动化 Subagent 模板，提供无障碍树交互工具 */
 export const browserTemplate: SubagentTemplate = {
   type: "browser",
   name: "Browser",

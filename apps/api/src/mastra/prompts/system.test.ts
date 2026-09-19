@@ -16,7 +16,7 @@ describe("系统提示词", () => {
   it("日期消息每次读取当前时间，而不是停在进程启动那天", () => {
     vi.useFakeTimers();
 
-    vi.setSystemTime(new Date("2026-01-01T12:00:00Z")); // Asia/Shanghai 20:00
+    vi.setSystemTime(new Date("2026-01-01T12:00:00Z")); // 对应 Asia/Shanghai 时区 20:00
     expect(buildDateSystemMessage()).toEqual({ role: "system", content: "今天是 2026-01-01。" });
 
     vi.setSystemTime(new Date("2026-02-03T12:00:00Z"));

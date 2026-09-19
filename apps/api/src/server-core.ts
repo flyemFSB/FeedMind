@@ -1,12 +1,10 @@
-// 全局启用 zod schema 自动编译：此后构造的 schema 首次解析时生成快速路径，
-// 复杂 schema 解析提速数倍；含 coerce/递归等不支持的 schema 静默回退常规解析。
-// 必须先于本模块图中所有会构造 schema 的业务 import（ESM 按声明顺序求值）。
+// 优先引入 Zod JIT 编译器，加速运行时模式校验
 import "zod/compile";
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { Readable } from "node:stream";
 import path from "node:path";
-import type { ServerType } from "@hono/node-server";
-import { serve } from "@hono/node-server";
+import { serve, type ServerType } from "@hono/node-server";
+export type { ServerType };
 import { MastraServer } from "@mastra/hono";
 import { initDatabase, initDbPragmas } from "@feedmind/db";
 import { createApp } from "./app.js";
@@ -14,7 +12,7 @@ import { apiEnv } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest/ingest-worker.js";
 import { startDailyReportScheduler } from "./modules/daily-report/schedule-sync.js";
 import { setMastra } from "./mastra/holder.js";
-import { createMastra, initToolConfig } from "./mastra/index.js";
+import { createMastra } from "./mastra/index.js";
 import { startLongConnection } from "./modules/remote-connection/feishu-service.js";
 
 export interface StartApiOptions {
@@ -22,16 +20,11 @@ export interface StartApiOptions {
   webDist?: string;
 }
 
-/**
- * 启动完整 API 服务（DB、Worker、Mastra Agent、HTTP Server）。
- * 同时供 CLI 入口（apps/api/src/server.ts）与 Electron 主进程复用。
- */
+/** 启动完整 API 服务（数据库、后台任务、智能体与 HTTP 服务） */
 export async function startApi(options: StartApiOptions = {}): Promise<ServerType> {
   // createApp 内已做 validateApiRuntime；此处仅保证 DB 初始化前 env 已解析
   await initDbPragmas();
   await initDatabase();
-
-  initToolConfig();
 
   const mastra = createMastra();
   setMastra(mastra);
@@ -42,15 +35,12 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
 
   const webDist = options.webDist ? path.resolve(options.webDist) : undefined;
 
-  // 包装 app.fetch：对聊天路由改写请求 URL 与 body，并拦截非 /api 的 GET 提供静态资源。
-  // 原先用 app.use("*") 注入 requestContext 是死代码——Hono 按注册顺序执行，
-  // chatRoute handler 在 init 时已注册，会短路后续中间件。静态服务同理放 fetch 层，
-  // 否则会被 createApp 里已注册的 GET "/"（版本号 JSON）短路。
+  // 自定义 fetch：重写聊天路由请求并提供同源静态资源服务
   const baseFetch = app.fetch.bind(app);
   app.fetch = async (request: Request): Promise<Response> => {
     let url = new URL(request.url);
 
-    // 补齐 vite dev 的 /api/chat → /v1/agent/chat 代理重写，让同源生产模式可直连
+    // 兼容重写 /api/chat 路径至 Agent 聊天接口
     if (url.pathname.startsWith("/api/chat/")) {
       url.pathname = url.pathname.replace(/^\/api\/chat/, "/v1/agent/chat");
       request = new Request(url, request);
@@ -67,7 +57,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
         if (body && typeof body === "object") {
           let changed = false;
 
-          // 请求未携带 memory.thread 时自动生成，否则 ObservationalMemory 会在调用 LLM 前硬失败
+          // 缺少会话标识时自动补齐内存会话上下文
           if (!body.memory?.thread) {
             const threadId = crypto.randomUUID();
             body.memory = { thread: threadId, resource: threadId };
@@ -78,11 +68,23 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
             changed = true;
           }
 
-          // 从自定义 header 读取模型 ID，注入 requestContext（Mastra 会合并 body.requestContext）
+          // 从请求头读取模型标识并注入上下文
           const modelId = request.headers.get("x-feedmind-model-id");
           if (modelId) {
             body.requestContext = { ...(body.requestContext ?? {}), feedmindModelId: modelId };
             changed = true;
+          }
+
+          // 从自定义 header 读取工作区上下文并注入
+          const wsHeader = request.headers.get("x-feedmind-context");
+          if (wsHeader) {
+            try {
+              const wsCtx = JSON.parse(decodeURIComponent(wsHeader));
+              body.requestContext = { ...(body.requestContext ?? {}), workspaceContext: wsCtx };
+              changed = true;
+            } catch {
+              // 解析工作区上下文头部失败时忽略异常
+            }
           }
 
           if (changed) {
@@ -97,7 +99,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
           }
         }
       } catch {
-        // 非 JSON body 保持原样透传
+        // 请求体解析失败时保持原始请求
       }
     }
 
@@ -115,8 +117,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
     port: apiEnv.API_PORT,
   });
 
-  // 延迟启动后台常驻任务（Ingest Worker、飞书长连接、定时报表调度），
-  // 确保 HTTP Server 与 UI 首屏毫秒级就绪，平滑冷启动阶段的 CPU/内存峰值
+  // 延迟启动后台常驻任务，保证 HTTP 服务优先快速响应
   setImmediate(() => {
     if (apiEnv.DISABLE_INGEST_WORKER !== "1") {
       startIngestWorker();
@@ -172,7 +173,7 @@ async function tryServeStatic(request: Request, webRoot: string): Promise<Respon
   try {
     requestPath = decodeURIComponent(url.pathname).replace(/\\/g, "/");
   } catch {
-    // 畸形编码（孤立 %）会抛 URIError：按非法路径处理，避免单个请求打崩 fetch handler
+    // 解码失败时按非法路径拦截
     return undefined;
   }
   if (requestPath.includes("..")) return undefined;
@@ -184,16 +185,36 @@ async function tryServeStatic(request: Request, webRoot: string): Promise<Respon
   const stat = statSync(target);
   const nodeStream = createReadStream(target);
   const webStream = Readable.toWeb(nodeStream) as ReadableStream;
-  return new Response(webStream, {
-    headers: {
-      "content-type": isRealFile ? contentType(target) : "text/html; charset=utf-8",
-      "content-length": String(stat.size),
-    },
-  });
+  const headers: Record<string, string> = {
+    "content-type": isRealFile ? contentType(target) : "text/html; charset=utf-8",
+    "content-length": String(stat.size),
+  };
+
+  // HTML 响应注入严格的内容安全策略（CSP）
+  if (!isRealFile || target.endsWith(".html")) {
+    headers["content-security-policy"] = [
+      "default-src 'self'",
+      "script-src 'self'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: https:",
+      "connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:*",
+      "font-src 'self' data:",
+      "media-src 'self' data: blob:",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; ");
+  }
+
+  return new Response(webStream, { headers });
 }
 
 // 供 Electron 主进程注入惰性隐藏窗口创建/销毁逻辑
 export { setMarkedWindowFactory, setMarkedWindowDestroyer } from "@feedmind/crawler-core";
 
-// 退出前等待 OM 后台写库完成（实现在 mastra/index.ts）
+// 等待智能体记忆数据持久化完成
 export { waitForMemorySettled } from "./mastra/index.js";
+
+// 释放数据库连接与检查点合并
+export { shutdownDatabase } from "@feedmind/db";

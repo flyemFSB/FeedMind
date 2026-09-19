@@ -67,3 +67,44 @@ export function buildSystemPrompt(customPrompt?: string): string {
 
   return `${basePrompt.trim()}\n\n今天是 ${currentDate()}。`;
 }
+
+/**
+ * 工作区上下文系统消息：由前端当前浏览页面派生，排在缓存断点之后。
+ * 为 Agent 提供当前浏览概念或资讯的即时感知，消除盲区。
+ */
+interface WorkspaceContextPayload {
+  type?: string;
+  spaceId?: string;
+  pageId?: string;
+  pageTitle?: string;
+  feedTitle?: string;
+  feedUrl?: string;
+  snippet?: string;
+}
+
+export function buildWorkspaceSystemMessage(wsContext?: Record<string, unknown>): {
+  role: "system";
+  content: string;
+} | null {
+  if (!wsContext || typeof wsContext !== "object") return null;
+  const ctx = wsContext as WorkspaceContextPayload;
+  if (ctx.type === "wiki") {
+    const spaceId = ctx.spaceId;
+    const pageId = ctx.pageId;
+    const pageTitle = ctx.pageTitle;
+    return {
+      role: "system",
+      content: `用户当前正在浏览知识库：\n- 空间 (spaceId): ${spaceId ?? "默认"}\n- 概念 (pageId): ${pageId ?? "未知"}\n- 概念标题: ${pageTitle ?? pageId ?? "未知"}\n若用户提问与该概念相关，可直接结合或优先使用 wiki_read 工具读取。`,
+    };
+  }
+  if (ctx.type === "feed") {
+    const feedTitle = ctx.feedTitle;
+    const feedUrl = ctx.feedUrl;
+    const snippet = ctx.snippet;
+    return {
+      role: "system",
+      content: `用户当前正在浏览资讯动态：\n- 资讯标题: ${feedTitle ?? "未知"}\n- 资讯链接: ${feedUrl ?? "无"}\n${snippet ? `- 摘要内容: ${snippet.slice(0, 500)}` : ""}\n若用户提问与该资讯相关，可直接结合上述内容进行分析与解答。`,
+    };
+  }
+  return null;
+}

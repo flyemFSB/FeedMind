@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiTestContext, type ApiTestContext } from "../../test-utils.js";
 
-// 回归：旧实现 Math.max(0, Number(query)) 对垃圾输入放行 NaN，会原样传进 Memory 分页。
-// Memory 存储由 createMastra 运行时装配、测试环境不启动，故 mock 服务层专注路由的参数解析行为。
+// Mock 会话服务以专注测试路由层分页参数解析与校验行为
 const getMessagesPage = vi.hoisted(() => vi.fn());
 
 vi.mock("../../modules/chats/service.js", () => ({
