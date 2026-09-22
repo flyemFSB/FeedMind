@@ -20,6 +20,7 @@
     "db:reset": "node src/reset.ts"
   },
   "dependencies": {
+    "@feedmind/env": "workspace:*",
     "@libsql/client": "^0.17.4",
     "drizzle-orm": "catalog:",
     "pino": "catalog:"

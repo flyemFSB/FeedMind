@@ -2,16 +2,20 @@ import type { Client } from "@libsql/client";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { mkdirSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import * as schema from "./schema/index.ts";
 import { dbLogger } from "./logger.ts";
-import { findRepoRoot } from "./repo-root.ts";
 
 function resolveDbPath(): string {
   const envPath = process.env["DATABASE_PATH"];
   if (envPath && (envPath === ":memory:" || isAbsolute(envPath))) return envPath;
-  // 未指定路径时使用项目根目录下的数据目录
-  const dataDir = process.env["DATA_DIR"] ?? join(findRepoRoot(import.meta.dirname), "data");
+  // 相对路径一律以 DATA_DIR 为锚点；库层不推导仓库根，缺失即失败
+  const dataDir = process.env["DATA_DIR"]?.trim();
+  if (!dataDir) {
+    throw new Error(
+      "DATA_DIR 未设置：无法定位数据库文件，请配置 DATA_DIR 或显式指定绝对路径的 DATABASE_PATH",
+    );
+  }
   return resolve(dataDir, "feedmind.db");
 }
 
@@ -110,5 +114,3 @@ export function closeDb(): void {
     _activeDbPath = null;
   }
 }
-
-export { findRepoRoot };

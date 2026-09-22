@@ -1,10 +1,8 @@
 import path from "node:path";
 import { normalizeConceptPath } from "@feedmind/wiki-core";
 import { apiEnv } from "../../../../env.js";
+import { resolveDataDir } from "../../../../lib/data-dir.js";
 import { HttpError } from "../../../../lib/http.js";
-
-// 上溯 7 级：internal → space-fs → wiki → modules → src → api → apps → 项目根
-const PROJECT_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
 
 const SPACE_ID_RE = /^[\p{L}\p{N}_-]+$/u;
 
@@ -21,9 +19,8 @@ export function validateSpaceId(spaceId: string): void {
 }
 
 export function getWikiRootDir(): string {
-  return apiEnv.WIKI_DIR
-    ? path.resolve(PROJECT_ROOT, apiEnv.WIKI_DIR)
-    : path.join(PROJECT_ROOT, "data", "wiki");
+  // WIKI_DIR 支持显式绝对路径覆盖，默认锚定数据目录
+  return apiEnv.WIKI_DIR ? path.resolve(apiEnv.WIKI_DIR) : path.join(resolveDataDir(), "wiki");
 }
 
 export function getSpaceDir(spaceId: string): string {

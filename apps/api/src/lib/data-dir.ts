@@ -1,14 +1,11 @@
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
-import { findRepoRoot } from "@feedmind/db";
 
-/**
- * 解析运行时数据目录（数据库、向量库、wiki 等落盘位置）。
- * 优先环境变量 DATA_DIR（desktop 注入 userData、测试与容器显式指定）。
- * 未设置时锚定仓库根而非 process.cwd()。
- */
+/** 解析运行时数据目录，严格依赖 DATA_DIR 避免打包后路径失效 */
 export function resolveDataDir(): string {
-  const dir = process.env["DATA_DIR"] ?? join(findRepoRoot(import.meta.dirname), "data");
+  const dir = process.env["DATA_DIR"]?.trim();
+  if (!dir) {
+    throw new Error("DATA_DIR 未设置：桌面端由主进程注入，独立运行请在 .env 中配置 DATA_DIR");
+  }
   try {
     mkdirSync(dir, { recursive: true });
   } catch {

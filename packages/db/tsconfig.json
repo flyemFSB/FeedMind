@@ -6,5 +6,6 @@
     "outDir": "dist",
     "rewriteRelativeImportExtensions": true
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "../env" }]
 }
