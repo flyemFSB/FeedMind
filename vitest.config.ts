@@ -17,6 +17,15 @@ export default defineConfig({
         "**/dist/**",
         "**/node_modules/**",
       ],
+      // 门禁：以接入时的实测水位为地板，只允许上升；安全关键模块单独抬高
+      thresholds: {
+        statements: 41,
+        branches: 33,
+        functions: 37,
+        lines: 41,
+        "apps/api/src/lib/ssrf.ts": { statements: 90, branches: 75 },
+        "apps/api/src/lib/crypto/fernet.ts": { statements: 95, branches: 90 },
+      },
     },
     projects: [
       {
@@ -39,6 +48,9 @@ export default defineConfig({
           root: `${root}/packages/crawler-core`,
           include: ["src/**/*.test.ts"],
         },
+      },
+      {
+        test: { name: "env", root: `${root}/packages/env`, include: ["src/**/*.test.ts"] },
       },
       {
         test: { name: "db", root: `${root}/packages/db`, include: ["src/**/*.test.ts"] },

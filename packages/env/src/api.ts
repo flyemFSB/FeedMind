@@ -1,5 +1,6 @@
 import { createEnv } from "@t3-oss/env-core";
 import { z } from "zod";
+import { LOG_LEVELS } from "./logging.js";
 import { sharedEnv } from "./shared.js";
 
 /** API 服务端环境变量（继承共享变量） */
@@ -12,20 +13,14 @@ export const apiEnv = createEnv({
     API_PORT: z.coerce.number().int().positive().default(18790),
     /** 是否禁用 Wiki 导入 worker（设为 "1" 禁用） */
     DISABLE_INGEST_WORKER: z.string().optional(),
-    /** Wiki 文件存储目录（相对项目根目录的路径） */
+    /** Wiki 存储目录绝对路径覆盖，默认由 DATA_DIR 推导 */
     WIKI_DIR: z.string().optional(),
-    /** 爬虫回调 API 地址（反向代理场景覆盖） */
+    /** 爬虫回调 API 地址（反向代理场景覆盖），默认由 API_PORT 推导 */
     API_BASE_URL: z.string().optional(),
-    /** Pino 日志最低输出级别 */
-    LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"]).optional(),
-    /** 是否强制启用 pino-pretty 日志格式化（设为 "1" 开启，生产模式亦可按需使用） */
-    LOG_PRETTY: z.string().optional(),
+    /** Pino 日志最低输出级别；默认值由 resolveLogLevel 统一决定 */
+    LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   },
   runtimeEnv: process.env,
   // .env 中 KEY=（空串）视为未设置：避免空串覆盖 zod default（官方推荐显式开启）
   emptyStringAsUndefined: true,
-  skipValidation:
-    !!process.env["SKIP_ENV_VALIDATION"] ||
-    process.env["npm_lifecycle_event"] === "lint" ||
-    process.env["npm_lifecycle_event"] === "typecheck",
 });

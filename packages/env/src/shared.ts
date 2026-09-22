@@ -6,27 +6,12 @@ export const sharedEnv = createEnv({
   server: {
     /** 运行环境：development / production / test */
     APP_ENV: z.string().default("development"),
-    /** SQLite 数据库文件路径 */
-    DATABASE_PATH: z.string().default("./data/feedmind.db"),
-    /**
-     * AES 加密密钥，用于加密存储的 API Key 等敏感数据。
-     * 首次使用后请保持稳定，否则已加密数据无法解密。
-     * 桌面端零配置下由主进程自动生成持久化 .secret_key 注入。
-     */
-    ENCRYPTION_KEY: z
-      .string()
-      .min(1)
-      .default(
-        () =>
-          process.env["ENCRYPTION_KEY"] ??
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      ),
+    /** SQLite 数据库文件路径覆盖，运行时默认由 DATA_DIR 推导 */
+    DATABASE_PATH: z.string().optional(),
+    /** AES 敏感数据加密主密钥，桌面端由主进程注入，服务端在启动时校验 */
+    ENCRYPTION_KEY: z.string().optional(),
   },
   runtimeEnv: process.env,
   // .env 中 KEY=（空串）视为未设置：避免空串覆盖 zod default（官方推荐显式开启）
   emptyStringAsUndefined: true,
-  skipValidation:
-    !!process.env["SKIP_ENV_VALIDATION"] ||
-    process.env["npm_lifecycle_event"] === "lint" ||
-    process.env["npm_lifecycle_event"] === "typecheck",
 });

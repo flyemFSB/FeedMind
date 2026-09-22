@@ -1,14 +1,8 @@
-import { sharedEnv } from "./shared.js";
-
-export function isProduction(appEnv?: string): boolean {
-  const env = (appEnv ?? sharedEnv.APP_ENV).trim().toLowerCase();
-  return ["prod", "production"].includes(env);
-}
-
+/** 运行时校验主密钥，延迟至调用期以支持桌面端异步注入 */
 export function requireEncryptionKey(): string {
-  const key = sharedEnv.ENCRYPTION_KEY.trim();
+  const key = (process.env["ENCRYPTION_KEY"] ?? "").trim();
   if (!key) {
-    throw new Error("ENCRYPTION_KEY is not set. Configure it in .env before starting the server.");
+    throw new Error("ENCRYPTION_KEY 未配置，请在启动服务前于 .env 中配置");
   }
   return key;
 }

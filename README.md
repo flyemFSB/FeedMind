@@ -138,9 +138,8 @@ flowchart TD
 git clone https://github.com/flyemFSB/FeedMind.git
 cd FeedMind
 
-# 2. 配置环境变量
+# 2. 配置环境变量（桌面端零配置可跳过；独立部署才需要 ENCRYPTION_KEY）
 cp .env.example .env
-# 可编辑 .env 配置自定义 ENCRYPTION_KEY（如 openssl rand -hex 32）
 
 # 3. 安装依赖
 pnpm install
@@ -157,12 +156,12 @@ pnpm run dev
 
 #### 本地服务访问入口
 
-| 服务                | 地址                                  | 说明                          |
-| :------------------ | :------------------------------------ | :---------------------------- |
-| **Web 前端界面**    | http://localhost:13790                | React 19 单页工作台           |
-| **REST API 服务**   | http://localhost:18790                | Hono 后端与 Mastra 智能体服务 |
-| **交互式 API 文档** | http://localhost:18790/api/v1/docs    | Scalar UI 交互式接口文档      |
-| **OpenAPI 规范**    | http://localhost:18790/api/v1/openapi | OpenAPI 3.1 机器可读描述      |
+| 服务                | 地址                                  | 说明                                    |
+| :------------------ | :------------------------------------ | :-------------------------------------- |
+| **Web 前端界面**    | http://localhost:13790                | React 19 单页工作台                     |
+| **REST API 服务**   | http://localhost:18790                | Hono 后端与 Mastra 智能体服务           |
+| **交互式 API 文档** | http://localhost:18790/api/v1/docs    | Scalar UI 交互式接口文档                |
+| **OpenAPI 规范**    | http://localhost:18790/api/v1/openapi | createRoute 声明端点的 OpenAPI 3.1 描述 |
 
 #### 桌面端开发与构建（Electron）
 
@@ -288,18 +287,24 @@ feedmind/
 
 ## 环境变量说明
 
-FeedMind 通过 `@feedmind/env` 对环境变量进行严格的类型断言与默认值装配：
+FeedMind 通过 `@feedmind/env` 对环境变量进行严格的类型断言与默认值装配。
 
-| 环境变量                | 是否必需         | 默认值                        | 详细说明                                                        |
-| :---------------------- | :--------------- | :---------------------------- | :-------------------------------------------------------------- |
-| `ENCRYPTION_KEY`        | 否（有安全降级） | `feedmind`                    | 用于加密落库敏感凭证的 AES 密钥（生产环境建议设为 64 字符 Hex） |
-| `DATABASE_PATH`         | 否               | `./data/feedmind.db`          | 本地 SQLite 数据库文件落盘路径                                  |
-| `WIKI_DIR`              | 否               | `data/wiki`                   | OKF 知识库 Bundle 本地存储目录                                  |
-| `API_HOST`              | 否               | `127.0.0.1`                   | API 服务监听地址（容器化部署时可配置为 `0.0.0.0`）              |
-| `API_PORT`              | 否               | `18790`                       | API 服务监听端口                                                |
-| `CDP_PORT`              | 否               | `9333`                        | 桌面端 Chromium CDP 远程调试端口                                |
-| `LOG_LEVEL`             | 否               | `debug` (dev) / `info` (prod) | Pino 结构化日志最低输出等级                                     |
-| `DISABLE_INGEST_WORKER` | 否               | —                             | 设为 `1` 时禁用后台 Wiki 异步导入处理 Worker                    |
+配置来源只有两层（优先级从高到低）：**进程环境变量 → 代码内硬编码默认值**；用户可改的配置统一存放在 SQLite 中由设置界面读写，打包产物不含任何 `.env`（仅开发态读取仓库根 `.env`）。
+
+桌面端启动时统一执行**启动自检**：数据目录、主密钥、API 端口、CDP 端口逐项探测，结果写日志并一次性汇报——可自动修复的项（如端口被占用改用系统分配的空闲端口）记为降级并弹窗告知，致命项则弹窗后退出。
+
+| 环境变量                      | 是否必需     | 默认值                           | 详细说明                                                                            |
+| :---------------------------- | :----------- | :------------------------------- | :---------------------------------------------------------------------------------- |
+| `ENCRYPTION_KEY`              | 仅服务端部署 | 桌面端自动生成                   | 加密落库敏感凭证的 AES 密钥；桌面端由系统凭据保险箱生成并持久化，独立部署需显式提供 |
+| `DATA_DIR`                    | 否           | 开发态 `./data`，桌面端 userData | 运行时数据根目录（数据库 / Wiki / 主密钥 / 日志），数据库与 Wiki 位置由它推导       |
+| `API_HOST`                    | 否           | `127.0.0.1`                      | API 服务监听地址（容器化部署时可配置为 `0.0.0.0`）                                  |
+| `API_PORT`                    | 否           | `18790`                          | API 服务监听端口                                                                    |
+| `CDP_PORT`                    | 否           | `0`（系统自动分配）              | 桌面端 Chromium CDP 远程调试端口，`0` 时由系统选空闲端口避免占用冲突                |
+| `LOG_LEVEL`                   | 否           | `debug` (dev) / `info` (prod)    | Pino 日志最低输出等级（API 与 db 共用同一解析规则）                                 |
+| `DISABLE_INGEST_WORKER`       | 否           | —                                | 设为 `1` 时禁用后台 Wiki 异步导入处理 Worker                                        |
+| `API_BASE_URL`                | 否           | `http://127.0.0.1:<API_PORT>`    | 爬虫回调地址（反向代理场景覆盖），端口变化时自动跟随实际监听端口                    |
+| `REMOTION_BROWSER_EXECUTABLE` | 否           | 自动探测系统 Chrome / Edge       | 日报视频渲染使用的浏览器可执行文件                                                  |
+| `DATABASE_PATH` / `WIKI_DIR`  | 否           | 由 `DATA_DIR` 推导               | 仅测试与迁移工具使用（绝对路径或 `:memory:`），常规运行无需设置                     |
 
 ---
 
