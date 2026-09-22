@@ -2,9 +2,9 @@
  * MessageParts — 将 UIMessage.parts 渲染为研究工作台组件
  *
  * 依照 AI SDK v6 消息协议分派每种 part 类型：
- * - reasoning / tool-{name} → ChainOfThought 按实际执行顺序交替渲染（思考链）
- * - text                    → MessageResponse (Markdown 流式渲染)
- * - source-*                → Sources (聚合展示)
+ * - reasoning / tool-{name} / data-retry → 与中间叙述文本一起，按实际执行顺序交织成思考链
+ * - text → 末段为最终回答，渲染在正文区；中间段落属于过程叙述，落在思考链内
+ * - source-* → Sources (聚合展示)
  *
  * 设计目标：
  * - 可验证证据：回答后紧跟 Sources 折叠区
@@ -36,10 +36,10 @@ import {
   ChainOfThoughtSearchResults,
   ChainOfThoughtSearchResult,
 } from "@/components/ai-elements/chain-of-thought";
-import { Suggestions, Suggestion } from "@/components/ai-elements/suggestion";
 import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/sources";
-import { Shimmer } from "@/components/ai-elements/shimmer";
+import { DecisionCard } from "@/app/agent-drawer/decision-card";
 import { useChatContext } from "@/app/agent-drawer/chat-context";
+import type { RetryTrace } from "@/app/agent-drawer/chat-utils";
 import { cn } from "@/lib/utils";
 import { Bot, Copy, ExternalLink, FileText, Loader2, RotateCcw, Wrench } from "lucide-react";
 import type { UIMessage, FileUIPart } from "ai";
@@ -69,6 +69,15 @@ function partField(part: UIMessage["parts"][number], key: string): unknown {
 
 type ChainStep =
   | { kind: "reasoning"; key: string; text: string; isActive: boolean }
+  | { kind: "text"; key: string; text: string }
+  | {
+      kind: "retry";
+      key: string;
+      attempt: number;
+      maxAttempts: number;
+      delaySec: number | undefined;
+      reason: string | undefined;
+    }
   | {
       kind: "tool";
       key: string;
@@ -125,7 +134,66 @@ function extractErrorText(output: unknown): string {
   return "";
 }
 
-/** 按 parts 执行顺序派生思考链：reasoning 与 tool-* 交替成步骤 */
+/** 从问题载荷中提取问题文本与选项标签（选项既可能是字符串，也可能是 {label} 结构） */
+function parseQuestionOptions(input: unknown): {
+  question: string;
+  options: string[];
+} {
+  let parsed = input;
+  if (typeof input === "string") {
+    try {
+      parsed = JSON.parse(input);
+    } catch {
+      return { question: input, options: [] };
+    }
+  }
+  if (typeof parsed === "object" && parsed !== null) {
+    const obj = parsed as Record<string, unknown>;
+    const question = typeof obj["question"] === "string" ? obj["question"] : "";
+    const options = Array.isArray(obj["options"])
+      ? obj["options"].flatMap((o) => {
+          if (typeof o === "string" && o.length > 0) return [o];
+          if (
+            typeof o === "object" &&
+            o !== null &&
+            typeof (o as Record<string, unknown>)["label"] === "string" &&
+            (o as Record<string, unknown>)["label"]
+          ) {
+            return [(o as Record<string, unknown>)["label"] as string];
+          }
+          return [];
+        })
+      : [];
+    return { question, options };
+  }
+  return { question: "", options: [] };
+}
+
+/**
+ * 解析内置 ask_user 的挂起事件。
+ * 后端 tool-call-suspended 经 @mastra/ai-sdk 转成 data-tool-call-suspended 下发，
+ * suspendPayload 直接携带结构化问题与选项，无需再从工具入参里还原。
+ */
+function parseAskUserSuspensions(parts: UIMessage["parts"]): Array<{
+  toolCallId: string;
+  question: string;
+  options: string[];
+}> {
+  const prompts: Array<{ toolCallId: string; question: string; options: string[] }> = [];
+  for (const part of parts) {
+    if (part.type !== "data-tool-call-suspended") continue;
+    const data = partField(part, "data") as
+      | { toolCallId?: string; toolName?: string; suspendPayload?: unknown }
+      | undefined;
+    if (data?.toolName !== "ask_user") continue;
+    const { question, options } = parseQuestionOptions(data.suspendPayload);
+    if (!question) continue;
+    prompts.push({ toolCallId: data.toolCallId ?? "", question, options });
+  }
+  return prompts;
+}
+
+/** 按 parts 执行顺序派生思考链步骤，末段文本保留在正文区 */
 function useChainSteps(
   message: UIMessage,
   isLastMessage: boolean,
@@ -142,22 +210,53 @@ function useChainSteps(
         ? lastPart
         : undefined;
 
+    const lastTextPartIndex = message.parts.reduce(
+      (lastIndex, part, index) => (part.type === "text" ? index : lastIndex),
+      -1,
+    );
     const steps: ChainStep[] = [];
+    // 重试记录单独收集：同一个回合的多次重试收尾时合成一个块，位置取首次重试处
+    const retryTraces: RetryTrace[] = [];
+    let retryAt = -1;
 
-    for (const part of message.parts) {
+    message.parts.forEach((part, index) => {
       const isActive = part === streamingChainPart;
 
       // 思考片段
       if (part.type === "reasoning") {
         const text = (part as { text: string }).text;
-        if (!text) continue;
-        steps.push({ kind: "reasoning", key: `reasoning-${steps.length}`, text, isActive });
-        continue;
+        if (!text) return;
+        steps.push({ kind: "reasoning", key: `reasoning-${index}`, text, isActive });
+        return;
+      }
+
+      // 中间叙述：工具调用之间写给用户看的进度说明，属于过程而不是最终回答
+      if (part.type === "text") {
+        const text = (part as { text: string }).text;
+        if (!text.trim() || index === lastTextPartIndex) return;
+        steps.push({ kind: "text", key: `text-${index}`, text });
+        return;
+      }
+
+      // 模型重试记录：无论发生在思考还是输出阶段都留痕，可见当时重试到第几次
+      if (part.type === "data-retry") {
+        const info = (part as { data?: unknown }).data as Partial<RetryTrace> | undefined;
+        if (!info) return;
+        if (retryAt < 0) retryAt = steps.length;
+        retryTraces.push({
+          attempt: info.attempt ?? 1,
+          maxAttempts: info.maxAttempts ?? 1,
+          delaySec: info.delaySec,
+          reason: info.reason,
+        });
+        return;
       }
 
       // 工具调用（tool-{name} 嵌入在 type 里）
       if (typeof part.type === "string" && part.type.startsWith("tool-")) {
         const toolName = part.type.slice("tool-".length);
+        // 澄清提问由 DecisionCard 在正文中呈现，不在思考链内重复展示
+        if (toolName === "ask_user") return;
         const state = partField(part, "state") as string | undefined;
         const input = partField(part, "input");
         const output = partField(part, "output");
@@ -166,7 +265,7 @@ function useChainSteps(
 
         steps.push({
           kind: "tool",
-          key: `tool-${toolName}-${steps.length}`,
+          key: `tool-${toolName}-${index}`,
           toolName,
           isError,
           errorText: errorText || (isError ? extractErrorText(output) : ""),
@@ -176,8 +275,13 @@ function useChainSteps(
           isActive,
         });
       }
-    }
+    });
 
+    // 多次重试只展示一个块：位置取首次重试处，字段取最新一次
+    const retryTrace = retryTraces.at(-1);
+    if (retryTrace) {
+      steps.splice(retryAt, 0, { kind: "retry", key: "retry", ...retryTrace });
+    }
     return steps;
   }, [message.parts, isLastMessage, isStreaming]);
 }
@@ -221,15 +325,17 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
   const { regenerate, sendMessage } = useChatContext();
   const chainSteps = useChainSteps(message, isLastMessage, isStreaming);
   const stepCount = message.parts.filter((p) => p.type === "step-start").length;
+  const retryCount = message.parts.filter((p) => p.type === "data-retry").length;
 
-  // 流式开始时自动展开思考链，让用户实时看到当前思考步骤（含 shimmer）。
-  // render 期 prev 比较模式（React 官方 adjust-state-on-prop-change）：仅 isStreaming 上升沿
-  // 触发；用户手动折叠后不会被重新打开。挂载即流式的极边缘场景首帧为折叠态
+  const askUserPrompts = useMemo(() => parseAskUserSuspensions(message.parts), [message.parts]);
+
+  // 流式上升沿自动展开思考链，手动折叠后不重复触发
+  const isMessageStreaming = isLastMessage && isStreaming;
   const [chainOpen, setChainOpen] = useState(false);
-  const [prevStreaming, setPrevStreaming] = useState(isStreaming);
-  if (isStreaming !== prevStreaming) {
-    setPrevStreaming(isStreaming);
-    if (isStreaming) {
+  const [prevStreaming, setPrevStreaming] = useState(isMessageStreaming);
+  if (isMessageStreaming !== prevStreaming) {
+    setPrevStreaming(isMessageStreaming);
+    if (isMessageStreaming) {
       setChainOpen(true);
     } else {
       // 回答完成时自动收起思考过程，聚焦正文内容
@@ -301,12 +407,6 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
     );
   }
 
-  /* ---- 推荐后续追问建议 ---- */
-  const followUpSuggestions = [
-    t("chat.followUpSummary", "总结核心要点"),
-    t("chat.followUpConcept", "提炼知识概念"),
-  ];
-
   /* ---- 助手消息 ---- */
   return (
     <div className="group relative flex w-full flex-col">
@@ -319,16 +419,34 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
                 <ChainOfThoughtHeader>
                   {t("chat.thinkProcess")}
                   {stepCount > 0 ? ` · ${stepCount + 1} 步` : ""}
+                  {retryCount > 0 ? ` · ${t("chat.retryCount", { count: retryCount })}` : ""}
                 </ChainOfThoughtHeader>
                 <ChainOfThoughtContent className="space-y-2">
-                  {chainSteps.map((step) =>
-                    step.kind === "reasoning" ? (
-                      <ReasoningChainStep
-                        key={step.key}
-                        text={step.text}
-                        isActive={step.isActive}
-                      />
-                    ) : (
+                  {chainSteps.map((step) => {
+                    if (step.kind === "reasoning") {
+                      return (
+                        <ReasoningChainStep
+                          key={step.key}
+                          text={step.text}
+                          isActive={step.isActive}
+                        />
+                      );
+                    }
+                    if (step.kind === "text") {
+                      return <NarrationChainStep key={step.key} text={step.text} />;
+                    }
+                    if (step.kind === "retry") {
+                      return (
+                        <RetryChainStep
+                          key={step.key}
+                          attempt={step.attempt}
+                          maxAttempts={step.maxAttempts}
+                          delaySec={step.delaySec}
+                          reason={step.reason}
+                        />
+                      );
+                    }
+                    return (
                       <ToolChainStep
                         key={step.key}
                         toolName={step.toolName}
@@ -339,24 +457,36 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
                         output={step.output}
                         isActive={step.isActive}
                       />
-                    ),
-                  )}
+                    );
+                  })}
                 </ChainOfThoughtContent>
               </ChainOfThought>
             </div>
           )}
 
-          {/* ---- 展示内容（文本） ---- */}
-          {message.parts.map((part, i) => {
-            if (part.type !== "text") return null;
-            return (
-              <StreamingText
-                key={`${message.id}-${i}`}
-                text={(part as { text: string }).text}
-                streaming={isLastMessage && isStreaming && i === lastTextPartIndex}
-              />
-            );
-          })}
+          {/* ---- 交互式决策卡片：内置 ask_user 挂起后，点击选项即回答 ---- */}
+          {askUserPrompts.map((prompt) => (
+            <DecisionCard
+              key={prompt.toolCallId}
+              question={prompt.question}
+              options={prompt.options}
+              onSubmitAnswers={(_answers, formattedText) =>
+                void sendMessage({ text: formattedText })
+              }
+              onSelectOption={(option) => void sendMessage({ text: option })}
+              disabled={isStreaming || !isLastMessage}
+              isHistorical={!isLastMessage}
+            />
+          ))}
+
+          {/* ---- 最终回答：末段文本，中间叙述已在思考链内 ---- */}
+          {lastTextPartIndex >= 0 && (
+            <StreamingText
+              key={`${message.id}-${lastTextPartIndex}`}
+              text={(message.parts[lastTextPartIndex] as { text: string }).text}
+              streaming={isLastMessage && isStreaming}
+            />
+          )}
 
           {/* ---- 来源引用（可折叠） ---- */}
           {hasSources && (
@@ -402,23 +532,6 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
           </MessageActions>
         </div>
       )}
-
-      {/* 后续追问建议：排布在操作栏下方 */}
-      {isLastMessage && !isStreaming && (
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <Suggestions layout="scroll">
-            {followUpSuggestions.map((suggestion) => (
-              <Suggestion
-                key={suggestion}
-                onClick={() => void sendMessage({ text: suggestion })}
-                className="text-[11px] py-0.5 px-2.5"
-              >
-                {suggestion}
-              </Suggestion>
-            ))}
-          </Suggestions>
-        </div>
-      )}
     </div>
   );
 }
@@ -433,20 +546,60 @@ interface ToolChainStepProps {
   isActive: boolean;
 }
 
+/** 思考链中的中间叙述步骤：工具调用之间的过程说明，不进入最终回答正文 */
+function NarrationChainStep({ text }: { text: string }) {
+  return (
+    <div className="border-l-2 border-editorial-hairline pl-3 text-xs leading-relaxed text-editorial-ink-soft">
+      <MessageResponse>{text}</MessageResponse>
+    </div>
+  );
+}
+
+/** 思考链中的重试记录：每次重试一行，保留发生位置与重试次数 */
+function RetryChainStep({
+  attempt,
+  maxAttempts,
+  delaySec,
+  reason,
+}: {
+  attempt: number;
+  maxAttempts: number;
+  delaySec: number | undefined;
+  reason: string | undefined;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-start gap-1.5 rounded-md border border-editorial-semantic-warning/35 bg-editorial-semantic-warning/5 px-2.5 py-1.5 text-[11px] text-editorial-ink-soft">
+      <RotateCcw size={12} className="mt-0.5 shrink-0 text-editorial-semantic-warning" />
+      <div className="min-w-0 space-y-0.5">
+        <div className="font-medium text-editorial-semantic-warning">
+          {t("chat.retryStep", { attempt, max: maxAttempts })}
+          {delaySec !== undefined && delaySec > 0 && (
+            <span className="ml-1.5 font-normal text-editorial-ink-muted">
+              {t("chat.retryWait", { sec: delaySec })}
+            </span>
+          )}
+        </div>
+        {reason && <div className="truncate font-mono text-editorial-ink-muted">{reason}</div>}
+      </div>
+    </div>
+  );
+}
+
 /**
  * 思考链中的 reasoning 步骤：
- * 采用官方标准 Reasoning 规范，包含思考中动效与完成耗时展示
+ * 标题行直接展示思考内容（折叠空白后单行截断），流式输出结束后自动收起
  */
 function ReasoningChainStep({ text, isActive }: { text: string; isActive: boolean }) {
+  const preview = useMemo(() => text.replace(/\s+/g, " ").trim(), [text]);
+
   return (
     <Reasoning isStreaming={isActive} defaultOpen={isActive} className="w-full">
-      <ReasoningTrigger />
+      <ReasoningTrigger>
+        <span className="truncate">{preview}</span>
+      </ReasoningTrigger>
       <ReasoningContent>
-        {isActive ? (
-          <Shimmer duration={1}>{text}</Shimmer>
-        ) : (
-          <MessageResponse>{text}</MessageResponse>
-        )}
+        <MessageResponse>{text}</MessageResponse>
       </ReasoningContent>
     </Reasoning>
   );
@@ -474,8 +627,8 @@ function ToolChainStep({
 
   const displayTitle = isTaskTool
     ? subagentType
-      ? `Subagent (${String(subagentType)})`
-      : "Subagent 任务"
+      ? `task · ${String(subagentType)}`
+      : "task"
     : toolName;
 
   const state: ToolState = isActive ? "running" : isError ? "output-error" : "output-available";

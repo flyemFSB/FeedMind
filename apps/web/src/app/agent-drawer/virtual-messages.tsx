@@ -1,47 +1,60 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useStickToBottomContext } from "use-stick-to-bottom";
 import type { UIMessage } from "ai";
 import { MessageParts } from "./message-parts";
 
 interface VirtualMessagesProps {
   messages: UIMessage[];
   isStreaming: boolean;
+  /** 滚动容器由 Conversation 提交时回传，拿不到之前虚拟列表无法测量范围 */
+  scrollElement: HTMLElement | null;
 }
 
 /**
  * 消息列表虚拟化：只渲染可视区附近的 message，长会话时历史消息的 DOM
  * （含 streamdown 产物）随滚动卸载，避免随会话增长持续累积。
- * 依赖 StickToBottom 的 scrollRef 作为滚动容器，总高度驱动其自动滚到底。
+ * 滚动容器由调用方注入（StickToBottom 的滚动元素），总高度驱动其自动滚到底。
+ *
+ * 队尾那条始终不参与虚拟化：它的高度逐帧在变（流式）或刚落地需重排，而虚拟列表测量与吸底滚动两套
+ * ResizeObserver 互为输入，同帧内会相互触发（浏览器报 ResizeObserver 循环，
+ * 且首次测量为 0 时总高塌陷导致滚动跳动）；它恒在队尾、位置无需测量，交给文档流即可。
  */
-export function VirtualMessages({ messages, isStreaming }: VirtualMessagesProps) {
-  const { scrollRef } = useStickToBottomContext();
+export function VirtualMessages({ messages, isStreaming, scrollElement }: VirtualMessagesProps) {
+  const tailMessage = messages.at(-1);
+  const history = tailMessage ? messages.slice(0, -1) : messages;
 
   const virtualizer = useVirtualizer({
-    count: messages.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => estimateMessageHeight(messages[index]!),
+    count: history.length,
+    getScrollElement: () => scrollElement,
+    estimateSize: (index) => estimateMessageHeight(history[index]!),
     overscan: 5,
-    getItemKey: (index) => messages[index]!.id,
+    getItemKey: (index) => history[index]!.id,
   });
 
   return (
-    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-      {virtualizer.getVirtualItems().map((item) => (
-        <div
-          key={item.key}
-          ref={virtualizer.measureElement}
-          data-index={item.index}
-          className="absolute left-0 top-0 w-full"
-          style={{ transform: `translateY(${item.start}px)`, paddingBottom: "2rem" }}
-        >
-          <MessageParts
-            message={messages[item.index]!}
-            isLastMessage={item.index === messages.length - 1}
-            isStreaming={isStreaming}
-          />
+    <>
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => (
+          <div
+            key={item.key}
+            ref={virtualizer.measureElement}
+            data-index={item.index}
+            className="absolute left-0 top-0 w-full"
+            style={{ transform: `translateY(${item.start}px)`, paddingBottom: "2rem" }}
+          >
+            <MessageParts
+              message={history[item.index]!}
+              isLastMessage={false}
+              isStreaming={isStreaming}
+            />
+          </div>
+        ))}
+      </div>
+      {tailMessage && (
+        <div className="pb-8">
+          <MessageParts message={tailMessage} isLastMessage isStreaming={isStreaming} />
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 }
 

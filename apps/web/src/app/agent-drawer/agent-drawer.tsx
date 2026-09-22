@@ -338,6 +338,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
             open={deleteConfirm.deleteTarget != null}
             onClose={deleteConfirm.handleClose}
             onConfirm={deleteConfirm.handleConfirm}
+            confirming={deleteConfirm.isDeleting}
             title={t("chat.deleteSession")}
             description={
               deleteConfirm.deleteTarget

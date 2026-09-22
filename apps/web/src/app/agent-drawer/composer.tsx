@@ -20,7 +20,7 @@ import {
 import { ChatModelSelector } from "@/components/ai-elements/model-selector";
 import { useChatContext } from "@/app/agent-drawer/chat-context";
 import { useAppShell } from "@/app/shell/app-shell-context";
-import { FileText, Rss, X } from "lucide-react";
+import { Rss, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
@@ -86,18 +86,8 @@ export function Composer({ className, textareaClassName }: ComposerProps) {
       {workspaceContext && (
         <div className="flex items-center gap-1.5 px-3 pt-2">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-editorial-hairline bg-editorial-surface-soft px-2.5 py-0.5 text-tiny text-editorial-ink">
-            {workspaceContext.type === "wiki" ? (
-              <FileText size={11} className="text-editorial-primary shrink-0" />
-            ) : (
-              <Rss size={11} className="text-editorial-accent shrink-0" />
-            )}
-            <span className="font-medium max-w-[220px] truncate">
-              {workspaceContext.type === "wiki"
-                ? `${workspaceContext.pageTitle || workspaceContext.pageId}${
-                    workspaceContext.spaceId ? ` (${workspaceContext.spaceId})` : ""
-                  }`
-                : workspaceContext.feedTitle}
-            </span>
+            <Rss size={11} className="text-editorial-accent shrink-0" />
+            <span className="font-medium max-w-[220px] truncate">{workspaceContext.feedTitle}</span>
             <button
               type="button"
               onClick={() => setWorkspaceContext(null)}

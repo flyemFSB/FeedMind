@@ -10,15 +10,15 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { Suggestion } from "@/components/ai-elements/suggestion";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { VirtualMessages } from "./virtual-messages";
 import { Composer } from "./composer";
 import { useChatContext } from "@/app/agent-drawer/chat-context";
 import { cn } from "@/lib/utils";
-import { ArrowDown, Bot, Loader2, Sparkles } from "lucide-react";
+import { ArrowDown, Bot, RotateCcw, Sparkles } from "lucide-react";
 import { MotionSpinner } from "@/components/ui/motion-spinner";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { SubagentInspectorProvider } from "@/app/agent-drawer/subagent-inspector-context";
+import type { StickToBottomContext } from "use-stick-to-bottom";
 import { SubagentInspector } from "./subagent-inspector";
 import "./thread.css";
 
@@ -49,11 +49,8 @@ export function Thread({ className, contentClassName }: ThreadProps) {
 function ThreadContent({ className, contentClassName }: ThreadProps) {
   const {
     messages,
-    olderMessages,
-    hasOlder,
-    isLoadingOlder,
-    loadOlderMessages,
     status,
+    retryStatus,
     isLoadingHistory,
     sendMessage,
     error,
@@ -63,13 +60,10 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
 
-  // 渲染视图 = 分页加载的更早消息 + 最新一页（useChat 管理，流式 append）
-  const allMessages = useMemo(() => [...olderMessages, ...messages], [olderMessages, messages]);
-
   // 用户点击提交后、后端首个 chunk 到达前，即时显示正在思考的回复状态
   const isWaitingResponse =
     status === "submitted" ||
-    (status === "streaming" && allMessages.length > 0 && allMessages.at(-1)?.role === "user");
+    (status === "streaming" && messages.length > 0 && messages.at(-1)?.role === "user");
 
   // 空白初始态建议词
   const suggestions = useMemo(
@@ -77,7 +71,14 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
     [t],
   );
 
-  const isInitialEmpty = allMessages.length === 0 && !isLoadingHistory;
+  const isInitialEmpty = messages.length === 0 && !isLoadingHistory;
+
+  // 虚拟列表需要滚动容器；StickToBottom 的 contextRef 回调在本次提交内同步给出容器，避免首条消息空白一帧
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const handleStickContext = useCallback((context: StickToBottomContext | null) => {
+    // 句柄在吸底状态翻转时会重建，忽略 null 避免滚动过程中把滚动元素摘掉
+    if (context) setScrollElement(context.scrollRef.current);
+  }, []);
 
   return (
     <div
@@ -135,7 +136,7 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
       ) : (
         /* 已有消息或加载历史：标准滚动列表视图与底部固定输入框 */
         <>
-          <Conversation className="w-full overflow-y-hidden">
+          <Conversation className="w-full overflow-y-hidden" contextRef={handleStickContext}>
             <ConversationContent className={cn("w-full min-w-0 px-4 pt-6 pb-6", contentClassName)}>
               {isLoadingHistory ? (
                 <div className="flex items-center justify-center py-24">
@@ -146,29 +147,50 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
                 </div>
               ) : (
                 <>
-                  {hasOlder && (
-                    <div className="mb-2 flex justify-center">
-                      <button
-                        type="button"
-                        disabled={isLoadingOlder}
-                        onClick={() => void loadOlderMessages()}
-                        className="cursor-pointer rounded-md border border-editorial-hairline bg-editorial-surface-soft px-3 py-1.5 text-xs text-editorial-ink-soft hover:bg-editorial-surface-strong hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-accent disabled:cursor-default disabled:opacity-60"
-                      >
-                        {isLoadingOlder ? t("chat.loadingOlder") : t("chat.loadOlder")}
-                      </button>
-                    </div>
-                  )}
-                  <VirtualMessages messages={allMessages} isStreaming={isStreaming} />
+                  <VirtualMessages
+                    messages={messages}
+                    isStreaming={isStreaming}
+                    scrollElement={scrollElement}
+                  />
 
-                  {/* 用户刚输入后立刻显示的助手思考动效，提供连续反馈 */}
-                  {isWaitingResponse && (
+                  {/* 用户刚输入后立刻显示的助手思考动效，提供连续反馈；重试时换成重试状态条 */}
+                  {(isWaitingResponse || (isStreaming && Boolean(retryStatus))) && (
                     <div className="flex w-full items-start gap-2 pt-2">
                       <div className="flex size-6 shrink-0 items-center justify-center rounded-md border border-editorial-hairline bg-editorial-surface-soft text-editorial-accent">
                         <Bot size={13} />
                       </div>
-                      <div className="flex items-center gap-2 rounded-lg border border-editorial-hairline/60 bg-editorial-surface-soft/40 px-3 py-2 text-xs text-editorial-ink-muted shadow-2xs">
-                        <Loader2 size={13} className="animate-spin text-editorial-accent" />
-                        <Shimmer duration={1.2}>FeedMind 正在思考与组织回答...</Shimmer>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs shadow-2xs",
+                          retryStatus
+                            ? "border-editorial-semantic-warning/35 bg-editorial-semantic-warning/5 text-editorial-ink-soft"
+                            : "border-editorial-hairline/60 bg-editorial-surface-soft/40 text-editorial-ink-muted",
+                        )}
+                      >
+                        {retryStatus ? (
+                          <>
+                            <RotateCcw
+                              size={13}
+                              className="animate-spin text-editorial-semantic-warning"
+                            />
+                            <span className="font-medium text-editorial-semantic-warning">
+                              {t("chat.retrying", {
+                                attempt: retryStatus.attempt,
+                                max: retryStatus.maxAttempts,
+                              })}
+                            </span>
+                            {retryStatus.delaySec > 0 && (
+                              <span className="text-editorial-ink-muted">
+                                · {t("chat.retryIn", { sec: retryStatus.delaySec })}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <MotionSpinner size={13} />
+                            <span>{t("chat.thinking")}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}

@@ -12,6 +12,7 @@ import {
   useRef,
   useCallback,
   useState,
+  type Context,
   type ReactNode,
 } from "react";
 import { useChat, type UIMessage } from "@ai-sdk/react";
@@ -20,23 +21,25 @@ import { DefaultChatTransport, type FileUIPart } from "ai";
 import { getSelectedFeedMindModel } from "@/lib/api/agent";
 import { getChatSessionMessages, createChatSession, renameChatSession } from "@/lib/api/chats";
 import { chatOptions } from "@/lib/hooks/use-chats";
-import { makeChatTitle, prependOlderPage } from "@/app/agent-drawer/chat-utils";
+import { makeChatTitle } from "@/app/agent-drawer/chat-utils";
 
 import { getCurrentWorkspaceContext } from "@/app/shell/app-shell-context";
 
 /** Mastra Chat 路由地址（通过 SSR proxy 转发到 API 服务） */
 const CHAT_API = "/api/chat/feedmind";
 
+export interface RetryStatus {
+  attempt: number;
+  maxAttempts: number;
+  /** 该次重试的等待秒数（取自重试帧，不逐秒递减） */
+  delaySec: number;
+}
+
 export interface ChatContextValue {
   messages: UIMessage[];
-  /** 更早的历史消息（分页加载，渲染时拼接在 messages 之前） */
-  olderMessages: UIMessage[];
-  /** 是否还有更早的消息可加载 */
-  hasOlder: boolean;
-  isLoadingOlder: boolean;
-  loadOlderMessages: () => Promise<void>;
   sendMessage: (data: { text: string; files?: FileUIPart[] }) => Promise<void>;
   status: ReturnType<typeof useChat>["status"];
+  retryStatus: RetryStatus | null;
   stop: () => Promise<void>;
   regenerate: () => Promise<void>;
   error: Error | undefined;
@@ -49,7 +52,13 @@ export interface ChatContextValue {
   clearSession: () => void;
 }
 
-const ChatContext = createContext<ChatContextValue | null>(null);
+// context 单例挂在 globalThis：模块被重复求值（HMR / 重复 chunk）时仍共享同一实例，
+// 否则 Provider 与 useChatContext 各持一个 context，树完全正确也会报「must be used within ChatProvider」
+const chatContextRegistry = globalThis as typeof globalThis & {
+  __feedmindChatContext?: Context<ChatContextValue | null>;
+};
+const ChatContext = (chatContextRegistry.__feedmindChatContext ??=
+  createContext<ChatContextValue | null>(null));
 
 /**
  * ChatProvider — 提供 useChat 上下文给所有子组件
@@ -58,11 +67,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // 每次进入系统默认新对话：不从 localStorage 恢复上次会话，避免首帧加载残留 threadId 导致空对话
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  // 分页：messages 只持有最新一页（useChat 管理），更早的消息拼在 olderMessages
-  const [olderMessages, setOlderMessages] = useState<UIMessage[]>([]);
-  const [hasOlder, setHasOlder] = useState(false);
-  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
-  const loadedPagesRef = useRef(0);
   const queryClient = useQueryClient();
 
   const activeThreadIdRef = useRef<string | null>(activeThreadId);
@@ -97,33 +101,64 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const [retryStatus, setRetryStatus] = useState<RetryStatus | null>(null);
+
   // ── useChat 聊天会话状态 Hook ──
   const {
     messages,
     setMessages: setUiMessages,
     sendMessage: rawSendMessage,
     status,
-    stop,
-    regenerate,
+    stop: rawStop,
+    regenerate: rawRegenerate,
     error,
     clearError,
   } = useChat({
     transport,
+    onData: (dataPart) => {
+      if (
+        dataPart.type === "data-retry" &&
+        typeof dataPart.data === "object" &&
+        dataPart.data !== null
+      ) {
+        const info = dataPart.data as {
+          attempt?: number;
+          maxAttempts?: number;
+          delaySec?: number;
+        };
+        setRetryStatus({
+          attempt: info.attempt ?? 1,
+          maxAttempts: info.maxAttempts ?? 3,
+          delaySec: info.delaySec ?? 1,
+        });
+      }
+    },
+    onFinish: () => {
+      setRetryStatus(null);
+    },
     onError: (error) => {
+      setRetryStatus(null);
       console.error("[会话] 流式响应接收异常:", error);
     },
   });
 
-  // ── 消息加载（从 Memory API 读取历史，分页：page=0 为最新一页） ──
+  const stop = useCallback(async () => {
+    setRetryStatus(null);
+    await rawStop();
+  }, [rawStop]);
+
+  const regenerate = useCallback(async () => {
+    setRetryStatus(null);
+    await rawRegenerate();
+  }, [rawRegenerate]);
+
+  // ── 消息加载（从 Memory API 读取整段历史） ──
   const loadSessionMessages = useCallback(
     async (threadId: string) => {
       setIsLoadingHistory(true);
       try {
-        const loaded = await getChatSessionMessages(threadId, 0);
-        setUiMessages(loaded.messages);
-        setOlderMessages([]);
-        setHasOlder(loaded.hasMore);
-        loadedPagesRef.current = 0;
+        const history = await getChatSessionMessages(threadId);
+        setUiMessages(history);
       } catch (err) {
         console.error("[会话] 加载历史消息失败:", err);
         if ((err as Error)?.message?.includes("不存在")) {
@@ -136,24 +171,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     },
     [setUiMessages],
   );
-
-  // ── 加载更早的历史消息（prepend 到 olderMessages） ──
-  const loadOlderMessages = useCallback(async () => {
-    const threadId = activeThreadIdRef.current;
-    if (!threadId || isLoadingOlder) return;
-    setIsLoadingOlder(true);
-    try {
-      const nextPage = loadedPagesRef.current + 1;
-      const loaded = await getChatSessionMessages(threadId, nextPage);
-      setOlderMessages((prev) => prependOlderPage(prev, loaded.messages));
-      setHasOlder(loaded.hasMore);
-      loadedPagesRef.current = nextPage;
-    } catch (err) {
-      console.error("[会话] 加载历史滚动消息失败:", err);
-    } finally {
-      setIsLoadingOlder(false);
-    }
-  }, [isLoadingOlder]);
 
   // ── 确保会话存在（首次发消息时创建 chat_sessions 记录） ──
   const ensureSession = useCallback(async (): Promise<string> => {
@@ -177,6 +194,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const sendMessage = useCallback(
     async (data: { text: string; files?: FileUIPart[] }) => {
+      setRetryStatus(null);
       // 新会话（无 threadId）时按首条消息自动命名，异步不阻塞消息发送
       const isFirstMessage = !activeThreadIdRef.current;
       const threadId = await ensureSession();
@@ -206,12 +224,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const createNewSessionFn = useCallback(async () => {
+    setRetryStatus(null);
     setActiveThreadId(null);
     activeThreadIdRef.current = null;
     setUiMessages([]);
-    setOlderMessages([]);
-    setHasOlder(false);
-    loadedPagesRef.current = 0;
     // 新会话应清除上一条消息的错误状态，避免错误横幅残留
     clearError();
   }, [setUiMessages, clearError]);
@@ -224,12 +240,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ChatContextValue>(
     () => ({
       messages,
-      olderMessages,
-      hasOlder,
-      isLoadingOlder,
-      loadOlderMessages,
       sendMessage,
       status,
+      retryStatus,
       stop,
       regenerate,
       error,
@@ -243,12 +256,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }),
     [
       messages,
-      olderMessages,
-      hasOlder,
-      isLoadingOlder,
-      loadOlderMessages,
       sendMessage,
       status,
+      retryStatus,
       stop,
       regenerate,
       error,

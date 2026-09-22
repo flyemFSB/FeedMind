@@ -1,24 +1,13 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { cn } from "@/lib/utils";
 import { Brain, ChevronDown, Loader2 } from "lucide-react";
 import type { ComponentProps } from "react";
-import {
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { createContext, memo, useContext, useMemo, useState } from "react";
 
 interface ReasoningContextValue {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   isStreaming: boolean;
-  duration?: number | undefined;
 }
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
@@ -34,68 +23,21 @@ export const useReasoning = () => {
 export type ReasoningProps = ComponentProps<"div"> & {
   isStreaming?: boolean;
   defaultOpen?: boolean;
-  /** 已完成的思考耗时（毫秒），缺省时由组件内部在流式期间自动计时 */
-  duration?: number;
 };
 
 export const Reasoning = memo(
-  ({
-    className,
-    isStreaming = false,
-    defaultOpen,
-    duration: externalDuration,
-    children,
-    ...props
-  }: ReasoningProps) => {
+  ({ className, isStreaming = false, defaultOpen, children, ...props }: ReasoningProps) => {
     // 默认展开状态优先遵循 defaultOpen，未指定时由流式状态决定
     const [isOpen, setIsOpen] = useState(defaultOpen ?? isStreaming);
-    const [elapsedMs, setElapsedMs] = useState<number | undefined>(externalDuration);
-    const startTimeRef = useRef<number | null>(null);
 
-    useEffect(() => {
-      if (externalDuration !== undefined) {
-        setElapsedMs(externalDuration);
-        return undefined;
-      }
+    // 流式状态翻转时同步展开状态，避免覆盖用户的手动折叠
+    const [prevStreaming, setPrevStreaming] = useState(isStreaming);
+    if (isStreaming !== prevStreaming) {
+      setPrevStreaming(isStreaming);
+      setIsOpen(isStreaming);
+    }
 
-      if (isStreaming) {
-        startTimeRef.current = performance.now();
-        setIsOpen(true);
-
-        const timer = setInterval(() => {
-          if (startTimeRef.current !== null) {
-            setElapsedMs(Math.round(performance.now() - startTimeRef.current));
-          }
-        }, 100);
-
-        return () => {
-          clearInterval(timer);
-          if (startTimeRef.current !== null) {
-            setElapsedMs(Math.round(performance.now() - startTimeRef.current));
-          }
-        };
-      }
-
-      // 流式结束且未传入外部耗时：固化最后记录的耗时
-      if (startTimeRef.current !== null) {
-        setElapsedMs(Math.round(performance.now() - startTimeRef.current));
-        startTimeRef.current = null;
-        setIsOpen(false);
-      }
-      return undefined;
-    }, [isStreaming, externalDuration]);
-
-    const handleOpenChange = useCallback((next: boolean) => setIsOpen(next), []);
-
-    const contextValue = useMemo(
-      () => ({
-        isOpen,
-        setIsOpen: handleOpenChange,
-        isStreaming,
-        duration: externalDuration ?? elapsedMs,
-      }),
-      [isOpen, handleOpenChange, isStreaming, externalDuration, elapsedMs],
-    );
+    const contextValue = useMemo(() => ({ isOpen, setIsOpen, isStreaming }), [isOpen, isStreaming]);
 
     return (
       <ReasoningContext.Provider value={contextValue}>
@@ -112,12 +54,7 @@ Reasoning.displayName = "Reasoning";
 export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 
 export const ReasoningTrigger = memo(({ className, children, ...props }: ReasoningTriggerProps) => {
-  const { isOpen, setIsOpen, isStreaming, duration } = useReasoning();
-
-  const formattedDuration = useMemo(() => {
-    if (!duration || duration <= 0) return null;
-    return `${(duration / 1000).toFixed(1)} 秒`;
-  }, [duration]);
+  const { isOpen, setIsOpen, isStreaming } = useReasoning();
 
   return (
     <Collapsible onOpenChange={setIsOpen} open={isOpen}>
@@ -131,19 +68,11 @@ export const ReasoningTrigger = memo(({ className, children, ...props }: Reasoni
         {isStreaming ? (
           <Loader2 className="size-3.5 animate-spin text-editorial-accent" />
         ) : (
-          <Brain className="size-3.5 text-editorial-ink-muted transition-colors group-hover:text-editorial-ink" />
+          <Brain className="size-3.5 transition-colors" />
         )}
 
-        <div className="flex flex-1 items-center gap-1.5 text-left font-medium">
-          {children ??
-            (isStreaming ? (
-              <Shimmer duration={1.5}>正在深度思考...</Shimmer>
-            ) : (
-              <span>
-                已深度思考
-                {formattedDuration ? ` · 耗时 ${formattedDuration}` : ""}
-              </span>
-            ))}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 text-left font-medium">
+          {children}
         </div>
 
         <ChevronDown
