@@ -11,7 +11,7 @@
     "dev": "electron .",
     "start": "electron .",
     "lint": "oxlint .",
-    "typecheck": "tsc -b --builders 4 --pretty false",
+    "typecheck": "tsc --noEmit",
     "dist": "electron-builder --config electron-builder.yml && node -e \"fs.rmSync('../../release/win-unpacked',{recursive:true,force:true})\""
   },
   "dependencies": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@feedmind/api": "workspace:*",
+    "@feedmind/env": "workspace:*",
     "electron": "^44.1.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",

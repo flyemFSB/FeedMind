@@ -3,45 +3,72 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { safeStorage } from "electron";
 
-/** 优先利用操作系统凭据保险箱加密存储桌面端主密钥 */
-export function initDesktopEncryptionKey(dataDir: string): void {
-  if (process.env["ENCRYPTION_KEY"]?.trim()) return;
+const ENC_FILE = ".secret_key.enc";
+const PLAIN_FILE = ".secret_key";
 
-  const encFile = path.join(dataDir, ".secret_key.enc");
-  const plainFile = path.join(dataDir, ".secret_key");
+/** 初始化桌面端主密钥并返回潜在的密钥冲突告警 */
+export function initDesktopEncryptionKey(dataDir: string): string | null {
+  const { key, warning } = resolveMasterKey(dataDir);
+  process.env["ENCRYPTION_KEY"] = key;
+  return warning;
+}
 
-  // 操作系统底层凭据保护可用时优先使用安全存储
-  if (safeStorage.isEncryptionAvailable()) {
-    try {
-      if (existsSync(encFile)) {
-        const encrypted = readFileSync(encFile);
-        process.env["ENCRYPTION_KEY"] = safeStorage.decryptString(encrypted);
-        return;
+function resolveMasterKey(dataDir: string): { key: string; warning: string | null } {
+  const encFile = path.join(dataDir, ENC_FILE);
+  const plainFile = path.join(dataDir, PLAIN_FILE);
+  const envKey = process.env["ENCRYPTION_KEY"]?.trim();
+  const vaultAvailable = safeStorage.isEncryptionAvailable();
+
+  if (envKey) {
+    // 数据目录密钥才是既有密文的真实钥匙，二者不一致必须显式提示而非静默二选一
+    let warning: string | null = null;
+    if (vaultAvailable && existsSync(encFile)) {
+      try {
+        if (safeStorage.decryptString(readFileSync(encFile)) !== envKey) {
+          warning =
+            "ENCRYPTION_KEY 与数据目录主密钥不一致，本次运行以 ENCRYPTION_KEY 为准；如需使用数据目录主密钥请清空 .env 中的 ENCRYPTION_KEY";
+        }
+      } catch {
+        // 保险箱不可解密时无从比对
       }
+    }
+    return { key: envKey, warning };
+  }
 
+  if (vaultAvailable) {
+    if (existsSync(encFile)) {
+      try {
+        return { key: safeStorage.decryptString(readFileSync(encFile)), warning: null };
+      } catch (err) {
+        // 静默换新密钥会让库内已加密凭据永久不可解，必须显式失败
+        throw new Error(
+          "系统凭据保险箱无法解密主密钥，已加密的 API Key 将不可恢复；请在备份数据后删除 .secret_key.enc 重新配置",
+          { cause: err },
+        );
+      }
+    }
+
+    try {
       // 读取未加密密钥并转存至系统安全凭据
       if (existsSync(plainFile)) {
         const key = readFileSync(plainFile, "utf-8").trim();
-        const encrypted = safeStorage.encryptString(key);
-        writeFileSync(encFile, encrypted);
+        writeFileSync(encFile, safeStorage.encryptString(key));
         rmSync(plainFile, { force: true });
-        process.env["ENCRYPTION_KEY"] = key;
-        return;
+        return { key, warning: null };
       }
 
       // 生成 32 字节随机主密钥并加密落盘
       const newKey = randomBytes(32).toString("hex");
       writeFileSync(encFile, safeStorage.encryptString(newKey));
-      process.env["ENCRYPTION_KEY"] = newKey;
-      return;
+      return { key: newKey, warning: null };
     } catch {
-      // 异常时降级至普通文件存储
+      // 凭据箱读写异常时降级至本地文件存储
     }
   }
 
   // 无系统凭据保险箱环境回退为本地文件存储
   try {
-    process.env["ENCRYPTION_KEY"] = readFileSync(plainFile, "utf-8").trim();
+    return { key: readFileSync(plainFile, "utf-8").trim(), warning: null };
   } catch {
     const key = randomBytes(32).toString("hex");
     try {
@@ -49,6 +76,6 @@ export function initDesktopEncryptionKey(dataDir: string): void {
     } catch {
       // 写入密钥文件失败时使用内存临时密钥
     }
-    process.env["ENCRYPTION_KEY"] = key;
+    return { key, warning: null };
   }
 }

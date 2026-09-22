@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync, statSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { enableCompileCache } from "node:module";
 import * as path from "node:path";
 import { app } from "electron";
@@ -10,20 +10,29 @@ try {
   // 忽略低版本或不支持的环境
 }
 
-import { parseCdpPort, resolveDesktopDataDir } from "./bootstrap-utils.js";
+// 走子路径导入：避免在 app ready 之前连带加载服务端 env schema（sharedEnv / apiEnv）
+import { parseDesktopEnv } from "@feedmind/env/desktop";
+import { resolveDesktopDataDir } from "./bootstrap-utils.js";
+import { rotateLogIfTooLarge } from "./desktop-log.js";
 
 // 设置标准应用名称，规范化 Electron userData 存储路径为 %APPDATA%/FeedMind
 app.setName("FeedMind");
 
-// 生产模式加载 resources/.env；开发模式加载仓库根目录 .env
-const envPath = app.isPackaged
-  ? path.join(process.resourcesPath, ".env")
-  : path.resolve(app.getAppPath(), "../../.env");
-try {
-  process.loadEnvFile(envPath);
-} catch {
-  // .env 文件可选
+// 仅开发模式加载仓库根 .env（等价开发者 shell 环境）；打包产物不含任何配置文件，配置来自代码默认值与进程环境
+if (!app.isPackaged) {
+  try {
+    process.loadEnvFile(path.resolve(app.getAppPath(), "../../.env"));
+  } catch {
+    // .env 文件可选
+  }
 }
+
+// 桌面端环境变量统一解析：缺失用硬编码默认值，非法值直接启动失败；结果写回进程环境供下游共享
+const desktopEnv = parseDesktopEnv();
+process.env["API_PORT"] = String(desktopEnv.API_PORT);
+// CDP_PORT=0 表示由系统分配：实际端口在 ready 后从 DevToolsActivePort 读回并写回进程环境
+export const configuredCdpPort = desktopEnv.CDP_PORT;
+if (configuredCdpPort > 0) process.env["CDP_PORT"] = String(configuredCdpPort);
 
 // 生产打包或未显式指定数据目录时，默认绑定系统用户数据目录（%APPDATA%\FeedMind\data）
 // 彻底解耦只读 asar 归档与可写数据库/Wiki/日志文件系统
@@ -34,8 +43,6 @@ const dataDir = resolveDesktopDataDir({
   envDataDir: process.env["DATA_DIR"],
 });
 process.env["DATA_DIR"] = dataDir;
-process.env["DATABASE_PATH"] = process.env["DATABASE_PATH"] ?? path.join(dataDir, "feedmind.db");
-process.env["WIKI_DIR"] = process.env["WIKI_DIR"] ?? path.join(dataDir, "wiki");
 
 // 打包后 stdout 无消费者（GUI 无控制台），API 侧 pino 日志默认全丢；
 // 落盘 userData/logs/app.log（logger.ts 依据 LOG_FILE 路由，文件为原生 JSON 行）
@@ -45,10 +52,8 @@ if (app.isPackaged) {
   try {
     const logDir = path.dirname(logFile);
     mkdirSync(logDir, { recursive: true });
-    // 日志轮转：若单个日志文件超过 20MB，归档为 .old 并清空当前日志，防止长跑占用过多磁盘
-    if (existsSync(logFile) && statSync(logFile).size >= 20 * 1024 * 1024) {
-      renameSync(logFile, `${logFile}.old`);
-    }
+    // 日志轮转：超过 20MB 归档为 .old，防止长跑占用过多磁盘
+    rotateLogIfTooLarge(logFile);
   } catch {
     // 忽略轮转异常，不阻塞启动
   }
@@ -59,11 +64,10 @@ try {
   // 目录已存在按需忽略
 }
 
-// 生产打包下显式声明生产环境并关闭非原生 pretty logger
+// 生产打包下显式声明生产环境，供第三方库正确识别生产模式与日志级别
 if (app.isPackaged) {
   process.env["NODE_ENV"] = "production";
   process.env["APP_ENV"] = process.env["APP_ENV"] ?? "production";
-  process.env["LOG_PRETTY"] = "0";
 }
 
 // 开发模式下默认指向 web dev 服务器（避免依赖 cross-env 传参）
@@ -71,9 +75,8 @@ if (!app.isPackaged && !process.env["VITE_DEV_SERVER_URL"]) {
   process.env["VITE_DEV_SERVER_URL"] = "http://127.0.0.1:13790";
 }
 
-const cdpPort = parseCdpPort(process.env["CDP_PORT"]);
-app.commandLine.appendSwitch("remote-debugging-port", String(cdpPort));
-app.commandLine.appendSwitch("remote-debugging-address", "127.0.0.1");
+// CDP 调试端口：0 交由系统分配，由主进程读取写回端口文件
+app.commandLine.appendSwitch("remote-debugging-port", String(configuredCdpPort));
 
 // V8 Code Cache 与 GC 暴露支持：方便后台大任务后主动释放堆内存。
 // 注意 appendSwitch('js-flags') 只影响子进程——主进程 V8 早于 main.js 初始化，

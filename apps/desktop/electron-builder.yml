@@ -9,7 +9,6 @@ electronDownload:
 afterPack: ./after-pack.mjs
 asar: true
 asarUnpack:
-  - "**/better-sqlite3/**/*"
   - "**/@libsql/**/*"
   - "**/@remotion/compositor-win32-x64-msvc/**/*"
   - "**/@firecrawl/anydoc-win32-x64-msvc/**/*"

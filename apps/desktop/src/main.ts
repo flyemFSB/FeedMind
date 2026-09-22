@@ -1,9 +1,20 @@
-import "./env-bootstrap.js";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { configuredCdpPort } from "./env-bootstrap.js";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { app, BrowserWindow, dialog, Menu, session, shell } from "electron";
+import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell } from "electron";
+import { readActivePort } from "./bootstrap-utils.js";
+import { createDesktopLog, rotateLogIfTooLarge } from "./desktop-log.js";
 import { initDesktopEncryptionKey } from "./safe-storage.js";
+import {
+  apiPortCheck,
+  cdpPortCheck,
+  dataDirCheck,
+  encryptionKeyCheck,
+  runStartupChecks,
+  type StartupFinding,
+} from "./startup-checks.js";
 import type { ServerType } from "@feedmind/api/server-core";
+// 静态导入：API 模块图含顶层 await，动态导入会把 esbuild 的惰性初始化拆成异步 await 链而相互死锁
 import {
   startApi,
   setMarkedWindowFactory,
@@ -12,42 +23,40 @@ import {
   shutdownDatabase,
 } from "@feedmind/api/server-core";
 
-// 顶层全局未捕获异常处理，落盘 logs/crash.log 并弹窗告警，避免静默退出
-process.on("uncaughtException", (error) => {
+// 主进程诊断日志：打包后 GUI 无 stdout 消费者，只有落盘才能在出问题时回溯，用户侧无感
+const desktopLog = createDesktopLog(
+  app.isPackaged ? path.join(app.getPath("userData"), "logs", "desktop.log") : null,
+);
+
+/** 崩溃记录：落盘 crash.log（与 desktop.log 共用 20MB 轮转）并返回消息供弹窗使用 */
+function writeCrashLog(kind: string, error: unknown): string {
   const message = error instanceof Error ? `${error.message}\n\n${error.stack}` : String(error);
+  desktopLog(`[崩溃] ${kind}：${message}`);
   try {
-    const logDir = path.join(app.getPath("userData"), "logs");
-    mkdirSync(logDir, { recursive: true });
-    writeFileSync(
-      path.join(logDir, "crash.log"),
-      `[${new Date().toISOString()}] Uncaught Exception: ${message}\n`,
-      { flag: "a" },
-    );
+    const crashFile = path.join(app.getPath("userData"), "logs", "crash.log");
+    mkdirSync(path.dirname(crashFile), { recursive: true });
+    rotateLogIfTooLarge(crashFile);
+    writeFileSync(crashFile, `[${new Date().toISOString()}] ${kind}: ${message}\n`, { flag: "a" });
   } catch {
     // 写入崩溃日志失败时忽略
   }
-  dialog.showErrorBox("FeedMind 运行时异常", message);
+  return message;
+}
+
+// 顶层全局未捕获异常处理，落盘并弹窗告警，避免静默退出
+process.on("uncaughtException", (error) => {
+  dialog.showErrorBox("FeedMind 运行时异常", writeCrashLog("Uncaught Exception", error));
 });
 
 process.on("unhandledRejection", (reason) => {
-  const message = reason instanceof Error ? `${reason.message}\n\n${reason.stack}` : String(reason);
-  try {
-    const logDir = path.join(app.getPath("userData"), "logs");
-    mkdirSync(logDir, { recursive: true });
-    writeFileSync(
-      path.join(logDir, "crash.log"),
-      `[${new Date().toISOString()}] Unhandled Rejection: ${message}\n`,
-      { flag: "a" },
-    );
-  } catch {
-    // 写入崩溃日志失败时忽略
-  }
+  writeCrashLog("Unhandled Rejection", reason);
 });
 
-const DEFAULT_UI_PORT = 18790;
 const AGENT_MARKER = "feedmind-agent";
-// Agent 页面空闲超时时间，超时释放渲染子进程
-const AGENT_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+// Agent 页面空闲超时：LLM 步间思考可达数分钟，回收会中断进行中的会话
+const AGENT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+// 渲染进程崩溃后的自动重载上限：超过则只记日志，避免重载风暴
+const MAX_RENDERER_RELOADS = 3;
 
 // 拒绝授予音视频媒体等敏感权限，防止 Chromium 额外拉起常驻媒体服务进程
 const MEDIA_PERMISSIONS = new Set(["media", "mediaKeySystem", "geolocation", "notifications"]);
@@ -64,10 +73,8 @@ const markedWindows = new Map<string, MarkedWindowEntry>();
 function getUiUrl(): string {
   const devUrl = process.env["VITE_DEV_SERVER_URL"];
   if (devUrl) return devUrl;
-  const port = process.env["API_PORT"]
-    ? Number.parseInt(process.env["API_PORT"], 10)
-    : DEFAULT_UI_PORT;
-  return `http://127.0.0.1:${port}`;
+  // API_PORT 由 env-bootstrap 解析并写回（已含默认值），此处不再兜底
+  return `http://127.0.0.1:${String(process.env["API_PORT"])}`;
 }
 
 async function loadWithRetry(
@@ -85,6 +92,24 @@ async function loadWithRetry(
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
+}
+
+/** 启动自检结论逐条落日志：对用户无感的项只有日志，不干扰使用 */
+function logStartupFindings(findings: StartupFinding[]): void {
+  for (const finding of findings) {
+    desktopLog(`[启动自检][${finding.level}] ${finding.name}：${finding.message}`);
+  }
+}
+
+/** 读取实际 CDP 端口：Chromium 在 ready 前写入端口文件，启动瞬间可能尚未落盘故短暂重试 */
+async function resolveCdpPort(attempts = 10, intervalMs = 200): Promise<number> {
+  const sessionDataDir = app.getPath("sessionData");
+  for (let i = 0; i < attempts; i++) {
+    const port = readActivePort(sessionDataDir);
+    if (port !== null) return port;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return 0;
 }
 
 function showOnReady(win: BrowserWindow): void {
@@ -155,8 +180,7 @@ function startMemoryMonitor(): void {
     const { rss, heapUsed } = process.memoryUsage();
     risingStreak = heapUsed > lastHeap ? risingStreak + 1 : 0;
     lastHeap = heapUsed;
-    // eslint-disable-next-line no-console -- 诊断日志，desktop 主进程无 pino 基础设施
-    console.log(
+    desktopLog(
       JSON.stringify({
         level: risingStreak >= MEMORY_RISING_WARN_STREAK ? "warn" : "info",
         event: "memory-sample",
@@ -176,8 +200,7 @@ async function checkMarkedWindowMemory(): Promise<void> {
   const pid = entry.win.webContents.getOSProcessId();
   const proc = metrics.find((m) => m.pid === pid);
   if (proc && proc.memory.workingSetSize > MARKED_WINDOW_MEMORY_LIMIT_MB * 1024 * 1024) {
-    // eslint-disable-next-line no-console -- 诊断日志，desktop 主进程无 pino 基础设施
-    console.log(
+    desktopLog(
       JSON.stringify({
         level: "warn",
         event: "marked-window-memory-limit",
@@ -191,6 +214,20 @@ async function checkMarkedWindowMemory(): Promise<void> {
 
 const CHROME_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
+
+/**
+ * 系统主题下发：页面的 prefers-color-scheme 会被 CDP 自动化（Playwright 冷接默认上下文时套用的
+ * media 模拟）或 DevTools 模拟覆盖，所以“跟随系统”以主进程原生主题为准，媒体查询只作浏览器兜底。
+ */
+function pushSystemTheme(win: BrowserWindow): void {
+  if (win.isDestroyed()) return;
+  const theme = nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  void win.webContents
+    .executeJavaScript(
+      `globalThis.__feedmindSystemTheme=${JSON.stringify(theme)};window.dispatchEvent(new Event("feedmind:system-theme"))`,
+    )
+    .catch(() => {});
+}
 
 function createMainWindow(): BrowserWindow {
   const isProd = app.isPackaged;
@@ -250,10 +287,21 @@ function createMainWindow(): BrowserWindow {
     }
     return { action: "deny" };
   });
+
+  // 渲染进程异常退出（崩溃或被系统回收）后自动重载，用户侧无感；超过上限只记录，避免重载风暴
+  let rendererReloads = 0;
+  win.webContents.on("render-process-gone", (_event, details) => {
+    desktopLog(`[渲染进程] 异常退出：reason=${details.reason} exitCode=${details.exitCode}`);
+    if (rendererReloads >= MAX_RENDERER_RELOADS || win.isDestroyed()) return;
+    rendererReloads += 1;
+    win.reload();
+  });
   win.on("closed", () => {
     mainWindow = null;
     if (process.platform !== "darwin") app.quit();
   });
+  // 每次导航完成都重下发：刷新后页面全局变量会丢
+  win.webContents.on("did-finish-load", () => pushSystemTheme(win));
   showOnReady(win);
   return win;
 }
@@ -275,13 +323,25 @@ async function createMarkedWindow(marker: string): Promise<BrowserWindow> {
   });
   win.removeMenu();
   win.webContents.setUserAgent(CHROME_UA);
+  // 标记窗口走独立 memory 分区：不注册 handler 时 Electron 会批准全部权限请求
+  const markedSession = session.fromPartition(`memory:${marker}`);
+  markedSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(!MEDIA_PERMISSIONS.has(permission));
+  });
+  markedSession.setPermissionCheckHandler((_wc, permission) => !MEDIA_PERMISSIONS.has(permission));
+  // 页面仍在导航说明窗口在用，顺延空闲回收，避免回收正在执行的会话
+  win.webContents.on("did-start-navigation", () => {
+    refreshIdleTimer(marker);
+  });
+  win.webContents.on("did-frame-finish-load", () => {
+    refreshIdleTimer(marker);
+  });
   await win.loadURL(`data:text/html,<title>${marker}</title>`);
   return win;
 }
 
 async function bootstrap(): Promise<void> {
-  // eslint-disable-next-line no-console
-  console.log("[启动] 开始初始化桌面端应用...");
+  desktopLog("[启动] 开始初始化桌面端应用...");
   Menu.setApplicationMenu(null);
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(!MEDIA_PERMISSIONS.has(permission));
@@ -290,9 +350,32 @@ async function bootstrap(): Promise<void> {
     (_wc, permission) => !MEDIA_PERMISSIONS.has(permission),
   );
 
-  // 初始化操作系统安全存储主密钥
-  const dataDir = process.env["DATA_DIR"] ?? path.join(app.getPath("userData"), "data");
-  initDesktopEncryptionKey(dataDir);
+  // 主密钥需 app ready 后才能从保险箱解密，必须在 startApi（内部校验 ENCRYPTION_KEY）之前注入
+  const dataDir = process.env["DATA_DIR"];
+  const keyWarning = dataDir ? initDesktopEncryptionKey(dataDir) : null;
+
+  // CDP 端口：读取 Chromium 实际分配端口并写入环境，失败仅记日志不打扰用户
+  const cdpPort = await resolveCdpPort();
+  if (cdpPort > 0) process.env["CDP_PORT"] = String(cdpPort);
+  else desktopLog(`[启动] CDP 端口未就绪（配置值 ${configuredCdpPort}），浏览器自动化暂不可用`);
+
+  // 启动自检：数据目录、主密钥、API 端口、CDP 端口统一探测与汇报（API 端口被占用时自动改用空闲端口）
+  const findings = await runStartupChecks([
+    dataDirCheck,
+    encryptionKeyCheck(keyWarning),
+    apiPortCheck,
+    cdpPortCheck(configuredCdpPort),
+  ]);
+  logStartupFindings(findings);
+  const fatal = findings.filter((finding) => finding.level === "fatal");
+  if (fatal.length > 0) {
+    dialog.showErrorBox(
+      "FeedMind 启动自检未通过",
+      fatal.map((finding) => `· ${finding.name}：${finding.message}`).join("\n\n"),
+    );
+    app.quit();
+    return;
+  }
 
   const webDist = process.env["VITE_DEV_SERVER_URL"]
     ? undefined
@@ -300,35 +383,39 @@ async function bootstrap(): Promise<void> {
       ? path.join(process.resourcesPath, "web-dist")
       : path.resolve(app.getAppPath(), "../web/dist");
 
-  // eslint-disable-next-line no-console
-  console.log("[启动] 正在启动内置 API 服务...", { webDist: webDist ?? "dev-server" });
-  try {
-    apiServer = await startApi(webDist ? { webDist } : {});
-  } catch (err: unknown) {
-    const error = err as NodeJS.ErrnoException;
-    if (error && error.code === "EADDRINUSE") {
-      const port = process.env["API_PORT"] ?? DEFAULT_UI_PORT;
-      dialog.showErrorBox(
-        "FeedMind 端口冲突",
-        `本地端口 ${port} 已被占用，导致内置服务无法启动。\n\n请检查是否有已在运行的 FeedMind 进程或其他本地服务占用了该端口，关闭后重试。`,
-      );
-      app.quit();
-      return;
-    }
-    throw err;
-  }
+  desktopLog(
+    `[启动] 正在启动内置 API 服务... webDist=${webDist ?? "dev-server"} apiPort=${String(process.env["API_PORT"])}`,
+  );
+  apiServer = await startApi({
+    ...(webDist ? { webDist } : {}),
+    port: Number(process.env["API_PORT"]),
+  });
 
   setMarkedWindowFactory(ensureMarkedWindow);
   setMarkedWindowDestroyer(destroyMarkedWindow);
 
-  // eslint-disable-next-line no-console
-  console.log("[启动] 创建主窗口并加载界面...", { targetUrl: getUiUrl() });
+  desktopLog(`[启动] 创建主窗口并加载界面... targetUrl=${getUiUrl()}`);
+  nativeTheme.on("updated", () => {
+    if (mainWindow) pushSystemTheme(mainWindow);
+  });
   mainWindow = createMainWindow();
   await loadWithRetry(mainWindow, getUiUrl());
 
   startMemoryMonitor();
-  // eslint-disable-next-line no-console
-  console.log("[启动] 桌面端应用启动完成！");
+
+  // 降级项等主窗口出来再汇报：无父窗口的模态框会藏在其它窗口之后，把启动卡死且用户看不到
+  const degraded = findings.filter((finding) => finding.level === "degraded");
+  if (degraded.length > 0) {
+    void dialog.showMessageBox(mainWindow, {
+      type: "warning",
+      title: "FeedMind 启动自检",
+      message: `检测到 ${degraded.length} 项功能降级，应用可继续使用`,
+      detail: degraded.map((finding) => `· ${finding.name}：${finding.message}`).join("\n\n"),
+      buttons: ["我知道了"],
+    });
+  }
+
+  desktopLog("[启动] 桌面端应用启动完成！");
 }
 
 app.on("activate", () => {
@@ -367,8 +454,17 @@ app.on("before-quit", (event) => {
 // 单例进程锁：防止多实例并发导致端口与数据库冲突
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
+  // 已有实例在跑时本进程静默退出，必须留下痕迹，否则表现为"双击无反应"
+  desktopLog("[启动] 已存在 FeedMind 实例，本次启动退出");
   app.quit();
 } else {
+  // 清理上次运行留下的端口文件：调试服务若未启动，读到的陈旧端口会指向已失效的连接
+  try {
+    rmSync(path.join(app.getPath("sessionData"), "DevToolsActivePort"), { force: true });
+  } catch {
+    // 文件不存在或不可删时忽略
+  }
+
   app.on("second-instance", () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -380,10 +476,7 @@ if (!gotTheLock) {
     .whenReady()
     .then(bootstrap)
     .catch((err) => {
-      // eslint-disable-next-line no-console -- 启动失败需在控制台可见
-      console.error("FeedMind 桌面应用启动失败:", err);
-      const message = err instanceof Error ? `${err.message}\n\n${err.stack}` : String(err);
-      dialog.showErrorBox("FeedMind 桌面应用启动失败", message);
+      dialog.showErrorBox("FeedMind 桌面应用启动失败", writeCrashLog("启动失败", err));
       app.quit();
     });
 }

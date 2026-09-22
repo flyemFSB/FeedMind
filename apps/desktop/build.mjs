@@ -5,9 +5,9 @@ import { resolve } from "node:path";
 
 const desktopDir = import.meta.dirname;
 
-// 1. 先用 tsc 生成 TypeScript 声明与类型检查
-console.log("[构建] 正在执行 TypeScript 类型检查与声明生成...");
-execSync("tsc -b", { cwd: desktopDir, stdio: "inherit" });
+// 1. 先用 tsc 做类型检查（不产出文件：dist 只由 esbuild 写入，避免 tsc 覆盖打包产物）
+console.log("[构建] 正在执行 TypeScript 类型检查...");
+execSync("tsc --noEmit", { cwd: desktopDir, stdio: "inherit" });
 
 // 2. 用 esbuild 进行主进程与 API 服务的高效 bundle
 console.log("[构建] 正在使用 esbuild 打包桌面端主进程与 API 服务...");
@@ -24,7 +24,6 @@ await build({
     "electron",
     "@libsql/*",
     "@libsql/client",
-    "better-sqlite3",
     "playwright-core",
     "chromium-bidi/*",
     "chromium-bidi",
