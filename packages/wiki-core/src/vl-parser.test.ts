@@ -44,19 +44,46 @@ describe("parsePdfWithVl", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn(
-        async () =>
-          ({
-            ok: true,
-            arrayBuffer: async () => new TextEncoder().encode("png-bytes").buffer,
-          }) as Response,
-      ),
+      vi.fn(async () => new Response(Buffer.from("png-bytes"), { status: 200 })),
     );
 
     const result = await parsePdfWithVl(config, file);
     expect(result.markdown).toContain("| 列A | 列B |");
     expect(result.markdown).toContain("第二页正文");
     expect(result.images.get("chart-0.png")).toBe(Buffer.from("png-bytes").toString("base64"));
+  });
+
+  it("单图超过体积上限时跳过，不影响 Markdown 主流程", async () => {
+    const file = join(dir, "big.pdf");
+    await writeFile(file, "%PDF-1.4 fake");
+    mockClient.instance.parseDocument.mockResolvedValue({
+      pages: [
+        { markdownText: "正文", markdownImages: { "big.png": "https://cdn.example.com/big.png" } },
+      ],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(Buffer.alloc(5 * 1024 * 1024 + 1), { status: 200 })),
+    );
+
+    const result = await parsePdfWithVl(config, file);
+    expect(result.markdown).toContain("正文");
+    expect(result.images.size).toBe(0);
+  });
+
+  it("注入的 fetchImage 被用于图片下载（调用方可施加 SSRF 策略）", async () => {
+    const file = join(dir, "inject.pdf");
+    await writeFile(file, "%PDF-1.4 fake");
+    mockClient.instance.parseDocument.mockResolvedValue({
+      pages: [
+        { markdownText: "正文", markdownImages: { "a.png": "http://169.254.169.254/a.png" } },
+      ],
+    });
+    const injected = vi.fn(async () => null);
+
+    const result = await parsePdfWithVl({ ...config, fetchImage: injected }, file);
+    expect(injected).toHaveBeenCalledWith("http://169.254.169.254/a.png");
+    expect(result.images.size).toBe(0);
   });
 
   it("SDK 初始化缺 token 抛 VlParserError", async () => {

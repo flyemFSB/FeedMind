@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildHandleTable,
   charBigrams,
+  DEDUP_SCORE_FLOOR,
   decodeHandleLinks,
   jaccard,
   normalizeIdentityTitle,
@@ -65,6 +66,38 @@ describe("resolveDedupTargets", () => {
   it("相似实体进入候选", () => {
     const targets = resolveDedupTargets([{ name: "检索增强生成模型" }], pages);
     expect(targets[0]?.candidates.some((c) => c.id === "concepts/rag")).toBe(true);
+  });
+});
+
+describe("候选上限与分数下限", () => {
+  // 候选会被拼进 LLM 提示词，无上限会让提示词随库规模无界增长
+  it("高于下限的相似页超过 5 个时只保留分数最高的 5 个", () => {
+    const many = Array.from({ length: 7 }, (_, i) => ({
+      id: `concepts/p${i}`,
+      title: `abcdefg${i}`,
+      description: "",
+      type: "Technology",
+    }));
+    const candidates = resolveDedupTargets([{ name: "abcdefgh" }], many)[0]?.candidates ?? [];
+
+    expect(candidates).toHaveLength(5);
+    const scores = candidates.map((c) => c.score);
+    expect(scores).toEqual([...scores].sort((a, b) => b - a));
+    expect(scores[0]).toBeGreaterThanOrEqual(DEDUP_SCORE_FLOOR);
+  });
+
+  // 边界：jaccard 恰为下限（2 交集 / 25 并集）应保留，仅低于下限才剔除
+  it("分数恰好等于下限的候选被保留", () => {
+    const page = {
+      id: "concepts/alpha",
+      title: "abcdefghijklmnopqrstuvwxyz",
+      description: "",
+      type: "Reference",
+    };
+    const candidates = resolveDedupTargets([{ name: "abc" }], [page])[0]?.candidates ?? [];
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]?.score).toBe(DEDUP_SCORE_FLOOR);
   });
 });
 

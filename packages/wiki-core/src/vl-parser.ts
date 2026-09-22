@@ -1,8 +1,6 @@
 import { PaddleOCRClient, Model } from "@paddleocr/api-sdk";
 
-// PaddleOCR 官方托管 API（PaddleOCR-VL-1.6 文档解析）：
-// 官方 TypeScript SDK（@paddleocr/api-sdk），鉴权为 AI Studio Access Token。
-// 官方文档：https://www.paddleocr.ai/latest/version3.x/inference_deployment/serving/paddleocr_official_api/
+// 基于 PaddleOCR 官方托管 API（PaddleOCR-VL-1.6）的文档解析实现
 
 export interface VlParserConfig {
   /** API 端点（默认官方 https://paddleocr.aistudio-app.com；自建代理时覆盖） */
@@ -11,6 +9,8 @@ export interface VlParserConfig {
   apiKey: string;
   /** 轮询超时（毫秒），默认 10 分钟（大 PDF + 图表解析耗时） */
   timeoutMs?: number;
+  /** 内嵌图片下载器：调用方可注入带 SSRF 校验的实现，缺省使用带超时与体积上限的下载 */
+  fetchImage?: (url: string) => Promise<string | null>;
 }
 
 export interface VlParseResult {
@@ -27,6 +27,33 @@ export class VlParserError extends Error {
     super(message, cause !== undefined ? { cause } : undefined);
     this.name = "VlParserError";
   }
+}
+
+const IMAGE_FETCH_TIMEOUT_MS = 10_000;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_CONCURRENCY = 4;
+
+/** 下载内嵌图片为 Base64：带超时与字节上限，防止单个超长响应拖垮进程 */
+export async function fetchImageCapped(
+  url: string,
+  timeoutMs: number = IMAGE_FETCH_TIMEOUT_MS,
+): Promise<string | null> {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  if (!resp.ok || !resp.body) return null;
+  const reader = resp.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_IMAGE_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, size).toString("base64");
 }
 
 /** 调用 PaddleOCR 官方 API（VL-1.6）解析 PDF：
@@ -72,25 +99,27 @@ export async function parsePdfWithVl(
     .filter(Boolean)
     .join("\n\n");
 
-  // 内嵌图表原图：将提取到的 markdownImages（文件名 → 远程 URL）转换为 Base64 编码内嵌存储；
-  // 图片获取失败时不阻塞 Markdown 文本主解析流程（降级为纯文本导入）
+  // 内嵌图表原图转为 Base64 存储，获取失败降级为纯文本导入
   const images = new Map<string, string>();
-  const fetchImage = async (url: string): Promise<string | null> => {
-    try {
-      const resp = await fetch(url);
-      if (!resp.ok) return null;
-      return Buffer.from(await resp.arrayBuffer()).toString("base64");
-    } catch {
-      return null;
-    }
-  };
+  const fetchImage = config.fetchImage ?? fetchImageCapped;
   const imagePairs = result.pages.flatMap((page) => Object.entries(page.markdownImages));
-  await Promise.all(
-    imagePairs.map(async ([name, url]) => {
-      const data = await fetchImage(url);
+  // 分批下载：图片 URL 来自文档内容，全量并发会打满内存与连接
+  for (let i = 0; i < imagePairs.length; i += IMAGE_CONCURRENCY) {
+    const batch = imagePairs.slice(i, i + IMAGE_CONCURRENCY);
+    const fetched = await Promise.all(
+      batch.map(async ([name, url]): Promise<readonly [string, string | null]> => {
+        try {
+          return [name, await fetchImage(url)];
+        } catch {
+          // 图片下载失败降级为 null
+          return [name, null];
+        }
+      }),
+    );
+    for (const [name, data] of fetched) {
       if (data) images.set(name, data);
-    }),
-  );
+    }
+  }
 
   return { markdown, images };
 }

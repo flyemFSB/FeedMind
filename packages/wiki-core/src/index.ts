@@ -9,3 +9,4 @@ export * from "./graph.js";
 export * from "./graph-insights.js";
 export * from "./search.js";
 export * from "./extract.js";
+export * from "./vl-parser.js";

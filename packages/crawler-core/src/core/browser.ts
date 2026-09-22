@@ -12,26 +12,23 @@
 import { chromium } from "playwright-core";
 import type { Browser, Page } from "playwright-core";
 
-const DEFAULT_CDP_PORT = 9333;
 const CRAWLER_MARKER = "feedmind-crawler";
 const CRAWLER_URL = `data:text/html,<title>${CRAWLER_MARKER}</title>`;
 const RESET_NAV_TIMEOUT = 5000;
 
-function getCdpEndpoint(): string {
-  if (process.env["CDP_ENDPOINT"]) {
-    return process.env["CDP_ENDPOINT"];
+/** 读取当前 CDP 端点地址，端口动态从 CDP_PORT 获取 */
+export function getCdpEndpoint(): string {
+  const port = Number.parseInt(process.env["CDP_PORT"] ?? "", 10);
+  if (!Number.isInteger(port) || port <= 0) {
+    throw new Error("CDP_PORT 未就绪：浏览器自动化仅在 FeedMind 桌面应用运行时可用");
   }
-  const port = process.env["CDP_PORT"]
-    ? Number.parseInt(process.env["CDP_PORT"], 10)
-    : DEFAULT_CDP_PORT;
   return `http://127.0.0.1:${port}`;
 }
-
-const CDP_ENDPOINT = getCdpEndpoint();
 
 let _browser: Browser | null = null;
 let _page: Page | null = null;
 let _connecting: Promise<Page> | null = null;
+let _cdpVerified = false;
 
 let _lockTail: Promise<void> = Promise.resolve();
 let _releaseLock: (() => void) | null = null;
@@ -54,6 +51,8 @@ function resetConnection(): void {
   _browser = null;
   _page = null;
   _connecting = null;
+  // 连接失效后端口可能已被其它 Chromium 占用，UA 断言必须重新执行
+  _cdpVerified = false;
 }
 
 export async function ensureMarkedWindow(marker: string): Promise<void> {
@@ -69,7 +68,9 @@ export async function destroyMarkedWindow(marker: string): Promise<void> {
 }
 
 async function connectElectron(): Promise<Browser> {
-  const browser = await chromium.connectOverCDP(CDP_ENDPOINT, {
+  // noDefaults 必须为 true：否则 Playwright 会把媒体模拟（colorScheme 默认 light）套到默认上下文，
+  // 主界面窗口恰在该上下文里，界面会被锚成浅色（官方 connectOverCDP 文档）
+  const browser = await chromium.connectOverCDP(getCdpEndpoint(), {
     timeout: 30_000,
     noDefaults: true,
     isLocal: true,
@@ -90,7 +91,6 @@ async function connectElectron(): Promise<Browser> {
   return browser;
 }
 
-let _cdpVerified = false;
 export async function assertElectronCdp(): Promise<void> {
   if (_cdpVerified) return;
   const browser = await connectElectron();

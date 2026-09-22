@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { injectCookies, ensureCookies, blockHeavyResources, assertElectronCdp } from "./browser.js";
 import { chromium, type BrowserContext, type Page, type Route } from "playwright-core";
 
@@ -9,6 +9,20 @@ vi.mock("playwright-core", () => ({
 }));
 
 describe("Crawler Browser CDP & Cookie 安全隔离测试", () => {
+  // 端口由桌面主进程在 ready 后写入，这里固定一个值以便覆盖 UA 校验分支
+  beforeEach(() => {
+    process.env["CDP_PORT"] = "9333";
+  });
+
+  afterEach(() => {
+    delete process.env["CDP_PORT"];
+  });
+
+  it("CDP 端口未就绪时必须明确报错，而不是回退到默认端口误连外部实例", async () => {
+    delete process.env["CDP_PORT"];
+    await expect(assertElectronCdp()).rejects.toThrow("CDP_PORT 未就绪");
+  });
+
   it("injectCookies 正确解析多段 Cookie 字符串并写入 context", async () => {
     const addCookiesMock = vi.fn().mockResolvedValue(undefined);
     const mockPage = {

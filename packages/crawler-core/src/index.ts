@@ -10,6 +10,7 @@ export {
   ensureMarkedWindow,
   destroyMarkedWindow,
   assertElectronCdp,
+  getCdpEndpoint,
 } from "./core/browser.js";
 export type { MarkedWindowFactory, MarkedWindowDestroyer } from "./core/browser.js";
 export { CrawlerAuthError } from "./core/errors.js";

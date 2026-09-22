@@ -31,7 +31,7 @@ export interface ConceptHandle {
 }
 
 const DEDUP_TOP_K = 5;
-const DEDUP_SCORE_FLOOR = 0.08;
+export const DEDUP_SCORE_FLOOR = 0.08;
 
 /** 去空白 + 小写。保留标点（「寓言」与《寓言》应可区分）。 */
 export function normalizeIdentityTitle(title: string): string {

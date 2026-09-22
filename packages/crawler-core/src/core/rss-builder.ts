@@ -57,7 +57,7 @@ function cdata(text: string): string {
  * 支持 ISO 8601、Unix 时间戳（秒/毫秒）、Date 对象。
  */
 export function toRfc2822(date: string | number | Date): string {
-  const d = typeof date === "string" ? new Date(date) : new Date(date);
+  const d = new Date(date);
   if (Number.isNaN(d.getTime())) {
     return new Date().toUTCString();
   }
