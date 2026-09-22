@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createTestDb, type TestDbContext } from "../../test-utils.js";
 
 // 路由处理器全部 mock：crawler 服务只负责任务状态机与 cookie 编排，不真爬。
 const { mockGetRouteHandler } = vi.hoisted(() => ({ mockGetRouteHandler: vi.fn() }));
@@ -11,56 +9,19 @@ vi.mock("@feedmind/crawler-core", async (importOriginal) => {
   return { ...orig, getRouteHandler: mockGetRouteHandler };
 });
 
-async function loadDb() {
-  return import("@feedmind/db");
-}
-type DbModule = Awaited<ReturnType<typeof loadDb>>;
-
-let mod: DbModule;
-let dir: string;
-
-// 仅建 crawler 服务用到的两张表，列与 packages/db schema 保持一致
-const DDL = [
-  `CREATE TABLE crawler_tasks (
-    id TEXT PRIMARY KEY,
-    route TEXT NOT NULL,
-    params TEXT NOT NULL,
-    cookies TEXT,
-    max_items INTEGER NOT NULL DEFAULT 50,
-    status TEXT NOT NULL DEFAULT 'queued',
-    error TEXT,
-    rss_output TEXT,
-    started_at TEXT,
-    finished_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE cookie_store (
-    uuid TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    cookies TEXT NOT NULL,
-    valid INTEGER,
-    checked_at TEXT,
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
-    PRIMARY KEY (uuid, platform)
-  )`,
-];
+let ctx: TestDbContext;
+let mod: TestDbContext["dbMod"];
 
 beforeEach(async () => {
   vi.resetModules();
-  dir = mkdtempSync(join(tmpdir(), "feedmind-crawler-"));
-  process.env["DATABASE_PATH"] = join(dir, "test.db");
-  mod = await loadDb();
-  for (const sql of DDL) await mod.client.execute(sql);
+  // 表结构走生产同源的 ensureSchema，避免手写 DDL 与 schema 漂移
+  ctx = await createTestDb({ seedDefaults: false });
+  mod = ctx.dbMod;
   mockGetRouteHandler.mockReset();
 });
 
-afterEach(() => {
-  mod.closeDb();
-  try {
-    rmSync(dir, { recursive: true, force: true });
-  } catch {
-    /* 临时目录残留无害 */
-  }
+afterEach(async () => {
+  await ctx.cleanup();
 });
 
 const createInput = { route: "bili/favs", params: {}, max_items: 10 };

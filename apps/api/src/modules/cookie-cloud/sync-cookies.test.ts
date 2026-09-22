@@ -1,53 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createTestDb, type TestDbContext } from "../../test-utils.js";
 
 // 校验 Cookie 同步仅更新凭据密文，保留已校验的登录态与检查时间戳
-async function loadDb() {
-  return import("@feedmind/db");
-}
 async function loadService() {
   return import("./service.js");
 }
-type DbModule = Awaited<ReturnType<typeof loadDb>>;
 type ServiceModule = Awaited<ReturnType<typeof loadService>>;
 
 process.env["ENCRYPTION_KEY"] ??= "test-encryption-key-not-secret";
 
-let db: DbModule;
+let ctx: TestDbContext;
 let syncCookies: ServiceModule["syncCookies"];
 let decryptCookiesField: ServiceModule["decryptCookiesField"];
-let dir: string;
-
-const DDL = [
-  `CREATE TABLE cookie_store (
-    uuid TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    cookies TEXT NOT NULL,
-    valid INTEGER,
-    checked_at TEXT,
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
-    PRIMARY KEY (uuid, platform)
-  )`,
-];
 
 beforeEach(async () => {
   vi.resetModules();
-  dir = mkdtempSync(join(tmpdir(), "feedmind-cookiecloud-"));
-  process.env["DATABASE_PATH"] = join(dir, "test.db");
-  db = await loadDb();
+  // 表结构走生产同源的 ensureSchema，避免手写 DDL 与 schema 漂移
+  ctx = await createTestDb({ seedDefaults: false });
   ({ syncCookies, decryptCookiesField } = await loadService());
-  for (const sql of DDL) await db.client.execute(sql);
 });
 
-afterEach(() => {
-  db.closeDb();
-  try {
-    rmSync(dir, { recursive: true, force: true });
-  } catch {
-    /* 临时目录残留无害 */
-  }
+afterEach(async () => {
+  await ctx.cleanup();
 });
 
 const PUSH = {
@@ -58,11 +32,11 @@ const PUSH = {
 };
 
 const allRows = async () =>
-  (await db.client.execute("SELECT * FROM cookie_store ORDER BY platform")).rows;
+  (await ctx.dbMod.client.execute("SELECT * FROM cookie_store ORDER BY platform")).rows;
 
 describe("syncCookies 推送保留校验状态", () => {
   it("覆盖推送同名平台 cookie 时保留既有 valid/checked_at", async () => {
-    await db.db.insert(db.cookieStore).values({
+    await ctx.dbMod.db.insert(ctx.dbMod.cookieStore).values({
       uuid: "ext",
       platform: "weread",
       cookies: "wr_skey=old",
@@ -80,7 +54,7 @@ describe("syncCookies 推送保留校验状态", () => {
   });
 
   it("推送中未包含的平台被删除，拼接 Cookie 不再包含已移除项", async () => {
-    await db.db.insert(db.cookieStore).values([
+    await ctx.dbMod.db.insert(ctx.dbMod.cookieStore).values([
       { uuid: "ext", platform: "weread", cookies: "wr_skey=old" },
       { uuid: "ext", platform: "douyin", cookies: "stale=1" },
     ]);
@@ -103,7 +77,7 @@ describe("syncCookies 推送保留校验状态", () => {
   });
 
   it("手动来源（manual uuid）的行不受扩展推送影响", async () => {
-    await db.db.insert(db.cookieStore).values({
+    await ctx.dbMod.db.insert(ctx.dbMod.cookieStore).values({
       uuid: "manual",
       platform: "weread",
       cookies: "wr_skey=manual",

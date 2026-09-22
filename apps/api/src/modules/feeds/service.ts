@@ -8,7 +8,7 @@ import { HttpError } from "../../lib/http.js";
 import { logger } from "../../lib/logger.js";
 import { joinCookies } from "../cookie-cloud/service.js";
 import { shouldBackfillTitle } from "../rss-sources/service.js";
-import { checkSSRF } from "../../lib/ssrf.js";
+import { fetchExternal } from "../../lib/ssrf.js";
 
 export async function listFeeds(params: {
   source_id?: string;
@@ -275,34 +275,29 @@ function extractItemImage(item: Record<string, unknown>): string | undefined {
 }
 
 async function upsertFeeds(sourceId: string, items: ParsedRssItem[]): Promise<number> {
+  if (items.length === 0) return 0;
   const now = new Date().toISOString();
-  let inserted = 0;
+  const rows = items.map((item) => ({
+    id: randomUUID(),
+    sourceId,
+    title: item.title || "(无标题)",
+    description: item.description || null,
+    link: item.link ?? null,
+    guid: item.guid,
+    author: item.author ?? null,
+    category: item.category ? JSON.stringify(item.category) : null,
+    image: item.image ?? null,
+    pubDate: item.pubDate ?? null,
+    fetchedAt: now,
+  }));
 
-  for (const item of items) {
-    const [existing] = await db
-      .select({ id: feeds.id })
-      .from(feeds)
-      .where(and(eq(feeds.sourceId, sourceId), eq(feeds.guid, item.guid)))
-      .limit(1);
-    if (existing) continue;
-
-    await db.insert(feeds).values({
-      id: randomUUID(),
-      sourceId,
-      title: item.title || "(无标题)",
-      description: item.description || null,
-      link: item.link ?? null,
-      guid: item.guid,
-      author: item.author ?? null,
-      category: item.category ? JSON.stringify(item.category) : null,
-      image: item.image ?? null,
-      pubDate: item.pubDate ?? null,
-      fetchedAt: now,
-    });
-    inserted++;
-  }
-
-  return inserted;
+  // 批量写入并通过唯一索引（source_id, guid）冲突跳过重复条目
+  const inserted = await db
+    .insert(feeds)
+    .values(rows)
+    .onConflictDoNothing()
+    .returning({ id: feeds.id });
+  return inserted.length;
 }
 
 // 每次同步单源最大拉取条数，仅增量处理最新条目
@@ -368,8 +363,7 @@ export async function syncAll(): Promise<SyncResult> {
     let backfillTitle: string | undefined;
     try {
       if (source.type === "rss") {
-        await checkSSRF(source.url);
-        const res = await fetch(source.url, { signal: AbortSignal.timeout(30_000) });
+        const res = await fetchExternal(source.url, { signal: AbortSignal.timeout(30_000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const xml = await res.text();
         const { title: feedTitle, items } = await parseRssXml(xml);

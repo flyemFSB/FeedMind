@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { parseRssXml, pickFreshItems } from "./service.js";
 import { stripWww, shouldBackfillTitle } from "../rss-sources/service.js";
+import { createTestDb, type TestDbContext } from "../../test-utils.js";
 
 // parseRssXml 直接操作 DB 模块的模块级 db 引用？——不，parseRssXml 本身不碰 DB，可独立测
 describe("parseRssXml 空标题兜底", () => {
@@ -114,70 +112,20 @@ const MINI_RSS = `<?xml version="1.0"?>
   <pubDate>Tue, 11 Aug 2026 22:44:30 GMT</pubDate>
 </item></channel></rss>`;
 
-const SYNC_DDL = [
-  `CREATE TABLE rss_sources (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    platform TEXT,
-    route TEXT,
-    url TEXT NOT NULL,
-    title TEXT NOT NULL,
-    params TEXT,
-    last_synced_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE feeds (
-    id TEXT PRIMARY KEY,
-    source_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    link TEXT,
-    guid TEXT NOT NULL,
-    author TEXT,
-    category TEXT,
-    image TEXT,
-    pub_date TEXT,
-    fetched_at TEXT NOT NULL,
-    is_read INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE UNIQUE INDEX idx_feeds_source_guid ON feeds (source_id, guid)`,
-  `CREATE TABLE cookie_store (
-    uuid TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    cookies TEXT NOT NULL,
-    valid INTEGER,
-    checked_at TEXT,
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp),
-    PRIMARY KEY (uuid, platform)
-  )`,
-];
-
 describe("syncAll Cookie 状态回写", () => {
-  async function loadDb() {
-    return import("@feedmind/db");
-  }
-  type DbModule = Awaited<ReturnType<typeof loadDb>>;
-  let db: DbModule;
-  let dir: string;
+  let ctx: TestDbContext;
+  let db: TestDbContext["dbMod"];
 
   beforeEach(async () => {
     vi.resetModules();
-    dir = mkdtempSync(join(tmpdir(), "feedmind-feeds-sync-"));
-    process.env["DATABASE_PATH"] = join(dir, "test.db");
-    db = await loadDb();
-    for (const sql of SYNC_DDL) await db.client.execute(sql);
+    // 表结构走生产同源的 ensureSchema，避免手写 DDL 与 schema 漂移
+    ctx = await createTestDb({ seedDefaults: false });
+    db = ctx.dbMod;
     mockGetRouteHandler.mockReset();
   });
 
-  afterEach(() => {
-    db.closeDb();
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch {
-      /* 临时目录残留无害 */
-    }
+  afterEach(async () => {
+    await ctx.cleanup();
   });
 
   it("social 源拉取成功回写 valid=true", async () => {

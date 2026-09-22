@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db, operationLog } from "@feedmind/db";
 import type { OperationLogInsert } from "@feedmind/db";
 import { logger } from "../../lib/logger.js";
@@ -63,7 +63,7 @@ export async function listOperations(
   const whereArr = where.length ? and(...where) : undefined;
 
   const [countRows, rows] = await Promise.all([
-    db.select({ id: operationLog.id }).from(operationLog).where(whereArr),
+    db.select({ value: count() }).from(operationLog).where(whereArr),
     db
       .select()
       .from(operationLog)
@@ -79,6 +79,6 @@ export async function listOperations(
       action: r.action as OpsAction,
       result: r.result as OpsResult,
     })),
-    total: countRows.length,
+    total: countRows[0]?.value ?? 0,
   };
 }

@@ -7,11 +7,14 @@ export type DbModule = Awaited<ReturnType<typeof loadDb>>;
 
 import type { HonoBindings, HonoVariables } from "@mastra/hono";
 
-export interface ApiTestContext {
-  app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>;
+export interface TestDbContext {
   dbMod: DbModule;
-  tempDir: string;
   cleanup: () => Promise<void>;
+}
+
+export interface ApiTestContext extends TestDbContext {
+  app: Hono<{ Bindings: HonoBindings; Variables: HonoVariables }>;
+  tempDir: string;
   request: <T = Record<string, unknown>>(
     path: string,
     options?: {
@@ -45,12 +48,11 @@ async function dumpSchemaSql(client: DbModule["client"]): Promise<string[]> {
 }
 
 /**
- * 启动一个自包含、内存隔离的 API 测试上下文。
- * 表结构由 @feedmind/db ensureSchema 统一创建，与生产同构。
+ * 启动一个自包含、内存隔离的数据库上下文。
+ * 表结构由 @feedmind/db ensureSchema 统一创建，与生产同构；
+ * 纯 service 测试用它即可，不必为此构造 HTTP 应用。
  */
-export async function createApiTestContext(options?: {
-  seedDefaults?: boolean;
-}): Promise<ApiTestContext> {
+export async function createTestDb(options?: { seedDefaults?: boolean }): Promise<TestDbContext> {
   process.env["DATABASE_PATH"] = ":memory:";
 
   const dbMod = await import("@feedmind/db");
@@ -83,6 +85,21 @@ export async function createApiTestContext(options?: {
       await dbMod.seedDatabase();
     }
   }
+
+  const cleanup = async () => {
+    // 释放数据库前微任务排空，防止路由中 void 的异步操作（如审计日志）在连接关闭后报错
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    dbMod.closeDb();
+  };
+
+  return { dbMod, cleanup };
+}
+
+/** 在数据库上下文之上挂载真实 Hono 应用，供 HTTP 集成测试使用 */
+export async function createApiTestContext(options?: {
+  seedDefaults?: boolean;
+}): Promise<ApiTestContext> {
+  const { dbMod, cleanup } = await createTestDb(options);
 
   const { createApp } = await import("./app.js");
   const app = createApp();
@@ -129,12 +146,6 @@ export async function createApiTestContext(options?: {
       },
       rawText,
     };
-  };
-
-  const cleanup = async () => {
-    // 释放数据库前微任务排空，防止路由中 void 的异步操作（如审计日志）在连接关闭后报错
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    dbMod.closeDb();
   };
 
   return {

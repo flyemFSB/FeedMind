@@ -1,14 +1,14 @@
 import pino from "pino";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { isProduction } from "@feedmind/env";
+import { isProductionEnv, resolveLogLevel } from "@feedmind/env/logging";
 import { apiEnv } from "../env.js";
 import { APP_NAME, APP_VERSION } from "./constants.js";
 
-const usePretty = apiEnv.LOG_PRETTY === "1" || (!isProduction() && apiEnv.LOG_PRETTY !== "0");
+const usePretty = !isProductionEnv(apiEnv.APP_ENV);
 
 const pinoOptions: pino.LoggerOptions = {
-  level: apiEnv.LOG_LEVEL ?? (isProduction() ? "info" : "debug"),
+  level: resolveLogLevel(),
   // pino 默认 epoch 毫秒数字，改 ISO8601 便于阅读与日志平台解析；dev 下 pino-pretty 自行重排不受影响
   timestamp: pino.stdTimeFunctions.isoTime,
   base: {
@@ -38,11 +38,6 @@ const pinoOptions: pino.LoggerOptions = {
       "*.app_secret",
       "*.token",
       "*.secret",
-      "*.*apiKey",
-      "*.*password",
-      "*.*cookies",
-      "*.*token",
-      "*.*secret",
     ],
     censor: "[REDACTED]",
   },

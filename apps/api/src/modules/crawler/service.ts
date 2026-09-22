@@ -6,9 +6,9 @@ import { getRouteHandler } from "@feedmind/crawler-core";
 import { CrawlerAuthError } from "@feedmind/crawler-core";
 import type { RouteHandlerParams } from "@feedmind/crawler-core";
 import { HttpError } from "../../lib/http.js";
+import { resolveApiBaseUrl } from "../../lib/api-base-url.js";
 import { DbStore } from "./db-store.js";
 import { logger } from "../../lib/logger.js";
-import { apiEnv } from "../../env.js";
 import { joinCookies } from "../cookie-cloud/service.js";
 
 const ROUTE_TO_PLATFORM: Record<string, string> = {
@@ -21,7 +21,7 @@ const ROUTE_TO_PLATFORM: Record<string, string> = {
 
 // ─── 辅助函数 ───────────────────────────────────────────────────
 function toTaskRead(row: typeof crawlerTasks.$inferSelect): TaskRead {
-  const baseUrl = apiEnv.API_BASE_URL ?? "http://localhost:18790";
+  const baseUrl = resolveApiBaseUrl();
   return {
     id: row.id,
     route: row.route,

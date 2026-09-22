@@ -18,6 +18,8 @@ import { startLongConnection } from "./modules/remote-connection/feishu-service.
 export interface StartApiOptions {
   /** Web 构建产物目录：提供时在 fetch 层提供同源静态资源 + SPA 回退（Electron 生产模式） */
   webDist?: string;
+  /** 监听端口覆盖：传 0 由系统分配空闲端口（端口被占用时的回退路径） */
+  port?: number;
 }
 
 /** 启动完整 API 服务（数据库、后台任务、智能体与 HTTP 服务） */
@@ -114,7 +116,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
   const server = serve({
     fetch: app.fetch,
     hostname: apiEnv.API_HOST,
-    port: apiEnv.API_PORT,
+    port: options.port ?? apiEnv.API_PORT,
   });
 
   // 延迟启动后台常驻任务，保证 HTTP 服务优先快速响应

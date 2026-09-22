@@ -59,7 +59,6 @@ export function resolveBrowserExecutable(
   const localAppData = process.env["LOCALAPPDATA"];
   const candidates = [
     process.env["REMOTION_BROWSER_EXECUTABLE"],
-    process.env["CHROME_PATH"],
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
     "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
     ...(localAppData ? [`${localAppData}\\Google\\Chrome\\Application\\chrome.exe`] : []),

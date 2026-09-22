@@ -42,7 +42,11 @@ remoteConnectionRoutes.post("/remote-connections", async (c) => {
 
 remoteConnectionRoutes.delete("/remote-connections/:id", async (c) => {
   const id = c.req.param("id");
-  const conn = await getConnection(id).catch(() => null);
+  const conn = await getConnection(id).catch((err: unknown) => {
+    // 仅容忍“连接已不存在”：其余错误必须上抛，避免删除成功掩盖 DB 故障
+    if (err instanceof HttpError && err.status === 404) return null;
+    throw err;
+  });
   await deleteConnection(id);
   void logOperation({
     action: "delete",

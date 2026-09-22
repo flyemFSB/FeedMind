@@ -46,8 +46,9 @@ function route(c: Hono): Hono {
 }
 
 describe("jsonOk / jsonError 信封结构", () => {
-  it("jsonOk 输出 { data, error: null }", async () => {
+  it("jsonOk 输出 { data, error: null } 且默认状态码 200", async () => {
     const res = await route(makeApp()).request("/ok");
+    expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ data: { id: 1 }, error: null });
   });
 

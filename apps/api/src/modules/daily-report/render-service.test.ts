@@ -40,7 +40,6 @@ describe("resolveBrowserExecutable", () => {
 
   it("Chrome 优先于 Edge", () => {
     vi.stubEnv("REMOTION_BROWSER_EXECUTABLE", "");
-    vi.stubEnv("CHROME_PATH", "");
     const exists = existing([
       "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",

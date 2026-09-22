@@ -1,68 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { createTestDb, type TestDbContext } from "../../test-utils.js";
 
-// consistent-type-imports 禁止 typeof import() 类型标注，故借函数返回值推断模块命名空间类型
-async function loadDb() {
-  return import("@feedmind/db");
-}
-type DbModule = Awaited<ReturnType<typeof loadDb>>;
-
-let mod: DbModule;
-let dir: string;
-
-// 仅创建级联删除所需的两张表，列与 packages/db schema 定义保持一致
-// （api 包不依赖 drizzle-kit，无法用 pushSQLiteSchema 建表，故直接手写 DDL）
-const DDL = [
-  `CREATE TABLE rss_sources (
-    id TEXT PRIMARY KEY,
-    type TEXT NOT NULL,
-    platform TEXT,
-    route TEXT,
-    url TEXT NOT NULL,
-    title TEXT NOT NULL,
-    params TEXT,
-    last_synced_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp),
-    updated_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE TABLE feeds (
-    id TEXT PRIMARY KEY,
-    source_id TEXT NOT NULL,
-    title TEXT NOT NULL,
-    description TEXT,
-    link TEXT,
-    guid TEXT NOT NULL,
-    author TEXT,
-    category TEXT,
-    image TEXT,
-    pub_date TEXT,
-    fetched_at TEXT NOT NULL,
-    is_read INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (current_timestamp)
-  )`,
-  `CREATE UNIQUE INDEX idx_feeds_source_guid ON feeds (source_id, guid)`,
-];
+let ctx: TestDbContext;
+let mod: TestDbContext["dbMod"];
 
 beforeEach(async () => {
-  // 每个用例用独立临时库：db 单例在模块导入时读取 DATABASE_PATH，
-  // 需先 resetModules 再设置环境变量，确保 service 里的 db 绑定到临时库
+  // 每个用例重置模块：db 单例在导入时读取 DATABASE_PATH，需先 resetModules 才能绑定到干净实例
   vi.resetModules();
-  dir = mkdtempSync(join(tmpdir(), "feedmind-test-"));
-  process.env["DATABASE_PATH"] = join(dir, "test.db");
-  mod = await loadDb();
-  for (const sql of DDL) await mod.client.execute(sql);
+  // 表结构走生产同源的 ensureSchema，避免手写 DDL 与 schema 漂移
+  ctx = await createTestDb({ seedDefaults: false });
+  mod = ctx.dbMod;
 });
 
-afterEach(() => {
-  mod.closeDb();
-  // Windows 下 sqlite 句柄释放可能有延迟，删除失败（EPERM）时交给系统临时目录清理
-  try {
-    rmSync(dir, { recursive: true, force: true });
-  } catch {
-    /* 临时目录残留无害 */
-  }
+afterEach(async () => {
+  await ctx.cleanup();
 });
 
 describe("deleteSource 级联删除", () => {
