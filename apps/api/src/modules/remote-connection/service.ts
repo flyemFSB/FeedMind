@@ -20,7 +20,7 @@ function safeParseJson(s: string): Record<string, unknown> | null {
 }
 
 /** 解密配置密文字符串，解密失败按原明文解析回退 */
-function decryptConfigField(value: string | null): Record<string, unknown> | null {
+export function decryptConfigField(value: string | null): Record<string, unknown> | null {
   if (!value) return null;
   try {
     return safeParseJson(decryptValue(value));
@@ -29,7 +29,7 @@ function decryptConfigField(value: string | null): Record<string, unknown> | nul
   }
 }
 
-function encryptConfigField(config: Record<string, unknown>): string {
+export function encryptConfigField(config: Record<string, unknown>): string {
   return encryptValue(JSON.stringify(config));
 }
 

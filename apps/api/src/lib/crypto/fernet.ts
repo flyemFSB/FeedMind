@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, pbkdf2Sync, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomBytes } from "node:crypto";
 
 // ─── 常量 ───
 const SALT_BYTES = 16;
@@ -7,6 +7,8 @@ const TAG_BYTES = 16;
 const VERSION = 0x81;
 const ITERATIONS = 600_000;
 
+const derivedKeys = new Map<string, Buffer>();
+
 function base64UrlEncode(buf: Buffer): string {
   return buf.toString("base64url");
 }
@@ -14,10 +16,7 @@ function base64UrlDecode(s: string): Buffer {
   return Buffer.from(s, "base64url");
 }
 
-/**
- * 获取加密密钥。优先使用传入值，回退到环境变量。
- * 建议通过 @feedmind/env 的 apiEnv.ENCRYPTION_KEY 传入，确保启动时已校验。
- */
+/** 获取加密密钥，优先使用传入值，缺失时读取 process.env.ENCRYPTION_KEY */
 function resolveEncryptionKey(keyOverride?: string): string {
   const key = (keyOverride ?? process.env["ENCRYPTION_KEY"] ?? "").trim();
   if (!key) {
@@ -27,7 +26,14 @@ function resolveEncryptionKey(keyOverride?: string): string {
 }
 
 function deriveKey(rawKey: string, salt: Buffer): Buffer {
-  return pbkdf2Sync(rawKey, salt, ITERATIONS, 32, "sha256");
+  // 派生结果按 salt 缓存：避免相同密钥重复解密时产生 600k 次迭代计算开销
+  const cacheKey = `${createHash("sha256").update(rawKey).digest("base64url").slice(0, 16)}:${salt.toString("base64url")}`;
+  const cached = derivedKeys.get(cacheKey);
+  if (cached) return cached;
+  const key = pbkdf2Sync(rawKey, salt, ITERATIONS, 32, "sha256");
+  if (derivedKeys.size >= 256) derivedKeys.clear();
+  derivedKeys.set(cacheKey, key);
+  return key;
 }
 
 export function encryptValue(plaintext: string, keyOverride?: string): string {
@@ -70,5 +76,13 @@ export function decryptValue(ciphertext: string, keyOverride?: string): string {
   const key = deriveKey(rawKey, salt);
   const decipher = createDecipheriv("aes-256-gcm", key, nonce);
   decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  try {
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString("utf8");
+  } catch (err) {
+    // GCM 认证失败通常由密钥不匹配或密文损坏引起，提示明确排查方向
+    throw new Error(
+      "解密失败：当前 ENCRYPTION_KEY 与加密该数据时使用的密钥不一致（或密文已损坏），请在 .env 中恢复原密钥",
+      { cause: err },
+    );
+  }
 }

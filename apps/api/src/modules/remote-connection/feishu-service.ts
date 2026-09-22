@@ -5,6 +5,7 @@ import type * as LarkSdk from "@larksuiteoapi/node-sdk";
 import type { Client, WSClient } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
+import { decryptConfigField, encryptConfigField } from "./service.js";
 
 type LarkSdkModule = typeof LarkSdk;
 let larkSdkModule: LarkSdkModule | null = null;
@@ -28,18 +29,15 @@ const RECONNECT_BASE_MS = 2_000;
 const RECONNECT_MAX_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 
-async function getConfig() {
+async function getConfig(): Promise<{ appId?: string; appSecret?: string; connId: string } | null> {
   const [conn] = await db
     .select()
     .from(remoteConnections)
     .where(eq(remoteConnections.platform, "feishu"))
     .limit(1);
   if (!conn?.config) return null;
-  try {
-    return { ...JSON.parse(conn.config), connId: conn.id };
-  } catch {
-    return null;
-  }
+  const parsed = decryptConfigField(conn.config) as { appId?: string; appSecret?: string } | null;
+  return parsed ? { ...parsed, connId: conn.id } : null;
 }
 
 async function ensureClient(cfg: { appId: string; appSecret: string }): Promise<Client> {
@@ -139,9 +137,9 @@ function buildMessageHandler() {
       let feishuClient: Client | undefined;
       try {
         const cfg = await getConfig();
-        if (!cfg) return;
+        if (!cfg?.appId || !cfg.appSecret) return;
 
-        feishuClient = await ensureClient(cfg);
+        feishuClient = await ensureClient({ appId: cfg.appId, appSecret: cfg.appSecret });
         const threadId = `feishu:${openId}`;
 
         const stream = await feedmindAgent.stream(userText, {
@@ -339,7 +337,7 @@ export async function saveAndVerify(config: { appId: string; appSecret: string }
     .where(eq(remoteConnections.platform, "feishu"))
     .limit(1);
 
-  const configJson = JSON.stringify(config);
+  const configJson = encryptConfigField(config);
   const now = new Date().toISOString();
 
   if (existing) {
@@ -371,8 +369,8 @@ export async function sendMessage(
   receiveIdType: "open_id" | "union_id" | "user_id" | "email" | "chat_id" = "open_id",
 ): Promise<void> {
   const cfg = await getConfig();
-  if (!cfg) throw new Error("飞书未配置");
-  const c = await ensureClient(cfg);
+  if (!cfg?.appId || !cfg.appSecret) throw new Error("飞书未配置");
+  const c = await ensureClient({ appId: cfg.appId, appSecret: cfg.appSecret });
   await c.im.message.create({
     params: { receive_id_type: receiveIdType },
     data: { receive_id: receiveId, msg_type: msgType, content },

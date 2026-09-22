@@ -39,6 +39,13 @@ describe("safeJoin", () => {
   it("拒绝路径穿越的 .. 段", () => {
     expect(() => safeJoin(base, "..")).toThrow(/traversal/i);
   });
+
+  // . 段不改变层级但会改变拼接结果，与 .. 同属必须拒绝的穿越形态
+  it("拒绝 . 段", () => {
+    expect(() => safeJoin(base, ".")).toThrow(/traversal/i);
+    expect(() => safeJoin(base, "./a.md")).toThrow(/traversal/i);
+    expect(() => safeJoin(base, "a/./b.md")).toThrow(/traversal/i);
+  });
 });
 
 describe("normalizeConceptPath", () => {
@@ -57,5 +64,11 @@ describe("normalizeConceptPath", () => {
   it("拒绝保留文件名 index/log", () => {
     expect(() => normalizeConceptPath("index.md")).toThrow(/Reserved/);
     expect(() => normalizeConceptPath("log.md")).toThrow(/Reserved/);
+  });
+
+  it("拒绝 . 段与空段", () => {
+    expect(() => normalizeConceptPath("./a.md")).toThrow(/traversal/i);
+    expect(() => normalizeConceptPath("a/./b.md")).toThrow(/traversal/i);
+    expect(() => normalizeConceptPath("a//b.md")).toThrow(/traversal/i);
   });
 });

@@ -1,3 +1,6 @@
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+
 /** 私网 IP 段正则列表（SSRF 防护） */
 const PRIVATE_IPS = [
   /^127\.\d+\.\d+\.\d+$/,
@@ -46,11 +49,47 @@ function normalizeHost(rawHost: string): string {
   return host;
 }
 
-/** SSRF 防护：拒绝内网主机名与私网 IP 段。导出供测试与服务层直接验证。 */
+/** SSRF 防护：限制协议，并拒绝内网主机名与私网 IP 字面量（纯字符串判定，不做 DNS） */
 export async function checkSSRF(urlStr: string): Promise<void> {
   const url = new URL(urlStr);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`SSRF blocked: 不允许的协议 (${url.protocol})`);
+  }
   const host = normalizeHost(url.hostname);
   if (INTERNAL_HOSTS.includes(host)) throw new Error(`SSRF blocked: ${host}`);
   if (PRIVATE_IPS.some((re) => re.test(host)))
     throw new Error(`SSRF blocked: private IP (${host})`);
+}
+
+/** 断言目标为公网地址：字面量校验通过后再解析域名，逐 IP 复检（防域名指向内网） */
+export async function assertPublicUrl(urlStr: string): Promise<void> {
+  await checkSSRF(urlStr);
+  const host = normalizeHost(new URL(urlStr).hostname);
+  if (isIP(host) !== 0) return;
+  const records = await lookup(host, { all: true });
+  for (const { address } of records) {
+    if (PRIVATE_IPS.some((re) => re.test(normalizeHost(address)))) {
+      throw new Error(`SSRF blocked: ${host} 解析到内网地址 (${address})`);
+    }
+  }
+}
+
+const MAX_REDIRECTS = 5;
+const DEFAULT_TIMEOUT_MS = 30_000;
+
+/** 抓取外部 URL：不自动跟随重定向，每一跳都重新做公网校验 */
+export async function fetchExternal(url: string, init: RequestInit = {}): Promise<Response> {
+  const signal = init.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  let target = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    await assertPublicUrl(target);
+    const res = await fetch(target, { ...init, signal, redirect: "manual" });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) {
+      target = new URL(location, target).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`重定向次数超过 ${MAX_REDIRECTS} 次: ${url}`);
 }
