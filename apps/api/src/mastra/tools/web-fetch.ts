@@ -3,9 +3,7 @@ import { z } from "zod";
 import { ToolConfigClient } from "./search/config.js";
 import { truncateForModel } from "./tool-output.js";
 import { logger } from "../../lib/logger.js";
-
 import { checkSSRF } from "../../lib/ssrf.js";
-export { checkSSRF };
 
 // 提取 Firecrawl v2 响应中的 markdown 字段
 const firecrawlResponseSchema = z.object({

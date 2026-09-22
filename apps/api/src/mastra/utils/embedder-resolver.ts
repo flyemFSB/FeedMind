@@ -2,7 +2,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { MastraEmbeddingModel } from "@mastra/core/vector";
 import { resolveModelClient, type V4EmbeddingModel } from "../../modules/models/model-cache.js";
 import { getModelRuntime, getSelectedModel } from "../../modules/models/service.js";
-import { createSanitizedFetch } from "../../modules/models/sanitized-fetch.js";
 import { logger } from "../../lib/logger.js";
 
 /**
@@ -51,7 +50,6 @@ export async function resolveEmbeddingModel(): Promise<MastraEmbeddingModel<stri
         name: "feedmind-embedding",
         apiKey: runtime.api_key,
         baseURL: runtime.base_url ?? "",
-        fetch: createSanitizedFetch(),
       });
       v4Model = provider.textEmbeddingModel(modelId);
     }

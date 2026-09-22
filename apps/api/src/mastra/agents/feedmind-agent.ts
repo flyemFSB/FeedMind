@@ -10,7 +10,7 @@ import {
 } from "../prompts/system.js";
 import { getSelectedModel } from "../../modules/models/service.js";
 import { getConfig } from "../../modules/runtime-config/config-service.js";
-import { askClarificationTool } from "../tools/ask-clarification.js";
+import { askUserTool } from "@mastra/core/tools";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
 import { wikiReadTool } from "../tools/wiki-read.js";
@@ -19,6 +19,7 @@ import { taskTool } from "../tools/task.js";
 import { createFeedMindWorkspace } from "../workspace.js";
 import { parseTokenCount } from "../../modules/models/parse-token-count.js";
 import { resolveChatModel, resolveChatModelEntry } from "../utils/model-resolver.js";
+import { createLlmRetryProcessor } from "../utils/retry-processor.js";
 import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
 import { resolveDataDir } from "../../lib/data-dir.js";
 import { logger } from "../../lib/logger.js";
@@ -84,6 +85,7 @@ export const feedmindAgent = new Agent({
   },
   model: async ({ requestContext }: { requestContext?: RequestContext }) =>
     resolveChatModel(requestContext),
+  errorProcessors: [createLlmRetryProcessor()],
   defaultOptions: async ({ requestContext }: { requestContext?: RequestContext } = {}) => {
     try {
       const [cfg, selected] = await Promise.all([getConfig("session"), getSelectedModel()]);
@@ -94,6 +96,8 @@ export const feedmindAgent = new Agent({
 
       return {
         maxSteps: 20,
+        // 用户下一条消息即澄清回答：由 agent 从消息历史抽取 resumeData 自动续跑被挂起的工具
+        autoResumeSuspendedTools: true,
         // Anthropic 会话级前缀缓存配置
         providerOptions: {
           anthropic: { cacheControl: { type: "ephemeral" } },
@@ -111,6 +115,8 @@ export const feedmindAgent = new Agent({
           );
         },
         modelSettings: {
+          // 禁用内部隐式重试，统一由 errorProcessors 调度
+          maxRetries: 0,
           // 思考模型不传 temperature 与 topP，避免上游警告
           ...(entry?.thinkingByDefault ? {} : { temperature: cfg.temperature, topP: cfg.top_p }),
           ...(maxTokens ? { maxOutputTokens: maxTokens } : {}),
@@ -124,13 +130,14 @@ export const feedmindAgent = new Agent({
     }
   },
   memory: buildMemory,
+  // 注册名取工具 id：模型可见名与前端展示名都不带变量名里的 Tool 后缀
   tools: {
-    askClarificationTool,
-    webFetchTool,
-    webSearchTool,
-    wikiReadTool,
-    wikiSearchTool,
-    taskTool,
+    [askUserTool.id]: askUserTool,
+    [webFetchTool.id]: webFetchTool,
+    [webSearchTool.id]: webSearchTool,
+    [wikiReadTool.id]: wikiReadTool,
+    [wikiSearchTool.id]: wikiSearchTool,
+    [taskTool.id]: taskTool,
   },
   workspace: feedmindWorkspace,
 });

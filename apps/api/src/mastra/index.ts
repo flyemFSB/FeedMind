@@ -27,6 +27,8 @@ export function createMastra(): Mastra {
           sendReasoning: true,
           // 与前端 AI SDK v7（ai@7 + @ai-sdk/react@4）原生对齐
           version: "v7",
+          // 终态未捕获或重试耗尽错误统一转译为简明错误文案
+          onError: () => JSON.stringify({ message: "模型调用失败" }),
         }),
       ],
     },

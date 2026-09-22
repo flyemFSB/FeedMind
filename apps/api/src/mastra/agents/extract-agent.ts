@@ -1,6 +1,7 @@
 import { Agent } from "@mastra/core/agent";
 import type { RequestContext } from "@mastra/core/request-context";
 import { resolveChatModel } from "../utils/model-resolver.js";
+import { createLlmRetryProcessor } from "../utils/retry-processor.js";
 
 /**
  * 日报提炼 agent：从新闻正文中提取核心事实、逐字原话引语与背景上下文证据。
@@ -21,4 +22,5 @@ export const extractAgent = new Agent({
 - 提取要点突出信息量与证据密度，为后续视频解读提供充足的客观素材。`,
   model: async ({ requestContext }: { requestContext?: RequestContext }) =>
     resolveChatModel(requestContext),
+  errorProcessors: [createLlmRetryProcessor()],
 });

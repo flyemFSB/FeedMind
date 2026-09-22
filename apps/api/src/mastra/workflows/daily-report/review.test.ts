@@ -71,10 +71,13 @@ describe("reviewAndFix", () => {
     expect(result.script.opening.hook).toBe("重写后");
   });
 
+  // 必须显式注入 rewrite：否则会走真实 script agent（依赖 DB 与模型配置），
+  // 其失败被兜底逻辑吸收后用例仍会通过，掩盖重写路径的真实行为
   it("达上限仍失败则抛错（上层标记运行失败）", async () => {
     await expect(
       reviewAndFix(script, items, {
         evaluate: async () => failResult,
+        rewrite: async () => script,
       }),
     ).rejects.toThrow("审稿 3 次未通过");
   });

@@ -1,13 +1,10 @@
 import { AgentBrowser } from "@mastra/agent-browser";
-import { assertElectronCdp, ensureMarkedWindow } from "@feedmind/crawler-core";
+import { assertElectronCdp, ensureMarkedWindow, getCdpEndpoint } from "@feedmind/crawler-core";
 import { buildSystemPrompt } from "../../prompts/system.js";
 import type { SubagentTemplate } from "../../tools/task.js";
 
 /** 惰性初始化的 AgentBrowser 实例（通过 CDP 连接桌面内置 Chromium） */
 let _browserInstance: AgentBrowser | null = null;
-
-/** CDP 端点：桌面应用 --remote-debugging-port 默认 9333，可用 CDP_ENDPOINT 覆盖 */
-const CDP_ENDPOINT = process.env["CDP_ENDPOINT"] ?? "http://127.0.0.1:9333";
 
 /** Agent 浏览器窗口标记：与 apps/desktop 主进程一致（feedmind-agent） */
 const AGENT_MARKER = "feedmind-agent";
@@ -57,7 +54,8 @@ class FeedMindAgentBrowser extends AgentBrowser {
 
 function getBrowserInstance(): AgentBrowser {
   _browserInstance ??= new FeedMindAgentBrowser({
-    cdpUrl: CDP_ENDPOINT,
+    // 端口由桌面主进程在启动时写回，惰性求值以拿到自动分配的实际端口
+    cdpUrl: getCdpEndpoint(),
     scope: "shared",
     viewport: { width: 1280, height: 720 },
     timeout: 30_000,
@@ -113,10 +111,6 @@ export const browserTemplate: SubagentTemplate = {
 
   getTools() {
     return getBrowserInstance().getTools() as Record<string, unknown>;
-  },
-
-  getBrowser() {
-    return getBrowserInstance();
   },
 
   maxSteps: 20,

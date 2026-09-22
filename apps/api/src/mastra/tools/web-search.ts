@@ -17,6 +17,19 @@ export type WebSearchResponse =
   | { error: string; query: string; message: string }
   | { query: string; engine: string; total_results: number; results: WebSearchHit[] };
 
+/** 单引擎硬超时（毫秒）：超过即换下一个引擎 */
+const SEARCH_TIMEOUT_MS = 8_000;
+
+/** 硬超时兜底：部分引擎 SDK 不接受 AbortSignal，仅靠 signal 无法中断挂起的请求 */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_resolve, reject) => {
+      setTimeout(() => reject(new Error(`${label} 搜索超时（${ms}ms）`)), ms).unref();
+    }),
+  ]);
+}
+
 /** 类型化联网搜索；Mastra 工具与管线代码共用此实现，避免各自解析 JSON 字符串 */
 export async function runWebSearch(
   query: string,
@@ -70,11 +83,15 @@ export async function runWebSearch(
 
   for (const engine of engines) {
     try {
-      const results = await engine.search(AbortSignal.timeout(8_000));
+      // 部分引擎 SDK 不接受 AbortSignal，必须用 race 兜底硬超时
+      const results = await withTimeout(
+        engine.search(AbortSignal.timeout(SEARCH_TIMEOUT_MS)),
+        SEARCH_TIMEOUT_MS,
+        engine.name,
+      );
       return { query, engine: engine.name, total_results: results.length, results };
     } catch (err) {
-      // 单个引擎失败不中断多源尝试，但必须留痕：全挂时只看得到 WEB_SEARCH_FAILED
-      // 会丢掉真正的病因（401 / 限流 / 超时）
+      // 记录当前引擎失败原因并回退到下一个引擎
       logger.warn({ err, engine: engine.name, query }, "搜索源失败，尝试下一个");
     }
   }

@@ -6,17 +6,15 @@ import { webSearchTool } from "./web-search.js";
 import { webFetchTool } from "./web-fetch.js";
 import { wikiSearchTool } from "./wiki-search.js";
 import { wikiReadTool } from "./wiki-read.js";
-import { askClarificationTool } from "./ask-clarification.js";
 import { browserTemplate } from "../subagents/builtins/browser.js";
 import { resolveChatModel } from "../utils/model-resolver.js";
+import { createLlmRetryProcessor } from "../utils/retry-processor.js";
 
 /* -------------------------------------------------------------------------- */
 /*  类型定义                                                                  */
 /* -------------------------------------------------------------------------- */
 
 export type SubagentType = "researcher" | "extractor" | "summarizer" | "browser";
-
-import type { AgentBrowser } from "@mastra/agent-browser";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ToolMap = Record<string, any>;
@@ -27,7 +25,6 @@ export interface SubagentTemplate {
   description: string;
   getInstructions(): string;
   getTools(): ToolMap;
-  getBrowser?(): AgentBrowser;
   maxSteps?: number;
 }
 
@@ -86,7 +83,12 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
 - 如果信息不足，诚实说明局限性`;
     },
     getTools() {
-      return { webSearchTool, webFetchTool, wikiSearchTool, wikiReadTool };
+      return {
+        [webSearchTool.id]: webSearchTool,
+        [webFetchTool.id]: webFetchTool,
+        [wikiSearchTool.id]: wikiSearchTool,
+        [wikiReadTool.id]: wikiReadTool,
+      };
     },
     maxSteps: 20,
   },
@@ -115,7 +117,10 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
 - 保留原始内容的上下文`;
     },
     getTools() {
-      return { webFetchTool, askClarificationTool };
+      // subagent 用 generate() 同步执行，挂起无法冒泡到 supervisor，澄清提问只交给主 agent
+      return {
+        [webFetchTool.id]: webFetchTool,
+      };
     },
     maxSteps: 20,
   },
@@ -223,6 +228,8 @@ export const taskTool = createTool({
       context?: string;
     };
     const requestContext = (ctx as ToolExecutionContext).requestContext;
+    // 承接中止信号：用户停止后子智能体的模型调用与浏览器自动化必须一起停下
+    const abortSignal = (ctx as { abortSignal?: AbortSignal }).abortSignal;
     const startTime = performance.now();
 
     const template = subagentRegistry[type];
@@ -230,19 +237,20 @@ export const taskTool = createTool({
 
     // 模型由 resolveChatModel 统一解析
     const taskId = `task-${++taskCounter}-${Date.now()}`;
-    const browser = template.getBrowser?.();
+    // 子 Agent 无 memory/thread 实例，browser 工具直接绑定 AgentBrowser 避免信号处理报错
     const subagent = new Agent({
       id: taskId,
       name: template.name,
       instructions: template.getInstructions(),
       model: async () => resolveChatModel(requestContext),
-      ...(browser ? { browser } : {}),
+      errorProcessors: [createLlmRetryProcessor()],
       tools: template.getTools(),
     });
 
     const result = await subagent.generate(fullPrompt, {
       ...(template.maxSteps !== undefined ? { maxSteps: template.maxSteps } : {}),
       ...(requestContext !== undefined ? { requestContext } : {}),
+      ...(abortSignal !== undefined ? { abortSignal } : {}),
     });
 
     const duration = Math.round(performance.now() - startTime);

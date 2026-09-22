@@ -6,7 +6,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { EmbeddingModel, LanguageModel } from "ai";
 import { getModelRuntime } from "../../modules/models/service.js";
-import { createSanitizedFetch } from "./sanitized-fetch.js";
 
 /** v4 聊天模型：Mastra Agent.model 与 generateText 均按 v4 契约校验，
  * 联合类型会因含 V2/V3/全局模型 ID 分支而无法赋值，故收窄到 v4 */
@@ -83,12 +82,11 @@ export async function resolveModelClient(modelId: number): Promise<ResolvedModel
         : {}),
     };
   } else {
-    // 兼容路径：OpenAI 兼容协议 + sanitized fetch（修流式 tool_calls 脏字段、429 退避）
+    // 兼容路径：OpenAI 兼容协议（流式 tool_calls 脏字段由 @ai-sdk/provider-utils 的 tracker 处理）
     const compatible = createOpenAICompatible({
       name: "feedmind",
       apiKey: config.api_key,
       baseURL: config.base_url || "",
-      fetch: createSanitizedFetch(),
     });
     client = {
       chatModel: (id) => compatible.chatModel(id),

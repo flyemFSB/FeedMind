@@ -3,6 +3,8 @@ import type { RuntimeConfigRead, RuntimeConfigUpdate } from "@feedmind/contracts
 import { db, model, runtimeConfig } from "@feedmind/db";
 import type { RuntimeConfigRow } from "@feedmind/db";
 import { decryptValue } from "../../lib/crypto/fernet.js";
+import { assertPublicUrl } from "../../lib/ssrf.js";
+import { fetchImageCapped } from "@feedmind/wiki-core";
 import { HttpError } from "../../lib/http.js";
 
 interface ResolvedModelInfo {
@@ -139,11 +141,17 @@ export async function updateConfig(
   return toConfigRead(updated, effective);
 }
 
-/** 文档解析（OCR）模型配置：model 表 type=ocr 且 is_selected 的条目；
- * 未配置返回 null——VL 是 PDF 导入的增强路径，调用方应降级本地解析而非报错 */
+/** OCR 文档内嵌图片下载：公网校验后按超时与体积上限拉取 */
+async function fetchOcrImage(url: string): Promise<string | null> {
+  await assertPublicUrl(url);
+  return fetchImageCapped(url);
+}
+
+/** OCR 文档解析模型配置：未配置时返回 null 供调用方降级本地解析 */
 export async function getRuntimeOcrConfig(): Promise<{
   baseUrl: string;
   apiKey: string;
+  fetchImage: (url: string) => Promise<string | null>;
 } | null> {
   const [row] = await db
     .select()
@@ -151,7 +159,11 @@ export async function getRuntimeOcrConfig(): Promise<{
     .where(and(eq(model.type, "ocr"), eq(model.isSelected, true)))
     .limit(1);
   if (!row || !row.encryptedApiKey) return null;
-  return { baseUrl: row.baseUrl, apiKey: decryptValue(row.encryptedApiKey) };
+  return {
+    baseUrl: row.baseUrl,
+    apiKey: decryptValue(row.encryptedApiKey),
+    fetchImage: fetchOcrImage,
+  };
 }
 
 export async function getRuntimeConfig(runtime: string): Promise<{
