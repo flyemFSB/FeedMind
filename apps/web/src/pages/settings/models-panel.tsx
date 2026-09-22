@@ -124,9 +124,9 @@ export function ModelsPanel({
     const next = !visibleKeys[model.id];
     setVisibleKeys((prev) => ({ ...prev, [model.id]: next }));
     if (!next || !model.hasApiKey) return;
-    void loadApiKey(model).catch((err: Error) => {
+    void loadApiKey(model).catch(() => {
       setVisibleKeys((prev) => ({ ...prev, [model.id]: false }));
-      toast.add({ title: err.message || t("settings.readKeyFailed"), type: "error" });
+      // 错误已由 apiFetch 统一 toast 提示，避免重复弹窗
     });
   }
 

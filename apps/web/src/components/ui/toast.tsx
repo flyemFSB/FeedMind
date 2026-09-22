@@ -13,7 +13,59 @@ import {
   Loader2Icon,
 } from "lucide-react";
 
-const toast = ToastPrimitive.createToastManager();
+const rawToast = ToastPrimitive.createToastManager();
+
+const DEFAULT_TIMEOUTS: Record<string, number> = {
+  success: 3000,
+  info: 4000,
+  warning: 4500,
+  error: 6000,
+};
+
+const recentToasts = new Map<string, number>();
+const DEDUPE_INTERVAL_MS = 1500;
+
+type ToastAddOptions = Parameters<typeof rawToast.add>[0];
+
+function addToast(options: ToastAddOptions): string {
+  const type = options.type ?? "info";
+  const titleKey = typeof options.title === "string" ? options.title : "";
+  const descKey = typeof options.description === "string" ? options.description : "";
+  const key = `${type}:${titleKey}:${descKey}`;
+
+  if (key) {
+    const now = Date.now();
+    const lastTime = recentToasts.get(key);
+    if (lastTime && now - lastTime < DEDUPE_INTERVAL_MS) {
+      // 1.5 秒内相同类型与标题的提示直接抑制，避免并发错误或快速重复点击刷屏
+      return "";
+    }
+    recentToasts.set(key, now);
+    if (recentToasts.size > 50) {
+      for (const [k, time] of recentToasts.entries()) {
+        if (now - time > 10000) recentToasts.delete(k);
+      }
+    }
+  }
+
+  const timeout = options.timeout ?? DEFAULT_TIMEOUTS[type];
+  return rawToast.add({
+    ...options,
+    ...(timeout != null ? { timeout } : {}),
+  });
+}
+
+const toast = Object.assign(rawToast, {
+  add: addToast,
+  success: (title: React.ReactNode, options?: Omit<ToastAddOptions, "title" | "type">) =>
+    addToast({ ...options, title, type: "success" }),
+  error: (title: React.ReactNode, options?: Omit<ToastAddOptions, "title" | "type">) =>
+    addToast({ ...options, title, type: "error" }),
+  warning: (title: React.ReactNode, options?: Omit<ToastAddOptions, "title" | "type">) =>
+    addToast({ ...options, title, type: "warning" }),
+  info: (title: React.ReactNode, options?: Omit<ToastAddOptions, "title" | "type">) =>
+    addToast({ ...options, title, type: "info" }),
+});
 
 function ToastProvider({ ...props }: ToastPrimitive.Provider.Props) {
   return <ToastPrimitive.Provider {...props} />;
@@ -138,23 +190,23 @@ function ToastIcon({ type }: { type: string | undefined }) {
   let icon: React.ReactNode = null;
 
   if (type === "success") {
-    icon = <CircleCheckIcon aria-hidden="true" />;
+    icon = <CircleCheckIcon className="text-editorial-semantic-success" aria-hidden="true" />;
   }
 
   if (type === "info") {
-    icon = <InfoIcon aria-hidden="true" />;
+    icon = <InfoIcon className="text-editorial-semantic-info" aria-hidden="true" />;
   }
 
   if (type === "warning") {
-    icon = <TriangleAlertIcon aria-hidden="true" />;
+    icon = <TriangleAlertIcon className="text-editorial-semantic-warning" aria-hidden="true" />;
   }
 
   if (type === "error") {
-    icon = <OctagonXIcon className="text-destructive" aria-hidden="true" />;
+    icon = <OctagonXIcon className="text-editorial-semantic-error" aria-hidden="true" />;
   }
 
   if (type === "loading") {
-    icon = <Loader2Icon className="animate-spin" aria-hidden="true" />;
+    icon = <Loader2Icon className="animate-spin text-editorial-primary" aria-hidden="true" />;
   }
 
   if (!icon) {

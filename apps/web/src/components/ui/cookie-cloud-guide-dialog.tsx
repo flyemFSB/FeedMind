@@ -72,7 +72,8 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
     {
       title: t("feeds.cookieCloudStep2Title"),
       desc: t("feeds.cookieCloudStep2Desc"),
-      code: t("feeds.cookieCloudStep2Code"),
+      // 地址跟随实际服务端口：打包后 API 端口可能被自动切换，写死端口会让扩展连不上
+      code: `${window.location.origin}/api/v1/cookiecloud`,
       codeLabel: t("feeds.cookieCloudCopyServer"),
     },
     {

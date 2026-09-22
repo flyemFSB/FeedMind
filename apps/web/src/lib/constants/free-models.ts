@@ -15,12 +15,12 @@ export const FREE_MODEL_PRESETS = {
   agnesChat: {
     type: "chat",
     provider: "Agnes",
-    modelName: "Agnes 2.5 Flash",
-    modelId: "agnes-2.5-flash",
-    baseUrl: "https://apihub.agnes-ai.com/v1",
-    signupUrl: "https://platform.agnes-ai.com",
+    modelName: "Agnes 3.0 Flash",
+    modelId: "agnes-3.0-flash",
+    baseUrl: "https://api.agnes-ai.cn/v1",
+    signupUrl: "https://platform.agnes-ai.cn",
     description:
-      "Agnes 2.5 Flash 是 Agnes AI 的免费对话模型，OpenAI 兼容。前往 Agnes AI 平台注册并生成 API Key 后，填入下方即可一键接入。",
+      "Agnes 3.0 Flash 是 Agnes AI 的免费对话模型，OpenAI 兼容。前往 Agnes AI 平台注册并生成 API Key 后，填入下方即可一键接入。",
   },
   siliconFlowEmbedding: {
     type: "embedding",

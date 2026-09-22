@@ -5,6 +5,7 @@ import type { LLMModel } from "@/lib/types";
 import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import {
   Dialog,
   DialogContent,
@@ -79,97 +80,106 @@ export function OcrModelDialog({
       }}
     >
       <DialogContent className="max-w-md rounded-xl border border-editorial-hairline bg-editorial-surface-card p-5 shadow-lg">
-        <DialogHeader className="gap-1 pb-3">
-          <DialogTitle className="text-base font-semibold text-editorial-ink">
-            {isEditing ? t("settings.editOcrModel") : t("settings.addOcrModel")}
-          </DialogTitle>
-          <DialogDescription className="text-xs text-editorial-ink-muted">
-            {t("settings.ocrModelDesc")}
-          </DialogDescription>
-        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <DialogHeader className="gap-1 pb-3">
+            <DialogTitle className="text-base font-semibold text-editorial-ink">
+              {isEditing ? t("settings.editOcrModel") : t("settings.addOcrModel")}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-editorial-ink-muted">
+              {t("settings.ocrModelDesc")}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-3.5 py-1 text-sm">
-          <div className="space-y-1.5">
-            <label
-              htmlFor="ocr-model-name"
-              className="block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.ocrModelName")}
-            </label>
-            <Input
-              id="ocr-model-name"
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              placeholder="PaddleOCR-VL-1.6"
-              className="h-9 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="ocr-endpoint"
-              className="block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.ocrEndpoint")}
-            </label>
-            <Input
-              id="ocr-endpoint"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://paddleocr.aistudio-app.com"
-              className="h-9 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
-            />
-            <p className="text-tiny text-editorial-ink-muted">{t("settings.ocrEndpointHint")}</p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label
-              htmlFor="ocr-token"
-              className="block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.ocrToken")}
-            </label>
-            <div className="flex gap-2">
-              <Input
-                id="ocr-token"
-                type={showKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={isEditing ? t("settings.keyPlaceholder") : ""}
-                className="h-9 flex-1 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="h-9 w-9 shrink-0 text-editorial-ink-muted"
-                title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+          <div className="space-y-3.5 py-1 text-sm">
+            <div className="space-y-1.5">
+              <label
+                htmlFor="ocr-model-name"
+                className="block text-xs font-medium text-editorial-ink-soft"
               >
-                {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
-              </Button>
+                {t("settings.ocrModelName")}
+              </label>
+              <Input
+                id="ocr-model-name"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder="PaddleOCR-VL-1.6"
+                className="h-9 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="ocr-endpoint"
+                className="block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.ocrEndpoint")}
+              </label>
+              <Input
+                id="ocr-endpoint"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://paddleocr.aistudio-app.com"
+                className="h-9 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
+              />
+              <p className="text-tiny text-editorial-ink-muted">{t("settings.ocrEndpointHint")}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="ocr-token"
+                className="block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.ocrToken")}
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  id="ocr-token"
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={isEditing ? t("settings.keyPlaceholder") : ""}
+                  className="h-9 flex-1 border-editorial-hairline-strong bg-editorial-surface-card px-3 text-sm outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="h-9 w-9 shrink-0 text-editorial-ink-muted"
+                  title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                >
+                  {showKey ? <EyeOff size={15} /> : <Eye size={15} />}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
 
-        <DialogFooter className="gap-2 pt-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClose}
-            className="text-xs text-editorial-ink-muted"
-          >
-            {t("common.cancel")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => void handleSubmit()}
-            disabled={!canSave || isPending}
-            className="h-8 px-4 text-xs"
-          >
-            {t("common.save")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="gap-2 pt-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleClose}
+              className="text-xs text-editorial-ink-muted"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!canSave || isPending}
+              className="h-8 gap-1.5 px-4 text-xs"
+            >
+              {isPending && <MotionSpinner size={14} />}
+              {isPending ? t("common.saving", "保存中...") : t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

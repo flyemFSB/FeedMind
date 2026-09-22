@@ -1,4 +1,4 @@
-import { keepPreviousData, queryOptions, useInfiniteQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { listOperations, type OpsAction, type OpsLogRow, type OpsResult } from "@/lib/api/ops-log";
 
 const PAGE_SIZE = 50;
@@ -11,11 +11,6 @@ export interface OpsLogFilter {
 
 const opsLogOptions = {
   all: ["ops-log"] as const,
-  list: (filter: OpsLogFilter) =>
-    queryOptions({
-      queryKey: [...opsLogOptions.all, "list", filter] as const,
-      queryFn: ({ signal }) => listOperations(PAGE_SIZE, 0, filter, signal),
-    }),
 };
 
 /** 操作日志无限分页：筛选条件进 queryKey，切换筛选自动重新请求 */

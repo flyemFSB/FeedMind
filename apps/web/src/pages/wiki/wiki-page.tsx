@@ -32,14 +32,8 @@ import { DiscardChangesDialog } from "@/pages/wiki/discard-changes-dialog";
 import { deleteWikiSpace, resolveWikiLink } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
+import { toast } from "@/components/ui/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -178,12 +172,16 @@ export function MyWikiPage() {
         void navigate({ search: (prev) => ({ ...prev, space: undefined, page: undefined }) });
       }
       void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
+      toast.add({
+        title: t("wiki.spaceDeleted", "空间已成功删除"),
+        type: "success",
+      });
     } catch {
       // 错误由 apiFetch toast 统一提示
     } finally {
       setDeletingSpace(false);
     }
-  }, [spaceId, spaces, navigate, queryClient]);
+  }, [spaceId, spaces, navigate, queryClient, t]);
 
   if (isLoading) {
     return (
@@ -368,36 +366,15 @@ export function MyWikiPage() {
         }}
       />
 
-      {/* 删除空间确认：不可逆操作，默认焦点在取消上避免误触 */}
-      <Dialog open={showDeleteSpace} onOpenChange={setShowDeleteSpace}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{t("wiki.deleteSpace")}</DialogTitle>
-            <DialogDescription>
-              {t("wiki.deleteSpaceConfirm", { name: spaceName })}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="default"
-              disabled={deletingSpace}
-              onClick={() => setShowDeleteSpace(false)}
-            >
-              {t("wiki.cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              size="default"
-              disabled={deletingSpace}
-              onClick={() => void handleDeleteSpace()}
-            >
-              <Trash2 size={14} />
-              {deletingSpace ? t("wiki.deletingSpace") : t("wiki.delete")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* 删除空间确认：不可逆操作，复用全站统一的 DeleteConfirmDialog */}
+      <DeleteConfirmDialog
+        open={showDeleteSpace}
+        onClose={() => setShowDeleteSpace(false)}
+        onConfirm={() => void handleDeleteSpace()}
+        title={t("wiki.deleteSpace")}
+        description={t("wiki.deleteSpaceConfirm", { name: spaceName })}
+        confirming={deletingSpace}
+      />
 
       {/* 放弃未保存内容二次确认 */}
       <DiscardChangesDialog

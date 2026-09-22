@@ -152,6 +152,12 @@ export function FreeModelDialog({ open, preset, onClose }: FreeModelDialogProps)
                     ? t("settings.ocrTokenPlaceholder", "输入 Access Token")
                     : t("settings.apiKeyPlaceholderNew")
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAdd();
+                  }
+                }}
                 className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
               />
               <button

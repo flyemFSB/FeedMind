@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants/provider-models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import {
   Select,
   SelectContent,
@@ -178,276 +179,289 @@ export function ModelFormDialog({
       }}
     >
       <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
-        <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-sm font-semibold">
-            {isEditing ? t("settings.editModel") : t("settings.addModel")}
-          </DialogTitle>
-          <DialogDescription className="text-xs text-editorial-ink-muted">
-            {t("settings.formDescription")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 px-5 py-5">
-          <div className="col-span-2">
-            <label
-              htmlFor="model-provider-select"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.provider")}
-            </label>
-            <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
-              <div className="grid h-10 w-10 place-items-center rounded-lg border border-editorial-hairline bg-editorial-canvas-soft">
-                <ProviderIcon provider={form.provider} size={24} />
-              </div>
-              <Select value={form.provider} onValueChange={handleProviderChange}>
-                <SelectTrigger
-                  id="model-provider-select"
-                  aria-label={t("settings.selectProvider")}
-                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
-                >
-                  <SelectValue placeholder={t("settings.selectProvider")} />
-                </SelectTrigger>
-                <SelectContent className="rounded-md border-editorial-hairline">
-                  <SelectGroup>
-                    {PROVIDERS.map((provider) => (
-                      <SelectItem key={provider} value={provider}>
-                        <span className="flex items-center gap-2">
-                          <ProviderIcon provider={provider} size={18} />
-                          <span>{provider}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          {/* 模型名称 */}
-          <div className="col-span-2">
-            <label
-              htmlFor={isCustom ? "model-name-input" : "model-name-select"}
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.modelName", "模型名称")}
-            </label>
-            {isCustom ? (
-              <Input
-                id="model-name-input"
-                value={form.modelName}
-                onChange={(event) => {
-                  const val = event.target.value;
-                  setForm((current) => ({
-                    ...current,
-                    modelName: val,
-                    modelId: val,
-                  }));
-                }}
-                placeholder={t("settings.modelNamePlaceholder", "例如 deepseek-chat 或 gpt-4o")}
-                className="h-10 rounded-md border-editorial-hairline text-body"
-              />
-            ) : (
-              <Select value={form.modelId} onValueChange={handleModelChange}>
-                <SelectTrigger
-                  id="model-name-select"
-                  aria-label={t("settings.selectModel")}
-                  className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
-                >
-                  <SelectValue placeholder={t("settings.selectModel")}>
-                    {(value: string | null) => {
-                      if (!value && !form.modelName) return null;
-                      const model = modelList.find((m) => m.model_id === value);
-                      const displayName = model?.name ?? form.modelName;
-                      if (!displayName) return null;
-                      const context =
-                        model?.context_window ?? (form.context ? Number(form.context) : null);
-                      const maxOutput =
-                        model?.max_output ?? (form.maxOutput ? Number(form.maxOutput) : null);
-                      return (
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-body">{displayName}</span>
-                          <span className="flex shrink-0 items-center gap-1">
-                            {context != null && (
-                              <ModelSpecBadge
-                                label={formatTokenLimit(context)}
-                                title={`上下文窗口: ${formatTokenLimit(context)} tokens`}
-                              />
-                            )}
-                            {maxOutput != null && (
-                              <ModelSpecBadge
-                                label={formatTokenLimit(maxOutput)}
-                                title={`最大单次输出: ${formatTokenLimit(maxOutput)} tokens`}
-                              />
-                            )}
-                          </span>
-                        </span>
-                      );
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-md border-editorial-hairline">
-                  <SelectGroup>
-                    {catalogQuery.isPending ? (
-                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
-                        {t("settings.modelCatalogLoading")}
-                      </div>
-                    ) : catalogQuery.isError ? (
-                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
-                        {t("settings.modelCatalogFailed")}
-                      </div>
-                    ) : modelList.length > 0 ? (
-                      modelList.map((model) => (
-                        <SelectItem key={model.model_id} value={model.model_id}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
+            <DialogTitle className="text-sm font-semibold">
+              {isEditing ? t("settings.editModel") : t("settings.addModel")}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-editorial-ink-muted">
+              {t("settings.formDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 px-5 py-5">
+            <div className="col-span-2">
+              <label
+                htmlFor="model-provider-select"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.provider")}
+              </label>
+              <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-2">
+                <div className="grid h-10 w-10 place-items-center rounded-lg border border-editorial-hairline bg-editorial-canvas-soft">
+                  <ProviderIcon provider={form.provider} size={24} />
+                </div>
+                <Select value={form.provider} onValueChange={handleProviderChange}>
+                  <SelectTrigger
+                    id="model-provider-select"
+                    aria-label={t("settings.selectProvider")}
+                    className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
+                  >
+                    <SelectValue placeholder={t("settings.selectProvider")} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-md border-editorial-hairline">
+                    <SelectGroup>
+                      {PROVIDERS.map((provider) => (
+                        <SelectItem key={provider} value={provider}>
                           <span className="flex items-center gap-2">
-                            <span className="text-body">{model.name}</span>
-                            <span className="flex items-center gap-1">
-                              {model.context_window != null && (
+                            <ProviderIcon provider={provider} size={18} />
+                            <span>{provider}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="col-span-2">
+              <label
+                htmlFor={isCustom ? "model-name-input" : "model-name-select"}
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.modelName", "模型名称")}
+              </label>
+              {isCustom ? (
+                <Input
+                  id="model-name-input"
+                  value={form.modelName}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      modelName: val,
+                      modelId: val,
+                    }));
+                  }}
+                  placeholder={t("settings.modelNamePlaceholder", "例如 deepseek-chat 或 gpt-4o")}
+                  className="h-10 rounded-md border-editorial-hairline text-body"
+                />
+              ) : (
+                <Select value={form.modelId} onValueChange={handleModelChange}>
+                  <SelectTrigger
+                    id="model-name-select"
+                    aria-label={t("settings.selectModel")}
+                    className="h-10 min-h-10 w-full rounded-md border-editorial-hairline bg-editorial-surface-card px-3 py-0 text-body"
+                  >
+                    <SelectValue placeholder={t("settings.selectModel")}>
+                      {(value: string | null) => {
+                        if (!value && !form.modelName) return null;
+                        const model = modelList.find((m) => m.model_id === value);
+                        const displayName = model?.name ?? form.modelName;
+                        if (!displayName) return null;
+                        const context =
+                          model?.context_window ?? (form.context ? Number(form.context) : null);
+                        const maxOutput =
+                          model?.max_output ?? (form.maxOutput ? Number(form.maxOutput) : null);
+                        return (
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-body">{displayName}</span>
+                            <span className="flex shrink-0 items-center gap-1">
+                              {context != null && (
                                 <ModelSpecBadge
-                                  label={formatTokenLimit(model.context_window)}
-                                  title={`上下文窗口: ${formatTokenLimit(model.context_window)} tokens`}
+                                  label={formatTokenLimit(context)}
+                                  title={`上下文窗口: ${formatTokenLimit(context)} tokens`}
                                 />
                               )}
-                              {model.max_output != null && (
+                              {maxOutput != null && (
                                 <ModelSpecBadge
-                                  label={formatTokenLimit(model.max_output)}
-                                  title={`最大单次输出: ${formatTokenLimit(model.max_output)} tokens`}
+                                  label={formatTokenLimit(maxOutput)}
+                                  title={`最大单次输出: ${formatTokenLimit(maxOutput)} tokens`}
                                 />
                               )}
                             </span>
                           </span>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-xs text-editorial-ink-muted">
-                        {t("settings.noModelsAvailable")}
-                      </div>
-                    )}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-          <div className="col-span-2">
-            <label
-              htmlFor="model-endpoint-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.endpointLabel")}
-            </label>
-            <Input
-              id="model-endpoint-input"
-              value={form.baseUrl}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, baseUrl: event.target.value }))
-              }
-              placeholder={
-                isCustom
-                  ? t("settings.endpointPlaceholder")
-                  : t("settings.endpointPlaceholderBuiltin")
-              }
-              className="h-10 rounded-md border-editorial-hairline text-body"
-            />
-          </div>
-          <div className="col-span-2">
-            <label
-              htmlFor="model-api-key-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.apiKeyLabel")}
-            </label>
-            <div className="relative">
+                        );
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-md border-editorial-hairline">
+                    <SelectGroup>
+                      {catalogQuery.isPending ? (
+                        <div className="px-3 py-2 text-xs text-editorial-ink-muted">
+                          {t("settings.modelCatalogLoading")}
+                        </div>
+                      ) : catalogQuery.isError ? (
+                        <div className="px-3 py-2 text-xs text-editorial-ink-muted">
+                          {t("settings.modelCatalogFailed")}
+                        </div>
+                      ) : modelList.length > 0 ? (
+                        modelList.map((model) => (
+                          <SelectItem key={model.model_id} value={model.model_id}>
+                            <span className="flex items-center gap-2">
+                              <span className="text-body">{model.name}</span>
+                              <span className="flex items-center gap-1">
+                                {model.context_window != null && (
+                                  <ModelSpecBadge
+                                    label={formatTokenLimit(model.context_window)}
+                                    title={`上下文窗口: ${formatTokenLimit(model.context_window)} tokens`}
+                                  />
+                                )}
+                                {model.max_output != null && (
+                                  <ModelSpecBadge
+                                    label={formatTokenLimit(model.max_output)}
+                                    title={`最大单次输出: ${formatTokenLimit(model.max_output)} tokens`}
+                                  />
+                                )}
+                              </span>
+                            </span>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-3 py-2 text-xs text-editorial-ink-muted">
+                          {t("settings.noModelsAvailable")}
+                        </div>
+                      )}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="col-span-2">
+              <label
+                htmlFor="model-endpoint-input"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.endpointLabel")}
+              </label>
               <Input
-                id="model-api-key-input"
-                value={form.apiKey}
+                id="model-endpoint-input"
+                value={form.baseUrl}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, apiKey: event.target.value }))
+                  setForm((current) => ({ ...current, baseUrl: event.target.value }))
                 }
                 placeholder={
-                  isEditing
-                    ? t("settings.apiKeyPlaceholderEdit")
-                    : t("settings.apiKeyPlaceholderNew")
+                  isCustom
+                    ? t("settings.endpointPlaceholder")
+                    : t("settings.endpointPlaceholderBuiltin")
                 }
-                type={showKey ? "text" : "password"}
-                className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
+                className="h-10 rounded-md border-editorial-hairline text-body"
               />
-              <button
-                type="button"
-                onClick={() => setShowKey((value) => !value)}
-                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
-                aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
-                title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+            </div>
+            <div className="col-span-2">
+              <label
+                htmlFor="model-api-key-input"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
               >
-                {showKey ? (
-                  <EyeOff size={15} strokeWidth={1.7} />
-                ) : (
-                  <Eye size={15} strokeWidth={1.7} />
-                )}
-              </button>
+                {t("settings.apiKeyLabel")}
+              </label>
+              <div className="relative">
+                <Input
+                  id="model-api-key-input"
+                  value={form.apiKey}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, apiKey: event.target.value }))
+                  }
+                  placeholder={
+                    isEditing
+                      ? t("settings.apiKeyPlaceholderEdit")
+                      : t("settings.apiKeyPlaceholderNew")
+                  }
+                  type={showKey ? "text" : "password"}
+                  className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((value) => !value)}
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                  aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                  title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                >
+                  {showKey ? (
+                    <EyeOff size={15} strokeWidth={1.7} />
+                  ) : (
+                    <Eye size={15} strokeWidth={1.7} />
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="col-span-2 grid grid-cols-[3fr_2fr] gap-3">
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label
+                    htmlFor="model-context-input"
+                    className="block text-xs font-medium text-editorial-ink-soft"
+                  >
+                    {t("settings.contextWindow")}
+                  </label>
+                  {form.context && (
+                    <span className="font-mono text-tiny font-medium text-editorial-accent">
+                      = {formatTokenLimit(form.context)}
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="model-context-input"
+                  type="number"
+                  value={form.context}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, context: event.target.value }))
+                  }
+                  placeholder={t("settings.contextWindowPlaceholder")}
+                  className="h-10 rounded-md border-editorial-hairline text-body"
+                />
+              </div>
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label
+                    htmlFor="model-max-output-input"
+                    className="block text-xs font-medium text-editorial-ink-soft"
+                  >
+                    {t("settings.maxOutput")}
+                  </label>
+                  {form.maxOutput && (
+                    <span className="font-mono text-tiny font-medium text-editorial-accent">
+                      = {formatTokenLimit(form.maxOutput)}
+                    </span>
+                  )}
+                </div>
+                <Input
+                  id="model-max-output-input"
+                  type="number"
+                  value={form.maxOutput}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, maxOutput: event.target.value }))
+                  }
+                  placeholder={t("settings.maxOutputPlaceholder")}
+                  className="h-10 rounded-md border-editorial-hairline text-body"
+                />
+              </div>
             </div>
           </div>
-          <div className="col-span-2 grid grid-cols-[3fr_2fr] gap-3">
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label
-                  htmlFor="model-context-input"
-                  className="block text-xs font-medium text-editorial-ink-soft"
-                >
-                  {t("settings.contextWindow")}
-                </label>
-                {form.context && (
-                  <span className="font-mono text-tiny font-medium text-editorial-accent">
-                    = {formatTokenLimit(form.context)}
-                  </span>
-                )}
-              </div>
-              <Input
-                id="model-context-input"
-                type="number"
-                value={form.context}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, context: event.target.value }))
-                }
-                placeholder={t("settings.contextWindowPlaceholder")}
-                className="h-10 rounded-md border-editorial-hairline text-body"
-              />
-            </div>
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label
-                  htmlFor="model-max-output-input"
-                  className="block text-xs font-medium text-editorial-ink-soft"
-                >
-                  {t("settings.maxOutput")}
-                </label>
-                {form.maxOutput && (
-                  <span className="font-mono text-tiny font-medium text-editorial-accent">
-                    = {formatTokenLimit(form.maxOutput)}
-                  </span>
-                )}
-              </div>
-              <Input
-                id="model-max-output-input"
-                type="number"
-                value={form.maxOutput}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, maxOutput: event.target.value }))
-                }
-                placeholder={t("settings.maxOutputPlaceholder")}
-                className="h-10 rounded-md border-editorial-hairline text-body"
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={handleClose} variant="ghost" className="px-4 text-body">
-            {t("common.cancel")}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!form.modelName || isPending}
-            className="px-4 text-body"
-          >
-            {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
+            <Button type="button" onClick={handleClose} variant="ghost" className="px-4 text-body">
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={!form.modelName || isPending}
+              className="gap-1.5 px-4 text-body"
+            >
+              {isPending && <MotionSpinner size={14} />}
+              {isPending
+                ? isEditing
+                  ? t("common.saving", "保存中...")
+                  : t("common.adding", "添加中...")
+                : isEditing
+                  ? t("settings.saveEdit")
+                  : t("settings.addModel")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

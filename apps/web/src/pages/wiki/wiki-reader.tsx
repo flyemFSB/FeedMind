@@ -30,7 +30,6 @@ import { getWikiBacklinks, getWikiPage } from "@/lib/api/wiki";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "react-i18next";
-import { useAppShell } from "@/app/shell/app-shell-context";
 import { listContainerVariants, listItemVariants } from "@/lib/motion";
 import { wikiTypeLabel } from "./constants";
 import "streamdown/styles.css";
@@ -45,7 +44,6 @@ interface WikiReaderProps {
 
 export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderProps) {
   const { t } = useTranslation();
-  const { setWorkspaceContext } = useAppShell();
   // 引用必须稳定，否则重渲染会击穿 Streamdown 的 memo 导致全量重解析
   const sdTranslations = useMemo(() => streamdownTranslations(t), [t]);
   const [page, setPage] = useState<WikiPageRead | null>(null);
@@ -76,19 +74,12 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
       if (loadId !== loadIdRef.current) return;
       setPage(result);
       setBacklinks(links);
-      setWorkspaceContext({
-        type: "wiki",
-        spaceId,
-        pageId,
-        pageTitle: result.title,
-        snippet: result.description ?? undefined,
-      });
     } catch {
       // 错误由 apiFetch toast 统一处理
     } finally {
       if (loadId === loadIdRef.current) setLoading(false);
     }
-  }, [spaceId, pageId, setWorkspaceContext]);
+  }, [spaceId, pageId]);
 
   useEffect(() => {
     void loadPage();

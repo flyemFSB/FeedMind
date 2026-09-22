@@ -360,12 +360,27 @@ export function SourcesPage() {
   const handleCheckAllCookies = async () => {
     if (checkingAll) return;
     const platforms = Object.keys(DEFAULT_COOKIE_STATUS);
-    await Promise.all(
-      // 单个平台失败（网络波动等）不阻断其余平台；apiFetch 已 toast 错误
-      platforms.map((p) => checkCookieMutation.mutateAsync(p).catch(() => undefined)),
+    const results = await Promise.all(
+      platforms.map(async (p) => {
+        try {
+          return await checkCookieMutation.mutateAsync(p);
+        } catch {
+          return null;
+        }
+      }),
     );
     void queryClient.invalidateQueries({ queryKey: feedOptions.cookies().queryKey });
-    toast.add({ title: t("feeds.cookieRefreshDone"), type: "success" });
+    const successCount = results.filter(Boolean).length;
+    if (successCount === platforms.length) {
+      toast.add({ title: t("feeds.cookieRefreshDone"), type: "success" });
+    } else if (successCount > 0) {
+      toast.add({
+        title: t("feeds.cookieRefreshPartial", {
+          defaultValue: `已刷新 ${successCount}/${platforms.length} 个平台凭据状态`,
+        }),
+        type: "warning",
+      });
+    }
   };
 
   return (

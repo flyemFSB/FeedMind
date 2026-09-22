@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import { toast } from "@/components/ui/toast";
 import { useWikiSpaces } from "@/lib/hooks/use-wiki";
 import { createWikiSource } from "@/lib/api/wiki";
@@ -42,7 +43,8 @@ export function FeedReaderDialog({ item, source, open, onOpenChange }: FeedReade
   const { data: spaces = [] } = useWikiSpaces();
   const { openAgentDrawer, setWorkspaceContext } = useAppShell();
   const [isIngesting, setIsIngesting] = useState(false);
-  const [ingested, setIngested] = useState(false);
+  const [ingestedItemId, setIngestedItemId] = useState<string | null>(null);
+  const ingested = item?.id ? ingestedItemId === item.id : false;
 
   // 选中的沉淀目标空间：默认首个空间
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function FeedReaderDialog({ item, source, open, onOpenChange }: FeedReade
     if (!activeSpaceId) {
       toast.add({
         title: t("wiki.noSpaceAvailable", "请先在 Wiki 中创建一个知识库空间"),
-        type: "error",
+        type: "warning",
       });
       return;
     }
@@ -72,16 +74,13 @@ export function FeedReaderDialog({ item, source, open, onOpenChange }: FeedReade
         original_uri: item.link ?? undefined,
         metadata: {},
       });
-      setIngested(true);
+      setIngestedItemId(item.id);
       toast.add({
         title: t("feeds.ingestSuccess", "已沉淀到知识库，概念提炼已在后台启动"),
         type: "success",
       });
     } catch {
-      toast.add({
-        title: t("feeds.ingestFailed", "沉淀失败，请稍后重试"),
-        type: "error",
-      });
+      // 错误已由 apiFetch 统一 toast 提示，避免重复弹窗
     } finally {
       setIsIngesting(false);
     }
@@ -89,7 +88,6 @@ export function FeedReaderDialog({ item, source, open, onOpenChange }: FeedReade
 
   const handleAskAgent = () => {
     setWorkspaceContext({
-      type: "feed",
       feedId: item.id,
       feedTitle: item.title,
       feedUrl: item.link ?? undefined,
@@ -188,7 +186,13 @@ export function FeedReaderDialog({ item, source, open, onOpenChange }: FeedReade
                 ingested && "text-editorial-semantic-success border-editorial-semantic-success/30",
               )}
             >
-              {ingested ? <Check size={13} /> : <BookMarked size={13} />}
+              {ingested ? (
+                <Check size={13} />
+              ) : isIngesting ? (
+                <MotionSpinner size={13} />
+              ) : (
+                <BookMarked size={13} />
+              )}
               {ingested ? "已沉淀到知识库" : isIngesting ? "正在沉淀..." : "沉淀到知识库"}
             </Button>
 

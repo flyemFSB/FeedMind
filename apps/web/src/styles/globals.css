@@ -93,6 +93,10 @@
 }
 
 :root {
+  color-scheme: light;
+  --scrollbar-thumb: rgba(55, 53, 45, 0.2);
+  --scrollbar-thumb-hover: rgba(55, 53, 45, 0.4);
+  --scrollbar-thumb-active: rgba(55, 53, 45, 0.6);
   --editorial-canvas: #ffffff;
   --editorial-canvas-soft: #f7f6f3;
   --editorial-canvas-deep: #37352d;
@@ -188,6 +192,10 @@
 }
 
 .dark {
+  color-scheme: dark;
+  --scrollbar-thumb: rgba(229, 229, 229, 0.22);
+  --scrollbar-thumb-hover: rgba(229, 229, 229, 0.45);
+  --scrollbar-thumb-active: rgba(229, 229, 229, 0.65);
   --editorial-canvas: #191919;
   --editorial-canvas-soft: #111111;
   --editorial-canvas-deep: #0d0d0d;
@@ -205,14 +213,14 @@
   --editorial-primary: #e5e5e5;
   --editorial-primary-active: #d4d4d4;
   --editorial-accent: #e5e5e5;
-  --editorial-accent-soft: #2e2e2e;
-  --editorial-hairline: #2e2e2e;
-  --editorial-hairline-soft: #1f1f1f;
-  --editorial-hairline-strong: #454545;
-  --editorial-semantic-success: oklch(0.65 0.18 145);
-  --editorial-semantic-error: oklch(0.65 0.22 25);
-  --editorial-semantic-warning: oklch(0.7 0.16 85);
-  --editorial-semantic-info: oklch(0.65 0.16 250);
+  --editorial-accent-soft: #2a2a2a;
+  --editorial-hairline: #353535;
+  --editorial-hairline-soft: #252525;
+  --editorial-hairline-strong: #4f4f4f;
+  --editorial-semantic-success: oklch(0.68 0.18 145);
+  --editorial-semantic-error: oklch(0.68 0.22 25);
+  --editorial-semantic-warning: oklch(0.72 0.16 85);
+  --editorial-semantic-info: oklch(0.68 0.16 250);
   --editorial-shadow-island: 0 1px 4px rgba(0, 0, 0, 0.45);
   --editorial-shadow-drawer: -8px 0 20px -10px rgba(0, 0, 0, 0.55);
   /* Wiki 知识形态 type 专属颜色（暗色：提高亮度保证可读） */
@@ -242,8 +250,8 @@
   --primary-text: #e5e5e5;
   --secondary-text: #a8a8a8;
   --muted-text: #8e8d8a;
-  --border: #2e2e2e;
-  --border-strong: #454545;
+  --border: #353535;
+  --border-strong: #4f4f4f;
 
   --card: #191919;
   --card-foreground: #e5e5e5;
@@ -295,6 +303,12 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover,
+  *:focus-within {
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
   html {
     font-family: var(--font-sans);
@@ -306,5 +320,32 @@
     line-height: 1.5;
     letter-spacing: 0;
     overflow: hidden;
+  }
+
+  /* WebKit/Blink 统一滚动条：平时透明隐藏，仅在鼠标悬停或聚焦于当前可滚动容器时显示 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    transition: background-color 0.2s ease-in-out;
+  }
+  *:hover::-webkit-scrollbar-thumb,
+  *:focus-within::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover) !important;
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: var(--scrollbar-thumb-active) !important;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }

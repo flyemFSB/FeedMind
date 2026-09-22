@@ -9,10 +9,6 @@ import {
 } from "react";
 
 export interface WorkspaceContext {
-  type: "wiki" | "feed";
-  spaceId?: string | undefined;
-  pageId?: string | undefined;
-  pageTitle?: string | undefined;
   feedId?: string | undefined;
   feedTitle?: string | undefined;
   feedUrl?: string | undefined;
@@ -39,7 +35,7 @@ interface AppShellContextValue {
   openCommandPalette: () => void;
   closeCommandPalette: () => void;
   toggleCommandPalette: () => void;
-  /** 当前活跃工作区上下文（给 Agent 提供即时感知） */
+  /** 当前 Agent 上下文 */
   workspaceContext: WorkspaceContext | null;
   setWorkspaceContext: (ctx: WorkspaceContext | null) => void;
 }

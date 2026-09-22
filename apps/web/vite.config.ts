@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { TanStackRouterVite } from "@tanstack/router-vite-plugin";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // dev 与 preview 各自维护代理（官方文档明确 preview 不继承 server.proxy）：
 // vite preview 直接服务构建产物时若无此代理，/api 请求会命中 SPA 回退返回 index.html
@@ -34,10 +34,6 @@ export default defineConfig({
   },
   // React Compiler 走 Oxc 原生路径（plugin-react v6 已移除 Babel），oxc-transform-react 需对齐
   // plugin-react 的 peer 范围（^0.145.0），装最新会因 0.x minor 视为 breaking 而报 unmet peer
-  plugins: [
-    TanStackRouterVite({ autoCodeSplitting: true }),
-    tailwindcss(),
-    react({ compiler: true }),
-  ],
+  plugins: [tanstackRouter({ autoCodeSplitting: true }), tailwindcss(), react({ compiler: true })],
   // 依赖 Vite 自动代码分割（mermaid/milkdown 等重库已按需懒加载），避免手动分包合并出过大 chunk
 });

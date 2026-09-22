@@ -5,6 +5,7 @@ import type { LLMModel } from "@/lib/types";
 import { useCreateModel, useUpdateModel } from "@/lib/hooks/use-models";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MotionSpinner } from "@/components/ui/motion-spinner";
 import {
   Dialog,
   DialogContent,
@@ -101,93 +102,107 @@ export function EmbeddingModelDialog({
       }}
     >
       <DialogContent className="max-w-[520px] gap-0 overflow-hidden rounded-lg bg-editorial-surface-card p-0 text-editorial-ink">
-        <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
-          <DialogTitle className="text-sm font-semibold">
-            {isEditing ? t("settings.editModel") : t("settings.addModel")}
-          </DialogTitle>
-          <DialogDescription className="text-xs text-editorial-ink-muted">
-            {t("settings.embeddingModelDesc")}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 px-5 py-5">
-          <div>
-            <label
-              htmlFor="embedding-model-name-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.embeddingModelName")}
-            </label>
-            <Input
-              id="embedding-model-name-input"
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              placeholder="BAAI/bge-m3"
-              className="h-10 rounded-md border-editorial-hairline text-body"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="embedding-endpoint-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.endpointLabel")}
-            </label>
-            <Input
-              id="embedding-endpoint-input"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.siliconflow.cn/v1"
-              className="h-10 rounded-md border-editorial-hairline text-body"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="embedding-api-key-input"
-              className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
-            >
-              {t("settings.apiKeyLabel")}
-            </label>
-            <div className="relative">
-              <Input
-                id="embedding-api-key-input"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={
-                  isEditing
-                    ? t("settings.apiKeyPlaceholderEdit")
-                    : t("settings.apiKeyPlaceholderNew")
-                }
-                type={showKey ? "text" : "password"}
-                className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey((v) => !v)}
-                className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
-                aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
-                title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
+          <DialogHeader className="border-b border-editorial-hairline px-5 py-4">
+            <DialogTitle className="text-sm font-semibold">
+              {isEditing ? t("settings.editModel") : t("settings.addModel")}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-editorial-ink-muted">
+              {t("settings.embeddingModelDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 px-5 py-5">
+            <div>
+              <label
+                htmlFor="embedding-model-name-input"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
               >
-                {showKey ? (
-                  <EyeOff size={15} strokeWidth={1.7} />
-                ) : (
-                  <Eye size={15} strokeWidth={1.7} />
-                )}
-              </button>
+                {t("settings.embeddingModelName")}
+              </label>
+              <Input
+                id="embedding-model-name-input"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder="BAAI/bge-m3"
+                className="h-10 rounded-md border-editorial-hairline text-body"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="embedding-endpoint-input"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.endpointLabel")}
+              </label>
+              <Input
+                id="embedding-endpoint-input"
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder="https://api.siliconflow.cn/v1"
+                className="h-10 rounded-md border-editorial-hairline text-body"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="embedding-api-key-input"
+                className="mb-1.5 block text-xs font-medium text-editorial-ink-soft"
+              >
+                {t("settings.apiKeyLabel")}
+              </label>
+              <div className="relative">
+                <Input
+                  id="embedding-api-key-input"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={
+                    isEditing
+                      ? t("settings.apiKeyPlaceholderEdit")
+                      : t("settings.apiKeyPlaceholderNew")
+                  }
+                  type={showKey ? "text" : "password"}
+                  className="h-10 rounded-md border-editorial-hairline pr-10 text-body"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowKey((v) => !v)}
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-editorial-ink-muted hover:bg-editorial-surface-soft hover:text-editorial-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-editorial-primary/30"
+                  aria-label={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                  title={showKey ? t("settings.hideKey") : t("settings.showKey")}
+                >
+                  {showKey ? (
+                    <EyeOff size={15} strokeWidth={1.7} />
+                  ) : (
+                    <Eye size={15} strokeWidth={1.7} />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-        <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
-          <Button onClick={handleClose} variant="ghost" className="px-4 text-body">
-            {t("common.cancel")}
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!canSave || isPending}
-            className="px-4 text-body"
-          >
-            {isEditing ? t("settings.saveEdit") : t("settings.addModel")}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="mx-0 mb-0 border-t border-editorial-hairline bg-editorial-surface-card px-5 py-4">
+            <Button type="button" onClick={handleClose} variant="ghost" className="px-4 text-body">
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="submit"
+              disabled={!canSave || isPending}
+              className="gap-1.5 px-4 text-body"
+            >
+              {isPending && <MotionSpinner size={14} />}
+              {isPending
+                ? isEditing
+                  ? t("common.saving", "保存中...")
+                  : t("common.adding", "添加中...")
+                : isEditing
+                  ? t("settings.saveEdit")
+                  : t("settings.addModel")}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

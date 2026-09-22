@@ -16,7 +16,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAppShell } from "@/app/shell/app-shell-context";
 import { useWikiSpaces, useWikiPages } from "@/lib/hooks/use-wiki";
 import { useFeeds, useSyncFeeds } from "@/lib/hooks/use-feeds";
@@ -75,10 +75,7 @@ export function CommandPalette() {
         type: "success",
       });
     } catch {
-      toast.add({
-        title: t("feeds.syncFailed", "同步失败，请检查网络或配置"),
-        type: "error",
-      });
+      // 错误已由 apiFetch 统一 toast 提示，避免重复弹窗
     }
   };
 
@@ -191,6 +188,7 @@ export function CommandPalette() {
         showCloseButton={false}
         className="max-w-xl gap-0 overflow-hidden rounded-xl border border-editorial-hairline bg-editorial-surface-card p-0 text-editorial-ink shadow-2xl"
       >
+        <DialogTitle className="sr-only">{t("common.search", "搜索")}</DialogTitle>
         <Autocomplete.Root
           items={groups}
           value={query}

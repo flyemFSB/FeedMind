@@ -96,6 +96,7 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
   const [ingestingIds, setIngestingIds] = useState<Set<string>>(new Set());
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [deletingSource, setDeletingSource] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     title: string;
@@ -126,30 +127,31 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
+    setDeletingSource(true);
     try {
-      // delete-orphans：同时删除仅引用该来源的孤立页面（与确认弹窗的删除预览一致），
-      // detach 只移除引用不删页面，与 UI 文案“将删除 N 个孤立页面”不符
+      // delete-orphans：同时删除仅引用该来源的孤立页面（与确认弹窗的删除预览一致）
       await deleteWikiSource(spaceId, deleteTarget.id, "delete-orphans");
       setDeleteTarget(null);
       invalidateSources();
+      toast.add({
+        title: t("wiki.sourceDeleted", "来源已成功删除"),
+        type: "success",
+      });
     } catch {
       // 错误由 apiFetch toast 统一处理，保留弹窗以便重试
+    } finally {
+      setDeletingSource(false);
     }
   };
 
   const handleIngest = async (sourceIdentity: string, _sourceTitle: string) => {
-    // 异步入队：与首次上传一致走队列 worker 处理，行内实时展示步骤进度条与取消按钮，
-    // 彻底告别同步阻塞请求造成的按钮局部一直转圈
+    // 异步入队：与首次上传一致走队列 worker 处理，行内实时展示步骤进度条与取消按钮
     setIngestingIds((prev) => new Set(prev).add(sourceIdentity));
     try {
       await enqueueIngestJob(spaceId, sourceIdentity);
       invalidateSources();
-    } catch (err) {
-      toast.add({
-        title: t("wiki.uploadFailed"),
-        description: err instanceof Error ? err.message : String(err),
-        type: "error",
-      });
+    } catch {
+      // 错误已由 apiFetch 统一 toast 提示，避免重复弹窗
     } finally {
       setIngestingIds((prev) => {
         const next = new Set(prev);
@@ -421,12 +423,15 @@ export function WikiSourcesView({ spaceId }: WikiSourcesViewProps) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => void handleDeleteConfirm()}
         title={t("wiki.deleteSource")}
+        confirming={deletingSource}
         description={
           deleteTarget
-            ? t("wiki.deleteImpactConfirm", {
-                deleteCount: deleteImpact?.willDelete.length ?? 0,
-                updateCount: deleteImpact?.willUpdate.length ?? 0,
-              })
+            ? deleteImpact
+              ? t("wiki.deleteImpactConfirm", {
+                  deleteCount: deleteImpact.willDelete.length,
+                  updateCount: deleteImpact.willUpdate.length,
+                })
+              : t("wiki.evaluatingImpact", "正在评估删除影响...")
             : undefined
         }
       />

@@ -72,10 +72,7 @@ function CreateConceptForm({ spaceId, onCreated, onClose }: CreateConceptFormPro
       onCreated(res.concept_id);
       onClose();
     } catch {
-      toast.add({
-        title: t("wiki.createConceptFailed", "创建概念失败，可能同名概念已存在"),
-        type: "error",
-      });
+      // 错误已由 apiFetch 统一 toast 提示（如概念重名等），此处保留弹窗供用户修改
     }
   };
 

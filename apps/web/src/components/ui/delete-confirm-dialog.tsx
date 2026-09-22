@@ -69,7 +69,7 @@ export function DeleteConfirmDialog({
           )}
         </div>
         <DialogFooter className="mx-0 mb-0 mt-5 rounded-b-lg border-t border-editorial-hairline bg-editorial-canvas-soft px-5 py-4">
-          <Button onClick={onClose} variant="ghost" className="px-4 text-body">
+          <Button onClick={onClose} variant="ghost" autoFocus className="px-4 text-body">
             {cancelLabel ?? t("common.cancel")}
           </Button>
           <Button

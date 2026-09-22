@@ -37,6 +37,7 @@ export function DiscardChangesDialog({ open, onOpenChange, onDiscard }: DiscardC
           <Button
             variant="outline"
             size="sm"
+            autoFocus
             onClick={() => onOpenChange(false)}
             className="h-8 rounded-md text-xs"
           >

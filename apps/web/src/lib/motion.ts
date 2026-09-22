@@ -125,3 +125,14 @@ export const listItemVariants: Variants = {
   },
   exit: { opacity: 0, y: -4, transition: { duration: motionDuration.micro, ease: motionEaseIn } },
 };
+
+export const cardOptionVariants: Variants = {
+  initial: { opacity: 0, y: 4, scale: 0.98 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { duration: motionDuration.fast, ease: motionEase },
+  },
+  exit: { opacity: 0, scale: 0.96, transition: { duration: motionDuration.micro } },
+};

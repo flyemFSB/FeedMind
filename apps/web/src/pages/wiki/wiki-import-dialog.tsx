@@ -383,6 +383,12 @@ function UrlPasteTab({ spaceId, onImported }: { spaceId: string; onImported: () 
           placeholder={t("wiki.urlPlaceholder")}
           value={urls}
           onChange={(e) => setUrls(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              void handleSubmit();
+            }
+          }}
         />
         {hasError && (
           <p className="mt-1 text-xs text-editorial-semantic-error">{t("wiki.invalidUrls")}</p>

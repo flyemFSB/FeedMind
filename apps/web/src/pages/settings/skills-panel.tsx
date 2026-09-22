@@ -72,9 +72,8 @@ export function SkillsPanel() {
         await installSkill(name, file);
         void queryClient.invalidateQueries({ queryKey: skillKeys.list() });
         toast.add({ title: t("settings.skillInstalled"), type: "success" });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        toast.add({ title: msg, type: "error" });
+      } catch {
+        // 错误已由 apiFetch 统一 toast 提示，避免重复弹窗
       } finally {
         setInstalling(false);
       }
