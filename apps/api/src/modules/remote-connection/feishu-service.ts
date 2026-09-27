@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db, remoteConnections } from "@feedmind/db";
+import { LOCAL_RESOURCE_ID } from "@feedmind/contracts";
 import { randomUUID } from "node:crypto";
 import type * as LarkSdk from "@larksuiteoapi/node-sdk";
 import type { Client, WSClient } from "@larksuiteoapi/node-sdk";
@@ -143,7 +144,7 @@ function buildMessageHandler() {
         const threadId = `feishu:${openId}`;
 
         const stream = await feedmindAgent.stream(userText, {
-          memory: { thread: threadId, resource: threadId },
+          memory: { thread: threadId, resource: LOCAL_RESOURCE_ID },
         });
         let reply = "";
         for await (const chunk of stream.fullStream) {

@@ -1,4 +1,6 @@
 import { Agent } from "@mastra/core/agent";
+import { SkillSearchProcessor } from "@mastra/core/processors";
+import type { InputProcessorOrWorkflow } from "@mastra/core/processors";
 import type { RequestContext } from "@mastra/core/request-context";
 import { Memory } from "@mastra/memory";
 import { LibSQLVector } from "@mastra/libsql";
@@ -21,6 +23,7 @@ import { parseTokenCount } from "../../modules/models/parse-token-count.js";
 import { resolveChatModel, resolveChatModelEntry } from "../utils/model-resolver.js";
 import { createLlmRetryProcessor } from "../utils/retry-processor.js";
 import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
+import { buildObservationalMemoryConfig } from "../utils/observation-memory-config.js";
 import { resolveDataDir } from "../../lib/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
@@ -37,21 +40,28 @@ function getFeedmindVector(): LibSQLVector {
   return _feedmindVector;
 }
 
+// 记忆层实例按模型维度缓存，保持后台观察状态与串行锁稳定
+let _memoryCache: { key: string; memory: Memory } | null = null;
+
 /** 动态构造记忆层：无嵌入模型时降级为纯分页检索 */
 async function buildMemory(): Promise<Memory> {
   const embedder = await resolveEmbeddingModel();
-  return new Memory({
+  const cacheKey = embedder ? `${embedder.provider}/${embedder.modelId}` : "paged";
+  if (_memoryCache?.key === cacheKey) return _memoryCache.memory;
+
+  const memory = new Memory({
     ...(embedder ? { vector: getFeedmindVector(), embedder } : {}),
     options: {
-      observationalMemory: {
-        // 观察记忆后台模型动态复用当前选中聊天模型
+      observationalMemory: buildObservationalMemoryConfig({
+        hasEmbedder: Boolean(embedder),
+        // 观察记忆后台复用当前聊天模型
         model: async ({ requestContext }: { requestContext?: RequestContext }) =>
           resolveChatModel(requestContext),
-        // 嵌入模型可用时开启向量检索，缺省时降级为纯分页
-        retrieval: embedder ? { vector: true } : true,
-      },
+      }),
     },
   });
+  _memoryCache = { key: cacheKey, memory };
+  return memory;
 }
 
 export const feedmindAgent = new Agent({
@@ -86,6 +96,14 @@ export const feedmindAgent = new Agent({
   model: async ({ requestContext }: { requestContext?: RequestContext }) =>
     resolveChatModel(requestContext),
   errorProcessors: [createLlmRetryProcessor()],
+  inputProcessors: [
+    // 渐进式披露技能，按需检索以避免全量注入撑大上下文
+    new SkillSearchProcessor({
+      workspace: feedmindWorkspace,
+      search: { topK: 5, minScore: 0.1 },
+      // 规避上游类型在严格可选属性检查下的赋值限制
+    }) as unknown as InputProcessorOrWorkflow,
+  ],
   defaultOptions: async ({ requestContext }: { requestContext?: RequestContext } = {}) => {
     try {
       const [cfg, selected] = await Promise.all([getConfig("session"), getSelectedModel()]);
@@ -130,7 +148,7 @@ export const feedmindAgent = new Agent({
     }
   },
   memory: buildMemory,
-  // 注册名取工具 id：模型可见名与前端展示名都不带变量名里的 Tool 后缀
+  // 内置工具参数精简，直接常驻注册以降低检索开销
   tools: {
     [askUserTool.id]: askUserTool,
     [webFetchTool.id]: webFetchTool,

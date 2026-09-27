@@ -7,6 +7,7 @@ import { serve, type ServerType } from "@hono/node-server";
 export type { ServerType };
 import { MastraServer } from "@mastra/hono";
 import { initDatabase, initDbPragmas } from "@feedmind/db";
+import { LOCAL_RESOURCE_ID } from "@feedmind/contracts";
 import { createApp } from "./app.js";
 import { apiEnv } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest/ingest-worker.js";
@@ -62,10 +63,10 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
           // 缺少会话标识时自动补齐内存会话上下文
           if (!body.memory?.thread) {
             const threadId = crypto.randomUUID();
-            body.memory = { thread: threadId, resource: threadId };
+            body.memory = { thread: threadId, resource: LOCAL_RESOURCE_ID };
             body.requestContext = {
               ...(body.requestContext ?? {}),
-              MastraMemory: { thread: { id: threadId }, resourceId: threadId },
+              MastraMemory: { thread: { id: threadId }, resourceId: LOCAL_RESOURCE_ID },
             };
             changed = true;
           }
