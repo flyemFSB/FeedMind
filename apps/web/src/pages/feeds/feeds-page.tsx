@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -58,15 +58,24 @@ function cachedDateTimeFormat(
   return fmt;
 }
 
-// item.category 是 JSON 字符串：解析失败按无分类处理（纯函数，模块级避免每渲染重建）
+// 缓存分类解析结果，避免虚拟滚动和重绘时重复 JSON.parse
+const categoryCache = new WeakMap<FeedItem, string[]>();
 function categoriesFor(item: FeedItem): string[] {
-  if (!item.category) return [];
-  try {
-    const parsed = JSON.parse(item.category);
-    return Array.isArray(parsed) ? parsed.filter((c): c is string => typeof c === "string") : [];
-  } catch {
-    return [];
+  const cached = categoryCache.get(item);
+  if (cached) return cached;
+  let result: string[] = [];
+  if (item.category) {
+    try {
+      const parsed = JSON.parse(item.category);
+      if (Array.isArray(parsed)) {
+        result = parsed.filter((c): c is string => typeof c === "string");
+      }
+    } catch {
+      // 忽略无效分类 JSON
+    }
   }
+  categoryCache.set(item, result);
+  return result;
 }
 const FILTER_ICONS: Record<string, React.ElementType> = {
   rss: Rss,
@@ -91,13 +100,18 @@ const PLATFORM_LABELS: Record<string, string> = {
 const MIN_CARD_WIDTH = 280;
 const CARD_GAP = 12;
 
-// 卡片描述取纯文本前 300 字符（HTML 剥离）：描述在卡片内受 line-clamp 限制，这里控制数据量
-function cleanDescription(html: string): string {
-  return html
+// 缓存文本正则清洗结果，避免虚拟长列表中重复正则替换
+const descriptionCache = new WeakMap<FeedItem, string>();
+function cleanDescription(item: FeedItem): string {
+  const cached = descriptionCache.get(item);
+  if (cached !== undefined) return cached;
+  const result = (item.description || "")
     .replace(/<[^>]+>/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .substring(0, 300);
+  descriptionCache.set(item, result);
+  return result;
 }
 
 // 来源图标（卡片 badge / 筛选条共用）
@@ -165,30 +179,34 @@ export function FeedsIndexPage() {
     }
   };
 
-  const handleMarkRead = (id: string) => {
-    // 已读标记由 useMarkFeedRead 内部乐观更新缓存
-    markReadMutation.mutate(id);
-  };
+  const handleMarkRead = useCallback(
+    (id: string) => {
+      markReadMutation.mutate(id);
+    },
+    [markReadMutation],
+  );
 
-  // 时间显示：7 天内相对（刚刚/X分钟前/X小时前/X天前）便于感知时效，
-  // 超过一周切本地化具体日期（本年不带年、跨年带年，同 X/GitHub/Material 惯例）
-  const formatTime = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const diff = Date.now() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return t("time.justNow");
-    if (minutes < 60) return t("time.minutesAgo", { n: minutes });
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return t("time.hoursAgo", { n: hours });
-    const days = Math.floor(hours / 24);
-    if (days < 7) return t("time.daysAgo", { n: days });
-    const sameYear = date.getFullYear() === new Date().getFullYear();
-    return cachedDateTimeFormat(i18n.language, sameYear ? "monthDay" : "yearMonthDay", {
-      month: "long",
-      day: "numeric",
-      ...(sameYear ? {} : { year: "numeric" }),
-    }).format(date);
-  };
+  // 时间显示：7 天内相对便于感知时效，超过一周切本地化具体日期
+  const formatTime = useCallback(
+    (dateStr: string) => {
+      const date = new Date(dateStr);
+      const diff = Date.now() - date.getTime();
+      const minutes = Math.floor(diff / 60000);
+      if (minutes < 1) return t("time.justNow");
+      if (minutes < 60) return t("time.minutesAgo", { n: minutes });
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return t("time.hoursAgo", { n: hours });
+      const days = Math.floor(hours / 24);
+      if (days < 7) return t("time.daysAgo", { n: days });
+      const sameYear = date.getFullYear() === new Date().getFullYear();
+      return cachedDateTimeFormat(i18n.language, sameYear ? "monthDay" : "yearMonthDay", {
+        month: "long",
+        day: "numeric",
+        ...(sameYear ? {} : { year: "numeric" }),
+      }).format(date);
+    },
+    [t, i18n.language],
+  );
 
   const sourceFor = (feed: FeedItem): RssSource | undefined => sources.get(feed.sourceId);
 
@@ -253,18 +271,27 @@ export function FeedsIndexPage() {
   // ─── 虚拟化（行级：多列卡片流按行分组虚拟，行高由 measureElement 动态测量） ───
   // 滚动容器元素引用，用于虚拟滚动定位
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
-  // 网格容器引用与宽度监听，用于动态计算网格列数
+  // 网格容器引用与宽度监听，仅在列数变化时更新状态，消除无意义重绘
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
-  const [gridWidth, setGridWidth] = useState(0);
+  const [cols, setCols] = useState(0);
+
   useEffect(() => {
     if (!gridEl) return;
+    let rafId = 0;
     const ro = new ResizeObserver((entries) => {
-      setGridWidth(entries[0]?.contentRect.width ?? 0);
+      const width = entries[0]?.contentRect.width ?? 0;
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        const nextCols = Math.max(1, Math.floor((width + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP)));
+        setCols((prev) => (prev === nextCols ? prev : nextCols));
+      });
     });
     ro.observe(gridEl);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
   }, [gridEl]);
-  const cols = Math.max(1, Math.floor((gridWidth + CARD_GAP) / (MIN_CARD_WIDTH + CARD_GAP)));
 
   // 行分组：按列数切块，虚拟化粒度是行（行数 = ceil(条目/列数)，千条量级也仅百余行）
   const rows = useMemo(() => {
@@ -286,36 +313,47 @@ export function FeedsIndexPage() {
   });
 
   // ─── 选择模式 ────────────────────────────────────────────────
-  const toggleSelect = (id: string) => {
+  const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const exitSelectMode = () => {
+  const exitSelectMode = useCallback(() => {
     setSelectMode(false);
     setSelected(new Set());
-  };
+  }, []);
 
-  // 全选作用于当前可见列表（受筛选/搜索影响），半选态据此判定
-  const visibleIds = searchedFeeds.map((f) => f.id);
-  const selectedVisibleCount = visibleIds.filter((id) => selected.has(id)).length;
-  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
-  const someVisibleSelected = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+  // 全选作用于当前可见列表（受筛选/搜索影响），单次循环判定，避免多次遍历与分配临时数组
+  const { allVisibleSelected, someVisibleSelected } = useMemo(() => {
+    const total = searchedFeeds.length;
+    if (total === 0) {
+      return { allVisibleSelected: false, someVisibleSelected: false };
+    }
+    let count = 0;
+    for (const f of searchedFeeds) {
+      if (selected.has(f.id)) count++;
+    }
+    return {
+      allVisibleSelected: count === total,
+      someVisibleSelected: count > 0 && count < total,
+    };
+  }, [searchedFeeds, selected]);
 
-  const toggleSelectAllVisible = () => {
+  const toggleSelectAllVisible = useCallback(() => {
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const id of visibleIds) {
-        if (allVisibleSelected) next.delete(id);
-        else next.add(id);
+      const isAll = searchedFeeds.length > 0 && searchedFeeds.every((f) => prev.has(f.id));
+      for (const f of searchedFeeds) {
+        if (isAll) next.delete(f.id);
+        else next.add(f.id);
       }
       return next;
     });
-  };
+  }, [searchedFeeds]);
 
   const handleDeleteSelected = async () => {
     const ids = [...selected];
@@ -547,8 +585,8 @@ export function FeedsIndexPage() {
                   className="relative"
                   style={{ height: rowVirtualizer.getTotalSize() }}
                 >
-                  {/* 宽度测量前（gridWidth=0）不渲染行：避免 cols=1 的"一条占一宽行"闪烁 */}
-                  {gridWidth > 0 &&
+                  {/* 宽度测量前（cols=0）不渲染行：避免单列宽行闪烁 */}
+                  {cols > 0 &&
                     rowVirtualizer.getVirtualItems().map((row) => (
                       <div
                         key={row.key}
@@ -597,21 +635,22 @@ export function FeedsIndexPage() {
         confirming={deleteMutation.isPending}
       />
 
-      <FeedReaderDialog
-        item={readingItem}
-        source={readingItem ? sourceFor(readingItem) : undefined}
-        open={!!readingItem}
-        onOpenChange={(open) => {
-          if (!open) setReadingItem(null);
-        }}
-      />
+      {readingItem && (
+        <FeedReaderDialog
+          item={readingItem}
+          source={sourceFor(readingItem)}
+          open={!!readingItem}
+          onOpenChange={(open) => {
+            if (!open) setReadingItem(null);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-// 单张卡片。虚拟化下行按需挂载/卸载，故不做进入/布局动画（官方最佳实践），
-// 仅保留 whileTap 手势反馈与图片淡入
-function FeedCard({
+// 虚拟化行按需挂载，仅保留轻量交互反馈以避免重排损耗
+const FeedCard = memo(function FeedCard({
   item,
   src,
   cats,
@@ -750,7 +789,7 @@ function FeedCard({
 
         {item.description && (
           <p className="mt-1.5 line-clamp-2 flex-1 text-xs leading-relaxed text-editorial-ink-soft">
-            {cleanDescription(item.description)}
+            {cleanDescription(item)}
           </p>
         )}
 
@@ -796,4 +835,4 @@ function FeedCard({
       </div>
     </m.div>
   );
-}
+});

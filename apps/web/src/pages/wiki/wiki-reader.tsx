@@ -50,17 +50,23 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
   const [backlinks, setBacklinks] = useState<WikiBacklink[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // math 渲染器（mathjax-full ~2MB）异步加载：wiki 页面含公式才下载，不进首屏
+  // 仅在正文包含数学公式标识时异步加载 MathJax 渲染器（~1.8MB），避免纯文本概念无端下载
+  const hasMath = Boolean(page?.content && page.content.includes("$"));
   const [mathPlugin, setMathPlugin] = useState<MathPlugin | null>(null);
   useEffect(() => {
+    if (!hasMath) return;
     let cancelled = false;
-    void loadMathPlugin().then((p) => {
-      if (!cancelled) setMathPlugin(p);
-    });
+    void loadMathPlugin()
+      .then((p) => {
+        if (!cancelled) setMathPlugin(p);
+      })
+      .catch(() => {
+        // 忽略公式插件加载失败
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasMath]);
   const loadIdRef = useRef(0);
 
   const loadPage = useCallback(async () => {
@@ -127,6 +133,11 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
     [page?.content],
   );
 
+  const plugins = useMemo(
+    () => ({ cjk, ...(mathPlugin ? { math: mathPlugin } : {}) }),
+    [mathPlugin],
+  );
+
   if (loading) {
     return <WikiReaderSkeleton />;
   }
@@ -154,7 +165,7 @@ export function WikiReader({ spaceId, pageId, onEdit, onNavigate }: WikiReaderPr
           <div className="wiki-markdown text-base leading-7 text-editorial-ink">
             <Streamdown
               mode="static"
-              plugins={{ cjk, ...(mathPlugin ? { math: mathPlugin } : {}) }}
+              plugins={plugins}
               components={readerComponents}
               translations={sdTranslations}
             >

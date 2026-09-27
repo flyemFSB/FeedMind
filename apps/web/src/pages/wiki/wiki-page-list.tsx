@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { m } from "motion/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileText, Plus, Search } from "lucide-react";
@@ -17,6 +17,8 @@ interface WikiPageListProps {
   onPageSelect: (pageId: string) => void;
 }
 
+const EMPTY_PAGES: WikiPageListItem[] = [];
+
 export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageListProps) {
   const { t, i18n } = useTranslation();
   const [search, setSearch] = useState("");
@@ -29,15 +31,20 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
 
   const { data, isLoading } = useWikiPages(spaceId);
 
-  const pages: WikiPageListItem[] = data?.items ?? [];
+  const pages = data?.items ?? EMPTY_PAGES;
 
-  const filteredPages = pages.filter((page) => {
-    if (typeFilter && page.type !== typeFilter) return false;
-    if (search && !page.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filteredPages = useMemo(() => {
+    const kw = search.trim().toLowerCase();
+    return pages.filter((page) => {
+      if (typeFilter && page.type !== typeFilter) return false;
+      if (kw && !page.title.toLowerCase().includes(kw)) return false;
+      return true;
+    });
+  }, [pages, typeFilter, search]);
 
-  const filterTypes = () => sortWikiTypes([...new Set(pages.map((page) => page.type))]);
+  const filterTypes = useMemo(() => {
+    return sortWikiTypes([...new Set(pages.map((page) => page.type))]);
+  }, [pages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -84,7 +91,7 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
           active={typeFilter === ""}
           onClick={() => setTypeFilter("")}
         />
-        {filterTypes().map((t) => (
+        {filterTypes.map((t) => (
           <FilterChip
             key={t}
             label={wikiTypeLabel(t, i18n.language)}
@@ -129,14 +136,16 @@ export function WikiPageList({ spaceId, activePageId, onPageSelect }: WikiPageLi
         )}
       </div>
 
-      <CreateConceptDialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        spaceId={spaceId}
-        onCreated={(conceptId) => {
-          onPageSelect(conceptId);
-        }}
-      />
+      {showCreate && (
+        <CreateConceptDialog
+          open={showCreate}
+          onClose={() => setShowCreate(false)}
+          spaceId={spaceId}
+          onCreated={(conceptId) => {
+            onPageSelect(conceptId);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -221,7 +230,7 @@ function CategorizedPageList({
   );
 }
 
-function GroupHeader({
+const GroupHeader = memo(function GroupHeader({
   type,
   count,
   lang,
@@ -252,9 +261,9 @@ function GroupHeader({
       </div>
     </div>
   );
-}
+});
 
-function FilterChip({
+const FilterChip = memo(function FilterChip({
   label,
   active,
   onClick,
@@ -276,9 +285,9 @@ function FilterChip({
       {label}
     </m.button>
   );
-}
+});
 
-function PageListItem({
+const PageListItem = memo(function PageListItem({
   page,
   active,
   onClick,
@@ -306,4 +315,4 @@ function PageListItem({
       </div>
     </m.button>
   );
-}
+});

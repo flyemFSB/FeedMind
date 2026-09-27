@@ -56,6 +56,7 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
     error,
     clearError,
     regenerate,
+    telemetryMap,
   } = useChatContext();
   const { t } = useTranslation();
   const isStreaming = status === "streaming";
@@ -151,6 +152,7 @@ function ThreadContent({ className, contentClassName }: ThreadProps) {
                     messages={messages}
                     isStreaming={isStreaming}
                     scrollElement={scrollElement}
+                    telemetryMap={telemetryMap}
                   />
 
                   {/* 用户刚输入后立刻显示的助手思考动效，提供连续反馈；重试时换成重试状态条 */}

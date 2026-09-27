@@ -18,12 +18,13 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { useAppShell } from "@/app/shell/app-shell-context";
-import { useWikiSpaces, useWikiPages } from "@/lib/hooks/use-wiki";
-import { useFeeds, useSyncFeeds } from "@/lib/hooks/use-feeds";
+import { wikiOptions } from "@/lib/hooks/use-wiki";
+import { feedOptions, useSyncFeeds } from "@/lib/hooks/use-feeds";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
-/** 命令项：label/subtitle 参与过滤与展示，onSelect 为选中后的动作 */
+// 命令项结构定义
 interface PaletteItem {
   value: string;
   label: string;
@@ -40,20 +41,26 @@ const ITEM_CLASS = cn(
   "data-[highlighted]:bg-editorial-accent/10 data-[highlighted]:text-editorial-accent",
 );
 
-/**
- * 全局指挥台：功能导航 / 快捷动作 / 概念与资讯直达。
- * 过滤与键盘导航交给 Base UI Autocomplete（inline 模式，列表就在弹窗里）。
- */
+// 全局指挥台，提供应用导航、快捷指令与知识资讯检索直达
 export function CommandPalette() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { commandPaletteOpen, closeCommandPalette, openAgentDrawer } = useAppShell();
   const [query, setQuery] = useState("");
 
-  const { data: spaces = [] } = useWikiSpaces();
+  const { data: spaces = [] } = useQuery({
+    ...wikiOptions.spaces(),
+    enabled: commandPaletteOpen,
+  });
   const activeSpaceId = spaces[0]?.id;
-  const { data: wikiData } = useWikiPages(activeSpaceId);
-  const { data: feeds = [] } = useFeeds();
+  const { data: wikiData } = useQuery({
+    ...wikiOptions.pages(activeSpaceId!),
+    enabled: commandPaletteOpen && !!activeSpaceId,
+  });
+  const { data: feeds = [] } = useQuery({
+    ...feedOptions.list(),
+    enabled: commandPaletteOpen,
+  });
   const syncMutation = useSyncFeeds();
 
   // 每次打开清空输入框

@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type PointerEvent } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type PointerEvent,
+} from "react";
 import { m } from "motion/react";
 import { Check, ChevronDown, MessageSquare, Plus, Search, Trash2, X } from "lucide-react";
 import {
@@ -7,8 +16,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Thread } from "@/app/agent-drawer/thread";
-import { useChatContext } from "@/app/agent-drawer/chat-context";
+const Thread = lazy(() => import("@/app/agent-drawer/thread").then((m) => ({ default: m.Thread })));
+import { MotionSpinner } from "@/components/ui/motion-spinner";
+import { useChatActions } from "@/app/agent-drawer/chat-context";
 import { useChatSessions } from "@/lib/hooks/use-chats";
 import { useChatSessionDelete } from "@/lib/hooks/use-chat-session-delete";
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog";
@@ -24,7 +34,7 @@ interface AgentDrawerProps {
 
 export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const { t } = useTranslation();
-  const { createNewSession, switchSession, activeThreadId } = useChatContext();
+  const { createNewSession, switchSession, activeThreadId } = useChatActions();
   const { data: sessions = [] } = useChatSessions();
   const deleteConfirm = useChatSessionDelete();
   const drawerRef = useRef<HTMLDivElement>(null);
@@ -38,8 +48,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
     if (!nextOpen) setSessionSearch("");
   }, []);
 
-  // Thread 首次打开后才挂载，避免启动即加载聊天渲染管线（streamdown/mermaid/历史 DOM）。
-  // 用渲染期按 props 调整 state（React 官方模式）替代 effect 里的 setState
+  // 延迟至抽屉首次展开时挂载对话流，避免应用冷启动预热重型 Markdown/代码渲染树
   const [hasMountedThread, setHasMountedThread] = useState(open);
   const [prevOpen, setPrevOpen] = useState(open);
   if (open !== prevOpen) {
@@ -331,25 +340,33 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
           </div>
 
           <div className="flex min-h-0 min-w-0 flex-1">
-            {hasMountedThread && <Thread className="bg-editorial-surface-card" />}
+            {hasMountedThread && (
+              <Suspense
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center">
+                    <MotionSpinner size={20} className="text-editorial-ink-muted" />
+                  </div>
+                }
+              >
+                <Thread className="bg-editorial-surface-card" />
+              </Suspense>
+            )}
           </div>
 
-          <DeleteConfirmDialog
-            open={deleteConfirm.deleteTarget != null}
-            onClose={deleteConfirm.handleClose}
-            onConfirm={deleteConfirm.handleConfirm}
-            confirming={deleteConfirm.isDeleting}
-            title={t("chat.deleteSession")}
-            description={
-              deleteConfirm.deleteTarget
-                ? t("chat.deleteSessionConfirm", {
-                    title:
-                      sessions.find((s) => s.agent_thread_id === deleteConfirm.deleteTarget)
-                        ?.title ?? t("chat.sessionTitleDefault"),
-                  })
-                : undefined
-            }
-          />
+          {deleteConfirm.deleteTarget != null && (
+            <DeleteConfirmDialog
+              open={true}
+              onClose={deleteConfirm.handleClose}
+              onConfirm={deleteConfirm.handleConfirm}
+              confirming={deleteConfirm.isDeleting}
+              title={t("chat.deleteSession")}
+              description={t("chat.deleteSessionConfirm", {
+                title:
+                  sessions.find((s) => s.agent_thread_id === deleteConfirm.deleteTarget)?.title ??
+                  t("chat.sessionTitleDefault"),
+              })}
+            />
+          )}
         </m.div>
       </m.div>
     </>

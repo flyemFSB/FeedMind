@@ -85,10 +85,11 @@ Tool.displayName = "Tool";
 export type ToolHeaderProps = ComponentProps<typeof CollapsibleTrigger> & {
   title?: string;
   icon?: ReactNode;
+  duration?: string | undefined;
 };
 
 export const ToolHeader = memo(
-  ({ className, title, icon, children, ...props }: ToolHeaderProps) => {
+  ({ className, title, icon, duration, children, ...props }: ToolHeaderProps) => {
     const { isOpen, setIsOpen, state, toolName } = useTool();
 
     const isRunning = state === "running";
@@ -112,6 +113,11 @@ export const ToolHeader = memo(
           </span>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            {duration && (
+              <span className="font-mono text-[10px] text-editorial-ink-muted select-none mr-0.5">
+                {duration}
+              </span>
+            )}
             {isRunning ? (
               <Loader2 className="size-3 animate-spin text-editorial-accent" />
             ) : isError ? (

@@ -1,18 +1,6 @@
-/**
- * MessageParts — 将 UIMessage.parts 渲染为研究工作台组件
- *
- * 依照 AI SDK v6 消息协议分派每种 part 类型：
- * - reasoning / tool-{name} / data-retry → 与中间叙述文本一起，按实际执行顺序交织成思考链
- * - text → 末段为最终回答，渲染在正文区；中间段落属于过程叙述，落在思考链内
- * - source-* → Sources (聚合展示)
- *
- * 设计目标：
- * - 可验证证据：回答后紧跟 Sources 折叠区
- * - 可理解执行过程：思考与工具调用按真实运行顺序交织成可折叠思考链，而非分区展示
- * - 克制的推理：不把原始思维链当作主内容
- */
+// 将 UIMessage.parts 按真实执行顺序交织渲染为思考链、正文、决策卡片与证据来源
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Message,
   MessageContent,
@@ -38,8 +26,13 @@ import {
 } from "@/components/ai-elements/chain-of-thought";
 import { Sources, SourcesTrigger, SourcesContent, Source } from "@/components/ai-elements/sources";
 import { DecisionCard } from "@/app/agent-drawer/decision-card";
-import { useChatContext } from "@/app/agent-drawer/chat-context";
-import type { RetryTrace } from "@/app/agent-drawer/chat-utils";
+import { useChatActions } from "@/app/agent-drawer/chat-context";
+import {
+  formatDuration,
+  formatTokenCount,
+  type MessageTelemetry,
+  type RetryTrace,
+} from "@/app/agent-drawer/chat-utils";
 import { cn } from "@/lib/utils";
 import { Bot, Copy, ExternalLink, FileText, Loader2, RotateCcw, Wrench } from "lucide-react";
 import type { UIMessage, FileUIPart } from "ai";
@@ -53,6 +46,7 @@ interface MessagePartsProps {
   message: UIMessage;
   isLastMessage: boolean;
   isStreaming: boolean;
+  telemetry?: MessageTelemetry | undefined;
 }
 
 function userText(message: UIMessage): string {
@@ -62,7 +56,7 @@ function userText(message: UIMessage): string {
     .join("");
 }
 
-/** 从 UIMessage part 中安全提取字段 */
+// 从消息片段对象中提取动态字段
 function partField(part: UIMessage["parts"][number], key: string): unknown {
   return (part as Record<string, unknown>)[key];
 }
@@ -320,9 +314,14 @@ function StreamingText({ text, streaming }: { text: string; streaming: boolean }
   return <MessageResponse isAnimating={streaming}>{throttled}</MessageResponse>;
 }
 
-export function MessageParts({ message, isLastMessage, isStreaming }: MessagePartsProps) {
+export const MessageParts = memo(function MessageParts({
+  message,
+  isLastMessage,
+  isStreaming,
+  telemetry,
+}: MessagePartsProps) {
   const { t } = useTranslation();
-  const { regenerate, sendMessage } = useChatContext();
+  const { regenerate, sendMessage } = useChatActions();
   const chainSteps = useChainSteps(message, isLastMessage, isStreaming);
   const stepCount = message.parts.filter((p) => p.type === "step-start").length;
   const retryCount = message.parts.filter((p) => p.type === "data-retry").length;
@@ -504,37 +503,56 @@ export function MessageParts({ message, isLastMessage, isStreaming }: MessagePar
         </MessageContent>
       </Message>
 
-      {/* 回答完毕的操作栏：位于回答内容的正下方 */}
-      {!isStreaming && (
-        <div className="mt-1.5 flex items-center gap-1">
-          <MessageActions>
-            <MessageAction
-              onClick={() => {
-                const text = message.parts
-                  .flatMap((p) => (p.type === "text" ? [(p as { text: string }).text] : []))
-                  .join("");
-                void navigator.clipboard.writeText(text);
-              }}
-              label={t("common.copy")}
-              title={t("common.copy")}
-            >
-              <Copy size={13} />
-            </MessageAction>
-            {isLastMessage && (
-              <MessageAction
-                onClick={() => void regenerate()}
-                label={t("common.regenerate")}
-                title={t("common.regenerate")}
-              >
-                <RotateCcw size={13} />
-              </MessageAction>
+      {/* 实时流式呼吸态或已完成性能指标栏 */}
+      {isMessageStreaming ? (
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] font-mono text-editorial-ink-muted/80 select-none">
+          <span className="inline-block size-1.5 rounded-full bg-editorial-accent animate-pulse" />
+          <span>正在生成...</span>
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] font-mono text-editorial-ink-muted/75 select-none">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {telemetry?.durationMs !== undefined && (
+              <span>耗时 {formatDuration(telemetry.durationMs)}</span>
             )}
-          </MessageActions>
+            {telemetry?.ttftMs !== undefined && (
+              <span>· TTFT {formatDuration(telemetry.ttftMs)}</span>
+            )}
+            {telemetry?.tps !== undefined && <span>· {telemetry.tps} t/s</span>}
+            {telemetry?.outputTokens !== undefined && (
+              <span>· {formatTokenCount(telemetry.outputTokens)} tokens</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <MessageActions>
+              <MessageAction
+                onClick={() => {
+                  const text = message.parts
+                    .flatMap((p) => (p.type === "text" ? [(p as { text: string }).text] : []))
+                    .join("");
+                  void navigator.clipboard.writeText(text);
+                }}
+                label={t("common.copy")}
+                title={t("common.copy")}
+              >
+                <Copy size={13} />
+              </MessageAction>
+              {isLastMessage && (
+                <MessageAction
+                  onClick={() => void regenerate()}
+                  label={t("common.regenerate")}
+                  title={t("common.regenerate")}
+                >
+                  <RotateCcw size={13} />
+                </MessageAction>
+              )}
+            </MessageActions>
+          </div>
         </div>
       )}
     </div>
   );
-}
+});
 
 interface ToolChainStepProps {
   toolName: string;
@@ -633,10 +651,43 @@ function ToolChainStep({
 
   const state: ToolState = isActive ? "running" : isError ? "output-error" : "output-available";
 
+  const startTimeRef = useRef<number | null>(null);
+  const [clientDuration, setClientDuration] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (isActive && startTimeRef.current === null) {
+      startTimeRef.current = performance.now();
+    } else if (!isActive && startTimeRef.current !== null && clientDuration === null) {
+      setClientDuration(Math.round(performance.now() - startTimeRef.current));
+    }
+  }, [isActive, clientDuration]);
+
+  const parsedOutput =
+    typeof output === "string"
+      ? (() => {
+          try {
+            return JSON.parse(output) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })()
+      : typeof output === "object" && output !== null
+        ? (output as Record<string, unknown>)
+        : null;
+
+  const explicitDuration =
+    parsedOutput && typeof parsedOutput["duration"] === "number"
+      ? parsedOutput["duration"]
+      : undefined;
+
+  const finalDuration = explicitDuration ?? clientDuration ?? undefined;
+  const durationText = finalDuration !== undefined ? formatDuration(finalDuration) : undefined;
+
   return (
     <Tool toolName={toolName} state={state} className="w-full">
       <ToolHeader
         title={displayTitle}
+        duration={durationText}
         icon={
           isTaskTool ? (
             <Bot

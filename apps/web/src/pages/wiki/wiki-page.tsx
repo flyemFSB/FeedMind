@@ -214,15 +214,17 @@ export function MyWikiPage() {
             </Button>
           </div>
         </div>
-        <CreateWikiSpaceDialog
-          open={showCreateSpace}
-          onClose={() => setShowCreateSpace(false)}
-          onCreated={(id, _name) => {
-            void navigate({ search: (prev) => ({ ...prev, space: id }) });
-            setShowCreateSpace(false);
-            void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
-          }}
-        />
+        {showCreateSpace && (
+          <CreateWikiSpaceDialog
+            open={showCreateSpace}
+            onClose={() => setShowCreateSpace(false)}
+            onCreated={(id, _name) => {
+              void navigate({ search: (prev) => ({ ...prev, space: id }) });
+              setShowCreateSpace(false);
+              void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
+            }}
+          />
+        )}
       </LayoutWrapper>
     );
   }
@@ -348,7 +350,7 @@ export function MyWikiPage() {
         </div>
       </div>
 
-      {spaceId && (
+      {showImport && spaceId && (
         <WikiImportDialog
           open={showImport}
           spaceId={spaceId}
@@ -357,24 +359,28 @@ export function MyWikiPage() {
         />
       )}
 
-      <CreateWikiSpaceDialog
-        open={showCreateSpace}
-        onClose={() => setShowCreateSpace(false)}
-        onCreated={(id, _name) => {
-          void navigate({ search: (prev) => ({ ...prev, space: id }) });
-          setShowCreateSpace(false);
-        }}
-      />
+      {showCreateSpace && (
+        <CreateWikiSpaceDialog
+          open={showCreateSpace}
+          onClose={() => setShowCreateSpace(false)}
+          onCreated={(id, _name) => {
+            void navigate({ search: (prev) => ({ ...prev, space: id }) });
+            setShowCreateSpace(false);
+          }}
+        />
+      )}
 
       {/* 删除空间确认：不可逆操作，复用全站统一的 DeleteConfirmDialog */}
-      <DeleteConfirmDialog
-        open={showDeleteSpace}
-        onClose={() => setShowDeleteSpace(false)}
-        onConfirm={() => void handleDeleteSpace()}
-        title={t("wiki.deleteSpace")}
-        description={t("wiki.deleteSpaceConfirm", { name: spaceName })}
-        confirming={deletingSpace}
-      />
+      {showDeleteSpace && (
+        <DeleteConfirmDialog
+          open={showDeleteSpace}
+          onClose={() => setShowDeleteSpace(false)}
+          onConfirm={() => void handleDeleteSpace()}
+          title={t("wiki.deleteSpace")}
+          description={t("wiki.deleteSpaceConfirm", { name: spaceName })}
+          confirming={deletingSpace}
+        />
+      )}
 
       {/* 放弃未保存内容二次确认 */}
       <DiscardChangesDialog
