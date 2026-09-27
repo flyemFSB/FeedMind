@@ -12,7 +12,6 @@
   "scripts": {
     "build": "pnpm run db:generate && tsc -b --builders 4",
     "lint": "oxlint .",
-    "test": "vitest run --project db",
     "typecheck": "tsc -b --builders 4 --pretty false",
     "db:generate": "node scripts/generate-ddl.mjs",
     "db:push": "drizzle-kit push",

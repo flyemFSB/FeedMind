@@ -11,10 +11,10 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts < NUL",
+    "serve": "tsx src/server.ts",
     "build": "tsc -b --builders 4",
     "start": "node dist/server.js",
     "lint": "oxlint .",
-    "test": "vitest run --project api",
     "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {
@@ -37,7 +37,7 @@
     "@mastra/core": "^1.63.2",
     "@mastra/hono": "^1.7.5",
     "@mastra/libsql": "^1.22.2",
-    "@mastra/memory": "^1.28.1",
+    "@mastra/memory": "^1.29.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@remotion/bundler": "4.0.518",
     "@remotion/media": "4.0.518",

@@ -12,7 +12,6 @@
   "scripts": {
     "build": "tsc -b --builders 4",
     "lint": "oxlint .",
-    "test": "vitest run --project contracts",
     "typecheck": "tsc -b --builders 4 --pretty false"
   },
   "dependencies": {

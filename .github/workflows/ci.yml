@@ -58,10 +58,10 @@ jobs:
             exit 1
           fi
 
-  # 单元 + API 集成：根 vitest projects 一次跑完（与本地 pnpm test 同源）
-  unit:
+  # 纯算法不变量测试：根 vitest invariants project（与本地 pnpm test:invariants 同源）
+  invariants:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
 
@@ -78,11 +78,11 @@ jobs:
       - name: 构建共享包
         run: pnpm build:packages
 
-      - name: 单元与 API 集成测试
-        run: pnpm test
+      - name: 纯算法不变量测试
+        run: pnpm run test:invariants
 
   # E2E 依赖 quality：类型/风格已挂就不再烧 Playwright 分钟。
-  # 与 unit 故意不互相 needs：两边独立反馈，避免串行放大墙钟。
+  # 与 invariants 故意不互相 needs：两边独立反馈，避免串行放大墙钟。
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -107,6 +107,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Web 端核心 E2E 测试
+        env:
+          ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef"
         run: pnpm test:e2e
 
       - name: 上传 Playwright 报告

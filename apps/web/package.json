@@ -8,8 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "oxlint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run --project web --config ../../vitest.config.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.87",

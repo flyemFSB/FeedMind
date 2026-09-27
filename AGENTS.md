@@ -57,8 +57,9 @@ pnpm run typecheck             # 全仓库 TypeScript 严格类型检查
 pnpm run lint                  # 全仓库 oxlint 代码规范检查
 pnpm run fmt                   # 全仓库 oxfmt 代码格式化（直接写入）
 pnpm run fmt:check             # 全仓库 oxfmt 格式校验（不写入，门禁检查）
-pnpm run test                  # 执行全仓库 Vitest 测试套件（全项目一次性运行）
-pnpm run test:coverage         # 执行测试并输出覆盖率报告（本地分析使用）
+pnpm run test                  # 执行全仓库自动化测试（包含不变量与真实端到端测试）
+pnpm run test:e2e              # 执行 Playwright 真实环境端到端测试
+pnpm run test:invariants       # 执行纯算法不变量测试（基于 tests/invariants/ 清单）
 pnpm run db:init               # 写入数据库默认种子数据（模型列表、工具配置等）
 pnpm run db:reset              # 重置本地 SQLite 数据库
 pnpm run db:push               # 通过 drizzle-kit 同步修改到数据库 schema
@@ -129,11 +130,11 @@ pnpm run api:dev               # 独立启动 API 与 Mastra 进程（http://loc
 
 ### 4. 测试与验证要求
 
-- **环境解耦与防 Flaky**：单元测试与集成测试统一运行于内存或临时 SQLite 数据库，测试用例之间完全独立隔离；时间或随机数相关逻辑必须通过 `vi.setSystemTime` 等进行冻结。
+- **端到端测试是唯一测试机制**：永远不要在编写代码后补写浅层单元测试，强烈优先使用真实环境的端到端测试（`tests/e2e/`）作为唯一的业务测试机制；测试工件与执行报告统一输出至 `test-results/` 与 `playwright-report/`，确保结果可验证且可重复追溯。若确需孤立测试纯算法或纯解析模块，必须先在 `tests/invariants/` 清单中穷举所有失败方式，再编写对应代码。
 - **回归覆盖**：所有缺陷修复均须附带针对性的回归测试，并断言具体的前置状态与修复效果。
 - **提交流水线与门禁检查**：
   - 推送代码前必须在本地确保以下四项全部通过：
     1. `pnpm run fmt:check`（oxfmt 格式化无差异）
     2. `pnpm run typecheck`（TypeScript 严格编译检查 0 错误）
     3. `pnpm run lint`（oxlint 代码检查 0 error 0 warning）
-    4. `pnpm test`（Vitest 全仓库单元与集成测试 100% 通过）
+    4. `pnpm test`（全仓库自动化测试 100% 通过）
