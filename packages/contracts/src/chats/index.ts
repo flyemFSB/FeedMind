@@ -15,5 +15,6 @@ export type ChatSessionRead = {
   id: string;
   agent_thread_id: string;
   title: string;
+  metadata?: Record<string, unknown> | undefined;
 };
 export type ChatSessionListItem = z.infer<typeof chatSessionListItemSchema>;

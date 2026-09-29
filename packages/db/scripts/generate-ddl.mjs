@@ -2,7 +2,6 @@ import { execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const dbDir = dirname(scriptDir);
 const drizzleDir = join(dbDir, "drizzle");
@@ -30,6 +29,12 @@ for (const entry of journal.entries) {
 
 let combinedSql = sqlChunks.join("\n");
 
+// 追加 drizzle-kit 无法生成的幂等 DDL（FTS5 虚表、表达式索引）
+const rawDdlPath = join(dbDir, "src", "schema", "raw-ddl.sql");
+if (existsSync(rawDdlPath)) {
+  combinedSql += "\n" + readFileSync(rawDdlPath, "utf-8");
+}
+
 // 清理断点标记并注入 IF NOT EXISTS 保障应用启动时幂等安全
 combinedSql = combinedSql
   .replace(/--> statement-breakpoint/g, "")
@@ -40,10 +45,13 @@ combinedSql = combinedSql
 // 校验仅包含幂等建表与索引语句，拦截非幂等操作
 const nonIdempotent = combinedSql
   .split(";")
-  .map((statement) => statement.trim())
+  .map((statement) => statement.replace(/^\s*--.*$/gm, "").trim())
   .filter(Boolean)
   .filter(
-    (statement) => !/^CREATE\s+(TABLE|UNIQUE\s+INDEX|INDEX)\s+IF\s+NOT\s+EXISTS\b/i.test(statement),
+    (statement) =>
+      !/^CREATE\s+(VIRTUAL\s+TABLE|TABLE|UNIQUE\s+INDEX|INDEX)\s+IF\s+NOT\s+EXISTS\b/i.test(
+        statement,
+      ),
   );
 
 if (nonIdempotent.length > 0) {
