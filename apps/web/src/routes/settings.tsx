@@ -6,7 +6,7 @@ type SettingsSearch = {
   tab?: TabId;
 };
 
-const VALID_TABS: readonly TabId[] = ["models", "runtime", "tools", "skills", "system"];
+const VALID_TABS: readonly TabId[] = ["models", "tools", "skills", "system"];
 
 export const Route = createFileRoute("/settings")({
   validateSearch: (search: Record<string, unknown>): SettingsSearch => {

@@ -31,14 +31,15 @@ interface GuideStep {
  */
 export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialogProps) {
   const { t } = useTranslation();
-  const [copied, setCopied] = useState(false);
+  // 记录已复制的步骤序号：共享单个布尔态会让所有代码块的按钮同时变为"已复制"
+  const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCopy = useCallback(async (text: string) => {
+  const handleCopy = useCallback(async (text: string, step: number) => {
     const markCopied = () => {
-      setCopied(true);
+      setCopiedStep(step);
       if (copyTimer.current) clearTimeout(copyTimer.current);
-      copyTimer.current = setTimeout(() => setCopied(false), 2000);
+      copyTimer.current = setTimeout(() => setCopiedStep(null), 2000);
     };
 
     try {
@@ -125,6 +126,7 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
           <ol className="flex flex-col">
             {steps.map((step, i) => {
               const code = step.code;
+              const copied = copiedStep === i;
               return (
                 <li key={step.title} className="flex gap-4">
                   <div className="flex w-7 shrink-0 flex-col items-center">
@@ -150,7 +152,7 @@ export function CookieCloudGuideDialog({ open, onClose }: CookieCloudGuideDialog
                         <button
                           type="button"
                           aria-label={step.codeLabel}
-                          onClick={() => void handleCopy(code)}
+                          onClick={() => void handleCopy(code, i)}
                           className={`absolute top-1/2 right-2 flex -translate-y-1/2 items-center gap-1 rounded-md px-1.5 py-1 text-tiny font-medium ring-1 transition-colors ${
                             copied
                               ? "bg-editorial-semantic-success/10 text-editorial-semantic-success ring-editorial-semantic-success/20"

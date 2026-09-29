@@ -57,9 +57,6 @@ interface SocialOption {
   idParam?: string;
   /** 选项列表 API */
   listApi?: string;
-  /** 下拉含"全部"选项（如微信读书全部书架） */
-  hasAll?: boolean;
-  allLabelKey?: string;
 }
 
 const SOCIAL_OPTIONS: SocialOption[] = [
@@ -93,8 +90,6 @@ const SOCIAL_OPTIONS: SocialOption[] = [
     select: true,
     idParam: "mp_id",
     listApi: "/api/v1/crawler/weread/mps",
-    hasAll: true,
-    allLabelKey: "feeds.wereadAllShelf",
   },
 ];
 
@@ -267,29 +262,16 @@ export function SourcesPage() {
   const handleAddSocial = async () => {
     const opt = SOCIAL_OPTIONS.find((o) => o.id === socialPlatform);
     if (!opt) return;
-    // 下拉平台（无"全部"选项）必须选择；输入平台必须输入
-    if (opt.select) {
-      if (!opt.hasAll && !selectedOption.trim()) return;
-    } else if (!socialId.trim()) {
-      return;
-    }
+    // 下拉平台（收藏夹/公众号）必须选择；输入平台必须输入
+    if (opt.select ? !selectedOption.trim() : !socialId.trim()) return;
 
     const params: Record<string, unknown> = opt.select
-      ? opt.hasAll
-        ? selectedOption
-          ? { [opt.idParam!]: selectedOption }
-          : {}
-        : { [opt.idParam!]: selectedOption }
+      ? { [opt.idParam!]: selectedOption }
       : { [opt.paramKey!]: socialId.trim() };
 
-    // 来源标题：下拉用收藏夹/公众号名称；"全部书架"与输入平台用平台名兜底
-    const selectedName = listOptions.find((o) => o.id === selectedOption)?.name;
+    // 来源标题：下拉用收藏夹/公众号名称，输入平台用平台名 + ID 兜底
     const title = opt.select
-      ? opt.hasAll
-        ? selectedOption
-          ? selectedName
-          : t("feeds.wereadAllShelf")
-        : selectedName
+      ? (listOptions.find((o) => o.id === selectedOption)?.name ?? t(opt.labelKey))
       : `${t(opt.labelKey)} - ${socialId.trim()}`;
 
     try {
@@ -480,22 +462,25 @@ export function SourcesPage() {
                     const opt = SOCIAL_OPTIONS.find((o) => o.id === socialPlatform);
                     if (!opt) return null;
                     if (opt.select) {
-                      // 下拉选择：B站/知乎收藏夹、微信读书公众号（后者含"全部书架"）
+                      // 下拉选择：B站/知乎收藏夹、微信读书公众号
+                      // 未配置 Cookie 时抓取必然失败：下拉与添加一并禁用
+                      const noCookie = cookieStatus[opt.id] === "unconfigured";
                       return (
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2">
                             <select
                               value={selectedOption}
                               onChange={(e) => setSelectedOption(e.target.value)}
+                              disabled={noCookie}
                               aria-label={t(opt.labelKey)}
-                              className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft"
+                              className="min-w-0 flex-1 rounded-md border border-editorial-hairline-strong bg-editorial-surface-card px-3 py-2 text-body text-editorial-ink outline-none focus:border-editorial-accent focus:ring-2 focus:ring-editorial-accent-soft disabled:opacity-50"
                             >
-                              {opt.hasAll ? (
-                                <option value="">
-                                  {t(opt.allLabelKey ?? "feeds.wereadAllShelf")}
+                              {noCookie ? (
+                                <option value="" disabled>
+                                  {t("feeds.cookieNotConfiguredHint")}
                                 </option>
                               ) : (
-                                // 非"全部"平台加占位项，避免浏览器默认高亮第一个却选中态为空导致无法添加
+                                // 占位项：避免浏览器默认高亮第一个却选中态为空导致无法添加
                                 <option value="" disabled>
                                   {t("feeds.selectPlaceholder")}
                                 </option>
@@ -508,7 +493,7 @@ export function SourcesPage() {
                             </select>
                             <Button
                               onClick={() => void handleAddSocial()}
-                              disabled={!opt.hasAll && !selectedOption.trim()}
+                              disabled={noCookie || !selectedOption.trim()}
                               size="sm"
                               className="h-8 shrink-0 gap-1.5 rounded-md px-3 text-xs"
                             >

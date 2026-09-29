@@ -1,5 +1,5 @@
 import { AnimatePresence, m } from "motion/react";
-import { Cpu, MessageSquare, Wrench, Package, Monitor } from "lucide-react";
+import { Cpu, Wrench, Package, Monitor } from "lucide-react";
 import { useState } from "react";
 import type { LLMModel } from "@/lib/types";
 import { useModels } from "@/lib/hooks/use-models";
@@ -8,7 +8,6 @@ import { ModelsPanel } from "./models-panel";
 import { ToolsPanel } from "./tools-panel";
 import { SkillsPanel } from "./skills-panel";
 import { SystemPanel } from "./system-panel";
-import { RuntimePanel } from "./runtime-panel";
 import { ModelFormDialog } from "./model-form-dialog";
 import { EmbeddingModelDialog } from "./embedding-model-dialog";
 import { OcrModelDialog } from "./ocr-model-dialog";
@@ -31,12 +30,6 @@ const SETTINGS_TABS: TabItem[] = [
     icon: Cpu,
     labelKey: "settings.models",
     descKey: "settings.modelsDescription",
-  },
-  {
-    id: "runtime",
-    icon: MessageSquare,
-    labelKey: "settings.runtime",
-    descKey: "settings.runtimeDescription",
   },
   {
     id: "tools",
@@ -204,7 +197,6 @@ export function SettingsView({ activeTab, onTabChange }: SettingsViewProps) {
                 </div>
               )}
 
-              {activeTab === "runtime" && <RuntimePanel />}
               {activeTab === "tools" && <ToolsPanel />}
               {activeTab === "skills" && <SkillsPanel />}
               {activeTab === "system" && <SystemPanel />}

@@ -4,6 +4,7 @@ import { AnimatePresence, m } from "motion/react";
 import {
   ArrowLeft,
   BookOpen,
+  Check,
   ChevronDown,
   Import,
   PanelLeftClose,
@@ -55,7 +56,7 @@ export function MyWikiPage() {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [showCreateSpace, setShowCreateSpace] = useState(false);
-  const [showDeleteSpace, setShowDeleteSpace] = useState(false);
+  const [deleteTargetSpace, setDeleteTargetSpace] = useState<WikiSpaceListItem | null>(null);
   const [deletingSpace, setDeletingSpace] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [showSpaceMenu, setShowSpaceMenu] = useState(false);
@@ -157,19 +158,22 @@ export function MyWikiPage() {
     [navigate],
   );
 
-  // 删除当前空间：成功后跳到剩余第一个空间；全部删空则回到空状态页
+  // 删除空间：成功后若刚好是当前空间，跳到剩余第一个空间；全部删空则回到未选空间
   const handleDeleteSpace = useCallback(async () => {
-    if (!spaceId) return;
+    if (!deleteTargetSpace) return;
+    const target = deleteTargetSpace;
     setDeletingSpace(true);
     try {
-      await deleteWikiSpace(spaceId);
-      setShowDeleteSpace(false);
-      const remaining = spaces.filter((s) => s.id !== spaceId);
-      const nextSpace = remaining[0];
-      if (nextSpace) {
-        void navigate({ search: (prev) => ({ ...prev, space: nextSpace.id, page: undefined }) });
-      } else {
-        void navigate({ search: (prev) => ({ ...prev, space: undefined, page: undefined }) });
+      await deleteWikiSpace(target.id);
+      setDeleteTargetSpace(null);
+      if (target.id === spaceId) {
+        const remaining = spaces.filter((s) => s.id !== target.id);
+        const nextSpace = remaining[0];
+        if (nextSpace) {
+          void navigate({ search: (prev) => ({ ...prev, space: nextSpace.id, page: undefined }) });
+        } else {
+          void navigate({ search: (prev) => ({ ...prev, space: undefined, page: undefined }) });
+        }
       }
       void queryClient.invalidateQueries({ queryKey: wikiOptions.spaces().queryKey });
       toast.add({
@@ -181,7 +185,7 @@ export function MyWikiPage() {
     } finally {
       setDeletingSpace(false);
     }
-  }, [spaceId, spaces, navigate, queryClient, t]);
+  }, [deleteTargetSpace, spaceId, spaces, navigate, queryClient, t]);
 
   if (isLoading) {
     return (
@@ -238,32 +242,68 @@ export function MyWikiPage() {
         <span>{spaceName}</span>
         <ChevronDown size={14} className="text-editorial-ink-muted" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[200px] p-1.5">
-        {spaces.map((s) => (
-          <DropdownMenuItem key={s.id} onClick={() => handleSpaceSelect(s)} className="text-body">
-            {s.name}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="start" className="w-[260px] p-2">
+        <div className="flex items-center justify-between px-2 py-1 text-tiny text-editorial-ink-muted">
+          <span className="font-medium text-editorial-ink">{t("wiki.spaces", "知识库空间")}</span>
+          <span>{spaces.length} 个空间</span>
+        </div>
+        <div className="max-h-64 overflow-y-auto space-y-0.5 py-0.5">
+          {spaces.map((s) => {
+            const isActive = s.id === spaceId;
+            return (
+              <DropdownMenuItem
+                key={s.id}
+                onClick={() => handleSpaceSelect(s)}
+                className={cn(
+                  "group flex items-center justify-between rounded-lg p-2 text-xs transition-colors cursor-pointer",
+                  isActive
+                    ? "bg-editorial-accent-soft/60 text-editorial-ink font-medium border border-editorial-accent/25"
+                    : "text-editorial-ink-soft hover:bg-editorial-surface-soft hover:text-editorial-ink border border-transparent",
+                )}
+              >
+                <div className="flex min-w-0 items-center gap-2 flex-1">
+                  {isActive ? (
+                    <Check size={13} className="shrink-0 text-editorial-accent" />
+                  ) : (
+                    <BookOpen
+                      size={13}
+                      className="shrink-0 text-editorial-ink-muted group-hover:text-editorial-ink"
+                    />
+                  )}
+                  <div className="flex min-w-0 flex-col flex-1">
+                    <span className="truncate">{s.name}</span>
+                    {s.page_count !== undefined && (
+                      <span className="text-[10px] text-editorial-ink-muted/80">
+                        {s.page_count} 篇页面
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSpaceMenu(false);
+                    setDeleteTargetSpace(s);
+                  }}
+                  className="ml-1.5 flex size-6 shrink-0 items-center justify-center rounded-md text-editorial-ink-muted opacity-0 transition-opacity hover:bg-editorial-semantic-error/10 hover:text-editorial-semantic-error group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100"
+                  title={t("common.delete")}
+                  aria-label={t("common.delete")}
+                >
+                  <Trash2 size={12} />
+                </button>
+              </DropdownMenuItem>
+            );
+          })}
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleCreateSpace}
-          className="flex items-center gap-2 rounded-lg text-body text-editorial-primary"
+          className="flex items-center gap-2 rounded-lg p-2 text-xs text-editorial-primary cursor-pointer"
         >
           <Plus size={14} />
           {t("wiki.createNewSpace")}
         </DropdownMenuItem>
-        {spaceId && (
-          <DropdownMenuItem
-            onClick={() => {
-              setShowDeleteSpace(true);
-              setShowSpaceMenu(false);
-            }}
-            className="flex items-center gap-2 rounded-lg text-body text-destructive focus:text-destructive"
-          >
-            <Trash2 size={14} />
-            {t("wiki.deleteSpace")}
-          </DropdownMenuItem>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   ) : (
@@ -371,13 +411,13 @@ export function MyWikiPage() {
       )}
 
       {/* 删除空间确认：不可逆操作，复用全站统一的 DeleteConfirmDialog */}
-      {showDeleteSpace && (
+      {deleteTargetSpace != null && (
         <DeleteConfirmDialog
-          open={showDeleteSpace}
-          onClose={() => setShowDeleteSpace(false)}
+          open={true}
+          onClose={() => setDeleteTargetSpace(null)}
           onConfirm={() => void handleDeleteSpace()}
           title={t("wiki.deleteSpace")}
-          description={t("wiki.deleteSpaceConfirm", { name: spaceName })}
+          description={t("wiki.deleteSpaceConfirm", { name: deleteTargetSpace.name })}
           confirming={deletingSpace}
         />
       )}
