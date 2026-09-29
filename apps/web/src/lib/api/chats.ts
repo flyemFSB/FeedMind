@@ -1,4 +1,5 @@
 import { apiFetch, backendApiPath, apiPost, apiPatch } from "./client";
+import type { ChatSessionRead } from "@feedmind/contracts";
 import type { UIMessage } from "@ai-sdk/react";
 
 export type ChatSessionListItem = {
@@ -11,6 +12,11 @@ export type ChatSessionListItem = {
 
 export async function listChatSessions(): Promise<ChatSessionListItem[]> {
   return apiFetch<ChatSessionListItem[]>(backendApiPath("/chats"));
+}
+
+/** 获取单条会话详情（包含元数据） */
+export async function getChatSession(threadId: string): Promise<ChatSessionRead> {
+  return apiFetch<ChatSessionRead>(backendApiPath(`/chats/${encodeURIComponent(threadId)}`));
 }
 
 /** 读取会话全部历史消息 */

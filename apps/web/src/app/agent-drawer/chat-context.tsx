@@ -15,12 +15,18 @@ import { useChat, type UIMessage } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DefaultChatTransport, type FileUIPart } from "ai";
 import { getSelectedFeedMindModel } from "@/lib/api/agent";
-import { getChatSessionMessages, createChatSession, renameChatSession } from "@/lib/api/chats";
+import {
+  getChatSessionMessages,
+  getChatSession,
+  createChatSession,
+  renameChatSession,
+} from "@/lib/api/chats";
 import { chatOptions } from "@/lib/hooks/use-chats";
 import {
   makeChatTitle,
   estimateMessageTokens,
   type MessageTelemetry,
+  type ChatExactUsage,
 } from "@/app/agent-drawer/chat-utils";
 
 import { getCurrentWorkspaceContext } from "@/app/shell/app-shell-context";
@@ -52,6 +58,7 @@ export interface ChatContextValue {
   createNewSession: () => Promise<void>;
   clearSession: () => void;
   telemetryMap: Record<string, MessageTelemetry>;
+  latestUsage: ChatExactUsage | null;
 }
 
 export interface ChatActionsContextValue {
@@ -124,6 +131,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const [retryStatus, setRetryStatus] = useState<RetryStatus | null>(null);
   const [telemetryMap, setTelemetryMap] = useState<Record<string, MessageTelemetry>>({});
+  const [latestUsage, setLatestUsage] = useState<ChatExactUsage | null>(null);
   const requestStartRef = useRef<number | null>(null);
   const firstTokenRef = useRef<number | null>(null);
 
@@ -154,6 +162,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           attempt: info.attempt ?? 1,
           maxAttempts: info.maxAttempts ?? 3,
           delaySec: info.delaySec ?? 1,
+        });
+      }
+      if (
+        dataPart.type === "data-usage" &&
+        typeof dataPart.data === "object" &&
+        dataPart.data !== null
+      ) {
+        const u = dataPart.data as Partial<ChatExactUsage>;
+        setLatestUsage({
+          promptTokens: u.promptTokens ?? 0,
+          completionTokens: u.completionTokens ?? 0,
+          totalTokens: u.totalTokens ?? (u.promptTokens ?? 0) + (u.completionTokens ?? 0),
+          cachedTokens: u.cachedTokens ?? 0,
         });
       }
     },
@@ -257,18 +278,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     await rawRegenerate();
   }, [rawRegenerate]);
 
-  // ── 消息加载（从 Memory API 读取整段历史） ──
+  // ── 消息加载（从 Memory API 读取整段历史与元数据） ──
   const loadSessionMessages = useCallback(
     async (threadId: string) => {
       setIsLoadingHistory(true);
       try {
-        const history = await getChatSessionMessages(threadId);
+        const [history, session] = await Promise.all([
+          getChatSessionMessages(threadId),
+          getChatSession(threadId).catch(() => null),
+        ]);
         setUiMessages(history);
+        const usage = session?.metadata?.["latestUsage"] as ChatExactUsage | undefined;
+        setLatestUsage(usage ?? null);
       } catch (err) {
         console.error("[会话] 加载历史消息失败:", err);
         if ((err as Error)?.message?.includes("不存在")) {
           setActiveThreadId(null);
           setUiMessages([]);
+          setLatestUsage(null);
         }
       } finally {
         setIsLoadingHistory(false);
@@ -324,6 +351,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     async (threadId: string) => {
       if (threadId === activeThreadIdRef.current) return;
       setTelemetryMap({});
+      setLatestUsage(null);
       requestStartRef.current = null;
       firstTokenRef.current = null;
       setActiveThreadId(threadId);
@@ -336,6 +364,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const createNewSessionFn = useCallback(async () => {
     setRetryStatus(null);
     setTelemetryMap({});
+    setLatestUsage(null);
     requestStartRef.current = null;
     firstTokenRef.current = null;
     setActiveThreadId(null);
@@ -367,6 +396,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       createNewSession: createNewSessionFn,
       clearSession,
       telemetryMap,
+      latestUsage,
     }),
     [
       messages,
@@ -384,6 +414,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       createNewSessionFn,
       clearSession,
       telemetryMap,
+      latestUsage,
     ],
   );
 

@@ -32,6 +32,10 @@ interface AgentDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const DEFAULT_DRAWER_WIDTH = 500;
+const MIN_DRAWER_WIDTH = 380;
+const MAX_DRAWER_WIDTH = 800;
+
 export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
   const { t } = useTranslation();
   const { createNewSession, switchSession, activeThreadId } = useChatActions();
@@ -71,12 +75,14 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
       const saved = localStorage.getItem("feedmind:agent-drawer-width");
       if (saved) {
         const n = Number(saved);
-        return Math.min(Math.max(n, 400), 800);
+        if (n !== 560 && n !== 420 && !Number.isNaN(n)) {
+          return Math.min(Math.max(n, MIN_DRAWER_WIDTH), MAX_DRAWER_WIDTH);
+        }
       }
     } catch {
-      /* 忽略 localStorage 读取失败，回退使用默认抽屉宽度 */
+      // 忽略存储读取异常
     }
-    return 560;
+    return DEFAULT_DRAWER_WIDTH;
   });
 
   useEffect(() => {
@@ -95,7 +101,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
 
       const handlePointerMove = (event: globalThis.PointerEvent) => {
         const newWidth = startWidth - (event.clientX - startX);
-        const clamped = Math.min(Math.max(newWidth, 400), 800);
+        const clamped = Math.min(Math.max(newWidth, MIN_DRAWER_WIDTH), MAX_DRAWER_WIDTH);
         setDrawerWidth(clamped);
       };
 
@@ -165,7 +171,7 @@ export function AgentDrawer({ open, onOpenChange }: AgentDrawerProps) {
           aria-label="拖动调整 Agent 面板宽度，双击恢复默认宽度"
           title="拖动调整宽度 · 双击恢复默认"
           onPointerDown={handleResizePointerDown}
-          onDoubleClick={() => setDrawerWidth(560)}
+          onDoubleClick={() => setDrawerWidth(DEFAULT_DRAWER_WIDTH)}
           className={cn(
             "group relative hidden lg:flex w-2 shrink-0 cursor-col-resize items-center justify-center -ml-2 z-20 select-none my-2 hover:bg-editorial-accent/20 rounded-full transition-colors",
             isResizing && "bg-editorial-accent/40",

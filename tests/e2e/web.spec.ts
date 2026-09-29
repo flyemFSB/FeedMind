@@ -154,8 +154,8 @@ test("Chat 性能监控指标：渲染上下文窗口、工具耗时与性能指
   await expect(page.locator('[data-island="navigation"]')).toBeVisible();
   await page.keyboard.press("Control+Backslash");
 
-  // 断言底部输入框旁渲染了上下文窗口指标 (CTX)
-  const ctxIndicator = page.locator("text=CTX").first();
+  // 断言底部输入框旁渲染了上下文窗口指标按钮
+  const ctxIndicator = page.getByRole("button", { name: /上下文用量/ }).first();
   await expect(ctxIndicator).toBeVisible();
 
   const composer = page.locator("textarea").last();

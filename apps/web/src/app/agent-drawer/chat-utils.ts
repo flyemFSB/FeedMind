@@ -81,6 +81,14 @@ export function formatTokenCount(tokens: number): string {
   return `${(tokens / 1000).toFixed(1)}k`;
 }
 
+/** 真实 Token 统计负载 */
+export interface ChatExactUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedTokens: number;
+}
+
 /** 上下文窗口各分类 Token 估算数据 */
 export interface ContextWindowBreakdown {
   /** 系统与工具 Schema 底噪 */
@@ -89,15 +97,38 @@ export interface ContextWindowBreakdown {
   chatTokens: number;
   /** 工具调用入参、出参及外挂上下文 */
   toolTokens: number;
-  /** 当前总计用量 */
+  /** 当前总计用量（API 返回时为精确值） */
   totalTokens: number;
+  /** 命中的缓存 Token 数 */
+  cachedTokens: number;
+  /** 缓存命中率文本（如 "96.6%" 或 "0.0%"） */
+  cacheHitRate: string;
 }
 
-/** 估算已落库会话的各分类 Token 分布 */
+/** 估算或按 API 精确值校准已落库会话的各分类 Token 分布 */
 export function calculateContextBreakdown(
   messages: Array<{ parts: Array<Record<string, unknown>> }>,
   workspaceSnippet?: string,
+  exactUsage?: Partial<ChatExactUsage> | null,
 ): ContextWindowBreakdown {
+  const cachedTokens = exactUsage?.cachedTokens ?? 0;
+  const promptTokens = exactUsage?.promptTokens ?? 0;
+  const exactTotal =
+    exactUsage?.totalTokens ??
+    (promptTokens > 0 ? promptTokens + (exactUsage?.completionTokens ?? 0) : 0);
+
+  // 严格采用 API 精确用量，不向下兼容无真实统计的老数据估算
+  if (!exactTotal || messages.length === 0) {
+    return {
+      systemTokens: 0,
+      chatTokens: 0,
+      toolTokens: 0,
+      totalTokens: 0,
+      cachedTokens: 0,
+      cacheHitRate: "0.0%",
+    };
+  }
+
   let chatTokens = 0;
   let toolTokens = 0;
 
@@ -127,14 +158,27 @@ export function calculateContextBreakdown(
     toolTokens += estimateTokenCount(workspaceSnippet);
   }
 
-  // 当已有历史消息时计入固定系统提示词底噪（约 1500 tokens）
-  const systemTokens = messages.length > 0 ? 1500 : 0;
-  const totalTokens = systemTokens + chatTokens + toolTokens;
+  let systemTokens = 1500;
+  const estSum = systemTokens + chatTokens + toolTokens;
+  if (estSum > 0) {
+    const scale = exactTotal / estSum;
+    systemTokens = Math.round(systemTokens * scale);
+    chatTokens = Math.round(chatTokens * scale);
+    toolTokens = Math.max(0, exactTotal - systemTokens - chatTokens);
+  }
+
+  const denominator = promptTokens > 0 ? promptTokens : exactTotal;
+  const cacheHitRate =
+    denominator > 0 && cachedTokens > 0
+      ? `${Math.min(100, (cachedTokens / denominator) * 100).toFixed(1)}%`
+      : "0.0%";
 
   return {
     systemTokens,
     chatTokens,
     toolTokens,
-    totalTokens,
+    totalTokens: exactTotal,
+    cachedTokens,
+    cacheHitRate,
   };
 }

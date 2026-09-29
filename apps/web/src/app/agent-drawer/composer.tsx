@@ -62,27 +62,31 @@ function ComposerSubmit({
   );
 }
 
+const CTX_CIRCLE_RADIUS = 5.5;
+const CTX_CIRCUMFERENCE = 2 * Math.PI * CTX_CIRCLE_RADIUS;
+
 function ContextWindowIndicator() {
-  const { messages, status } = useChatContext();
+  const { messages, status, latestUsage } = useChatContext();
   const { workspaceContext } = useAppShell();
   const { data: models = [] } = useModels("chat");
   const { data: selectedModelId = "" } = useSelectedModel("chat");
   const currentModel = models.find((m) => m.id === selectedModelId) ?? models[0];
 
   const [breakdown, setBreakdown] = useState<ContextWindowBreakdown>(() =>
-    calculateContextBreakdown(messages, workspaceContext?.snippet),
+    calculateContextBreakdown(messages, workspaceContext?.snippet, latestUsage),
   );
 
-  // 流式生成完毕或会话切换时，才单次全量更新 Token 构成
+  // 流式生成完毕、会话切换或收到 API 精确 Token 时全量更新 Token 构成
   useEffect(() => {
     if (status === "streaming" || status === "submitted") return;
-    setBreakdown(calculateContextBreakdown(messages, workspaceContext?.snippet));
-  }, [status, messages, workspaceContext?.snippet]);
+    setBreakdown(calculateContextBreakdown(messages, workspaceContext?.snippet, latestUsage));
+  }, [status, messages, workspaceContext?.snippet, latestUsage]);
 
   const maxTokens = currentModel?.contextWindow ? currentModel.contextWindow * 1000 : null;
   const ratio = maxTokens ? breakdown.totalTokens / maxTokens : 0;
   const percent = maxTokens ? (ratio * 100).toFixed(1) : null;
-  const remainingTokens = maxTokens ? Math.max(0, maxTokens - breakdown.totalTokens) : 0;
+  const clampedRatio = Math.min(Math.max(ratio, 0), 1);
+  const strokeDashoffset = CTX_CIRCUMFERENCE * (1 - clampedRatio);
 
   const usageText = maxTokens
     ? `${formatTokenCount(breakdown.totalTokens)} / ${formatTokenCount(maxTokens)}`
@@ -111,17 +115,42 @@ function ContextWindowIndicator() {
           <button
             type="button"
             className={cn(
-              "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono select-none transition-colors cursor-default",
+              "flex size-7 items-center justify-center rounded-md select-none transition-colors cursor-default",
               isDanger
-                ? "bg-editorial-semantic-error/10 text-editorial-semantic-error"
+                ? "text-editorial-semantic-error hover:bg-editorial-semantic-error/10"
                 : isWarning
-                  ? "bg-editorial-semantic-warning/10 text-editorial-semantic-warning"
+                  ? "text-editorial-semantic-warning hover:bg-editorial-semantic-warning/10"
                   : "text-editorial-ink-muted/80 hover:text-editorial-ink hover:bg-editorial-surface-soft",
             )}
+            aria-label={
+              maxTokens ? `上下文用量: ${usageText} (${percent}%)` : `上下文用量: ${usageText}`
+            }
           >
-            <span className="hidden sm:inline text-editorial-ink-muted/60">CTX</span>
-            <span>{usageText}</span>
-            {percent && <span className="text-[9px] opacity-75">({percent}%)</span>}
+            <svg className="size-4 -rotate-90" viewBox="0 0 16 16" aria-hidden="true">
+              <circle
+                cx="8"
+                cy="8"
+                r={CTX_CIRCLE_RADIUS}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="opacity-20"
+              />
+              {clampedRatio > 0 && (
+                <circle
+                  cx="8"
+                  cy="8"
+                  r={CTX_CIRCLE_RADIUS}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeDasharray={CTX_CIRCUMFERENCE}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  className="transition-[stroke-dashoffset] duration-300 ease-out"
+                />
+              )}
+            </svg>
           </button>
         }
       />
@@ -131,20 +160,6 @@ function ContextWindowIndicator() {
         sideOffset={8}
         className="w-64 p-3 space-y-2.5 bg-editorial-surface-dark border border-editorial-hairline-strong/60 text-editorial-ink-on-dark shadow-island rounded-lg select-none"
       >
-        <div className="flex items-center justify-between text-[11px]">
-          <span
-            className="font-medium text-white truncate max-w-[130px]"
-            title={currentModel?.modelName ?? "当前模型"}
-          >
-            {currentModel?.modelName ?? "当前模型"}
-          </span>
-          <span className="font-mono text-white/70 text-[10px]">
-            {maxTokens
-              ? `${formatTokenCount(breakdown.totalTokens)} / ${formatTokenCount(maxTokens)} (${percent}%)`
-              : `${formatTokenCount(breakdown.totalTokens)} tokens`}
-          </span>
-        </div>
-
         <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden flex">
           {breakdown.totalTokens > 0 ? (
             <>
@@ -201,14 +216,27 @@ function ContextWindowIndicator() {
           </div>
         </div>
 
-        {maxTokens ? (
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-white/60">
-            <span>剩余可用</span>
-            <span className="font-mono text-white/80">
-              {formatTokenCount(remainingTokens)} ({Math.max(0, 100 - Number(percent)).toFixed(1)}%)
+        <div className="pt-2 border-t border-white/10 space-y-1.5 text-[11px]">
+          <div className="flex items-center justify-between text-white/70">
+            <span>上下文占用</span>
+            <span className="font-mono text-white/90">
+              {maxTokens
+                ? `${formatTokenCount(breakdown.totalTokens)} / ${formatTokenCount(maxTokens)} (${percent}%)`
+                : `${formatTokenCount(breakdown.totalTokens)} tokens`}
             </span>
           </div>
-        ) : null}
+          <div className="flex items-center justify-between text-white/70">
+            <div className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full shrink-0 bg-emerald-400" />
+              <span>缓存命中率</span>
+            </div>
+            <span className="font-mono text-emerald-400">
+              {breakdown.cachedTokens > 0
+                ? `${formatTokenCount(breakdown.cachedTokens)} (${breakdown.cacheHitRate})`
+                : breakdown.cacheHitRate}
+            </span>
+          </div>
+        </div>
       </TooltipContent>
     </Tooltip>
   );
