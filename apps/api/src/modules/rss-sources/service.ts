@@ -1,15 +1,15 @@
 import { eq } from "drizzle-orm";
 import type { RssSourceCreate, RssSourceUpdate } from "@feedmind/contracts";
-import { db, rssSources, feeds } from "@feedmind/db";
-import type { RssSourceRow } from "@feedmind/db";
+import { db, feedItem, source } from "@feedmind/db";
+import type { SourceRow } from "@feedmind/db";
 import { HttpError } from "../../lib/http.js";
 
-export async function listSources(): Promise<RssSourceRow[]> {
-  return db.select().from(rssSources).orderBy(rssSources.createdAt);
+export async function listSources(): Promise<SourceRow[]> {
+  return db.select().from(source).orderBy(source.createdAt);
 }
 
-export async function getSource(id: string): Promise<RssSourceRow> {
-  const [row] = await db.select().from(rssSources).where(eq(rssSources.id, id)).limit(1);
+export async function getSource(id: string): Promise<SourceRow> {
+  const [row] = await db.select().from(source).where(eq(source.id, id)).limit(1);
   if (!row)
     throw new HttpError(
       404,
@@ -32,46 +32,88 @@ export function shouldBackfillTitle(title: string, url: string): boolean {
   return title === host || title === stripWww(host);
 }
 
-export async function createSource(input: RssSourceCreate): Promise<RssSourceRow> {
+/** 路由前缀 → 平台：social 源的平台由路由推导，不采信外部传入 */
+const ROUTE_TO_PLATFORM: Record<string, string> = {
+  bili: "bilibili",
+  dy: "douyin",
+  xhs: "xiaohongshu",
+  zh: "zhihu",
+  weread: "weread",
+};
+
+export function platformFromRoute(route: string | undefined): string | null {
+  if (!route) return null;
+  return ROUTE_TO_PLATFORM[route.split("/")[0] ?? ""] ?? null;
+}
+
+export async function createSource(input: RssSourceCreate): Promise<SourceRow> {
   const { randomUUID } = await import("node:crypto");
   const id = randomUUID();
   const now = new Date().toISOString();
-  // RSS 来源默认使用域名兜底标题，社交订阅使用指定标题或平台名称兜底
-  const title =
-    input.type === "rss"
-      ? stripWww(new URL(input.url).hostname)
-      : (input.title?.trim() ?? input.platform ?? "未命名来源");
 
-  await db.insert(rssSources).values({
-    id,
-    type: input.type,
-    platform: input.platform ?? null,
-    route: input.route ?? null,
-    url: input.url,
-    title,
-    params: input.params ? JSON.stringify(input.params) : null,
-    createdAt: now,
-    updatedAt: now,
-  });
+  if (input.type === "social") {
+    const platform = platformFromRoute(input.route);
+    if (!input.route || !platform) {
+      throw new HttpError(400, "INVALID_ROUTE", `无法从路由推导平台: ${input.route ?? ""}`);
+    }
+    await db.insert(source).values({
+      id,
+      kind: "social",
+      platform,
+      route: input.route,
+      url: input.url,
+      title: input.title?.trim() || platform,
+      params: input.params ?? null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return getSource(id);
+  }
+
+  // RSS 来源默认使用域名兜底标题
+  const title = stripWww(new URL(input.url).hostname);
+  try {
+    await db.insert(source).values({
+      id,
+      kind: "rss",
+      url: input.url,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (err) {
+    if (err instanceof Error && /UNIQUE constraint failed/i.test(err.message)) {
+      throw new HttpError(
+        409,
+        "CONFLICT",
+        "该 RSS 地址已订阅",
+        {},
+        {
+          i18nKey: "apiError.rssSourceExists",
+        },
+      );
+    }
+    throw err;
+  }
 
   return getSource(id);
 }
 
-export async function updateSource(id: string, input: RssSourceUpdate): Promise<RssSourceRow> {
+export async function updateSource(id: string, input: RssSourceUpdate): Promise<SourceRow> {
   const row = await getSource(id);
   const newTitle = input.title ?? row.title;
   await db
-    .update(rssSources)
+    .update(source)
     .set({ title: newTitle, updatedAt: new Date().toISOString() })
-    .where(eq(rssSources.id, id));
+    .where(eq(source.id, id));
   return getSource(id);
 }
 
 export async function deleteSource(id: string): Promise<void> {
   const [existing] = await db
-    .select({ id: rssSources.id })
-    .from(rssSources)
-    .where(eq(rssSources.id, id))
+    .select({ id: source.id })
+    .from(source)
+    .where(eq(source.id, id))
     .limit(1);
   if (!existing)
     throw new HttpError(
@@ -84,7 +126,7 @@ export async function deleteSource(id: string): Promise<void> {
   // 级联删除该来源下的全部条目，避免删除来源后遗留孤儿内容；
   // 两次删除置于同一事务，避免半删状态（来源没了条目还在 / 反之亦然）
   await db.transaction(async (tx) => {
-    await tx.delete(feeds).where(eq(feeds.sourceId, id));
-    await tx.delete(rssSources).where(eq(rssSources.id, id));
+    await tx.delete(feedItem).where(eq(feedItem.sourceId, id));
+    await tx.delete(source).where(eq(source.id, id));
   });
 }

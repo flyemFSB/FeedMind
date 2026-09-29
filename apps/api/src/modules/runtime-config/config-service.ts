@@ -1,144 +1,81 @@
-import { and, eq } from "drizzle-orm";
-import type { RuntimeConfigRead, RuntimeConfigUpdate } from "@feedmind/contracts";
-import { db, model, runtimeConfig } from "@feedmind/db";
-import type { RuntimeConfigRow } from "@feedmind/db";
+import { eq } from "drizzle-orm";
+import { db, model } from "@feedmind/db";
 import { decryptValue } from "../../lib/crypto/fernet.js";
 import { assertPublicUrl } from "../../lib/ssrf.js";
 import { fetchImageCapped } from "@feedmind/wiki-core";
 import { HttpError } from "../../lib/http.js";
 
-interface ResolvedModelInfo {
-  llmId: number | null;
-  modelName?: string | undefined;
-  modelId?: string | undefined;
-  provider?: string | undefined;
-}
-
 /**
- * 有效模型来源的唯一判据：session 永远跟全局选中模型；wiki 未独立指定（或指向已删模型）
- * 时同样回退全局；其余运行时按自身 llmId。
+ * 用途级采样参数与系统提示词：原 runtime_config 表已随「用途 → 模型」绑定收敛而删除，
+ * 参数回归代码常量，不再由用户编辑。
  */
-function shouldUseSelectedModel(runtime: string, hasOwnModel: boolean): boolean {
-  return runtime === "session" || (runtime === "wiki" && !hasOwnModel);
+export const RUNTIME_SAMPLING = {
+  temperature: 0.2,
+  top_p: 1,
+  system_prompt: "",
+} as const;
+
+/** 需要解析模型的运行时用途 */
+export type RuntimePurpose = "chat" | "wiki";
+
+type ModelRow = typeof model.$inferSelect;
+
+async function loadModelByUsage(usage: string): Promise<ModelRow | undefined> {
+  const [row] = await db.select().from(model).where(eq(model.usage, usage)).limit(1);
+  return row;
 }
 
-function toConfigRead(row: RuntimeConfigRow, effective: ResolvedModelInfo): RuntimeConfigRead {
+/** 有效模型：知识导入未绑定专用模型时回退对话模型 */
+export async function resolveRuntimeModel(purpose: RuntimePurpose): Promise<ModelRow> {
+  const row =
+    purpose === "wiki"
+      ? ((await loadModelByUsage("wiki")) ?? (await loadModelByUsage("chat")))
+      : await loadModelByUsage("chat");
+
+  if (!row) {
+    throw new HttpError(
+      400,
+      "MODEL_NOT_CONFIGURED",
+      "尚未绑定对话模型。请在设置 → 模型配置中添加模型并设为默认对话模型。",
+      {},
+      { i18nKey: "apiError.modelNotConfigured", i18nParams: { runtime: purpose } },
+    );
+  }
+  return row;
+}
+
+export interface RuntimeModelConfig {
+  model_name: string;
+  model_id: string;
+  llm_id: number;
+  base_url: string;
+  api_key: string;
+  max_output: string;
+  temperature: number;
+  top_p: number;
+  system_prompt: string;
+}
+
+/** 运行时模型配置：模型来自用途绑定，采样参数来自代码常量 */
+export async function getRuntimeConfig(purpose: RuntimePurpose): Promise<RuntimeModelConfig> {
+  const row = await resolveRuntimeModel(purpose);
+  const apiKey = row.apiKey ? decryptValue(row.apiKey) : "";
+
+  if (!apiKey && !row.baseUrl) {
+    throw new Error(
+      `[config] Runtime "${purpose}": model "${row.name}" 缺少 API Key 与 Base URL，请在设置 → 模型配置中补全。`,
+    );
+  }
+
   return {
-    runtime: row.runtime,
-    llm_id: effective.llmId,
-    model_name: effective.modelName,
-    model_id: effective.modelId,
-    provider: effective.provider,
-    temperature: row.temperature,
-    top_p: row.topP,
-    system_prompt: row.systemPrompt,
+    model_name: row.name,
+    model_id: row.apiModel,
+    llm_id: row.id,
+    base_url: row.baseUrl,
+    api_key: apiKey,
+    max_output: row.maxOutput != null ? String(row.maxOutput) : "",
+    ...RUNTIME_SAMPLING,
   };
-}
-
-async function loadModelRow(id: number | null) {
-  if (!id) return undefined;
-  const [row] = await db.select().from(model).where(eq(model.id, id)).limit(1);
-  return row;
-}
-
-async function loadSelectedChatModelRow() {
-  const [row] = await db
-    .select()
-    .from(model)
-    .where(and(eq(model.isSelected, true), eq(model.type, "chat")))
-    .limit(1);
-  return row;
-}
-
-async function resolveModelName(modelId: number | null): Promise<Partial<ResolvedModelInfo>> {
-  const row = await loadModelRow(modelId);
-  return row ? { modelName: row.modelName, modelId: row.modelId, provider: row.provider } : {};
-}
-
-async function resolveSelectedModel(): Promise<ResolvedModelInfo> {
-  const row = await loadSelectedChatModelRow();
-  return row
-    ? { llmId: row.id, modelName: row.modelName, modelId: row.modelId, provider: row.provider }
-    : { llmId: null };
-}
-
-export async function getAllConfigs(): Promise<RuntimeConfigRead[]> {
-  const rows = await db
-    .select({
-      config: runtimeConfig,
-      modelName: model.modelName,
-      modelId: model.modelId,
-      provider: model.provider,
-    })
-    .from(runtimeConfig)
-    .leftJoin(model, eq(runtimeConfig.llmId, model.id));
-
-  const selected = await resolveSelectedModel();
-
-  return rows.map(({ config, modelName, modelId, provider }) => {
-    const own = {
-      modelName: modelName ?? undefined,
-      modelId: modelId ?? undefined,
-      provider: provider ?? undefined,
-    };
-    const effective = shouldUseSelectedModel(config.runtime, Boolean(own.modelName))
-      ? selected
-      : { llmId: config.llmId, ...own };
-    return toConfigRead(config, effective);
-  });
-}
-
-export async function getConfig(runtime: string): Promise<RuntimeConfigRead> {
-  const [row] = await db
-    .select()
-    .from(runtimeConfig)
-    .where(eq(runtimeConfig.runtime, runtime))
-    .limit(1);
-  if (!row)
-    throw new HttpError(
-      404,
-      "HTTP_ERROR",
-      "运行配置不存在",
-      {},
-      { i18nKey: "apiError.runtimeConfigNotFound" },
-    );
-
-  const own = await resolveModelName(row.llmId);
-  const effective = shouldUseSelectedModel(runtime, Boolean(own.modelName))
-    ? await resolveSelectedModel()
-    : { llmId: row.llmId, ...own };
-  return toConfigRead(row, effective);
-}
-
-export async function updateConfig(
-  runtime: string,
-  payload: RuntimeConfigUpdate,
-): Promise<RuntimeConfigRead> {
-  const values: Partial<RuntimeConfigRow> = {
-    updatedAt: new Date().toISOString(),
-  };
-  if (payload.llm_id !== undefined && runtime !== "session") values.llmId = payload.llm_id;
-  if (payload.temperature !== undefined) values.temperature = payload.temperature;
-  if (payload.top_p !== undefined) values.topP = payload.top_p;
-  if (payload.system_prompt !== undefined) values.systemPrompt = payload.system_prompt;
-
-  const [updated] = await db
-    .update(runtimeConfig)
-    .set(values)
-    .where(eq(runtimeConfig.runtime, runtime))
-    .returning();
-
-  if (!updated)
-    throw new HttpError(
-      404,
-      "HTTP_ERROR",
-      "运行配置不存在",
-      {},
-      { i18nKey: "apiError.runtimeConfigNotFound" },
-    );
-
-  const effective = { llmId: updated.llmId, ...(await resolveModelName(updated.llmId)) };
-  return toConfigRead(updated, effective);
 }
 
 /** OCR 文档内嵌图片下载：公网校验后按超时与体积上限拉取 */
@@ -147,91 +84,17 @@ async function fetchOcrImage(url: string): Promise<string | null> {
   return fetchImageCapped(url);
 }
 
-/** OCR 文档解析模型配置：未配置时返回 null 供调用方降级本地解析 */
+/** OCR 文档解析模型配置：未绑定返回 null 供调用方降级本地解析 */
 export async function getRuntimeOcrConfig(): Promise<{
   baseUrl: string;
   apiKey: string;
   fetchImage: (url: string) => Promise<string | null>;
 } | null> {
-  const [row] = await db
-    .select()
-    .from(model)
-    .where(and(eq(model.type, "ocr"), eq(model.isSelected, true)))
-    .limit(1);
-  if (!row || !row.encryptedApiKey) return null;
+  const row = await loadModelByUsage("ocr");
+  if (!row || !row.apiKey) return null;
   return {
     baseUrl: row.baseUrl,
-    apiKey: decryptValue(row.encryptedApiKey),
+    apiKey: decryptValue(row.apiKey),
     fetchImage: fetchOcrImage,
-  };
-}
-
-export async function getRuntimeConfig(runtime: string): Promise<{
-  model_name: string;
-  model_id: string;
-  llm_id: number | null;
-  base_url: string;
-  api_key: string;
-  max_output: string;
-  temperature: number;
-  top_p: number;
-  system_prompt: string;
-}> {
-  const [row] = await db
-    .select()
-    .from(runtimeConfig)
-    .where(eq(runtimeConfig.runtime, runtime))
-    .limit(1);
-  if (!row)
-    throw new HttpError(
-      404,
-      "HTTP_ERROR",
-      "运行配置不存在",
-      {},
-      { i18nKey: "apiError.runtimeConfigNotFound" },
-    );
-
-  const own = await loadModelRow(row.llmId);
-  const active = shouldUseSelectedModel(row.runtime, Boolean(own))
-    ? await loadSelectedChatModelRow()
-    : own;
-
-  const modelName = active?.modelName ?? "";
-  const modelId = active?.modelId ?? "";
-  const baseUrl = active?.baseUrl ?? "";
-  const apiKey = active?.encryptedApiKey ? decryptValue(active.encryptedApiKey) : "";
-  const maxOutput = active?.maxOutput != null ? String(active.maxOutput) : "";
-  const llmId = active?.id ?? null;
-
-  if (!modelName) {
-    throw new HttpError(
-      400,
-      "MODEL_NOT_CONFIGURED",
-      `Runtime "${runtime}" 没有关联的模型。请在设置页面 → 模型配置中添加模型并关联到此 runtime。`,
-      {},
-      {
-        i18nKey: "apiError.modelNotConfigured",
-        i18nParams: { runtime },
-      },
-    );
-  }
-
-  if (modelName && !apiKey && !baseUrl) {
-    throw new Error(
-      `[config] Runtime "${runtime}": model "${modelName}" is configured but has no valid API key or base URL. ` +
-        "Please add a model with credentials in Settings → Model Config.",
-    );
-  }
-
-  return {
-    model_name: modelName,
-    model_id: modelId,
-    llm_id: llmId,
-    base_url: baseUrl,
-    api_key: apiKey,
-    max_output: maxOutput,
-    temperature: row.temperature,
-    top_p: row.topP,
-    system_prompt: row.systemPrompt,
   };
 }

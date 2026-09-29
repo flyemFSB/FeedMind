@@ -1,33 +1,224 @@
-import { createHash, createDecipheriv } from "node:crypto";
+import { createDecipheriv, createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
-import { db, cookieCloud, cookieStore } from "@feedmind/db";
-import { and, eq } from "drizzle-orm";
-import { encryptValue, decryptValue } from "../../lib/crypto/fernet.js";
-import type { CookieCloudRow, CookieStoreRow } from "@feedmind/db";
-import type { PlatformId } from "@feedmind/contracts";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { db, setting, type SettingKey } from "@feedmind/db";
+import { PlatformId } from "@feedmind/contracts";
+import { decryptValue, encryptValue } from "../../lib/crypto/fernet.js";
 import { logger } from "../../lib/logger.js";
 
-// CookieCloud cookie 域名到平台的映射
-const DOMAIN_TO_PLATFORM: Record<string, PlatformId> = {
-  ".bilibili.com": "bilibili",
-  ".douyin.com": "douyin",
-  ".xiaohongshu.com": "xiaohongshu",
-  ".zhihu.com": "zhihu",
-  ".feishu.cn": "feishu",
-  ".weread.qq.com": "weread",
-};
+// ─── 单例配置读写 ─────────────────────────────────────────────
 
-function matchPlatform(domain: string): PlatformId | null {
-  const d = domain.toLowerCase();
-  for (const [prefix, platform] of Object.entries(DOMAIN_TO_PLATFORM)) {
-    if (d === prefix || d.endsWith(prefix)) return platform;
-    const bare = prefix.replace(/^\./, "");
-    if (d === bare || d.endsWith("." + bare)) return platform;
-  }
-  return null;
+export interface CookieCloudAccount {
+  uuid: string;
+  password: string; // Fernet 密文
+  payload: string; // 扩展上传的密文原文
+  crypto_type: string;
 }
 
-import { z } from "zod";
+/** 平台 Cookie 条目：每平台一份，有变更即覆盖 */
+export interface PlatformCookieEntry {
+  cookies: string; // Fernet 密文
+  valid: boolean | null;
+  updated_at: string;
+}
+
+export type PlatformCookieDoc = Partial<Record<PlatformId, PlatformCookieEntry>>;
+
+const EMPTY_ACCOUNT: CookieCloudAccount = {
+  uuid: "",
+  password: "",
+  payload: "",
+  crypto_type: "legacy",
+};
+
+async function readSetting<T>(key: SettingKey): Promise<T | null> {
+  const [row] = await db
+    .select({ value: setting.value })
+    .from(setting)
+    .where(eq(setting.key, key))
+    .limit(1);
+  return (row?.value as T | undefined) ?? null;
+}
+
+async function writeSetting(key: SettingKey, value: Record<string, unknown>): Promise<void> {
+  const updatedAt = new Date().toISOString();
+  await db
+    .insert(setting)
+    .values({ key, value, updatedAt })
+    .onConflictDoUpdate({ target: setting.key, set: { value, updatedAt } });
+}
+
+// ─── CookieCloud 账号配置 ──────────────────────────────────────
+
+/** 保存 UUID + 密码（密码 Fernet 加密落库，与 model apiKey 同策略） */
+export async function saveConfig(
+  uuid: string,
+  password: string,
+  cryptoType: string = "legacy",
+): Promise<void> {
+  const current = (await readSetting<CookieCloudAccount>("cookie_cloud")) ?? EMPTY_ACCOUNT;
+  await writeSetting("cookie_cloud", {
+    ...current,
+    uuid,
+    password: encryptValue(password),
+    crypto_type: cryptoType,
+  });
+}
+
+/** 按 uuid 读取账号配置；uuid 不匹配视为未配置 */
+export async function getConfig(uuid: string): Promise<CookieCloudAccount | null> {
+  const account = await readSetting<CookieCloudAccount>("cookie_cloud");
+  if (!account || account.uuid !== uuid) return null;
+  return account;
+}
+
+/**
+ * 存储扩展推送的密文并解密写入平台 Cookie。
+ *
+ * uuid 是密钥材料而非查询键（CookieCloud 按 md5(uuid + '-' + password) 派生密钥），
+ * 因此一律用「扩展上报的 uuid + 已保存密码」解密：扩展重装换 uuid 时自动自愈，
+ * 成功后把账号 uuid 同步为上报值。
+ */
+export async function storeEncrypted(
+  uuid: string,
+  encrypted: string,
+  cryptoType: string,
+): Promise<void> {
+  let payload = encrypted;
+  try {
+    // 扩展上传 gzip 压缩的 base64 密文时，先解压回原始密文
+    payload = gunzipSync(Buffer.from(encrypted, "base64")).toString("utf8");
+  } catch {
+    // 非 gzip 数据（普通 base64 密文），保持原样
+  }
+
+  const account = await readSetting<CookieCloudAccount>("cookie_cloud");
+  if (!account?.password) {
+    // 尚未配置密码：先落盘数据，等用户在设置页补全 UUID + 密码
+    await writeSetting("cookie_cloud", {
+      uuid,
+      password: account?.password ?? "",
+      payload,
+      crypto_type: cryptoType,
+    });
+    return;
+  }
+
+  let data: unknown;
+  try {
+    data = decrypt(uuid, payload, decryptValue(account.password), cryptoType);
+  } catch (err) {
+    // 抛给路由返回 4xx：扩展收到非 200 会显示同步失败，而不是静默假成功
+    logger.error({ err, uuid }, "CookieCloud 数据解密失败");
+    throw new Error("CookieCloud 数据解密失败：密码不匹配或数据损坏，请在前端重新保存密码", {
+      cause: err,
+    });
+  }
+
+  await writeSetting("cookie_cloud", {
+    uuid,
+    password: account.password,
+    payload,
+    crypto_type: cryptoType,
+  });
+  await syncCookies(data);
+}
+
+// ─── 平台 Cookie ──────────────────────────────────────────────
+
+/** 解密 Cookie 密文，解密失败时按原值回退 */
+function decryptCookiesField(value: string): string {
+  try {
+    return decryptValue(value);
+  } catch {
+    return value;
+  }
+}
+
+/** 平台 Cookie 文档的落库校验：键必须是受控平台枚举（外部推送数据不可信）
+ *  用 partialRecord：枚举键允许缺省（未使用过的平台不会有条目） */
+const platformCookieDocSchema = z.partialRecord(
+  PlatformId,
+  z.object({
+    cookies: z.string(),
+    // 旧库迁移来的条目可能存的是 0/1，统一归一到布尔
+    valid: z
+      .union([z.boolean(), z.number(), z.null()])
+      .transform((v) => (v === null ? null : Boolean(v))),
+    updated_at: z.string(),
+  }),
+);
+
+async function readPlatformCookieDoc(): Promise<PlatformCookieDoc> {
+  const raw = await readSetting<unknown>("platform_cookie");
+  const parsed = platformCookieDocSchema.safeParse(raw ?? {});
+  return parsed.success ? parsed.data : {};
+}
+
+/** 指定平台的明文 Cookie 串；未保存返回 null */
+export async function getPlatformCookies(platform: string): Promise<string | null> {
+  const doc = await readPlatformCookieDoc();
+  const entry = doc[platform as PlatformId];
+  return entry ? decryptCookiesField(entry.cookies) : null;
+}
+
+/** 回写登录态（探活/同步结果），并刷新条目时间戳 */
+export async function setPlatformCookieValid(platform: string, valid: boolean): Promise<void> {
+  const doc = await readPlatformCookieDoc();
+  const entry = doc[platform as PlatformId];
+  if (!entry) return;
+  doc[platform as PlatformId] = { ...entry, valid, updated_at: new Date().toISOString() };
+  await writeSetting("platform_cookie", doc as Record<string, unknown>);
+}
+
+/** 保存手动输入的 Cookie（覆盖该平台既有条目） */
+export async function saveManualCookies(platform: string, cookies: string): Promise<void> {
+  const doc = await readPlatformCookieDoc();
+  doc[platform as PlatformId] = {
+    cookies: encryptValue(cookies),
+    valid: null,
+    updated_at: new Date().toISOString(),
+  };
+  await writeSetting("platform_cookie", doc as Record<string, unknown>);
+}
+
+/** 平台 Cookie 行（API 响应形状，与前端契约保持一致） */
+export interface CookieStoreRow {
+  uuid: string;
+  platform: string;
+  cookies: string;
+  valid: boolean | null;
+  checkedAt: string | null;
+}
+
+function toCookieRows(doc: PlatformCookieDoc, accountUuid: string): CookieStoreRow[] {
+  return Object.entries(doc).map(([platform, entry]) => ({
+    uuid: accountUuid,
+    platform,
+    cookies: decryptCookiesField(entry!.cookies),
+    valid: entry!.valid,
+    checkedAt: entry!.updated_at,
+  }));
+}
+
+export async function getCookies(platform: string): Promise<CookieStoreRow[]> {
+  const [doc, account] = await Promise.all([
+    readPlatformCookieDoc(),
+    readSetting<CookieCloudAccount>("cookie_cloud"),
+  ]);
+  return toCookieRows(doc, account?.uuid ?? "manual").filter((r) => r.platform === platform);
+}
+
+export async function getAllCookies(): Promise<CookieStoreRow[]> {
+  const [doc, account] = await Promise.all([
+    readPlatformCookieDoc(),
+    readSetting<CookieCloudAccount>("cookie_cloud"),
+  ]);
+  return toCookieRows(doc, account?.uuid ?? "manual");
+}
+
+// ─── 扩展推送解析 ─────────────────────────────────────────────
 
 const updateBodySchema = z.object({
   uuid: z.string().optional(),
@@ -52,9 +243,7 @@ export function parseUpdateBody(
   raw: Buffer,
   contentEncoding: string | null,
 ): CookieCloudUpdateBody {
-  const gzipped =
-    contentEncoding?.toLowerCase().includes("gzip") ??
-    (raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b);
+  const gzipped = contentEncoding === "gzip" || (raw[0] === 0x1f && raw[1] === 0x8b);
   const text = gzipped ? gunzipSync(raw).toString("utf8") : raw.toString("utf8");
   const json = JSON.parse(text);
   const parsed = updateBodySchema.safeParse(json);
@@ -64,120 +253,78 @@ export function parseUpdateBody(
   return parsed.data;
 }
 
-// 保存 UUID + 密码配置（密码 Fernet 加密落库，与 model apiKey 同策略）
-export async function saveConfig(
-  uuid: string,
-  password: string,
-  cryptoType: string = "legacy",
-): Promise<void> {
-  await db
-    .insert(cookieCloud)
-    .values({ uuid, password: encryptValue(password), encrypted: "", cryptoType })
-    .onConflictDoUpdate({
-      target: cookieCloud.uuid,
-      set: { password: encryptValue(password), cryptoType },
-    });
+// CookieCloud cookie 域名到平台的映射
+const DOMAIN_TO_PLATFORM: Record<string, PlatformId> = {
+  ".bilibili.com": "bilibili",
+  ".douyin.com": "douyin",
+  ".xiaohongshu.com": "xiaohongshu",
+  ".zhihu.com": "zhihu",
+  ".feishu.cn": "feishu",
+  ".weread.qq.com": "weread",
+};
+
+function matchPlatform(domain: string): PlatformId | null {
+  const d = domain.toLowerCase();
+  for (const [prefix, platform] of Object.entries(DOMAIN_TO_PLATFORM)) {
+    if (d === prefix || d.endsWith(prefix)) return platform;
+    const bare = prefix.replace(/^\./, "");
+    if (d === bare || d.endsWith("." + bare)) return platform;
+  }
+  return null;
 }
 
-// 存储加密数据并自动解密写入 cookie_store。
-// body 可能为 gzip 压缩（CookieCloud 扩展对大数据自动压缩），先解压再解密。
-export async function storeEncrypted(
-  uuid: string,
-  encrypted: string,
-  cryptoType: string,
-): Promise<void> {
-  let payload = encrypted;
-  try {
-    // 扩展上传 gzip 压缩的 base64 密文时，先解压回原始密文
-    payload = gunzipSync(Buffer.from(encrypted, "base64")).toString("utf8");
-  } catch {
-    // 非 gzip 数据（普通 base64 密文），保持原样
+/**
+ * 扩展推送的 cookie_data → 平台 Cookie 文档。
+ * 推送是其覆盖范围内平台的权威来源：本次未出现的平台条目一并清除（手动录入的条目同样按最后写入者胜处理）。
+ */
+export async function syncCookies(data: unknown): Promise<void> {
+  const parsed = cookieDataSchema.safeParse(data);
+  const cookieData = parsed.success ? parsed.data.cookie_data : undefined;
+  if (!cookieData) return;
+
+  const doc = await readPlatformCookieDoc();
+  const now = new Date().toISOString();
+  const pushed = new Set<PlatformId>();
+
+  for (const [domain, cookies] of Object.entries(cookieData)) {
+    if (!cookies || cookies.length === 0) continue;
+    const platform = matchPlatform(domain);
+    if (!platform) continue;
+    pushed.add(platform);
+    const plain = cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+    doc[platform] = {
+      cookies: encryptValue(plain),
+      valid: doc[platform]?.valid ?? null,
+      updated_at: now,
+    };
   }
 
-  const config = await db.select().from(cookieCloud).where(eq(cookieCloud.uuid, uuid)).get();
-  if (!config) {
-    await db
-      .insert(cookieCloud)
-      .values({ uuid, password: "", encrypted: payload, cryptoType })
-      .onConflictDoUpdate({ target: cookieCloud.uuid, set: { encrypted: payload } });
-    return;
+  for (const platform of Object.keys(doc) as PlatformId[]) {
+    if (!pushed.has(platform)) delete doc[platform];
   }
 
-  await db.update(cookieCloud).set({ encrypted: payload }).where(eq(cookieCloud.uuid, uuid));
-
-  if (config.password) {
-    try {
-      const password = decryptValue(config.password);
-      const data = decrypt(uuid, payload, password, cryptoType) as Record<string, unknown>;
-      await syncCookies(uuid, data);
-    } catch (err) {
-      // 抛给路由返回 4xx：扩展收到非 200 会显示同步失败，而不是静默假成功
-      logger.error({ err, uuid }, "CookieCloud 数据解密失败");
-      throw new Error("CookieCloud 数据解密失败：密码不匹配或数据损坏，请在前端重新保存密码", {
-        cause: err,
-      });
-    }
-  }
+  await writeSetting("platform_cookie", doc as Record<string, unknown>);
 }
 
-export async function getConfig(uuid: string): Promise<CookieCloudRow | null> {
-  const row = await db.select().from(cookieCloud).where(eq(cookieCloud.uuid, uuid)).get();
-  return row ?? null;
-}
-
-/** 同平台多来源 Cookie 拼接优先级：CookieCloud 实时同步覆盖手动配置 */
-const SOURCE_RANK: Record<string, number> = { manual: 1 };
-
-/** 解密 Cookie 密文，解密失败时按原值回退 */
-export function decryptCookiesField(value: string): string {
-  try {
-    return decryptValue(value);
-  } catch {
-    return value;
-  }
-}
-
-export function encryptCookiesField(plain: string): string {
-  return encryptValue(plain);
-}
-
-export function joinCookies(rows: { uuid: string; cookies: string }[]): string {
-  return [...rows]
-    .sort((a, b) => (SOURCE_RANK[a.uuid] ?? 0) - (SOURCE_RANK[b.uuid] ?? 0))
-    .map((r) => decryptCookiesField(r.cookies))
-    .join("; ");
-}
-
-export async function getCookies(platform: string): Promise<CookieStoreRow[]> {
-  const rows = await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all();
-  return rows.map((r) => ({ ...r, cookies: decryptCookiesField(r.cookies) }));
-}
-
-export async function getAllCookies(): Promise<CookieStoreRow[]> {
-  const rows = await db.select().from(cookieStore).all();
-  return rows.map((r) => ({ ...r, cookies: decryptCookiesField(r.cookies) }));
-}
+// ─── 登录态校验 ───────────────────────────────────────────────
 
 /** 支持 HTTP 登录态校验的平台（其余平台前端提示不支持校验） */
 const HTTP_CHECKABLE = new Set(["bilibili", "zhihu", "weread"]);
 
 /**
- * 校验指定平台 Cookie 登录态（纯 HTTP，不创建浏览器窗口），并把结果写回 cookie_store。
+ * 校验指定平台 Cookie 登录态（纯 HTTP，不创建浏览器窗口），并把结果写回平台 Cookie 文档。
  * 各平台用自身轻量鉴权接口判断；接口不可用/网络异常时按"未知"处理不落库；
- * weread 风控类业务错误判失效落库（见 mapWereadErrCode，与爬虫语义一致）。
- * supported 表示平台本身是否支持该校验方式，与 valid 是否可判定无关，
- * 否则 weread 网络异常（valid=null）会被前端误读为"不支持校验"。
+ * weread 风控类业务错误判失效落库（见 judgeWereadShelf，与爬虫语义一致）。
  */
 export async function checkPlatformCookie(platform: string): Promise<{
   valid: boolean | null;
   checkedAt: string | null;
   supported: boolean;
 }> {
-  const rows = await db.select().from(cookieStore).where(eq(cookieStore.platform, platform)).all();
-  if (rows.length === 0) return { valid: null, checkedAt: null, supported: false };
+  const cookies = await getPlatformCookies(platform);
+  if (!cookies) return { valid: null, checkedAt: null, supported: false };
 
   const supported = HTTP_CHECKABLE.has(platform);
-  const cookies = joinCookies(rows);
   let valid: boolean | null = null;
   if (supported) {
     try {
@@ -187,15 +334,9 @@ export async function checkPlatformCookie(platform: string): Promise<{
       valid = null;
     }
   }
-  const checkedAt = new Date().toISOString();
 
-  if (valid !== null) {
-    await db
-      .update(cookieStore)
-      .set({ valid, checkedAt })
-      .where(eq(cookieStore.platform, platform));
-  }
-  return { valid, checkedAt, supported };
+  if (valid !== null) await setPlatformCookieValid(platform, valid);
+  return { valid, checkedAt: new Date().toISOString(), supported };
 }
 
 /**
@@ -239,18 +380,7 @@ async function checkCookieHttp(platform: string, cookies: string): Promise<boole
   }
 }
 
-// 保存手动输入的 cookie（账号 Cookie）——Fernet 加密落库
-export async function saveManualCookies(platform: string, cookies: string): Promise<void> {
-  const uuid = "manual";
-  const encrypted = encryptCookiesField(cookies);
-  await db
-    .insert(cookieStore)
-    .values({ uuid, platform, cookies: encrypted, updatedAt: new Date().toISOString() })
-    .onConflictDoUpdate({
-      target: [cookieStore.uuid, cookieStore.platform],
-      set: { cookies: encrypted, updatedAt: new Date().toISOString() },
-    });
-}
+// ─── 解密实现（严格对齐 CookieCloud 算法）──────────────────────
 
 // EVP_BytesToKey：兼容 OpenSSL / CryptoJS legacy 加密格式（Salted__ + MD5 派生 key/iv）
 function evpBytesToKey(
@@ -273,8 +403,7 @@ function evpBytesToKey(
   };
 }
 
-// 严格对齐 CookieCloud 算法以保证兼容性；
-// CookieCloud 如果改算法这里需要同步更新。
+// 严格对齐 CookieCloud 算法以保证兼容性；CookieCloud 若改算法这里需要同步更新。
 export function decrypt(
   uuid: string,
   encrypted: string,
@@ -308,43 +437,4 @@ export function decrypt(
   const decipher = createDecipheriv("aes-256-cbc", key, iv);
   const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
   return JSON.parse(decrypted.toString("utf8"));
-}
-
-// 扩展同步数据结构：{ cookie_data: { "域名": [{name, value, ...}, ...], ... } }
-export async function syncCookies(uuid: string, data: unknown): Promise<void> {
-  const parsed = cookieDataSchema.safeParse(data);
-  const cookieData = parsed.success ? parsed.data.cookie_data : undefined;
-  if (!cookieData) return;
-
-  // 同步更新各平台凭据并清理已失效平台，保留已有登录态检测结果
-  await db.transaction(async (tx) => {
-    const pushedPlatforms = new Set<string>();
-    for (const [domain, cookies] of Object.entries(cookieData)) {
-      const platform = matchPlatform(domain);
-      if (!platform || !Array.isArray(cookies) || cookies.length === 0) continue;
-      pushedPlatforms.add(platform);
-
-      const cookieStr = cookies.map((c) => `${String(c.name)}=${String(c.value)}`).join("; ");
-      const encrypted = encryptCookiesField(cookieStr);
-      await tx
-        .insert(cookieStore)
-        .values({ uuid, platform, cookies: encrypted, updatedAt: new Date().toISOString() })
-        .onConflictDoUpdate({
-          target: [cookieStore.uuid, cookieStore.platform],
-          set: { cookies: encrypted, updatedAt: new Date().toISOString() },
-        });
-    }
-
-    const existing = await tx
-      .select({ platform: cookieStore.platform })
-      .from(cookieStore)
-      .where(eq(cookieStore.uuid, uuid));
-    for (const row of existing) {
-      if (!pushedPlatforms.has(row.platform)) {
-        await tx
-          .delete(cookieStore)
-          .where(and(eq(cookieStore.uuid, uuid), eq(cookieStore.platform, row.platform)));
-      }
-    }
-  });
 }

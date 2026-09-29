@@ -26,13 +26,13 @@ skillsRoutes.post("/skills", async (c) => {
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const skill = await installSkill(name, buffer);
-  void logOperation({ action: "import", target: "skill", targetName: skill.name });
+  void logOperation({ action: "import", category: "skill", targetName: skill.name });
   return jsonOk(c, skill, 201);
 });
 
 skillsRoutes.delete("/skills/:name", async (c) => {
   const name = c.req.param("name");
   await deleteSkill(name);
-  void logOperation({ action: "delete", target: "skill", targetName: name });
+  void logOperation({ action: "delete", category: "skill", targetName: name });
   return jsonOk(c, { deleted: true });
 });

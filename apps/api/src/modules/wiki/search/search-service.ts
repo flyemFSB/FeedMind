@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { extractString, parseFrontmatter, searchPages, segmentChinese } from "@feedmind/wiki-core";
 import type { WikiSearchResult } from "@feedmind/contracts";
-import { client, ensureWikiFtsTables } from "@feedmind/db";
+import { client } from "@feedmind/db";
 import { logger } from "../../../lib/logger.js";
 import { getSpaceDir, isSystemFile, readDirRecursive } from "../space-fs/index.js";
 
@@ -21,11 +21,9 @@ const fpCache = new Map<string, { fingerprint: string; checkedAt: number }>();
 const pageCache = new Map<string, { pages: SearchablePage[]; fingerprint: string }>();
 
 // 确保初始化 Wiki 全文检索虚表与元数据表
-async function ensureFtsTables(): Promise<void> {
-  await ensureWikiFtsTables(client);
-}
+// 全文索引由启动时 ensureSchema 统一建表，检索路径不再重复建表
 
-/** 计算 Wiki 目录指纹（文件数与最新修改时间戳），用于检测内容变更 */
+/** 计算 Wiki 目录指纹（文件数 + 总字节 + 最新修改时间），任一变化即触发重建 */
 async function computeFingerprint(spaceId: string): Promise<string> {
   const now = Date.now();
   const cached = fpCache.get(spaceId);
@@ -40,13 +38,16 @@ async function computeFingerprint(spaceId: string): Promise<string> {
   );
   const stats = await Promise.all(mdFiles.map((f) => stat(f).catch(() => null)));
   let count = 0;
+  let totalSize = 0;
   let maxMtime = 0;
   for (const s of stats) {
     if (!s) continue;
     count++;
+    totalSize += s.size;
     maxMtime = Math.max(maxMtime, s.mtimeMs);
   }
-  const fingerprint = `${count}:${maxMtime}`;
+  // 仅比文件数+最大 mtime 会漏掉「改内容不改数量、且非最新文件」的编辑，故计入总字节
+  const fingerprint = `${count}:${totalSize}:${maxMtime}`;
   fpCache.set(spaceId, { fingerprint, checkedAt: now });
   return fingerprint;
 }
@@ -63,7 +64,7 @@ async function rebuildSpaceIndex(spaceId: string): Promise<void> {
   const statements = [
     { sql: "DELETE FROM wiki_fts WHERE space_id = ?", args: [spaceId] },
     ...pages.map((p) => ({
-      sql: "INSERT INTO wiki_fts (space_id, path, raw_title, title, content) VALUES (?, ?, ?, ?, ?)",
+      sql: "INSERT INTO wiki_fts (space_id, path, raw_title, title, body) VALUES (?, ?, ?, ?, ?)",
       args: [spaceId, p.path, p.title, segmentChinese(p.title), segmentChinese(p.content)],
     })),
   ];
@@ -137,7 +138,6 @@ export async function searchWiki(
   }
 
   try {
-    await ensureFtsTables();
     await rebuildSpaceIndex(spaceId);
 
     // 各分词单元以双引号包住，进行精确短语/词匹配
@@ -146,7 +146,7 @@ export async function searchWiki(
       sql: `SELECT path, raw_title AS title, snippet(wiki_fts, 4, '[', ']', '…', 20) AS snip
             FROM wiki_fts
             WHERE wiki_fts MATCH ? AND space_id = ?
-            ORDER BY bm25(wiki_fts, 1.0, 1.0, 8.0, 1.0) LIMIT ?`,
+            ORDER BY bm25(wiki_fts, 0, 0, 0, 8.0, 1.0) LIMIT ?`,
       args: [match, spaceId, topK],
     });
 

@@ -11,8 +11,10 @@ import {
   getModelRuntime,
   getSelectedModel,
   listModels,
+  parseModelUsage,
   setSelectedModel,
   updateModel,
+  usageLabel,
 } from "../../modules/models/service.js";
 import { listCatalogModels } from "../../modules/models/catalog.js";
 import { logOperation } from "../../modules/ops-log/service.js";
@@ -40,29 +42,28 @@ modelRoutes.get("/models/catalog", async (c) =>
 modelRoutes.post("/models", async (c) => {
   const payload = await parseJson(c, modelCreateSchema);
   const model = await createModel(payload);
-  void logOperation({ action: "create", target: "model", targetName: model.model_name });
+  void logOperation({ action: "create", category: "model", targetName: model.model_name });
   return jsonOk(c, model, 201);
 });
 
 modelRoutes.put("/models/selected", async (c) => {
   const payload = await parseJson(c, selectedModelUpdateSchema);
-  const type = c.req.query("type") ?? "chat";
-  const prev = await getSelectedModel(type);
-  const result = await setSelectedModel(payload, type);
+  const usage = parseModelUsage(c.req.query("type"));
+  const prev = await getSelectedModel(usage);
+  const result = await setSelectedModel(payload, usage);
   // 记录切换前后模型 id（名字需再查一次列表，id 已足够定位）
   void logOperation({
     action: "update",
-    target: "model",
-    targetName: type === "wiki" ? "Wiki 模型" : "对话模型",
+    category: "model",
+    targetName: usageLabel(usage),
     detail: prev.id ? `#${prev.id} → #${payload.id}` : `#${payload.id}`,
   });
   return jsonOk(c, result);
 });
 
-modelRoutes.get("/models/selected", async (c) => {
-  const type = c.req.query("type") ?? "chat";
-  return jsonOk(c, await getSelectedModel(type));
-});
+modelRoutes.get("/models/selected", async (c) =>
+  jsonOk(c, await getSelectedModel(parseModelUsage(c.req.query("type")))),
+);
 
 modelRoutes.get("/models/:modelId/runtime", async (c) =>
   jsonOk(c, await getModelRuntime(parseModelId(c.req.param("modelId")))),
@@ -71,7 +72,7 @@ modelRoutes.get("/models/:modelId/runtime", async (c) =>
 modelRoutes.put("/models/:modelId", async (c) => {
   const payload = await parseJson(c, modelUpdateSchema);
   const model = await updateModel(parseModelId(c.req.param("modelId")), payload);
-  void logOperation({ action: "update", target: "model", targetName: model.model_name });
+  void logOperation({ action: "update", category: "model", targetName: model.model_name });
   return jsonOk(c, model);
 });
 
@@ -80,6 +81,6 @@ modelRoutes.delete("/models/:modelId", async (c) => {
   // 删除前先取名字供日志展示（deleteModel 只返回 deleted 标记）
   const name = (await listModels()).find((m) => m.id === modelId)?.model_name ?? String(modelId);
   const result = await deleteModel(modelId);
-  void logOperation({ action: "delete", target: "model", targetName: name });
+  void logOperation({ action: "delete", category: "model", targetName: name });
   return jsonOk(c, result);
 });

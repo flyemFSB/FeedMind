@@ -18,40 +18,30 @@ import { logOperation } from "../../modules/ops-log/service.js";
 export const remoteConnectionRoutes = new OpenAPIHono();
 
 // ─── 列表 ─────────────────────────────────────────────────────
-remoteConnectionRoutes.get("/remote-connections", async (c) => {
-  const platform = c.req.query("platform");
-  const data = await listConnections(platform);
-  return jsonOk(c, data);
-});
-
-remoteConnectionRoutes.get("/remote-connections/:id", async (c) => {
-  const data = await getConnection(c.req.param("id"));
-  return jsonOk(c, data);
-});
+remoteConnectionRoutes.get("/remote-connections", async (c) => jsonOk(c, await listConnections()));
 
 remoteConnectionRoutes.post("/remote-connections", async (c) => {
   const payload = await parseJson(c, remoteConnectionUpsertSchema);
   const data = await upsertConnection(payload.platform, payload);
   void logOperation({
     action: "update",
-    target: "remote_connection",
+    category: "system",
     targetName: data.label,
   });
   return jsonOk(c, data);
 });
 
-remoteConnectionRoutes.delete("/remote-connections/:id", async (c) => {
-  const id = c.req.param("id");
-  const conn = await getConnection(id).catch((err: unknown) => {
+remoteConnectionRoutes.delete("/remote-connections", async (c) => {
+  const conn = await getConnection().catch((err: unknown) => {
     // 仅容忍“连接已不存在”：其余错误必须上抛，避免删除成功掩盖 DB 故障
     if (err instanceof HttpError && err.status === 404) return null;
     throw err;
   });
-  await deleteConnection(id);
+  await deleteConnection();
   void logOperation({
     action: "delete",
-    target: "remote_connection",
-    targetName: conn?.label ?? id,
+    category: "system",
+    targetName: conn?.label ?? "远程连接",
   });
   return c.body(null, 204);
 });

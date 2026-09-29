@@ -2,7 +2,6 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { mountApiDocs } from "../../lib/api-docs.js";
 import { chatRoutes } from "./chats.js";
 import { modelRoutes } from "./models.js";
-import { runtimeConfigRoutes } from "./runtime-config.js";
 import { toolsRoutes } from "./tools.js";
 import { wikiRoutes } from "./wiki.js";
 import { crawlerRoutes } from "./crawler.js";
@@ -20,7 +19,6 @@ export const v1Router = new OpenAPIHono();
 
 v1Router.route("/", modelRoutes);
 v1Router.route("/", chatRoutes);
-v1Router.route("/", runtimeConfigRoutes);
 v1Router.route("/", toolsRoutes);
 v1Router.route("/", wikiRoutes);
 v1Router.route("/", crawlerRoutes);

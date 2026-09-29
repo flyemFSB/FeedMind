@@ -46,7 +46,7 @@ cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
   await saveConfig(uuid, password, crypto_type);
   void logOperation({
     action: "update",
-    target: "cookie_store",
+    category: "cookie",
     targetName: "CookieCloud",
     detail: "更新配置",
   });
@@ -58,7 +58,7 @@ cookieCloudRoutes.post("/cookiecloud/config", async (c) => {
 cookieCloudRoutes.get("/cookiecloud/config/:uuid", async (c) => {
   const row = await getConfig(c.req.param("uuid"));
   if (!row?.password) return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的配置");
-  return jsonOk(c, { uuid: row.uuid, crypto_type: row.cryptoType });
+  return jsonOk(c, { uuid: row.uuid, crypto_type: row.crypto_type });
 });
 
 // CookieCloud 扩展上传加密数据（可能 gzip 压缩），自动解密并写入 cookie_store
@@ -95,18 +95,18 @@ async function getCookieData(c: Context) {
   const row = await getConfig(uuid);
   if (!row) return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的数据");
   // 尚无扩展推送数据时无法验证密码，返回空标记避免误报解密失败
-  if (!row.encrypted) return jsonOk(c, { empty: true });
+  if (!row.payload) return jsonOk(c, { empty: true });
 
   const body = (await c.req.json().catch(() => ({}))) as { password?: string };
   const password = c.req.query("password") ?? body.password;
   // 无密码：返回官方协议格式 {encrypted, crypto_type}——扩展 download 用
   // response.json() 解析并检查 result.encrypted（裸文本会导致解析失败）
   if (!password) {
-    return c.json({ encrypted: row.encrypted, crypto_type: row.cryptoType });
+    return c.json({ encrypted: row.payload, crypto_type: row.crypto_type });
   }
 
   try {
-    return jsonOk(c, decrypt(uuid, row.encrypted, password, row.cryptoType));
+    return jsonOk(c, decrypt(uuid, row.payload, password, row.crypto_type));
   } catch (err) {
     logger.error({ err }, "CookieCloud 同步数据解密失败");
     return jsonError(c, 400, "DECRYPT_FAILED", "解密失败，请检查 UUID 与密码");
@@ -149,12 +149,12 @@ cookieCloudRoutes.post("/cookiecloud/decrypt", async (c) => {
   const { uuid, password, crypto_type } = await parseJson(c, cookieCloudDecryptSchema);
 
   const row = await getConfig(uuid);
-  if (!row?.encrypted) {
+  if (!row?.payload) {
     return jsonError(c, 404, "NOT_FOUND", "未找到该 UUID 对应的加密数据");
   }
 
   try {
-    const data = decrypt(uuid, row.encrypted, password, crypto_type ?? row.cryptoType);
+    const data = decrypt(uuid, row.payload, password, crypto_type ?? row.crypto_type);
     return jsonOk(c, data);
   } catch (err) {
     logger.error({ err, uuid }, "CookieCloud 手动解密数据失败");
@@ -169,7 +169,7 @@ cookieCloudRoutes.post("/cookiecloud/cookies", async (c) => {
   await saveManualCookies(platform, cookies);
   void logOperation({
     action: "update",
-    target: "cookie_store",
+    category: "cookie",
     targetName: platform,
     detail: "更新 Cookie",
   });

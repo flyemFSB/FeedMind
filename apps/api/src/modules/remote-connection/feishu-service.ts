@@ -1,12 +1,9 @@
-import { eq } from "drizzle-orm";
-import { db, remoteConnections } from "@feedmind/db";
 import { LOCAL_RESOURCE_ID } from "@feedmind/contracts";
-import { randomUUID } from "node:crypto";
 import type * as LarkSdk from "@larksuiteoapi/node-sdk";
 import type { Client, WSClient } from "@larksuiteoapi/node-sdk";
 import { logger } from "../../lib/logger.js";
 import { feedmindAgent } from "../../mastra/agents/feedmind-agent.js";
-import { decryptConfigField, encryptConfigField } from "./service.js";
+import { getConnectionByPlatform, updateConnectionStatus, upsertConnection } from "./service.js";
 
 type LarkSdkModule = typeof LarkSdk;
 let larkSdkModule: LarkSdkModule | null = null;
@@ -30,15 +27,11 @@ const RECONNECT_BASE_MS = 2_000;
 const RECONNECT_MAX_MS = 30_000;
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
 
-async function getConfig(): Promise<{ appId?: string; appSecret?: string; connId: string } | null> {
-  const [conn] = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, "feishu"))
-    .limit(1);
+async function getConfig(): Promise<{ appId?: string; appSecret?: string } | null> {
+  const conn = await getConnectionByPlatform("feishu");
   if (!conn?.config) return null;
-  const parsed = decryptConfigField(conn.config) as { appId?: string; appSecret?: string } | null;
-  return parsed ? { ...parsed, connId: conn.id } : null;
+  const parsed = conn.config as { appId?: string; appSecret?: string };
+  return parsed.appId ? parsed : null;
 }
 
 async function ensureClient(cfg: { appId: string; appSecret: string }): Promise<Client> {
@@ -287,10 +280,7 @@ export async function startLongConnection(): Promise<void> {
     await wsClient.start({ eventDispatcher: ed });
     logger.info("飞书 WebSocket 长连接已建立");
 
-    await db
-      .update(remoteConnections)
-      .set({ status: "connected", error: null, updatedAt: new Date().toISOString() })
-      .where(eq(remoteConnections.platform, "feishu"));
+    await updateConnectionStatus("connected");
 
     reconnectAttempt = 0;
     startHealthCheck();
@@ -298,10 +288,7 @@ export async function startLongConnection(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "飞书 WebSocket 长连接建立失败");
     wsClient = null;
-    await db
-      .update(remoteConnections)
-      .set({ status: "error", error: String(err), updatedAt: new Date().toISOString() })
-      .where(eq(remoteConnections.platform, "feishu"));
+    await updateConnectionStatus("error", String(err));
     scheduleReconnect();
   }
 }
@@ -332,31 +319,12 @@ export async function saveAndVerify(config: { appId: string; appSecret: string }
     throw new Error(apiError?.response?.data?.msg ?? "凭证无效", { cause: err });
   }
 
-  const [existing] = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, "feishu"))
-    .limit(1);
-
-  const configJson = encryptConfigField(config);
-  const now = new Date().toISOString();
-
-  if (existing) {
-    await db
-      .update(remoteConnections)
-      .set({ config: configJson, status: "connected", updatedAt: now })
-      .where(eq(remoteConnections.id, existing.id));
-  } else {
-    await db.insert(remoteConnections).values({
-      id: randomUUID(),
-      platform: "feishu",
-      label: "飞书机器人",
-      status: "connected",
-      config: configJson,
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
+  await upsertConnection("feishu", {
+    platform: "feishu",
+    label: "飞书机器人",
+    config: { ...config },
+  });
+  await updateConnectionStatus("connected");
 
   sdkClient = null;
   stopLongConnection();

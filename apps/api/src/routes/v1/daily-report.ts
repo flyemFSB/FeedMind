@@ -16,13 +16,13 @@ export const dailyReportRoutes = new OpenAPIHono();
 // 定时任务列表（web 日报页设置区）
 dailyReportRoutes.get("/daily-report/schedules", async (c) => jsonOk(c, await listSchedules()));
 
-// 定时任务创建/更新（不存在则插入，存在则覆盖 cron/enabled 等）
+// 定时任务创建/更新（单例：不存在则插入，存在则覆盖 cron/enabled 等）
 dailyReportRoutes.put("/daily-report/schedules/:id", async (c) => {
   const payload = await parseJson(c, scheduleUpsertSchema);
-  const schedule = await upsertSchedule(c.req.param("id"), payload);
+  const schedule = await upsertSchedule(payload);
   void logOperation({
     action: "update",
-    target: "daily_report",
+    category: "report",
     targetName: schedule.name ?? "每日日报",
     detail: `${schedule.cron}${schedule.enabled ? "" : "（已停用）"}`,
   });
@@ -33,7 +33,7 @@ dailyReportRoutes.put("/daily-report/schedules/:id", async (c) => {
 dailyReportRoutes.post("/daily-report/trigger", async (c) => {
   const payload = await parseJson(c, triggerReportSchema);
   const report = await triggerReport(payload.scheduleId);
-  void logOperation({ action: "run", target: "daily_report", targetName: "每日日报" });
+  void logOperation({ action: "run", category: "report", targetName: "每日日报" });
   return jsonOk(c, report);
 });
 

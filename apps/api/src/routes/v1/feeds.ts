@@ -47,7 +47,7 @@ feedRoutes.delete("/feeds", async (c) => {
   await deleteFeeds(ids);
   void logOperation({
     action: "delete",
-    target: "feeds",
+    category: "feed",
     targetName: "订阅条目",
     detail: `删除 ${ids.length} 条`,
   });
@@ -59,7 +59,7 @@ feedRoutes.post("/feeds/sync", async (c) => {
   logger.info({ result }, "信息源数据同步完成");
   void logOperation({
     action: "run",
-    target: "feeds",
+    category: "feed",
     targetName: "订阅同步",
     detail: `成功 ${result.succeeded}/${result.total}，新增 ${result.inserted} 条`,
     ...(result.failed > 0 ? { result: "failed" as const } : {}),

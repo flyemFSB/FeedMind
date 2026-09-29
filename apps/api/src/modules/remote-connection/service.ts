@@ -1,31 +1,58 @@
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { db, remoteConnections } from "@feedmind/db";
-import type { RemoteConnectionRow } from "@feedmind/db";
-import { HttpError } from "../../lib/http.js";
-import { decryptValue, encryptValue } from "../../lib/crypto/fernet.js";
+import { db, setting, type SettingKey } from "@feedmind/db";
 import type {
-  PlatformId,
   ConnectionStatus,
+  PlatformId,
   RemoteConnection,
   RemoteConnectionUpsert,
 } from "@feedmind/contracts";
+import { decryptValue, encryptValue } from "../../lib/crypto/fernet.js";
+import { HttpError } from "../../lib/http.js";
 
-function safeParseJson(s: string): Record<string, unknown> | null {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
+/**
+ * 远程平台连接：全局只允许一个（当前为飞书机器人），故存为单例配置文档，
+ * 有变更即整体覆盖，不再保留多行与随机 id。
+ */
+interface RemoteConnectionDoc {
+  platform: PlatformId;
+  label: string;
+  status: ConnectionStatus;
+  /** 整体加密后的密文 JSON */
+  config: string | null;
+  /** 非敏感公开元数据 */
+  extra: Record<string, unknown> | null;
+  error: string | null;
+}
+
+async function readDoc(): Promise<RemoteConnectionDoc | null> {
+  const [row] = await db
+    .select({ value: setting.value })
+    .from(setting)
+    .where(eq(setting.key, "remote_connection" satisfies SettingKey))
+    .limit(1);
+  return (row?.value as RemoteConnectionDoc | undefined) ?? null;
+}
+
+async function writeDoc(doc: RemoteConnectionDoc): Promise<void> {
+  const updatedAt = new Date().toISOString();
+  const value = doc as unknown as Record<string, unknown>;
+  await db
+    .insert(setting)
+    .values({ key: "remote_connection", value, updatedAt })
+    .onConflictDoUpdate({ target: setting.key, set: { value, updatedAt } });
 }
 
 /** 解密配置密文字符串，解密失败按原明文解析回退 */
 export function decryptConfigField(value: string | null): Record<string, unknown> | null {
   if (!value) return null;
   try {
-    return safeParseJson(decryptValue(value));
+    return JSON.parse(decryptValue(value)) as Record<string, unknown>;
   } catch {
-    return safeParseJson(value);
+    try {
+      return JSON.parse(value) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -33,38 +60,38 @@ export function encryptConfigField(config: Record<string, unknown>): string {
   return encryptValue(JSON.stringify(config));
 }
 
-function rowToObj(row: RemoteConnectionRow): RemoteConnection {
+function toRead(doc: RemoteConnectionDoc, updatedAt: string): RemoteConnection {
   return {
-    id: row.id,
-    platform: row.platform as PlatformId,
-    label: row.label,
-    status: row.status as ConnectionStatus,
-    config: decryptConfigField(row.config),
-    extra: row.extra ? safeParseJson(row.extra) : null,
-    error: row.error ?? null,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    // 单例无独立标识，对外沿用 platform 作为 id，保持契约形状
+    id: doc.platform,
+    platform: doc.platform,
+    label: doc.label,
+    status: doc.status,
+    config: decryptConfigField(doc.config),
+    extra: doc.extra,
+    error: doc.error,
+    createdAt: updatedAt,
+    updatedAt,
   };
 }
 
-export async function listConnections(platform?: string): Promise<RemoteConnection[]> {
-  const rows = platform
-    ? await db
-        .select()
-        .from(remoteConnections)
-        .where(eq(remoteConnections.platform, platform))
-        .orderBy(remoteConnections.createdAt)
-    : await db.select().from(remoteConnections).orderBy(remoteConnections.createdAt);
-  return rows.map(rowToObj);
+async function readUpdatedAt(): Promise<string> {
+  const [row] = await db
+    .select({ updatedAt: setting.updatedAt })
+    .from(setting)
+    .where(eq(setting.key, "remote_connection" satisfies SettingKey))
+    .limit(1);
+  return row?.updatedAt ?? new Date().toISOString();
 }
 
-export async function getConnection(id: string): Promise<RemoteConnection> {
-  const [row] = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.id, id))
-    .limit(1);
-  if (!row)
+export async function listConnections(): Promise<RemoteConnection[]> {
+  const doc = await readDoc();
+  return doc ? [toRead(doc, await readUpdatedAt())] : [];
+}
+
+export async function getConnection(): Promise<RemoteConnection> {
+  const doc = await readDoc();
+  if (!doc)
     throw new HttpError(
       404,
       "NOT_FOUND",
@@ -72,95 +99,52 @@ export async function getConnection(id: string): Promise<RemoteConnection> {
       {},
       { i18nKey: "apiError.connectionNotFound" },
     );
-  return rowToObj(row);
+  return toRead(doc, await readUpdatedAt());
 }
 
 export async function getConnectionByPlatform(
   platform: PlatformId,
 ): Promise<RemoteConnection | null> {
-  const [row] = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, platform))
-    .limit(1);
-  return row ? rowToObj(row) : null;
+  const doc = await readDoc();
+  return doc && doc.platform === platform ? toRead(doc, await readUpdatedAt()) : null;
 }
 
 export async function upsertConnection(
   platform: PlatformId,
   payload: RemoteConnectionUpsert,
 ): Promise<RemoteConnection> {
-  const [existing] = await db
-    .select()
-    .from(remoteConnections)
-    .where(eq(remoteConnections.platform, platform))
-    .limit(1);
+  const current = await readDoc();
+  const configJson = payload.config
+    ? encryptConfigField(payload.config as Record<string, unknown>)
+    : (current?.config ?? null);
 
-  const configJson = payload.config ? encryptConfigField(payload.config) : undefined;
-  const now = new Date().toISOString();
-
-  if (existing) {
-    await db
-      .update(remoteConnections)
-      .set({
-        label: payload.label,
-        config: configJson ?? existing.config,
-        updatedAt: now,
-      })
-      .where(eq(remoteConnections.id, existing.id));
-    return getConnection(existing.id);
-  }
-
-  const id = randomUUID();
-  await db.insert(remoteConnections).values({
-    id,
+  await writeDoc({
     platform,
     label: payload.label,
-    status: "disconnected",
-    config: configJson ?? null,
-    createdAt: now,
-    updatedAt: now,
+    status: current?.status ?? "disconnected",
+    config: configJson,
+    extra: current?.extra ?? null,
+    error: current?.error ?? null,
   });
-  return getConnection(id);
+  return getConnection();
 }
 
-export async function deleteConnection(id: string): Promise<void> {
-  await getConnection(id);
-  await db.delete(remoteConnections).where(eq(remoteConnections.id, id));
+export async function deleteConnection(): Promise<void> {
+  await getConnection();
+  await db.delete(setting).where(eq(setting.key, "remote_connection" satisfies SettingKey));
 }
 
 export async function updateConnectionStatus(
-  id: string,
   status: ConnectionStatus,
-  extra?: Record<string, unknown>,
-  error?: string,
+  error: string | null = null,
 ): Promise<void> {
-  const [existing] = await db
-    .select({ extra: remoteConnections.extra })
-    .from(remoteConnections)
-    .where(eq(remoteConnections.id, id))
-    .limit(1);
-
-  await db
-    .update(remoteConnections)
-    .set({
-      status,
-      extra: extra ? JSON.stringify(extra) : (existing?.extra ?? null),
-      error: error ?? null,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(remoteConnections.id, id));
+  const doc = await readDoc();
+  if (!doc) return;
+  await writeDoc({ ...doc, status, error });
 }
 
-export async function updateConnectionConfig(
-  id: string,
-  config: Record<string, unknown>,
-): Promise<void> {
-  await db
-    .update(remoteConnections)
-    .set({
-      config: encryptConfigField(config),
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(remoteConnections.id, id));
+export async function updateConnectionExtra(extra: Record<string, unknown>): Promise<void> {
+  const doc = await readDoc();
+  if (!doc) return;
+  await writeDoc({ ...doc, extra });
 }

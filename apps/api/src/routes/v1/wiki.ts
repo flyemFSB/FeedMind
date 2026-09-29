@@ -83,7 +83,7 @@ wikiRoutes.get("/wiki/spaces", async (c) => jsonOk(c, await listWikiSpaces()));
 wikiRoutes.post("/wiki/spaces", async (c) => {
   const payload = await parseJson(c, wikiSpaceCreateSchema);
   const space = await createWikiSpace(payload);
-  void logOperation({ action: "create", target: "wiki_space", targetName: space.name });
+  void logOperation({ action: "create", category: "wiki", targetName: space.name });
   return jsonOk(c, space, 201);
 });
 wikiRoutes.get("/wiki/spaces/:spaceId", async (c) =>
@@ -92,14 +92,14 @@ wikiRoutes.get("/wiki/spaces/:spaceId", async (c) =>
 wikiRoutes.patch("/wiki/spaces/:spaceId", async (c) => {
   const payload = await parseJson(c, wikiSpaceUpdateSchema);
   const space = await updateWikiSpace(c.req.param("spaceId"), payload);
-  void logOperation({ action: "update", target: "wiki_space", targetName: space.name });
+  void logOperation({ action: "update", category: "wiki", targetName: space.name });
   return jsonOk(c, space);
 });
 wikiRoutes.delete("/wiki/spaces/:spaceId", async (c) => {
   const spaceId = c.req.param("spaceId");
   const space = await getWikiSpace(spaceId);
   const result = await deleteWikiSpace(spaceId);
-  void logOperation({ action: "delete", target: "wiki_space", targetName: space?.name ?? spaceId });
+  void logOperation({ action: "delete", category: "wiki", targetName: space?.name ?? spaceId });
   return jsonOk(c, result);
 });
 
@@ -124,7 +124,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/pages", async (c) => {
   const spaceId = c.req.param("spaceId");
   const payload = await parseJson(c, wikiPageCreateSchema);
   const page = await createWikiPage(spaceId, payload);
-  void logOperation({ action: "create", target: "wiki_page", targetName: page.title });
+  void logOperation({ action: "create", category: "wiki", targetName: page.title });
   return jsonOk(c, page, 201);
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/pages/resolve", async (c) => {
@@ -154,7 +154,7 @@ wikiRoutes.put("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) => {
   const pageId = c.req.param("pageId");
   const payload = await parseJson(c, wikiPageUpdateSchema);
   const page = await updateWikiPage(spaceId, pageId, payload);
-  void logOperation({ action: "update", target: "wiki_page", targetName: page.title ?? pageId });
+  void logOperation({ action: "update", category: "wiki", targetName: page.title ?? pageId });
   return jsonOk(c, page);
 });
 wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) => {
@@ -162,7 +162,7 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/pages/:pageId{.+}", async (c) => {
   const pageId = c.req.param("pageId");
   const page = await getWikiPage(spaceId, pageId);
   await deleteWikiPage(spaceId, pageId);
-  void logOperation({ action: "delete", target: "wiki_page", targetName: page?.title ?? pageId });
+  void logOperation({ action: "delete", category: "wiki", targetName: page?.title ?? pageId });
   return jsonOk(c, { success: true });
 });
 
@@ -187,7 +187,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/text", async (c) => {
   const source = await createWikiSource(spaceId, payload);
   // 与文件上传一致：创建即自动入队导入，来源管理行内实时显示步骤进度
   autoIngestUpload(spaceId, source.identity, source.title);
-  void logOperation({ action: "create", target: "wiki_source", targetName: source.title });
+  void logOperation({ action: "create", category: "wiki", targetName: source.title });
   return jsonOk(c, source, 201);
 });
 wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
@@ -218,7 +218,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/sources/files", async (c) => {
   } else {
     autoIngestUpload(spaceId, source.identity, source.title);
   }
-  void logOperation({ action: "create", target: "wiki_source", targetName: source.title });
+  void logOperation({ action: "create", category: "wiki", targetName: source.title });
   return jsonOk(c, source, 201);
 });
 wikiRoutes.get("/wiki/spaces/:spaceId/sources/:sourceId", async (c) =>
@@ -233,7 +233,7 @@ wikiRoutes.delete("/wiki/spaces/:spaceId/sources/:sourceId", async (c) => {
   const result = await deleteWikiSource(spaceId, sourceId, mode);
   void logOperation({
     action: "delete",
-    target: "wiki_source",
+    category: "wiki",
     targetName: source?.title ?? sourceId,
     ...(mode === "delete-orphans" ? { detail: `删除 ${result.deleted_pages} 个孤立页面` } : {}),
   });
@@ -276,7 +276,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
     });
     void logOperation({
       action: "import",
-      target: "wiki_source",
+      category: "wiki",
       targetName: sourceTitle,
       detail: `新增 ${result.pagesCreated} 页，更新 ${result.pagesUpdated} 页`,
     });
@@ -287,7 +287,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/ingest", async (c) => {
     markSourceImportFailed(spaceId, sourcePath.replace(/\.md$/i, ""), msg);
     void logOperation({
       action: "import",
-      target: "wiki_source",
+      category: "wiki",
       targetName: sourceTitle,
       result: "failed",
       detail: msg,
@@ -337,7 +337,7 @@ wikiRoutes.post("/wiki/spaces/:spaceId/jobs/:jobId/cancel", async (c) => {
     .find((j) => j.id === jobId);
   void logOperation({
     action: "run",
-    target: "wiki_source",
+    category: "wiki",
     targetName: job?.source_title ?? jobId,
     detail: "取消导入",
   });

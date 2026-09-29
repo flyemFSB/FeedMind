@@ -43,7 +43,7 @@ chatRoutes.delete("/chats/:sessionId", async (c) => {
   const result = await deleteChatSession(sessionId);
   void logOperation({
     action: "delete",
-    target: "chat_session",
+    category: "chat",
     targetName: session?.title ?? sessionId,
   });
   return jsonOk(c, result);
