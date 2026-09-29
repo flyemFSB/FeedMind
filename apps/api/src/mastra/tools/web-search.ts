@@ -105,20 +105,11 @@ export async function runWebSearch(
 
 export const webSearchTool = createTool({
   id: "web_search",
-  description:
-    "Search the web for current information, news, articles, and facts from the internet. " +
-    "Note: results may merge multiple excerpts from the same source into one content field (joined by [...]).",
+  description: "搜索互联网资讯、文章与公开事实。",
   inputSchema: z.object({
-    query: z.string().min(1).describe("Search keywords. Be specific for better results."),
+    query: z.string().min(1).describe("搜索关键词"),
     max_results: z.coerce.number().int().min(1).max(10).default(5),
-    language: z
-      .string()
-      .min(2)
-      .max(12)
-      .optional()
-      .describe(
-        "BCP-47 language hint to bias results (e.g. zh-Hans, en). Omit for mixed-language queries.",
-      ),
+    language: z.string().min(2).max(12).optional().describe("语言偏好代码(如zh-Hans,en)"),
   }),
   outputSchema: z.union([
     z.object({ error: z.string(), query: z.string(), message: z.string() }),

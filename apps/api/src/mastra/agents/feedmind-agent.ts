@@ -11,10 +11,12 @@ import {
   buildWorkspaceSystemMessage,
 } from "../prompts/system.js";
 import { getSelectedModel } from "../../modules/models/service.js";
-import { getConfig } from "../../modules/runtime-config/config-service.js";
+import { getRuntimeConfig } from "../../modules/runtime-config/config-service.js";
 import { askUserTool } from "@mastra/core/tools";
 import { webFetchTool } from "../tools/web-fetch.js";
 import { webSearchTool } from "../tools/web-search.js";
+import { wikiListPagesTool } from "../tools/wiki-list-pages.js";
+import { wikiListSpacesTool } from "../tools/wiki-list-spaces.js";
 import { wikiReadTool } from "../tools/wiki-read.js";
 import { wikiSearchTool } from "../tools/wiki-search.js";
 import { taskTool } from "../tools/task.js";
@@ -24,6 +26,7 @@ import { resolveChatModel, resolveChatModelEntry } from "../utils/model-resolver
 import { createLlmRetryProcessor } from "../utils/retry-processor.js";
 import { resolveEmbeddingModel } from "../utils/embedder-resolver.js";
 import { buildObservationalMemoryConfig } from "../utils/observation-memory-config.js";
+import { recordChatUsage } from "../utils/chat-usage-tracker.js";
 import { resolveDataDir } from "../../lib/data-dir.js";
 import { logger } from "../../lib/logger.js";
 
@@ -77,7 +80,7 @@ export const feedmindAgent = new Agent({
     // 用户提示词追加在基础人格之后，读取失败时跳过
     let userPrompt = "";
     try {
-      userPrompt = (await getConfig("session")).system_prompt.trim();
+      userPrompt = (await getRuntimeConfig("chat")).system_prompt.trim();
     } catch (err) {
       logger.warn({ err }, "读取会话系统提示词失败，跳过用户提示词层");
     }
@@ -106,11 +109,20 @@ export const feedmindAgent = new Agent({
   ],
   defaultOptions: async ({ requestContext }: { requestContext?: RequestContext } = {}) => {
     try {
-      const [cfg, selected] = await Promise.all([getConfig("session"), getSelectedModel()]);
+      const [cfg, selected] = await Promise.all([
+        getRuntimeConfig("chat"),
+        getSelectedModel("chat"),
+      ]);
 
       // 未配置模型时不解析，保留由 model 解析抛出友好报错的行为
       const entry = selected.id ? await resolveChatModelEntry(requestContext) : null;
       const maxTokens = parseTokenCount(entry?.maxOutput);
+
+      const mastraMemory = requestContext?.get("MastraMemory") as
+        | { thread?: { id?: string } }
+        | undefined;
+      const threadId =
+        (requestContext?.get("threadId") as string | undefined) ?? mastraMemory?.thread?.id;
 
       return {
         maxSteps: 20,
@@ -122,6 +134,14 @@ export const feedmindAgent = new Agent({
         },
         // 记录模型 Token 用量与缓存命中统计
         onStepFinish: ({ usage, model }) => {
+          if (usage && threadId) {
+            recordChatUsage(threadId, {
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              totalTokens: usage.totalTokens,
+              cachedInputTokens: usage.cachedInputTokens,
+            });
+          }
           logger.debug(
             {
               modelId: model?.modelId,
@@ -153,6 +173,8 @@ export const feedmindAgent = new Agent({
     [askUserTool.id]: askUserTool,
     [webFetchTool.id]: webFetchTool,
     [webSearchTool.id]: webSearchTool,
+    [wikiListSpacesTool.id]: wikiListSpacesTool,
+    [wikiListPagesTool.id]: wikiListPagesTool,
     [wikiReadTool.id]: wikiReadTool,
     [wikiSearchTool.id]: wikiSearchTool,
     [taskTool.id]: taskTool,

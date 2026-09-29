@@ -11,9 +11,12 @@ import { LOCAL_RESOURCE_ID } from "@feedmind/contracts";
 import { createApp } from "./app.js";
 import { apiEnv } from "./env.js";
 import { startIngestWorker } from "./modules/wiki/ingest/ingest-worker.js";
-import { startDailyReportScheduler } from "./modules/daily-report/schedule-sync.js";
+import { startScheduler } from "./modules/daily-report/schedule-sync.js";
+import { ensureToolConfigs } from "./modules/tools/service.js";
 import { setMastra } from "./mastra/holder.js";
 import { createMastra } from "./mastra/index.js";
+import { feedmindAgent } from "./mastra/agents/feedmind-agent.js";
+import { getLatestChatUsage } from "./mastra/utils/chat-usage-tracker.js";
 import { startLongConnection } from "./modules/remote-connection/feishu-service.js";
 
 export interface StartApiOptions {
@@ -28,6 +31,8 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
   // createApp 内已做 validateApiRuntime；此处仅保证 DB 初始化前 env 已解析
   await initDbPragmas();
   await initDatabase();
+  // 工具目录在代码里，启动时补齐缺失的配置行（不覆盖已有配置）
+  await ensureToolConfigs();
 
   const mastra = createMastra();
   setMastra(mastra);
@@ -51,6 +56,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
     }
 
     const isChat = request.method === "POST" && url.pathname.startsWith("/v1/agent/chat/");
+    let chatThreadId: string | undefined;
     if (isChat) {
       try {
         const body = (await request.clone().json()) as {
@@ -70,6 +76,13 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
             };
             changed = true;
           }
+
+          chatThreadId = body.memory?.thread;
+          body.requestContext = {
+            ...(body.requestContext ?? {}),
+            threadId: chatThreadId,
+          };
+          changed = true;
 
           // 从请求头读取模型标识并注入上下文
           const modelId = request.headers.get("x-feedmind-model-id");
@@ -111,7 +124,58 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
       if (staticResponse) return staticResponse;
     }
 
-    return baseFetch(request);
+    const response = await baseFetch(request);
+
+    // 聊天流响应完成后注入真实 Token 用量与缓存数据并异步持久化元数据
+    if (isChat && response.status === 200 && response.body && chatThreadId) {
+      const threadId = chatThreadId;
+      const reader = response.body.getReader();
+      const encoder = new TextEncoder();
+      const transformedStream = new ReadableStream({
+        async start(controller) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) {
+                const usage = getLatestChatUsage(threadId);
+                if (usage) {
+                  controller.enqueue(
+                    encoder.encode(
+                      `data: {"type":"data-usage","data":${JSON.stringify(usage)}}\n\n`,
+                    ),
+                  );
+                  void feedmindAgent
+                    .getMemory()
+                    .then((m) =>
+                      m?.updateThread({
+                        id: threadId,
+                        metadata: { latestUsage: usage },
+                      }),
+                    )
+                    .catch(() => {});
+                }
+                controller.close();
+                break;
+              }
+              controller.enqueue(value);
+            }
+          } catch (err) {
+            controller.error(err);
+          }
+        },
+        cancel(reason) {
+          return reader.cancel(reason);
+        },
+      });
+
+      return new Response(transformedStream, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
+
+    return response;
   };
 
   const server = serve({
@@ -126,7 +190,7 @@ export async function startApi(options: StartApiOptions = {}): Promise<ServerTyp
       startIngestWorker();
     }
     void startLongConnection();
-    void startDailyReportScheduler(mastra);
+    void startScheduler(mastra);
   });
 
   return server;

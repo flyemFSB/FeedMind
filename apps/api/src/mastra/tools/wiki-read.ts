@@ -1,19 +1,18 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { extractConceptLinks } from "@feedmind/wiki-core";
 import { HttpError } from "../../lib/http.js";
 import { getWikiPage } from "../../modules/wiki/store/page-store.js";
 import { truncateForModel } from "./tool-output.js";
 
 export const wikiReadTool = createTool({
   id: "wiki_read",
-  description: `Read an OKF concept by its Concept ID. Returns the Markdown body and frontmatter metadata.
-Use this when you need to reference existing knowledge in the wiki.
-The pageId is the bundle-relative path without the .md extension, such as "tables/orders".`,
+  description: "读取本地 OKF 知识库概念页正文与元数据。",
   inputSchema: z.object({
-    spaceId: z.string().describe("The wiki space ID (e.g., 'my-research')."),
-    pageId: z.string().describe("The OKF Concept ID, a bundle-relative path without .md."),
+    spaceId: z.string().describe("知识库空间标识"),
+    pageId: z.string().describe("概念页ID(不含.md的相对路径)"),
   }),
-  outputSchema: z.string().describe("Concept metadata header plus Markdown body."),
+  outputSchema: z.string(),
   execute: async ({ spaceId, pageId }) => {
     let data;
     try {
@@ -25,6 +24,7 @@ The pageId is the bundle-relative path without the .md extension, such as "table
     }
 
     const content = truncateForModel(data.content);
+    const links = extractConceptLinks(data.content, data.concept_id);
 
     return [
       `Title: ${data.title}`,
@@ -33,6 +33,7 @@ The pageId is the bundle-relative path without the .md extension, such as "table
       ...(data.description ? [`Description: ${data.description}`] : []),
       ...(data.resource ? [`Resource: ${data.resource}`] : []),
       ...(data.tags.length > 0 ? [`Tags: ${data.tags.join(", ")}`] : []),
+      ...(links.length > 0 ? [`Outgoing Links: ${links.map((l) => `[[${l}]]`).join(", ")}`] : []),
       "",
       content,
     ].join("\n");

@@ -21,7 +21,7 @@ export async function resolveChatModelEntry(requestContext?: {
     }
   }
 
-  const selected = await getSelectedModel();
+  const selected = await getSelectedModel("chat");
   if (!selected.id) {
     throw new Error("未配置模型。请在设置中添加一个 LLM 模型后再试。");
   }

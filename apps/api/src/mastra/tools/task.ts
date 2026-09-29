@@ -4,6 +4,8 @@ import { Agent } from "@mastra/core/agent";
 import { z } from "zod";
 import { webSearchTool } from "./web-search.js";
 import { webFetchTool } from "./web-fetch.js";
+import { wikiListPagesTool } from "./wiki-list-pages.js";
+import { wikiListSpacesTool } from "./wiki-list-spaces.js";
 import { wikiSearchTool } from "./wiki-search.js";
 import { wikiReadTool } from "./wiki-read.js";
 import { browserTemplate } from "../subagents/builtins/browser.js";
@@ -86,6 +88,8 @@ const subagentRegistry: Record<SubagentType, SubagentTemplate> = {
       return {
         [webSearchTool.id]: webSearchTool,
         [webFetchTool.id]: webFetchTool,
+        [wikiListSpacesTool.id]: wikiListSpacesTool,
+        [wikiListPagesTool.id]: wikiListPagesTool,
         [wikiSearchTool.id]: wikiSearchTool,
         [wikiReadTool.id]: wikiReadTool,
       };
@@ -173,27 +177,12 @@ let taskCounter = 0;
  */
 export const taskTool = createTool({
   id: "task",
-  description: `动态创建专用 subagent 来执行一个子任务。当你有一个可以独立完成的子任务时，使用此工具将其分配给最合适的 subagent 类型。
-
-可用的 subagent 类型：
-- researcher: 深度研究员 — 通过网络搜索、网页抓取进行多角度信息收集与整理
-- extractor: 数据提取器 — 从网页内容或文本中提取结构化信息
-- summarizer: 文本摘要器 — 对长文本进行总结、归纳和综合
-- browser: 浏览器自动化 — 打开网页、点击按钮、填写表单、提取页面内容
-
-使用方式：
-1. 确定子任务类型（researcher / extractor / summarizer / browser）
-2. 编写清晰的 prompt 说明要完成什么
-3. 可选提供 context 作为额外背景信息
-4. 等待 subagent 返回结果后整合到最终回答中
-
-如果需要多个子任务并行执行，可以一次性调用多个 task 工具。`,
+  description:
+    "委派子任务给专用 subagent (researcher/extractor/summarizer/browser) 执行并返回结果。",
   inputSchema: z.object({
-    type: z
-      .enum(["researcher", "extractor", "summarizer", "browser"])
-      .describe("要创建的 subagent 类型"),
-    prompt: z.string().min(1).describe("要执行的子任务的详细描述"),
-    context: z.string().optional().describe("可选的额外背景信息，帮助 subagent 理解上下文"),
+    type: z.enum(["researcher", "extractor", "summarizer", "browser"]).describe("子智能体类型"),
+    prompt: z.string().min(1).describe("子任务提示词，需自包含背景与目标"),
+    context: z.string().optional().describe("可选背景资料"),
   }),
   outputSchema: z.object({
     taskId: z.string(),

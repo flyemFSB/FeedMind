@@ -4,21 +4,13 @@ import { searchWiki } from "../../modules/wiki/search/search-service.js";
 
 export const wikiSearchTool = createTool({
   id: "wiki_search",
-  description: `Search wiki pages by keyword. Uses keyword-based search with CJK bigram support.
-Returns matching pages with snippets and relevance scores.
-Use this when you need to find information across the wiki.`,
+  description: "在本地 OKF 知识库中根据关键词检索概念页。",
   inputSchema: z.object({
-    spaceId: z.string().describe("The wiki space ID (e.g., 'my-research')."),
-    query: z.string().describe("The keyword search query."),
-    topK: z
-      .number()
-      .int()
-      .min(1)
-      .max(50)
-      .optional()
-      .describe("Number of results to return (default 10)."),
+    spaceId: z.string().describe("知识库空间标识"),
+    query: z.string().describe("搜索关键词"),
+    topK: z.number().int().min(1).max(50).optional().describe("返回结果数量(默认10)"),
   }),
-  outputSchema: z.string().describe("Human-readable result list, or a no-results notice."),
+  outputSchema: z.string(),
   execute: async ({ spaceId, query, topK }) => {
     // 检索异常直接上抛，避免静默掩盖底层故障
     const data = await searchWiki(spaceId, query, topK ?? 10);
