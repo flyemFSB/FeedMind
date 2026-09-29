@@ -273,7 +273,8 @@ export function FeedsIndexPage() {
   const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   // 网格容器引用与宽度监听，仅在列数变化时更新状态，消除无意义重绘
   const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
-  const [cols, setCols] = useState(0);
+  // 列数：null 表示宽度尚未测量，与「已测量为单列」语义上不同，必须用非法哨兵参与切行
+  const [cols, setCols] = useState<number | null>(null);
 
   useEffect(() => {
     if (!gridEl) return;
@@ -294,7 +295,9 @@ export function FeedsIndexPage() {
   }, [gridEl]);
 
   // 行分组：按列数切块，虚拟化粒度是行（行数 = ceil(条目/列数)，千条量级也仅百余行）
+  // 宽度未测量前不切行：步长未定，此时按任意值切分都是猜测
   const rows = useMemo(() => {
+    if (cols === null) return [];
     const result: FeedItem[][] = [];
     for (let i = 0; i < searchedFeeds.length; i += cols) {
       result.push(searchedFeeds.slice(i, i + cols));
@@ -585,8 +588,8 @@ export function FeedsIndexPage() {
                   className="relative"
                   style={{ height: rowVirtualizer.getTotalSize() }}
                 >
-                  {/* 宽度测量前（cols=0）不渲染行：避免单列宽行闪烁 */}
-                  {cols > 0 &&
+                  {/* 宽度测量前（cols=null）不渲染行：避免单列宽行闪烁 */}
+                  {cols !== null &&
                     rowVirtualizer.getVirtualItems().map((row) => (
                       <div
                         key={row.key}
